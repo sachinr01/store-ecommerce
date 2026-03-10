@@ -1,16 +1,15 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-// Show login page
 const showLogin = (req, res) => {
-    if (req.session.admin) return res.redirect('/store/admin/dashboard');
+    if (req.session && req.session.admin) {
+        return res.redirect('/store/admin/dashboard');
+    }
     res.render('auth/login', { error: null });
 };
 
-// Handle login
 const login = async (req, res) => {
     const { email, password } = req.body;
-
     try {
         const [rows] = await db.query(
             'SELECT * FROM tbl_users WHERE user_email = ? AND user_status = 0',
@@ -22,7 +21,6 @@ const login = async (req, res) => {
         }
 
         const user = rows[0];
-
         const isMatch = await bcrypt.compare(password, user.user_pass);
 
         if (!isMatch) {
@@ -52,7 +50,6 @@ const login = async (req, res) => {
     }
 };
 
-// Handle logout
 const logout = (req, res) => {
     req.session.destroy(() => {
         res.redirect('/store/admin/login');
