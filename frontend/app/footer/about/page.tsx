@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AboutUsPage from "./About-us";
 import PressPage from "./Press";
@@ -8,7 +9,7 @@ import TrackOrderPage from "./Track-order";
 import CustomerSupportPage from "./Customer-support";
 import CareersPage from "./Careers";
 
-export default function AboutPageRouter() {
+function AboutPageContent() {
   const searchParams = useSearchParams();
   const tab = (searchParams.get("tab") || "about").toLowerCase();
 
@@ -27,4 +28,12 @@ export default function AboutPageRouter() {
     default:
       return <AboutUsPage />;
   }
+}
+
+export default function AboutPageRouter() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AboutPageContent />
+    </Suspense>
+  );
 }
