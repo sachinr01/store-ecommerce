@@ -18,7 +18,8 @@ app.use(session({
     saveUninitialized: false,
     cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
-
+// ✅ Set base path as global variable
+app.locals.basePath = process.env.BASE_PATH || '';
 // Routes
 const authRoutes  = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
