@@ -279,7 +279,7 @@ export default function Header() {
                   <li className="sub-icon menu-item-has-children">
                     <Link
                       data-animated-link="fadeOut"
-                      href="/shop/product-detail/right-sidebar"
+                      href="/product-details"
                     >
                       Product Details
                     </Link>
