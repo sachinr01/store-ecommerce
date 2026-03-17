@@ -37,9 +37,18 @@ app.locals.basePath = process.env.BASE_PATH || '';
 
 const authRoutes  = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const apiRoutes   = require('./api/routes');
 
 app.use('/store/admin', authRoutes);
 app.use('/store/admin', adminRoutes);
+
+// CORS for frontend (Next.js on port 3001)
+app.use('/store/api', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3001');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    next();
+});
+app.use('/store/api', apiRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

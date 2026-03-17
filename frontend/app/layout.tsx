@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CartProvider } from "./lib/cartContext";
+import { WishlistProvider } from "./lib/wishlistContext";
 
 export const metadata: Metadata = {
   title: "SHOP DEMO",
@@ -32,8 +34,11 @@ export default function RootLayout({
             <span className="spin-2"><p>LOADING</p></span>
             <a href="#" className="load-close">X</a>
           </div>
-          
-          {children}
+          <CartProvider>
+            <WishlistProvider>
+              {children}
+            </WishlistProvider>
+          </CartProvider>
         </div>
 
         {/* Load scripts in the same order as original */}
