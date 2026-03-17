@@ -12,6 +12,8 @@ export default function Header() {
   const { items, count, total, removeItem } = useCart();
   const [cartOpen, setCartOpen]     = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const toSlug = (text: string) =>
+    text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   return (
     <>
@@ -40,7 +42,7 @@ export default function Header() {
               {/* Logo */}
               <div className="logo">
                 <h1>
-                  <Link href="/store" title="Okab logo">
+                  <Link href="/" title="Okab logo">
                     <span className="vertical-middle"></span>
                     <Image src="/store/images/okab_ecommerce_logo.png" alt="Okab Logo"
                       width={160} height={44} style={{ height: "auto", width: "auto" }} />
@@ -77,7 +79,7 @@ export default function Header() {
                         <li key={`${item.id}-${item.variationId ?? 0}`}>
                           <a href="#" className="dima-close" title="Remove this item"
                             onClick={e => { e.preventDefault(); removeItem(item.id, item.variationId); }} />
-                          <Link href={`/store/product-details?id=${item.id}`} title={item.title}>
+                          <Link href={`/product/${toSlug(item.title)}-${item.id}`} title={item.title}>
                             <img width={65} height={70} className="attachment-shop_thumbnail"
                               src={item.image || PLACEHOLDER} alt={item.title} />
                             {item.title}
@@ -116,9 +118,6 @@ export default function Header() {
                   <li className="sub-icon menu-item-has-children">
                     <Link href="/shop">Shop</Link>
                   </li>
-                  {/* <li className="sub-icon menu-item-has-children">
-                    <Link href="/product-details?id=6684">Product Details</Link>
-                  </li> */}
                   <li className="sub-icon menu-item-has-children">
                     <Link href="/my-account">My Account</Link>
                   </li>

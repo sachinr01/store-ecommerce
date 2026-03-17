@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useCart } from "../lib/cartContext";
 
 const ChevronDown = ({ open }: { open: boolean }) => (
   <svg
@@ -19,6 +20,7 @@ const ChevronDown = ({ open }: { open: boolean }) => (
 );
 
 export default function MobileNavbar() {
+  const { count } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [activeNestedSubmenu, setActiveNestedSubmenu] = useState<string | null>(null);
@@ -183,8 +185,8 @@ export default function MobileNavbar() {
           </Link>
 
           {/* Cart */}
-          <button
-            type="button"
+          <Link
+            href="/cart"
             style={{
               background: "none",
               border: "none",
@@ -193,17 +195,22 @@ export default function MobileNavbar() {
               padding: "8px",
               flexShrink: 0,
               zIndex: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <i className="fa fa-shopping-cart" style={{ fontSize: "22px", color: "#333" }} />
-            <span style={{
-              position: "absolute", top: "2px", right: "2px",
-              background: "#00cfc1", color: "#fff", borderRadius: "50%",
-              width: "18px", height: "18px", fontSize: "10px",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, lineHeight: 1,
-            }}>2</span>
-          </button>
+            {count > 0 && (
+              <span style={{
+                position: "absolute", top: "2px", right: "2px",
+                background: "#00cfc1", color: "#fff", borderRadius: "50%",
+                width: "18px", height: "18px", fontSize: "10px",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 700, lineHeight: 1,
+              }}>{count}</span>
+            )}
+          </Link>
         </div>
       </div>
 
@@ -294,6 +301,9 @@ export default function MobileNavbar() {
           <Link href="/" onClick={closeMenu} style={topLinkStyle}>Home</Link>
 
           {/* SHOP */}
+          <Link href="/shop" onClick={closeMenu} style={topLinkStyle}>Shop</Link>
+
+          {/* SHOP DROPDOWN — commented out for now, will revisit later
           <div>
             <button type="button" onClick={() => toggleSubmenu("shop")} style={topButtonStyle}>
               <span>Shop</span>
@@ -301,7 +311,6 @@ export default function MobileNavbar() {
             </button>
             {activeSubmenu === "shop" && (
               <div>
-                {/* 2 Columns */}
                 <div>
                   <button type="button" onClick={() => toggleNested("2col")} style={{ ...subButtonStyle, borderBottom: "1px solid #efefef" }}>
                     <span>2 Columns</span>
@@ -314,8 +323,6 @@ export default function MobileNavbar() {
                     </div>
                   )}
                 </div>
-
-                {/* 3 Columns */}
                 <div>
                   <button type="button" onClick={() => toggleNested("3col")} style={{ ...subButtonStyle, borderBottom: "1px solid #efefef" }}>
                     <span>3 Columns</span>
@@ -329,11 +336,7 @@ export default function MobileNavbar() {
                     </div>
                   )}
                 </div>
-
-                {/* 4 Columns */}
                 <Link href="/shop/4-columns-full" onClick={closeMenu} style={subLinkStyle}>4 Columns</Link>
-
-                {/* List */}
                 <div>
                   <button type="button" onClick={() => toggleNested("list")} style={{ ...subButtonStyle, borderBottom: "1px solid #efefef" }}>
                     <span>List</span>
@@ -347,15 +350,15 @@ export default function MobileNavbar() {
                     </div>
                   )}
                 </div>
-
                 <Link href="/cart" onClick={closeMenu} style={subLinkStyle}>Cart</Link>
                 <Link href="/wishlist" onClick={closeMenu} style={subLinkStyle}>Wishlist</Link>
                 <Link href="/checkout" onClick={closeMenu} style={{ ...subLinkStyle, borderBottom: "2px solid #e5e5e5" }}>Checkout</Link>
               </div>
             )}
           </div>
+          */}
 
-          {/* PRODUCT DETAILS */}
+          {/* PRODUCT DETAILS — commented out, navigating directly from shop page
           <div>
             <button type="button" onClick={() => toggleSubmenu("product")} style={topButtonStyle}>
               <span>Product Details</span>
@@ -368,6 +371,7 @@ export default function MobileNavbar() {
               </div>
             )}
           </div>
+          */}
 
           {/* MY ACCOUNT */}
           <Link href="/my-account" onClick={closeMenu} style={topLinkStyle}>My Account</Link>

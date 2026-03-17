@@ -9,6 +9,8 @@ const PLACEHOLDER = '/store/images/dummy.png';
 
 export default function CartPage() {
   const { items, removeItem, updateQty, total } = useCart();
+  const toSlug = (text: string) =>
+    text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   const shipping = 0; // free shipping
   const orderTotal = total + shipping;
@@ -72,7 +74,7 @@ export default function CartPage() {
 
                             {/* Name + meta */}
                             <td style={td}>
-                              <Link href={`/product-details?id=${item.id}`} style={{ fontWeight: 600 }}>
+                              <Link href={`/product/${toSlug(item.title)}-${item.id}`} style={{ fontWeight: 600 }}>
                                 {item.title}
                               </Link>
                               {(item.color || item.size) && (

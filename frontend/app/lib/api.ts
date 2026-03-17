@@ -45,6 +45,8 @@ export interface ProductDetail extends Product {
   sale_price: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  avg_rating: number | null;
+  review_count: number | null;
   variations: Variation[];
   attributes: {
     colors: Attribute[];

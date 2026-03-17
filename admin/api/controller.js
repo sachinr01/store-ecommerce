@@ -138,7 +138,9 @@ const getProduct = async (req, res) => {
                 reg_price_direct.meta_value   AS regular_price,
                 sale_price_direct.meta_value  AS sale_price,
                 seo_title.meta_value  AS seo_title,
-                seo_desc.meta_value   AS seo_description
+                seo_desc.meta_value   AS seo_description,
+                CAST(avg_rating.meta_value AS DECIMAL(3,2)) AS avg_rating,
+                CAST(review_count.meta_value AS UNSIGNED)   AS review_count
             FROM tbl_products p
             LEFT JOIN tbl_productmeta thumb
                 ON thumb.product_id = p.ID AND thumb.meta_key = '_thumbnail_id'
@@ -160,6 +162,10 @@ const getProduct = async (req, res) => {
                 ON seo_title.product_id = p.ID AND seo_title.meta_key = '_yoast_wpseo_title'
             LEFT JOIN tbl_productmeta seo_desc
                 ON seo_desc.product_id = p.ID AND seo_desc.meta_key = '_yoast_wpseo_metadesc'
+            LEFT JOIN tbl_productmeta avg_rating
+                ON avg_rating.product_id = p.ID AND avg_rating.meta_key = '_wc_average_rating'
+            LEFT JOIN tbl_productmeta review_count
+                ON review_count.product_id = p.ID AND review_count.meta_key = '_wc_review_count'
             WHERE p.ID = ?
               AND p.product_type   = 'product'
               AND p.product_status = 'publish'

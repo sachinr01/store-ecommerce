@@ -16,6 +16,8 @@ export default function WishlistPage() {
   const { addItem } = useCart();
   const [products, setProducts] = useState<Record<number, ProductDetail>>({});
   const [loading, setLoading] = useState(true);
+  const toSlug = (text: string) =>
+    text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   // Fetch full product data for each wishlist item
   useEffect(() => {
@@ -94,14 +96,14 @@ export default function WishlistPage() {
                             <tr key={item.id}>
                               <td className="product-name">
                                 <div className="product-thumbnail">
-                                  <Link href={`/store/product-details?id=${item.id}`}>
-                                    <img width={65} height={70} src={item.image || PLACEHOLDER}
-                                      className="attachment-shop_thumbnail" alt={title} />
-                                  </Link>
-                                </div>
-                                <div className="cart-item-details">
-                                  <h6><Link href={`/store/product-details?id=${item.id}`}>{title}</Link></h6>
-                                </div>
+                                   <Link href={`/product/${toSlug(title)}-${item.id}`}>
+                                     <img width={65} height={70} src={item.image || PLACEHOLDER}
+                                       className="attachment-shop_thumbnail" alt={title} />
+                                   </Link>
+                                 </div>
+                                 <div className="cart-item-details">
+                                   <h6><Link href={`/product/${toSlug(title)}-${item.id}`}>{title}</Link></h6>
+                                 </div>
                               </td>
                               <td>${Number(price).toFixed(2)}</td>
                               <td>
