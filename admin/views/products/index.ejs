@@ -1,0 +1,277 @@
+<%- include('../partials/head') %>
+
+
+    <%- include('../partials/navbar') %>
+
+        <%- include('../partials/sidebar') %>
+
+    <div class="page-wrapper">
+      <!-- Breadcrumb -->
+      <div class="page-breadcrumb">
+        <div class="row">
+          <div class="col-7 align-self-center">
+            <h4 class="page-title">Products</h4>
+            <div class="d-flex align-items-center">
+              <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                  <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                  <li class="breadcrumb-item active" aria-current="page">Products</li>
+                </ol>
+              </nav>
+            </div>
+          </div>
+          <div class="col-5 align-self-center text-end">
+            <a href="/store/admin/products/add" class="btn btn-primary rounded-pill px-4">
+              <div class="d-flex align-items-center">
+                <i data-feather="plus" class="feather-sm me-1"></i>
+                Add Product
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="container-fluid">
+        <!-- Flash Messages -->
+        <% if (typeof success !== 'undefined' && success) { %>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <i data-feather="check-circle" class="feather-sm me-1"></i> <%= success %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <% } %>
+        <% if (typeof error !== 'undefined' && error) { %>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <% } %>
+
+        <div class="row">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                  <h4 class="card-title mb-0">All Products</h4>
+                  <div class="d-flex gap-2">
+                    <!-- Filter by Status -->
+                    <select class="form-select form-select-sm" id="statusFilter" style="width:150px;">
+                      <option value="">All Status</option>
+                      <option value="publish">Published</option>
+                      <option value="draft">Draft</option>
+                      <option value="trash">Trash</option>
+                    </select>
+                    <!-- Filter by Type -->
+                    <select class="form-select form-select-sm" id="typeFilter" style="width:160px;">
+                      <option value="">All Types</option>
+                      <option value="product">Simple Product</option>
+                      <option value="product_variation">Variable Product</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="table-responsive">
+                  <table id="productsTable" class="table table-hover table-striped align-middle">
+                    <thead class="table-dark">
+                      <tr>
+                        <th width="50">
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="selectAll" />
+                          </div>
+                        </th>
+                        <th width="70">Image</th>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>Type</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th width="120">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% if (products && products.length > 0) { %>
+                        <% products.forEach(function(product) { %>
+                        <tr>
+                          <td>
+                            <div class="form-check">
+                              <input class="form-check-input product-checkbox" type="checkbox" value="<%= product.ID %>" />
+                            </div>
+                          </td>
+                          <td>
+                            <% if (product.thumbnail) { %>
+                              <img src="<%= product.thumbnail %>" alt="<%= product.product_title %>" class="rounded" width="50" height="50" style="object-fit:cover;" />
+                            <% } else { %>
+                              <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:50px;height:50px;">
+                                <i data-feather="image" class="text-muted feather-sm"></i>
+                              </div>
+                            <% } %>
+                          </td>
+                          <td>
+                            <strong><%= product.product_title %></strong>
+                            <% if (product.parent_id > 0) { %>
+                              <br><small class="text-muted">Variation of #<%= product.parent_id %></small>
+                            <% } %>
+                          </td>
+                          <td><span class="text-muted"><%= product.sku || '—' %></span></td>
+                          <td>
+                            <% if (product.product_type === 'product_variation') { %>
+                              <span class="badge bg-light-info text-info">Variable</span>
+                            <% } else { %>
+                              <span class="badge bg-light-primary text-primary">Simple</span>
+                            <% } %>
+                          </td>
+                          <td>
+                            <% if (product.sale_price) { %>
+                              <span class="text-decoration-line-through text-muted">₹<%= product.regular_price %></span>
+                              <span class="text-success ms-1">₹<%= product.sale_price %></span>
+                            <% } else { %>
+                              <span>₹<%= product.regular_price || '—' %></span>
+                            <% } %>
+                          </td>
+                          <td>
+                            <% if (product.stock_status === 'instock') { %>
+                              <span class="badge bg-light-success text-success">In Stock (<%= product.stock || 0 %>)</span>
+                            <% } else if (product.stock_status === 'outofstock') { %>
+                              <span class="badge bg-light-danger text-danger">Out of Stock</span>
+                            <% } else { %>
+                              <span class="badge bg-light-warning text-warning">Backorder</span>
+                            <% } %>
+                          </td>
+                          <td>
+                            <% if (product.product_status === 'publish') { %>
+                              <span class="badge bg-success">Published</span>
+                            <% } else if (product.product_status === 'draft') { %>
+                              <span class="badge bg-secondary">Draft</span>
+                            <% } else { %>
+                              <span class="badge bg-danger">Trash</span>
+                            <% } %>
+                          </td>
+                          <td>
+                            <small class="text-muted">
+                              <%= new Date(product.product_date_added).toLocaleDateString('en-IN') %>
+                            </small>
+                          </td>
+                          <td>
+                            <div class="d-flex gap-1">
+                              <a href="/store/admin/products/edit/<%= product.ID %>" class="btn btn-sm btn-light-primary text-primary" title="Edit">
+                                <i data-feather="edit-2" class="feather-sm"></i>
+                              </a>
+                              <button class="btn btn-sm btn-light-danger text-danger delete-btn" data-id="<%= product.ID %>" data-name="<%= product.product_title %>" title="Delete">
+                                <i data-feather="trash-2" class="feather-sm"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        <% }) %>
+                      <% } else { %>
+                        <tr>
+                          <td colspan="10" class="text-center py-5">
+                            <i data-feather="package" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
+                            <h5 class="text-muted">No products found</h5>
+                            <a href="/store/admin/products/add" class="btn btn-primary rounded-pill mt-2">Add Your First Product</a>
+                          </td>
+                        </tr>
+                      <% } %>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Pagination -->
+                <% if (typeof totalPages !== 'undefined' && totalPages > 1) { %>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <p class="text-muted mb-0">Showing <%= (currentPage - 1) * limit + 1 %> to <%= Math.min(currentPage * limit, totalProducts) %> of <%= totalProducts %> products</p>
+                  <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                      <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=<%= currentPage - 1 %>">Previous</a>
+                      </li>
+                      <% for(let i = 1; i <= totalPages; i++) { %>
+                        <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                          <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                        </li>
+                      <% } %>
+                      <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                        <a class="page-link" href="?page=<%= currentPage + 1 %>">Next</a>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+                <% } %>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%- include('../partials/footer') %>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Delete Product</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="text-center py-3">
+            <i data-feather="alert-triangle" style="width:48px;height:48px;" class="text-danger mb-3"></i>
+            <p>Are you sure you want to delete <strong id="deleteProductName"></strong>?</p>
+            <p class="text-muted small">This action cannot be undone.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+          <form id="deleteForm" method="POST" style="display:inline;">
+            <input type="hidden" name="_method" value="DELETE" />
+            <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Delete button
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const name = this.dataset.name;
+        document.getElementById('deleteProductName').textContent = name;
+        document.getElementById('deleteForm').action = '/store/admin/products/delete/' + id;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+      });
+    });
+
+    // Select all checkbox
+    document.getElementById('selectAll').addEventListener('change', function() {
+      document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = this.checked);
+    });
+
+    // Status filter
+    document.getElementById('statusFilter').addEventListener('change', function() {
+      const params = new URLSearchParams(window.location.search);
+      if (this.value) params.set('status', this.value); else params.delete('status');
+      params.delete('page');
+      window.location.search = params.toString();
+    });
+
+    // Type filter
+    document.getElementById('typeFilter').addEventListener('change', function() {
+      const params = new URLSearchParams(window.location.search);
+      if (this.value) params.set('type', this.value); else params.delete('type');
+      params.delete('page');
+      window.location.search = params.toString();
+    });
+
+    // Set filter values from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('status')) document.getElementById('statusFilter').value = urlParams.get('status');
+    if (urlParams.get('type')) document.getElementById('typeFilter').value = urlParams.get('type');
+  </script>
+  
+ <%- include('../partials/footer') %>

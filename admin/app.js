@@ -17,6 +17,8 @@ app.use('/store/admin/js', express.static(path.join(__dirname, 'public/js')));
 app.use('/store/admin/images', express.static(path.join(__dirname, 'public/images')));
 app.use('/store/admin/fonts', express.static(path.join(__dirname, 'public/fonts')));
 app.use('/store/admin/libs', express.static(path.join(__dirname, 'public/libs')));
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // ✅ Local paths working too
 app.use('/css', express.static(path.join(__dirname, 'public/css')));
@@ -32,14 +34,23 @@ app.use(session({
     cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-// ✅ basePath variable for EJS templates
-app.locals.basePath = process.env.BASE_PATH || '';
+// ✅ Auto pass admin session to all views
+app.use((req, res, next) => {
+    res.locals.admin = req.session.admin || null;
+    res.locals.basePath = process.env.BASE_PATH || '';
+    res.locals.currentRoute = req.path; // ✅ add this
+    next();
+});
 
 const authRoutes  = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const productRoutes = require('./routes/productRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 app.use('/store/admin', authRoutes);
 app.use('/store/admin', adminRoutes);
+app.use('/store/admin', productRoutes);
+app.use('/store/admin', userRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

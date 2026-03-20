@@ -1,110 +1,108 @@
- <aside class="left-sidebar">
-        <!-- Sidebar scroll-->
-        <div class="scroll-sidebar">
-          <!-- Sidebar navigation-->
-          <nav class="sidebar-nav">
-            <ul id="sidebarnav">
-              <!-- User Profile-->
-              <li>
-                <!-- User Profile-->
-                <div class="user-profile d-flex no-block dropdown mt-3">
-                  <div class="user-pic">
-                    <img
-                      src="<%= basePath %>/images/1.jpg"
-                      alt="users"
-                      class="rounded-circle"
-                      width="40"
-                    />
-                  </div>
-                  <div class="user-content hide-menu ms-2">
-                    <a
-                      href="#"
-                      class=""
-                      id="Userdd"
-                      role="button"
-                      data-bs-toggle="dropdown"
-                      aria-haspopup="true"
-                      aria-expanded="false"
-                    >
-                      <h5 class="mb-0 user-name font-medium">
-                        Steave Jobs
-                        <i data-feather="chevron-down" class="feather-sm"></i>
-                      </h5>
-                      <span class="op-5 user-email">varun@gmail.com</span>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="Userdd">
-                      <a class="dropdown-item" href="#"
-                        ><i data-feather="user" class="feather-sm text-info me-1"></i> My Profile</a
-                      >
-                      <a class="dropdown-item" href="#"
-                        ><i data-feather="credit-card" class="feather-sm text-primary me-1"></i> My
-                        Balance</a
-                      >
-                      <a class="dropdown-item" href="#"
-                        ><i data-feather="mail" class="feather-sm text-success me-1"></i> Inbox</a
-                      >
-                      <div class="dropdown-divider"></div>
-                      <a class="dropdown-item" href="#"
-                        ><i data-feather="settings" class="feather-sm text-warning me-1"></i>
-                        Account Setting</a
-                      >
-                      <div class="dropdown-divider"></div>
-                      <a class="dropdown-item" href="/store/admin/logout"
-                        ><i data-feather="log-out" class="feather-sm text-danger me-1"></i>
-                        Logout</a
-                      >
-                    </div>
-                  </div>
-                </div>
-                <!-- End User Profile-->
-              </li>
-             
-              <!-- User Profile-->
-              <li class="nav-small-cap">
-                <i class="mdi mdi-dots-horizontal"></i>
-                <span class="hide-menu">Personal</span>
-              </li>
-              <li class="sidebar-item">
-                <a
-                  class="sidebar-link has-arrow waves-effect waves-dark"
-                  href="#"
-                  aria-expanded="false"
-                  ><i data-feather="home" class="feather-icon"></i
-                  ><span class="hide-menu">Dashboard </span></a
-                >
-                <ul aria-expanded="false" class="collapse first-level">
-                  <li class="sidebar-item">
-                    <a href="#" class="sidebar-link"
-                      ><i class="mdi mdi-adjust"></i><span class="hide-menu"> Classic </span></a
-                    >
-                  </li>
-                </ul>
-              </li>
-              <li class="nav-small-cap">
-                <i class="mdi mdi-dots-horizontal"></i>
-                <span class="hide-menu">Apps</span>
-              </li>
-              <li class="sidebar-item">
-                <a
-                  class="sidebar-link waves-effect waves-dark sidebar-link"
-                  href="#"
-                  aria-expanded="false"
-                  ><i data-feather="message-circle" class="feather-icon"></i
-                  ><span class="hide-menu">Chat Apps</span></a
-                >
-              </li>
-              <li class="sidebar-item">
-                <a
-                  class="sidebar-link waves-effect waves-dark sidebar-link"
-                  href="/store/admin/logout"
-                  aria-expanded="false"
-                  ><i data-feather="log-out" class="feather-icon"></i
-                  ><span class="hide-menu">Log Out</span></a
-                >
-              </li>
-            </ul>
-          </nav>
-          <!-- End Sidebar navigation -->
-        </div>
-        <!-- End Sidebar scroll-->
-      </aside>
+<aside class="left-sidebar">
+  <!-- Sidebar scroll-->
+  <div class="scroll-sidebar">
+    <!-- Sidebar navigation-->
+    <nav class="sidebar-nav">
+      <ul id="sidebarnav">
+        <!-- User Profile-->
+        <li>
+          <!-- User Profile-->
+          <div class="user-profile d-flex no-block dropdown mt-3">
+            <div class="user-pic">
+              <img src="<%= basePath %>/images/1.jpg" alt="users" class="rounded-circle" width="40" />
+            </div>
+            <div class="user-content hide-menu ms-2">
+              <a href="#" class="" id="Userdd" role="button" data-bs-toggle="dropdown" aria-haspopup="true"
+                aria-expanded="false">
+                <h5 class="mb-0 user-name font-medium">
+                  <%= admin.name %>
+                    <i data-feather="chevron-down" class="feather-sm"></i>
+                </h5>
+                <span class="op-5 user-email">
+                  <%= admin.email %>
+                </span>
+              </a>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="Userdd">
+                <a class="dropdown-item" href="#"><i data-feather="user" class="feather-sm text-info me-1"></i> My
+                  Profile</a>
+                <a class="dropdown-item" href="#"><i data-feather="credit-card"
+                    class="feather-sm text-primary me-1"></i> My
+                  Balance</a>
+                <a class="dropdown-item" href="#"><i data-feather="mail" class="feather-sm text-success me-1"></i>
+                  Inbox</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#"><i data-feather="settings" class="feather-sm text-warning me-1"></i>
+                  Account Setting</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="/store/admin/logout"><i data-feather="log-out"
+                    class="feather-sm text-danger me-1"></i>
+                  Logout</a>
+              </div>
+            </div>
+          </div>
+          <!-- End User Profile-->
+        </li>
+
+        <!-- User Profile-->
+        <li class="nav-small-cap">
+          <i class="mdi mdi-dots-horizontal"></i>
+          <span class="hide-menu">Personal</span>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute === '/store/admin/dashboard' ? 'active bg-body' : '' %>"
+            href="/store/admin/dashboard" aria-expanded="false">
+            <i data-feather="home" class="feather-icon"></i>
+            <span class="hide-menu">Dashboard</span>
+          </a>
+        </li>
+
+        <!-- Products -->
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute === '/store/admin/products' ? 'active bg-body' : '' %>"
+            href="/store/admin/products" aria-expanded="false">
+            <i data-feather="shopping-bag" class="feather-icon"></i>
+            <span class="hide-menu">Products</span>
+          </a>
+        </li>
+
+        <!-- Users -->
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute === '/store/admin/users' ? 'active bg-body' : '' %>"
+            href="/store/admin/users" aria-expanded="false">
+            <i data-feather="users" class="feather-icon"></i>
+            <span class="hide-menu">Users</span>
+          </a>
+        </li>
+
+        <!-- Orders -->
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute === '/store/admin/orders' ? 'active bg-body' : '' %>"
+            href="/store/admin/orders" aria-expanded="false">
+            <i data-feather="shopping-cart" class="feather-icon"></i>
+            <span class="hide-menu">Orders</span>
+          </a>
+        </li>
+
+        <!-- Categories -->
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute === '/store/admin/categories' ? 'active bg-body' : '' %>"
+            href="/store/admin/categories" aria-expanded="false">
+            <i data-feather="grid" class="feather-icon"></i>
+            <span class="hide-menu">Categories</span>
+          </a>
+        </li>
+        <li class="nav-small-cap">
+          <i class="mdi mdi-dots-horizontal"></i>
+          <span class="hide-menu">Apps</span>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link waves-effect waves-dark sidebar-link" href="/store/admin/logout"
+            aria-expanded="false"><i data-feather="log-out" class="feather-icon"></i><span class="hide-menu">Log
+              Out</span></a>
+        </li>
+      </ul>
+    </nav>
+    <!-- End Sidebar navigation -->
+  </div>
+  <!-- End Sidebar scroll-->
+</aside>

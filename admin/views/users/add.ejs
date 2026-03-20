@@ -1,0 +1,386 @@
+<%- include('../partials/head') %>
+
+<%
+  var u      = locals.user  || null;
+  var isEdit = !!u;
+  var meta   = (u && u.meta) ? u.meta : {};
+%>
+
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<div class="page-wrapper">
+
+  <div class="page-breadcrumb">
+    <div class="row">
+      <div class="col-7 align-self-center">
+        <h4 class="page-title"><%= isEdit ? 'Edit User' : 'Add User' %></h4>
+        <div class="d-flex align-items-center">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+              <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+              <li class="breadcrumb-item"><a href="/store/admin/users">Users</a></li>
+              <li class="breadcrumb-item active"><%= isEdit ? 'Edit' : 'Add' %></li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+      <div class="col-5 align-self-center text-end">
+        <a href="/store/admin/users" class="btn btn-secondary rounded-pill px-4">
+          <div class="d-flex align-items-center gap-1">
+            <i data-feather="arrow-left" class="feather-sm"></i> Back
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <% if (locals.errors) { %>
+    <div class="alert alert-danger alert-dismissible fade show">
+      <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= locals.errors %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <% } %>
+
+    <form action="<%= isEdit ? '/store/admin/users/update/' + u.ID : '/store/admin/users/store' %>"
+      method="POST" id="userForm">
+
+      <div class="row">
+
+        <!-- ══ LEFT COLUMN ══ -->
+        <div class="col-lg-8">
+
+          <!-- Account Info -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h4 class="card-title mb-3 pb-3 border-bottom">Account Information</h4>
+              <div class="row">
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Username <% if (!isEdit) { %><span class="text-danger">*</span><% } %>
+                    </label>
+                    <input type="text" name="user_login" class="form-control"
+                      placeholder="username (no spaces)"
+                      value="<%= isEdit ? u.user_login : '' %>"
+                      <%= isEdit ? 'readonly' : 'required' %> />
+                    <% if (isEdit) { %>
+                    <small class="text-muted">Username cannot be changed</small>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Password <% if (!isEdit) { %><span class="text-danger">*</span><% } %>
+                    </label>
+                    <div class="input-group">
+                      <input type="password" name="user_pass" id="userPass"
+                        class="form-control"
+                        placeholder="<%= isEdit ? 'Leave blank to keep current' : 'Enter password' %>"
+                        <%= !isEdit ? 'required' : '' %> />
+                      <button type="button" class="btn btn-outline-secondary" onclick="togglePassword()">
+                        <i data-feather="eye" id="eyeIcon" style="width:16px;height:16px;"></i>
+                      </button>
+                    </div>
+                    <% if (isEdit) { %>
+                    <small class="text-muted">Leave blank to keep current password</small>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                    <input type="email" name="user_email" class="form-control"
+                      placeholder="email@example.com"
+                      value="<%= isEdit ? (u.user_email || '') : '' %>" required />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Display Name</label>
+                    <input type="text" name="display_name" class="form-control"
+                      placeholder="Full name shown in UI"
+                      value="<%= isEdit ? (u.display_name || '') : '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Nickname</label>
+                    <input type="text" name="user_nicename" class="form-control"
+                      placeholder="Short nickname / URL slug"
+                      value="<%= isEdit ? (u.user_nicename || '') : '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Website URL</label>
+                    <input type="url" name="user_url" class="form-control"
+                      placeholder="https://example.com"
+                      value="<%= isEdit ? (u.user_url || '') : '' %>" />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Personal Info (stored in tbl_usermeta) -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h4 class="card-title mb-3 pb-3 border-bottom">Personal Information</h4>
+              <div class="row">
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">First Name</label>
+                    <input type="text" name="meta_first_name" class="form-control"
+                      placeholder="First name"
+                      value="<%= meta.first_name || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Last Name</label>
+                    <input type="text" name="meta_last_name" class="form-control"
+                      placeholder="Last name"
+                      value="<%= meta.last_name || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Phone Number</label>
+                    <input type="tel" name="meta_phone" class="form-control"
+                      placeholder="+91 99999 99999"
+                      value="<%= meta.phone || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Date of Birth</label>
+                    <input type="date" name="meta_dob" class="form-control"
+                      value="<%= meta.dob || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Gender</label>
+                    <select name="meta_gender" class="form-select">
+                      <option value="">Select gender</option>
+                      <option value="male"   <%= meta.gender === 'male'   ? 'selected' : '' %>>Male</option>
+                      <option value="female" <%= meta.gender === 'female' ? 'selected' : '' %>>Female</option>
+                      <option value="other"  <%= meta.gender === 'other'  ? 'selected' : '' %>>Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Profile Bio</label>
+                    <textarea name="meta_description" class="form-control" rows="2"
+                      placeholder="Short bio..."><%= meta.description || '' %></textarea>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Address (stored in tbl_usermeta) -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h4 class="card-title mb-3 pb-3 border-bottom">Address</h4>
+              <div class="row">
+
+                <div class="col-12">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Address Line 1</label>
+                    <input type="text" name="meta_billing_address_1" class="form-control"
+                      placeholder="Street address, flat no."
+                      value="<%= meta.billing_address_1 || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Address Line 2</label>
+                    <input type="text" name="meta_billing_address_2" class="form-control"
+                      placeholder="Area, landmark (optional)"
+                      value="<%= meta.billing_address_2 || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">City</label>
+                    <input type="text" name="meta_billing_city" class="form-control"
+                      placeholder="City"
+                      value="<%= meta.billing_city || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">State</label>
+                    <input type="text" name="meta_billing_state" class="form-control"
+                      placeholder="State"
+                      value="<%= meta.billing_state || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Postcode</label>
+                    <input type="text" name="meta_billing_postcode" class="form-control"
+                      placeholder="PIN code"
+                      value="<%= meta.billing_postcode || '' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Country</label>
+                    <input type="text" name="meta_billing_country" class="form-control"
+                      placeholder="Country"
+                      value="<%= meta.billing_country || 'India' %>" />
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Billing Phone</label>
+                    <input type="tel" name="meta_billing_phone" class="form-control"
+                      placeholder="Billing contact number"
+                      value="<%= meta.billing_phone || '' %>" />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /col-lg-8 -->
+
+        <!-- ══ RIGHT COLUMN ══ -->
+        <div class="col-lg-4">
+
+          <!-- Avatar preview -->
+          <div class="card mb-3">
+            <div class="card-body text-center py-4">
+              <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3"
+                style="width:80px;height:80px;font-size:32px;font-weight:700;" id="avatarCircle">
+                <%= isEdit ? (u.display_name || u.user_login || '?').charAt(0).toUpperCase() : '?' %>
+              </div>
+              <div class="fw-semibold fs-6" id="avatarName">
+                <%= isEdit ? (u.display_name || u.user_login) : 'New User' %>
+              </div>
+              <small class="text-muted" id="avatarLogin">
+                <%= isEdit ? ('@' + u.user_login) : '' %>
+              </small>
+            </div>
+          </div>
+
+          <!-- Role & Status -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-2 border-bottom">Role & Status</h5>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">User Type</label>
+                <select name="user_type" class="form-select">
+                  <% userTypes.forEach(function(ut) { %>
+                  <option value="<%= ut.user_type_id %>"
+                    <%= isEdit && u.user_type == ut.user_type_id ? 'selected' : '' %>>
+                    <%= ut.user_type %>
+                  </option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Account Status</label>
+                <select name="user_status" class="form-select">
+                  <option value="0" <%= (!isEdit || u.user_status == 0) ? 'selected' : '' %>>Active</option>
+                  <option value="1" <%= (isEdit  && u.user_status == 1) ? 'selected' : '' %>>Inactive</option>
+                </select>
+              </div>
+
+              <% if (isEdit && u.user_registered) { %>
+              <div class="text-muted small mt-3 pt-3 border-top">
+                <div><strong>ID:</strong> #<%= u.ID %></div>
+                <div><strong>Registered:</strong> <%= new Date(u.user_registered).toLocaleDateString('en-IN') %></div>
+              </div>
+              <% } %>
+            </div>
+          </div>
+
+
+          <!-- Save -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill">
+                  <div class="d-flex align-items-center justify-content-center gap-1">
+                    <i data-feather="save" class="feather-sm"></i>
+                    <%= isEdit ? 'Update User' : 'Create User' %>
+                  </div>
+                </button>
+                <a href="/store/admin/users" class="btn btn-outline-secondary rounded-pill text-center">
+                  Cancel
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /col-lg-4 -->
+      </div><!-- /row -->
+    </form>
+  </div>
+</div>
+
+<script>
+  function togglePassword() {
+    var input = document.getElementById('userPass');
+    var icon  = document.getElementById('eyeIcon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.setAttribute('data-feather', 'eye-off');
+    } else {
+      input.type = 'password';
+      icon.setAttribute('data-feather', 'eye');
+    }
+    feather.replace();
+  }
+
+  // Live avatar preview
+  document.querySelector('[name="display_name"]').addEventListener('input', function() {
+    var name = this.value || document.querySelector('[name="user_login"]').value || '?';
+    document.getElementById('avatarCircle').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('avatarName').textContent   = name;
+  });
+
+  document.querySelector('[name="user_login"]').addEventListener('input', function() {
+    document.getElementById('avatarLogin').textContent = this.value ? '@' + this.value : '';
+    var nameField = document.querySelector('[name="display_name"]');
+    if (!nameField.value) {
+      document.getElementById('avatarCircle').textContent = this.value.charAt(0).toUpperCase();
+      document.getElementById('avatarName').textContent   = this.value;
+    }
+  });
+
+  feather.replace();
+</script>
+
+<%- include('../partials/footer') %>

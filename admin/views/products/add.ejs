@@ -1,0 +1,1123 @@
+<%- include('../partials/head') %>
+
+  <% var p=locals.product || null; var isEdit=!!p; var selAttrs=locals.selectedAttributes || {}; var
+    attrTypes=locals.attributeTypes || []; var varList=locals.variations || []; %>
+
+    <%- include('../partials/navbar') %>
+      <%- include('../partials/sidebar') %>
+
+        <div class="page-wrapper">
+
+          <div class="page-breadcrumb">
+            <div class="row">
+              <div class="col-7 align-self-center">
+                <h4 class="page-title">
+                  <%= isEdit ? 'Edit Product' : 'Add Product' %>
+                </h4>
+                <div class="d-flex align-items-center">
+                  <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                      <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                      <li class="breadcrumb-item"><a href="/store/admin/products">Products</a></li>
+                      <li class="breadcrumb-item active">
+                        <%= isEdit ? 'Edit' : 'Add' %>
+                      </li>
+                    </ol>
+                  </nav>
+                </div>
+              </div>
+              <div class="col-5 align-self-center text-end">
+                <a href="/store/admin/products" class="btn btn-secondary rounded-pill px-4">
+                  <div class="d-flex align-items-center">
+                    <i data-feather="arrow-left" class="feather-sm me-1"></i> Back to Products
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="container-fluid">
+
+            <% if (locals.errors) { %>
+              <div class="alert alert-danger alert-dismissible fade show">
+                <i data-feather="alert-circle" class="feather-sm me-1"></i>
+                <%= locals.errors %>
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+              <% } %>
+
+                <form action="<%= isEdit ? '/store/admin/products/update/' + p.ID : '/store/admin/products/store' %>"
+                  method="POST" enctype="multipart/form-data" id="productForm">
+
+                  <div class="row">
+
+                    <!-- LEFT COLUMN -->
+                    <div class="col-lg-8">
+
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Product Information</h4>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Product Title <span
+                                class="text-danger">*</span></label>
+                            <input type="text" name="product_title" class="form-control form-control-lg"
+                              placeholder="Enter product name..." value="<%= isEdit ? p.product_title : '' %>"
+                              required />
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Product URL (Slug)</label>
+                            <div class="input-group">
+                              <span class="input-group-text text-muted">/store/</span>
+                              <input type="text" name="product_url" id="productUrl" class="form-control"
+                                placeholder="product-url-slug" value="<%= isEdit ? (p.product_url || '') : '' %>" />
+                            </div>
+                            <small class="text-muted">Auto-generated from title if left empty</small>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Short Description</label>
+                            <textarea name="product_short_desc" class="form-control" rows="3"
+                              placeholder="Brief product description..."><%= isEdit ? (p.product_short_desc || '') : '' %></textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Full Description</label>
+                            <textarea name="product_content" class="form-control" rows="8"
+                              placeholder="Detailed product description..."
+                              id="productContent"><%= isEdit ? (p.product_content || '') : '' %></textarea>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Product Data Tabs -->
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                            <h4 class="card-title mb-0">Product Data</h4>
+                            <div class="d-flex align-items-center gap-2">
+                              <label class="fw-semibold mb-0">Type:</label>
+                              <select name="product_type" id="productType" class="form-select form-select-sm"
+                                style="width:180px;" onchange="onProductTypeChange(this.value)">
+                                <option value="product" <%=(!isEdit || (p.product_type==='product' &&
+                                  varList.length===0)) ? 'selected' : '' %>>
+                                  Simple Product
+                                </option>
+                                <option value="product_variation" <%=(isEdit && varList.length> 0) ? 'selected' : '' %>>
+                                  Variable Product
+                                </option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <ul class="nav nav-tabs mb-3" id="productDataTabs">
+                            <li class="nav-item">
+                              <a class="nav-link active" data-bs-toggle="tab" href="#tab-general">
+                                <i data-feather="dollar-sign" class="feather-sm me-1"></i> General
+                              </a>
+                            </li>
+                            <li class="nav-item">
+                              <a class="nav-link" data-bs-toggle="tab" href="#tab-inventory">
+                                <i data-feather="package" class="feather-sm me-1"></i> Inventory
+                              </a>
+                            </li>
+                            <li class="nav-item">
+                              <a class="nav-link" data-bs-toggle="tab" href="#tab-attributes">
+                                <i data-feather="sliders" class="feather-sm me-1"></i> Attributes
+                              </a>
+                            </li>
+                            <li class="nav-item" id="variationsTabItem" style="display:none;">
+                              <a class="nav-link" data-bs-toggle="tab" href="#tab-variations">
+                                <i data-feather="layers" class="feather-sm me-1"></i> Variations
+                                <% if (varList.length> 0) { %>
+                                  <span class="badge bg-primary rounded-pill ms-1">
+                                    <%= varList.length %>
+                                  </span>
+                                  <% } %>
+                              </a>
+                            </li>
+                          </ul>
+
+                          <div class="tab-content">
+
+                            <!-- General Tab -->
+                            <div class="tab-pane fade show active" id="tab-general">
+                              <div class="row">
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Regular Price (₹)</label>
+                                    <div class="input-group">
+                                      <span class="input-group-text">₹</span>
+                                      <input type="number" name="regular_price" class="form-control" placeholder="0.00"
+                                        step="0.01" min="0" value="<%= isEdit ? (p.regular_price || '') : '' %>" />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sale Price (₹)</label>
+                                    <div class="input-group">
+                                      <span class="input-group-text">₹</span>
+                                      <input type="number" name="sale_price" class="form-control" placeholder="0.00"
+                                        step="0.01" min="0" value="<%= isEdit ? (p.sale_price || '') : '' %>" />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sale Start Date</label>
+                                    <input type="date" name="sale_price_dates_from" class="form-control"
+                                      value="<%= isEdit ? (p.sale_price_dates_from || '') : '' %>" />
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sale End Date</label>
+                                    <input type="date" name="sale_price_dates_to" class="form-control"
+                                      value="<%= isEdit ? (p.sale_price_dates_to || '') : '' %>" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- Inventory Tab -->
+                            <div class="tab-pane fade" id="tab-inventory">
+                              <div class="row">
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">SKU</label>
+                                    <input type="text" name="sku" class="form-control" placeholder="Unique product SKU"
+                                      value="<%= isEdit ? (p.sku || '') : '' %>" />
+                                    <small class="text-muted">Stock Keeping Unit</small>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Stock Status</label>
+                                    <select name="stock_status" class="form-select">
+                                      <option value="instock" <%=(!isEdit || p.stock_status==='instock' ) ? 'selected'
+                                        : '' %>>In Stock</option>
+                                      <option value="outofstock" <%=(isEdit && p.stock_status==='outofstock' )
+                                        ? 'selected' : '' %>>Out of Stock</option>
+                                      <option value="onbackorder" <%=(isEdit && p.stock_status==='onbackorder' )
+                                        ? 'selected' : '' %>>On Backorder</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Stock Quantity</label>
+                                    <input type="number" name="stock" class="form-control" min="0" placeholder="0"
+                                      value="<%= isEdit ? (p.stock || '') : '' %>" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- ATTRIBUTES TAB -->
+                            <div class="tab-pane fade" id="tab-attributes">
+                              <div class="alert alert-light border small py-2 mb-3">
+                                <strong>Simple product:</strong> select values to display on product page.<br>
+                                <strong>Variable product:</strong> check <em>"Used for variations"</em> to create
+                                variation combinations.
+                              </div>
+
+                              <% attrTypes.forEach(function(attrType) { %>
+                                <% var taxonomy='pa_' + attrType.attribute_type_name; %>
+                                  <% var existing=selAttrs[taxonomy]; %>
+                                    <% var selIds=existing ? existing.value_ids : []; %>
+                                      <% var isVariation=existing ? !!existing.is_variation : false; %>
+
+                                        <div class="card border mb-3 attribute-block"
+                                          data-type-id="<%= attrType.attribute_type_id %>"
+                                          data-taxonomy="<%= attrType.attribute_type_name %>"
+                                          data-label="<%= attrType.attribute_type_label %>">
+
+                                          <div
+                                            class="card-header d-flex justify-content-between align-items-center py-2">
+                                            <div class="d-flex align-items-center gap-2">
+                                              <span class="badge bg-primary rounded-pill">
+                                                <%= attrType.attribute_type_label %>
+                                              </span>
+                                              <small class="text-muted">pa_<%= attrType.attribute_type_name %></small>
+                                              <% if (selIds.length> 0) { %>
+                                                <span class="badge bg-success rounded-pill" style="font-size:10px;">
+                                                  <%= selIds.length %> selected
+                                                </span>
+                                                <% } %>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-3">
+                                              <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox"
+                                                  id="vis_<%= attrType.attribute_type_id %>" name="attr_visible[]"
+                                                  value="1" <%=selIds.length> 0 ? 'checked' : '' %> />
+                                                <label class="form-check-label small"
+                                                  for="vis_<%= attrType.attribute_type_id %>">Visible on page</label>
+                                              </div>
+                                              <div class="form-check form-switch mb-0 variation-only-toggle"
+                                                style="display:none;">
+                                                <input class="form-check-input variation-toggle" type="checkbox"
+                                                  id="varToggle_<%= attrType.attribute_type_id %>"
+                                                  name="attr_for_variation[]" value="1" <%=isVariation ? 'checked' : ''
+                                                  %>
+                                                onchange="onVariationToggle()" />
+                                                <label class="form-check-label small fw-bold text-primary"
+                                                  for="varToggle_<%= attrType.attribute_type_id %>">Used for
+                                                  variations</label>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div class="card-body py-3">
+                                            <input type="hidden" name="selected_attr_type[]"
+                                              value="<%= attrType.attribute_type_id %>" />
+                                            <input type="hidden" name="selected_attr_values[]"
+                                              id="attrVals_<%= attrType.attribute_type_id %>"
+                                              value="<%= selIds.join(',') %>" />
+
+                                            <!-- TAG BOX -->
+                                            <div
+                                              class="attr-tagbox border rounded p-2 mb-2 d-flex flex-wrap gap-1 align-items-center"
+                                              id="tagBox_<%= attrType.attribute_type_id %>"
+                                              style="min-height:42px; cursor:text;"
+                                              onclick="openAttrDropdown('<%= attrType.attribute_type_id %>')">
+
+                                              <% attrType.values.forEach(function(val) { %>
+                                                <% if (selIds.includes(String(val.attr_id))) { %>
+                                                  <span
+                                                    class="attr-tag d-inline-flex align-items-center gap-1 px-2 py-1 rounded"
+                                                    style="background:#e8f0fe; border:1px solid #2962FF; font-size:13px;"
+                                                    id="tag_<%= attrType.attribute_type_id %>_<%= val.attr_id %>">
+                                                    <%= val.attr_name %>
+                                                      <button type="button" class="btn-close p-0 ms-1"
+                                                        style="font-size:9px;"
+                                                        onclick="event.stopPropagation(); removeAttrTag('<%= attrType.attribute_type_id %>', '<%= val.attr_id %>', '<%= val.attr_name %>')">
+                                                      </button>
+                                                  </span>
+                                                  <% } %>
+                                                    <% }) %>
+
+                                                      <% attrType.values.forEach(function(val) { %>
+                                                        <% var isSel=selIds.includes(String(val.attr_id)); %>
+                                                          <input type="checkbox" class="d-none attr-value-cb"
+                                                            id="cb_<%= attrType.attribute_type_id %>_<%= val.attr_id %>"
+                                                            data-type-id="<%= attrType.attribute_type_id %>"
+                                                            data-attr-id="<%= val.attr_id %>"
+                                                            data-attr-name="<%= val.attr_name %>"
+                                                            data-attr-slug="<%= val.attr_slug %>"
+                                                            data-taxonomy="<%= attrType.attribute_type_name %>"
+                                                            value="<%= val.attr_id %>" <%=isSel ? 'checked' : '' %> />
+                                                          <% }) %>
+                                            </div>
+
+                                            <!-- Dropdown -->
+                                            <div id="attrDropdown_<%= attrType.attribute_type_id %>"
+                                              class="border rounded bg-white shadow-sm mb-2"
+                                              style="display:none; max-height:220px; overflow-y:auto;">
+                                              <div class="px-2 pt-2 pb-1 border-bottom bg-white"
+                                                style="position:sticky;top:0;">
+                                                <input type="text" id="attrSearch_<%= attrType.attribute_type_id %>"
+                                                  class="form-control form-control-sm"
+                                                  placeholder="Search <%= attrType.attribute_type_label %>..."
+                                                  oninput="filterAttrList('<%= attrType.attribute_type_id %>', this.value)"
+                                                  onclick="event.stopPropagation()" />
+                                              </div>
+                                              <ul class="list-unstyled mb-0"
+                                                id="attrList_<%= attrType.attribute_type_id %>">
+                                                <% attrType.values.forEach(function(val) { %>
+                                                  <li class="px-3 py-2 d-flex align-items-center gap-2"
+                                                    style="cursor:pointer; font-size:13px;"
+                                                    data-name="<%= val.attr_name.toLowerCase() %>"
+                                                    onmouseover="this.style.background='#f0f4ff'"
+                                                    onmouseout="this.style.background=''"
+                                                    onclick="toggleAttrTag('<%= attrType.attribute_type_id %>', '<%= val.attr_id %>', '<%= val.attr_name %>', '<%= val.attr_slug %>')">
+                                                    <span
+                                                      id="listCheck_<%= attrType.attribute_type_id %>_<%= val.attr_id %>"
+                                                      class="text-primary fw-bold"
+                                                      style="width:14px;display:inline-block;">
+                                                      <%= selIds.includes(String(val.attr_id)) ? '✓' : '' %>
+                                                    </span>
+                                                    <%= val.attr_name %>
+                                                  </li>
+                                                  <% }) %>
+                                              </ul>
+                                              <div class="border-top px-3 py-2 d-flex gap-2 bg-white">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                  onclick="selectAllAttr('<%= attrType.attribute_type_id %>')">Select
+                                                  all</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                  onclick="clearAllAttr('<%= attrType.attribute_type_id %>')">Select
+                                                  none</button>
+                                                <button type="button" class="btn btn-sm btn-link ms-auto text-muted"
+                                                  onclick="document.getElementById('attrDropdown_<%= attrType.attribute_type_id %>').style.display='none'">
+                                                  Close ✕
+                                                </button>
+                                              </div>
+                                            </div>
+
+                                          </div>
+                                        </div>
+                                        <% }) %>
+
+                            </div>
+                            <!-- /tab-attributes -->
+
+                            <!-- VARIATIONS TAB -->
+                            <div class="tab-pane fade" id="tab-variations">
+                              <div class="d-flex justify-content-between align-items-center mb-3">
+                                <p class="text-muted mb-0 small">Each variation can have its own price, stock and SKU.
+                                </p>
+                                <div class="d-flex gap-2">
+                                  <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill"
+                                    onclick="toggleAllVariations(true)">
+                                    <i data-feather="chevrons-down" class="feather-sm"></i> Expand All
+                                  </button>
+                                  <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill"
+                                    onclick="toggleAllVariations(false)">
+                                    <i data-feather="chevrons-up" class="feather-sm"></i> Collapse All
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div id="variationsList">
+                                <% if (varList.length> 0) { %>
+                                  <% varList.forEach(function(v, i) { %>
+                                    <% var attrLabel=Object.entries(v.attr_meta || {}).map(function(entry) { return
+                                      entry[1].split('-').map(function(w) { return w.charAt(0).toUpperCase() +
+                                      w.slice(1); }).join(' '); }).join(' / '); %>
+                    <% var comboEntries = Object.entries(v.attr_meta || {}); %>
+                    <% var vEnabled = v.enabled !== ' no'; %>
+                                      <% var vManageStock=v.manage_stock==='yes' ; %>
+
+                                        <div class="variation-item border rounded mb-2">
+                                          <!-- Header -->
+                                          <div
+                                            class="variation-header d-flex justify-content-between align-items-center px-3 py-2 bg-light rounded-top"
+                                            style="cursor:pointer;" onclick="toggleVariation(this)">
+                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                              <i data-feather="chevron-right"
+                                                class="feather-sm variation-chevron text-muted"
+                                                style="transition:transform 0.2s;"></i>
+                                              <strong class="small text-primary variation-label">
+                                                <%= attrLabel || ('Variation #' + (i + 1)) %>
+                                              </strong>
+                                              <% if (v.sku) { %>
+                                                <span class="badge bg-light border text-muted"
+                                                  style="font-size:10px;">SKU: <%= v.sku %></span>
+                                                <% } %>
+                                                  <% if (v.regular_price || v.price) { %>
+                                                    <span class="badge bg-primary" style="font-size:10px;">₹<%=
+                                                        v.regular_price || v.price %></span>
+                                                    <% } %>
+                                                      <span
+                                                        class="badge <%= v.stock_status === 'instock' ? 'bg-success' : 'bg-danger' %>"
+                                                        style="font-size:10px;">
+                                                        <%= v.stock_status==='instock' ? 'In Stock' :
+                                                          v.stock_status==='outofstock' ? 'Out of Stock' : 'Backorder'
+                                                          %>
+                                                      </span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                              style="padding:2px 8px;"
+                                              onclick="event.stopPropagation(); this.closest('.variation-item').remove()">
+                                              <i data-feather="x" class="feather-sm"></i>
+                                            </button>
+                                          </div>
+
+                                          <!-- Body -->
+                                          <div class="variation-body border-top" style="display:none;">
+                                            <input type="hidden" name="var_attr_combo[]" value="<%= v.combo %>" />
+                                            <input type="hidden" name="var_attr_ids[]" value="<%= v.attr_ids %>" />
+                                            <input type="hidden" name="var_product_id[]" value="<%= v.ID %>" />
+
+                                            <!-- Attribute dropdowns -->
+                                            <% if (comboEntries.length> 0) { %>
+                                              <div
+                                                class="d-flex flex-wrap gap-3 align-items-end px-3 py-2 border-bottom bg-white">
+                                                <% comboEntries.forEach(function(entry) { %>
+                                                  <% var metaKey=entry[0]; %>
+                                                    <% var metaVal=entry[1]; %>
+                                                      <% var taxName=metaKey.replace('attribute_pa_', '' ); %>
+                                                        <% var atType=attrTypes.find(function(t) { return
+                                                          t.attribute_type_name===taxName; }); %>
+                                                          <div style="min-width:160px;">
+                                                            <label class="form-label small fw-semibold mb-1">
+                                                              <%= atType ? atType.attribute_type_label : taxName %>
+                                                            </label>
+                                                            <select class="form-select form-select-sm var-attr-select"
+                                                              data-combo-key="pa_<%= taxName %>"
+                                                              onchange="updateVariationCombo(this)">
+                                                              <option value="">Any <%= atType ?
+                                                                  atType.attribute_type_label : taxName %>…</option>
+                                                              <% if (atType && atType.values) { %>
+                                                                <% atType.values.forEach(function(val) { %>
+                                                                  <option value="<%= val.attr_slug %>"
+                                                                    data-attr-id="<%= val.attr_id %>"
+                                                                    <%=(metaVal===val.attr_slug) ? 'selected' : '' %>>
+                                                                    <%= val.attr_name %>
+                                                                  </option>
+                                                                  <% }) %>
+                                                                    <% } %>
+                                                            </select>
+                                                          </div>
+                                                          <% }) %>
+                                              </div>
+                                              <% } %>
+
+
+                                                <!-- 2-column layout -->
+                                                <div class="row g-0">
+                                                  <div class="col-md-6 p-3 border-end">
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">SKU</label>
+                                                      <input type="text" name="var_sku[]"
+                                                        class="form-control form-control-sm" value="<%= v.sku || '' %>"
+                                                        placeholder="Variation SKU" />
+                                                    </div>
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">Regular Price
+                                                        (₹)</label>
+                                                      <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">₹</span>
+                                                        <input type="number" name="var_regular_price[]"
+                                                          class="form-control"
+                                                          value="<%= v.regular_price || v.price || '' %>"
+                                                          placeholder="0.00" step="0.01" />
+                                                      </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">
+                                                        Sale Price (₹)
+                                                      </label>
+                                                      <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">₹</span>
+                                                        <input type="number" name="var_sale_price[]"
+                                                          class="form-control" value="<%= v.sale_price || '' %>"
+                                                          placeholder="0.00" step="0.01" />
+                                                      </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">Stock Status</label>
+                                                      <select name="var_stock_status[]"
+                                                        class="form-select form-select-sm">
+                                                        <option value="instock" <%=v.stock_status==='instock'
+                                                          ? 'selected' : '' %>>In Stock</option>
+                                                        <option value="outofstock" <%=v.stock_status==='outofstock'
+                                                          ? 'selected' : '' %>>Out of Stock</option>
+                                                        <option value="onbackorder" <%=v.stock_status==='onbackorder'
+                                                          ? 'selected' : '' %>>On Backorder</option>
+                                                      </select>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">Stock Qty</label>
+                                                      <input type="number" name="var_stock[]"
+                                                        class="form-control form-control-sm"
+                                                        value="<%= v.stock || '0' %>" min="0" />
+                                                    </div>
+
+                                                  </div>
+
+                                                  <div class="col-md-6 p-3">
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold">Variation
+                                                        Description</label>
+                                                      <textarea name="var_description[]"
+                                                        class="form-control form-control-sm" rows="3"
+                                                        placeholder="Optional description..."><%= v.variation_description || '' %></textarea>
+                                                    </div>
+
+                                                    <!-- Variation Image -->
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold d-block">Variation
+                                                        Image</label>
+                                                      <div class="var-gallery-wrap d-flex flex-wrap gap-2 mb-2"
+                                                        id="varGallery_<%= v.ID %>">
+                                                        <% if (v.thumbnail_url) { %>
+                                                          <div class="var-img-thumb position-relative"
+                                                            style="width:80px;height:80px;">
+                                                            <img src="<%= v.thumbnail_url %>"
+                                                              class="rounded border w-100 h-100"
+                                                              style="object-fit:cover;" />
+                                                            <button type="button"
+                                                              class="btn btn-danger position-absolute top-0 end-0 p-0"
+                                                              style="width:18px;height:18px;font-size:10px;line-height:1;"
+                                                              onclick="this.closest('.var-img-thumb').remove()">×</button>
+                                                          </div>
+                                                          <% } %>
+                                                      </div>
+                                                      <label class="btn btn-sm btn-outline-secondary rounded-pill"
+                                                        style="font-size:12px;">
+                                                        <i data-feather="image" class="feather-sm me-1"></i> Set
+                                                        variation image
+                                                        <input type="file" name="var_image_<%= v.ID %>" class="d-none"
+                                                          accept="image/*"
+                                                          onchange="previewVarImage(this, '<%= v.ID %>')" />
+                                                      </label>
+                                                    </div>
+
+                                                    <!-- Variation Gallery -->
+                                                    <div class="mb-3">
+                                                      <label class="form-label small fw-semibold d-block">Variation
+                                                        Gallery</label>
+                                                      <div class="border rounded p-2 mb-2">
+                                                        <div class="d-flex flex-wrap gap-2"
+                                                          id="varGalleryExtra_<%= v.ID %>">
+                                                          <% if (v.gallery && v.gallery.length> 0) { %>
+                                                            <% v.gallery.forEach(function(img) { %>
+                                                              <div style="position:relative;width:60px;height:60px;">
+                                                                <img src="<%= img.url %>" class="rounded border"
+                                                                  style="width:60px;height:60px;object-fit:cover;" />
+                                                                <button type="button"
+                                                                  onclick="this.parentElement.remove()"
+                                                                  class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0"
+                                                                  style="width:16px;height:16px;font-size:9px;">×</button>
+                                                              </div>
+                                                              <% }) %>
+                                                                <% } %>
+                                                                  <div
+                                                                    class="border rounded d-flex align-items-center justify-content-center bg-light"
+                                                                    style="width:60px;height:60px;cursor:pointer;"
+                                                                    onclick="document.getElementById('varGalleryInput_<%= v.ID %>').click()">
+                                                                    <i data-feather="plus" class="text-muted"
+                                                                      style="width:16px;height:16px;"></i>
+                                                                  </div>
+                                                        </div>
+                                                      </div>
+                                                      <input type="file" id="varGalleryInput_<%= v.ID %>"
+                                                        name="var_gallery_<%= v.ID %>[]" class="d-none" accept="image/*"
+                                                        multiple onchange="previewVarGallery(this, '<%= v.ID %>')" />
+                                                      <small class="text-muted">Upload multiple images for this
+                                                        variation</small>
+                                                    </div>
+                                                  </div>
+
+                                                </div>
+
+                                          </div><!-- /variation-body -->
+                                        </div><!-- /variation-item -->
+                                        <% }) %>
+
+                                          <% } else { %>
+                                            <div id="varPlaceholder" class="text-center py-5 text-muted border rounded">
+                                              <i data-feather="layers" style="width:40px;height:40px;"
+                                                class="mb-2 d-block mx-auto"></i>
+                                              <p class="mb-1 fw-semibold">No variations yet</p>
+                                              <small>Attributes tab → select values → check <strong>"Used for
+                                                  variations"</strong> → click <strong>Generate
+                                                  Variations</strong></small>
+                                            </div>
+                                            <% } %>
+                              </div><!-- /variationsList -->
+
+                            </div><!-- /tab-variations -->
+
+                          </div><!-- /tab-content -->
+                        </div>
+                      </div><!-- /Product Data Card -->
+
+                    </div><!-- /col-lg-8 -->
+
+                    <!-- RIGHT COLUMN -->
+                    <div class="col-lg-4">
+
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Publish</h4>
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select name="product_status" class="form-select">
+                              <option value="publish" <%=(!isEdit || p.product_status==='publish' ) ? 'selected' : '' %>
+                                >Published</option>
+                              <option value="draft" <%=(isEdit && p.product_status==='draft' ) ? 'selected' : '' %>
+                                >Draft</option>
+                              <option value="trash" <%=(isEdit && p.product_status==='trash' ) ? 'selected' : '' %>
+                                >Trash</option>
+                            </select>
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Menu Order</label>
+                            <input type="number" name="menu_order" class="form-control" min="0" placeholder="0"
+                              value="<%= isEdit ? (p.menu_order || 0) : 0 %>" />
+                            <small class="text-muted">Lower number = shown first</small>
+                          </div>
+                          <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary rounded-pill">
+                              <div class="d-flex align-items-center justify-content-center">
+                                <i data-feather="save" class="feather-sm me-1"></i>
+                                <%= isEdit ? 'Update Product' : 'Publish Product' %>
+                              </div>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary rounded-pill"
+                              onclick="document.querySelector('[name=product_status]').value='draft'; document.getElementById('productForm').submit();">
+                              Save as Draft
+                            </button>
+                          </div>
+                          <% if (isEdit) { %>
+                            <hr class="my-3">
+                            <div class="small text-muted">
+                              <div><strong>ID:</strong> #<%= p.ID %>
+                              </div>
+                              <div><strong>Type:</strong>
+                                <%= p.product_type %>
+                              </div>
+                              <% if (p.product_date_added) { %>
+                                <div><strong>Added:</strong>
+                                  <%= new Date(p.product_date_added).toLocaleDateString('en-IN') %>
+                                </div>
+                                <% } %>
+                                  <% if (varList.length> 0) { %>
+                                    <div><strong>Variations:</strong>
+                                      <%= varList.length %>
+                                    </div>
+                                    <% } %>
+                            </div>
+                            <% } %>
+                        </div>
+                      </div>
+
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Product Image</h4>
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Featured Image</label>
+                            <div class="border rounded p-3 text-center" id="mainImagePreview"
+                              style="min-height:150px;cursor:pointer;"
+                              onclick="document.getElementById('mainImage').click()">
+                              <% if (isEdit && p.thumbnail) { %>
+                                <img src="<%= p.thumbnail %>" class="img-fluid rounded" style="max-height:150px;" />
+                                <% } else { %>
+                                  <div>
+                                    <i data-feather="image" style="width:48px;height:48px;"
+                                      class="text-muted mb-2 d-block mx-auto"></i>
+                                    <p class="text-muted small mb-0">Click to upload featured image</p>
+                                  </div>
+                                  <% } %>
+                            </div>
+                            <input type="file" name="main_image" id="mainImage" class="d-none" accept="image/*"
+                              onchange="previewMainImage(this)" />
+                          </div>
+                          <div>
+                            <label class="form-label fw-semibold">Product Gallery</label>
+                            <div class="border rounded p-2">
+
+                              <div class="d-flex flex-wrap gap-2" id="galleryPreview">
+                                <% if (isEdit && p.gallery && p.gallery.length> 0) { %>
+                                  <% p.gallery.forEach(function(img) { %>
+                                    <div style="position:relative;width:70px;height:70px;">
+                                      <img src="<%= img.url %>" class="rounded border"
+                                        style="width:70px;height:70px;object-fit:cover;" />
+                                      <button type="button" onclick="this.parentElement.remove()"
+                                        class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0"
+                                        style="width:18px;height:18px;font-size:10px;">×</button>
+                                    </div>
+                                    <% }) %>
+                                      <% } %>
+                                        <div
+                                          class="border rounded d-flex align-items-center justify-content-center bg-light"
+                                          style="width:70px;height:70px;cursor:pointer;"
+                                          onclick="document.getElementById('galleryImages').click()">
+                                          <i data-feather="plus" class="text-muted"></i>
+                                        </div>
+                              </div>
+
+                            </div>
+                            <input type="file" name="gallery_images[]" id="galleryImages" class="d-none"
+                              accept="image/*" multiple onchange="previewGallery(this)" />
+                            <small class="text-muted">Upload multiple gallery images</small>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div><!-- /col-lg-4 -->
+                  </div><!-- /row -->
+                </form>
+          </div>
+        </div>
+
+        <style>
+          .attr-tagbox {
+            min-height: 42px;
+          }
+
+          .attr-tag {
+            cursor: default;
+          }
+        </style>
+
+        <script>
+          (function () {
+            onProductTypeChange(document.getElementById('productType').value);
+          })();
+
+          function onProductTypeChange(type) {
+            var isVariable = (type === 'product_variation');
+            document.getElementById('variationsTabItem').style.display = isVariable ? 'block' : 'none';
+            document.querySelectorAll('.variation-only-toggle').forEach(function (el) {
+              el.style.display = isVariable ? 'flex' : 'none';
+            });
+            if (!isVariable) {
+              document.querySelectorAll('.variation-toggle').forEach(function (cb) { cb.checked = false; });
+            }
+          }
+
+          document.querySelector('[name="product_title"]').addEventListener('input', function () {
+            var urlField = document.getElementById('productUrl');
+            if (!urlField.dataset.manual) {
+              urlField.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            }
+          });
+
+          document.getElementById('productUrl').addEventListener('input', function () {
+            this.dataset.manual = '1';
+          });
+
+          function openAttrDropdown(tid) {
+            var dd = document.getElementById('attrDropdown_' + tid);
+            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+            if (dd.style.display === 'block') document.getElementById('attrSearch_' + tid).focus();
+          }
+
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest('[id^="attrDropdown_"]') && !e.target.closest('[id^="tagBox_"]')) {
+              document.querySelectorAll('[id^="attrDropdown_"]').forEach(function (dd) { dd.style.display = 'none'; });
+            }
+          });
+
+          function toggleAttrTag(tid, attrId, attrName, attrSlug) {
+            var cb = document.getElementById('cb_' + tid + '_' + attrId);
+            if (cb.checked) removeAttrTag(tid, attrId, attrName);
+            else addAttrTag(tid, attrId, attrName, attrSlug);
+          }
+
+          function addAttrTag(tid, attrId, attrName, attrSlug) {
+            var cb = document.getElementById('cb_' + tid + '_' + attrId);
+            if (!cb || cb.checked) return;
+            cb.checked = true;
+            var tag = document.createElement('span');
+            tag.className = 'attr-tag d-inline-flex align-items-center gap-1 px-2 py-1 rounded';
+            tag.id = 'tag_' + tid + '_' + attrId;
+            tag.style.cssText = 'background:#e8f0fe;border:1px solid #2962FF;font-size:13px;';
+            tag.innerHTML = attrName +
+              '<button type="button" class="btn-close p-0 ms-1" style="font-size:9px;"' +
+              ' onclick="event.stopPropagation();removeAttrTag(\'' + tid + '\',\'' + attrId + '\',\'' + attrName + '\')"></button>';
+            var box = document.getElementById('tagBox_' + tid);
+            var firstCb = box.querySelector('input.d-none');
+            box.insertBefore(tag, firstCb);
+            var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
+            if (chk) chk.textContent = '✓';
+            syncHiddenValues(tid);
+          }
+
+          function removeAttrTag(tid, attrId, attrName) {
+            var cb = document.getElementById('cb_' + tid + '_' + attrId);
+            if (cb) cb.checked = false;
+            var tag = document.getElementById('tag_' + tid + '_' + attrId);
+            if (tag) tag.remove();
+            var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
+            if (chk) chk.textContent = '';
+            syncHiddenValues(tid);
+          }
+
+          function syncHiddenValues(tid) {
+            var checked = document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked');
+            document.getElementById('attrVals_' + tid).value =
+              Array.from(checked).map(function (c) { return c.value; }).join(',');
+
+            // Update badge + auto regenerate
+            updateVariationsBadge();
+            autoRegenerateVariations();
+          }
+
+          function selectAllAttr(tid) {
+            document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]').forEach(function (cb) {
+              if (!cb.checked) addAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName, cb.dataset.attrSlug);
+            });
+          }
+
+          function clearAllAttr(tid) {
+            document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked').forEach(function (cb) {
+              removeAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName);
+            });
+          }
+
+          function filterAttrList(tid, query) {
+            var q = query.toLowerCase();
+            document.querySelectorAll('#attrList_' + tid + ' li').forEach(function (li) {
+              li.style.display = li.dataset.name.includes(q) ? '' : 'none';
+            });
+          }
+
+          function onVariationToggle() {
+            var hasChecked = !!document.querySelector('.variation-toggle:checked');
+            var isVariable = document.getElementById('productType').value === 'product_variation';
+            document.getElementById('variationsTabItem').style.display = (hasChecked && isVariable) ? 'block' : 'none';
+            autoRegenerateVariations();
+            updateVariationsBadge();
+          }
+
+          function toggleVariation(header) {
+            var body = header.nextElementSibling;
+            var chevron = header.querySelector('.variation-chevron');
+            var opening = body.style.display === 'none';
+            body.style.display = opening ? 'block' : 'none';
+            chevron.style.transform = opening ? 'rotate(90deg)' : 'rotate(0deg)';
+          }
+
+          function toggleAllVariations(open) {
+            document.querySelectorAll('.variation-body').forEach(function (b) { b.style.display = open ? 'block' : 'none'; });
+            document.querySelectorAll('.variation-chevron').forEach(function (c) { c.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)'; });
+          }
+
+          function updateVariationCombo(sel) {
+            var item = sel.closest('.variation-item');
+            var comboInp = item.querySelector('[name="var_attr_combo[]"]');
+            var idsInp = item.querySelector('[name="var_attr_ids[]"]');
+            var labelEl = item.querySelector('.variation-label');
+            var comboParts = [], idParts = [], labelParts = [];
+            item.querySelectorAll('.var-attr-select').forEach(function (s) {
+              if (!s.value) return;
+              comboParts.push(s.dataset.comboKey + ':' + s.value);
+              var opt = s.querySelector('option[value="' + s.value + '"]');
+              if (opt) { idParts.push(opt.dataset.attrId); labelParts.push(opt.textContent.trim()); }
+            });
+            comboInp.value = comboParts.join(',');
+            idsInp.value = idParts.join(',');
+            if (labelEl) labelEl.textContent = labelParts.join(' / ') || 'Variation';
+          }
+
+          function cartesian(groups) {
+            if (!groups.length) return [[]];
+            var first = groups[0], rest = groups.slice(1);
+            return first.values.reduce(function (acc, val) {
+              return acc.concat(cartesian(rest).map(function (combo) {
+                return [Object.assign({ taxonomy: first.taxonomy, label: first.label }, val)].concat(combo);
+              }));
+            }, []);
+          }
+
+          function previewMainImage(input) {
+            if (!input.files[0]) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              document.getElementById('mainImagePreview').innerHTML =
+                '<img src="' + e.target.result + '" class="img-fluid rounded" style="max-height:150px;" />';
+            };
+            reader.readAsDataURL(input.files[0]);
+          }
+
+          function previewGallery(input) {
+            var preview = document.getElementById('galleryPreview');
+            Array.from(input.files).forEach(function (file) {
+              var reader = new FileReader();
+              reader.onload = function (e) {
+                var div = document.createElement('div');
+                div.style.cssText = 'position:relative;width:70px;height:70px;';
+                div.innerHTML =
+                  '<img src="' + e.target.result + '" class="rounded border" style="width:70px;height:70px;object-fit:cover;" />' +
+                  '<button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0" style="width:18px;height:18px;font-size:10px;">×</button>';
+                preview.insertBefore(div, preview.lastChild);
+              };
+              reader.readAsDataURL(file);
+            });
+          }
+
+          function previewVarImage(input, varId) {
+            if (!input.files[0]) return;
+            var wrap = document.getElementById('varGallery_' + varId);
+            if (!wrap) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              var old = wrap.querySelector('.var-img-thumb');
+              if (old) old.remove();
+              var div = document.createElement('div');
+              div.className = 'var-img-thumb position-relative';
+              div.style.cssText = 'width:80px;height:80px;';
+              div.innerHTML =
+                '<img src="' + e.target.result + '" class="rounded border w-100 h-100" style="object-fit:cover;" />' +
+                '<button type="button" class="btn btn-danger position-absolute top-0 end-0 p-0"' +
+                ' style="width:18px;height:18px;font-size:10px;line-height:1;"' +
+                ' onclick="this.closest(\'.var-img-thumb\').remove()">×</button>';
+              wrap.insertBefore(div, wrap.firstChild);
+            };
+            reader.readAsDataURL(input.files[0]);
+          }
+
+          function previewVarGallery(input, varId) {
+            var preview = document.getElementById('varGalleryExtra_' + varId);
+            var addBtn = preview.querySelector('.bg-light'); // the + button
+            Array.from(input.files).forEach(function (file) {
+              var reader = new FileReader();
+              reader.onload = function (e) {
+                var div = document.createElement('div');
+                div.style.cssText = 'position:relative;width:60px;height:60px;';
+                div.innerHTML =
+                  '<img src="' + e.target.result + '" class="rounded border"' +
+                  ' style="width:60px;height:60px;object-fit:cover;" />' +
+                  '<button type="button" onclick="this.parentElement.remove()"' +
+                  ' class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0"' +
+                  ' style="width:16px;height:16px;font-size:9px;line-height:1;">×</button>';
+                preview.insertBefore(div, addBtn);
+              };
+              reader.readAsDataURL(file);
+            });
+          }
+          function updateVariationsBadge() {
+            var badge = document.querySelector('#variationsTabItem .badge');
+            var count = document.querySelectorAll('#variationsList .variation-item').length;
+            if (badge) {
+              badge.textContent = count;
+              badge.style.display = count > 0 ? '' : 'none';
+            }
+          }
+
+          function autoRegenerateVariations() {
+            if (document.getElementById('productType').value !== 'product_variation') return;
+            var toggles = document.querySelectorAll('.variation-toggle:checked');
+            if (!toggles.length) return;
+
+            var groups = [];
+            toggles.forEach(function (toggle) {
+              var block = toggle.closest('.attribute-block');
+              var taxonomy = block.dataset.taxonomy;
+              var label = block.dataset.label;
+              var selected = block.querySelectorAll('.attr-value-cb:checked');
+              if (!selected.length) return;
+              groups.push({
+                taxonomy: taxonomy,
+                label: label,
+                values: Array.from(selected).map(function (cb) {
+                  return {
+                    attrId: cb.dataset.attrId,
+                    attrName: cb.dataset.attrName,
+                    attrSlug: cb.dataset.attrSlug || cb.dataset.attrName.toLowerCase().replace(/\s+/g, '-')
+                  };
+                })
+              });
+            });
+
+            if (!groups.length) return;
+
+            var combos = cartesian(groups);
+            var list = document.getElementById('variationsList');
+            var ph = document.getElementById('varPlaceholder');
+            if (ph) ph.remove();
+            list.innerHTML = '';
+
+            combos.forEach(function (combo, i) {
+              var comboStr = combo.map(function (c) { return 'pa_' + c.taxonomy + ':' + c.attrSlug; }).join(',');
+              var attrIdsStr = combo.map(function (c) { return c.attrId; }).join(',');
+              var labelText = combo.map(function (c) { return c.attrName; }).join(' / ');
+
+              var selectsHTML = '';
+              combo.forEach(function (c, ci) {
+                var g = groups[ci];
+                selectsHTML += '<div style="min-width:160px;">' +
+                  '<label class="form-label small fw-semibold mb-1">' + g.label + '</label>' +
+                  '<select class="form-select form-select-sm var-attr-select" data-combo-key="pa_' + c.taxonomy + '" onchange="updateVariationCombo(this)">' +
+                  '<option value="">— Any —</option>' +
+                  g.values.map(function (v) {
+                    return '<option value="' + v.attrSlug + '" data-attr-id="' + v.attrId + '"' +
+                      (v.attrSlug === c.attrSlug ? ' selected' : '') + '>' + v.attrName + '</option>';
+                  }).join('') +
+                  '</select></div>';
+              });
+
+              var div = document.createElement('div');
+              div.className = 'variation-item border rounded mb-2';
+              div.innerHTML =
+                '<div class="variation-header d-flex justify-content-between align-items-center px-3 py-2 bg-light rounded-top" style="cursor:pointer;" onclick="toggleVariation(this)">' +
+                '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                '<i data-feather="chevron-right" class="feather-sm variation-chevron text-muted" style="transition:transform 0.2s;"></i>' +
+                '<strong class="small text-primary variation-label">' + labelText + '</strong>' +
+                '</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" style="padding:2px 8px;" onclick="event.stopPropagation();this.closest(\'.variation-item\').remove();updateVariationsBadge();">' +
+                '<i data-feather="x" class="feather-sm"></i></button>' +
+                '</div>' +
+                '<div class="variation-body p-3 border-top" style="display:block;">' +
+                '<input type="hidden" name="var_attr_combo[]" value="' + comboStr + '" />' +
+                '<input type="hidden" name="var_attr_ids[]" value="' + attrIdsStr + '" />' +
+                '<div class="d-flex flex-wrap gap-3 align-items-end mb-3 pb-3 border-bottom">' + selectsHTML + '</div>' +
+                '<div class="row g-0">' +
+                '<div class="col-md-6 p-3 border-end">' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">SKU</label>' +
+                '<input type="text" name="var_sku[]" class="form-control form-control-sm" placeholder="Variation SKU" /></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">Regular Price (₹)</label>' +
+                '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
+                '<input type="number" name="var_regular_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">Sale Price (₹)</label>' +
+                '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
+                '<input type="number" name="var_sale_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">Stock Status</label>' +
+                '<select name="var_stock_status[]" class="form-select form-select-sm">' +
+                '<option value="instock">In Stock</option><option value="outofstock">Out of Stock</option><option value="onbackorder">Backorder</option>' +
+                '</select></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">Stock Qty</label>' +
+                '<input type="number" name="var_stock[]" class="form-control form-control-sm" placeholder="0" min="0" /></div>' +
+                '</div>' +
+                '<div class="col-md-6 p-3">' +
+                '<div class="mb-3"><label class="form-label small fw-semibold">Description</label>' +
+                '<textarea name="var_description[]" class="form-control form-control-sm" rows="3" placeholder="Optional..."></textarea></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Image</label>' +
+                '<div class="var-gallery-wrap d-flex flex-wrap gap-2 mb-2" id="varGallery_new_' + i + '"></div>' +
+                '<label class="btn btn-sm btn-outline-secondary rounded-pill" style="font-size:12px;">' +
+                '<i data-feather="image" class="feather-sm me-1"></i> Set variation image' +
+                '<input type="file" name="var_image_new_' + i + '" class="d-none" accept="image/*"' +
+                ' onchange="previewVarImageNew(this,' + i + ')" /></label></div>' +
+                '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Gallery</label>' +
+                '<div class="border rounded p-2 mb-2"><div class="d-flex flex-wrap gap-2" id="varGalleryExtra_new_' + i + '">' +
+                '<div class="border rounded d-flex align-items-center justify-content-center bg-light" style="width:60px;height:60px;cursor:pointer;"' +
+                ' onclick="document.getElementById(\'varGalleryInput_new_' + i + '\').click()">' +
+                '<i data-feather="plus" class="text-muted" style="width:16px;height:16px;"></i></div></div></div>' +
+                '<input type="file" id="varGalleryInput_new_' + i + '" name="var_gallery_new_' + i + '[]"' +
+                ' class="d-none" accept="image/*" multiple onchange="previewVarGalleryNew(this,' + i + ')" /></div>' +
+                '</div></div></div>';
+              list.appendChild(div);
+            });
+
+            feather.replace();
+            updateVariationsBadge();
+          }
+
+          function previewVarImageNew(input, idx) {
+            if (!input.files[0]) return;
+            var wrap = document.getElementById('varGallery_new_' + idx);
+            if (!wrap) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              var old = wrap.querySelector('.var-img-thumb');
+              if (old) old.remove();
+              var div = document.createElement('div');
+              div.className = 'var-img-thumb position-relative';
+              div.style.cssText = 'width:80px;height:80px;';
+              div.innerHTML =
+                '<img src="' + e.target.result + '" class="rounded border w-100 h-100" style="object-fit:cover;" />' +
+                '<button type="button" class="btn btn-danger position-absolute top-0 end-0 p-0"' +
+                ' style="width:18px;height:18px;font-size:10px;line-height:1;"' +
+                ' onclick="this.closest(\'.var-img-thumb\').remove()">×</button>';
+              wrap.insertBefore(div, wrap.firstChild);
+            };
+            reader.readAsDataURL(input.files[0]);
+          }
+
+          function previewVarGalleryNew(input, idx) {
+            var preview = document.getElementById('varGalleryExtra_new_' + idx);
+            var addBtn = preview.querySelector('.bg-light');
+            Array.from(input.files).forEach(function (file) {
+              var reader = new FileReader();
+              reader.onload = function (e) {
+                var div = document.createElement('div');
+                div.style.cssText = 'position:relative;width:60px;height:60px;';
+                div.innerHTML =
+                  '<img src="' + e.target.result + '" class="rounded border" style="width:60px;height:60px;object-fit:cover;" />' +
+                  '<button type="button" onclick="this.parentElement.remove()" class="btn btn-sm btn-danger position-absolute top-0 end-0 p-0" style="width:16px;height:16px;font-size:9px;">×</button>';
+                preview.insertBefore(div, addBtn);
+              };
+              reader.readAsDataURL(file);
+            });
+          }
+          feather.replace();
+        </script>
+
+        <%- include('../partials/footer') %>

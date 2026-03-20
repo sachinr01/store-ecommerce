@@ -1,0 +1,147 @@
+<%- include('../partials/head') %>
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<div class="page-wrapper">
+
+  <div class="page-breadcrumb">
+    <div class="row">
+      <div class="col-7 align-self-center">
+        <h4 class="page-title">Users</h4>
+        <div class="d-flex align-items-center">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+              <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+              <li class="breadcrumb-item active">Users</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+      <div class="col-5 align-self-center text-end">
+        <a href="/store/admin/users/add" class="btn btn-primary rounded-pill px-4">
+          <div class="d-flex align-items-center gap-1">
+            <i data-feather="user-plus" class="feather-sm"></i> Add User
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <% if (success) { %>
+    <div class="alert alert-success alert-dismissible fade show">
+      <i data-feather="check-circle" class="feather-sm me-1"></i> <%= success %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <% } %>
+
+    <% if (error) { %>
+    <div class="alert alert-danger alert-dismissible fade show">
+      <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="card-title mb-0">All Users (<%= users.length %>)</h5>
+          <input type="text" id="searchInput" class="form-control form-control-sm"
+            placeholder="Search users..." style="width:220px;"
+            oninput="filterTable(this.value)" />
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="usersTable">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>User</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Registered</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (users.length === 0) { %>
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">No users found</td>
+              </tr>
+              <% } %>
+              <% users.forEach(function(u, i) { %>
+              <tr>
+                <td><small class="text-muted">#<%= u.ID %></small></td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                      style="width:36px;height:36px;font-size:14px;font-weight:600;flex-shrink:0;">
+                      <%= (u.display_name || u.user_login || '?').charAt(0).toUpperCase() %>
+                    </div>
+                    <div>
+                      <div class="fw-semibold small"><%= u.display_name || u.user_login %></div>
+                      <small class="text-muted"><%= u.user_nicename %></small>
+                    </div>
+                  </div>
+                </td>
+                <td><code class="small"><%= u.user_login %></code></td>
+                <td><small><%= u.user_email %></small></td>
+                <td>
+                  <span class="badge rounded-pill
+                    <%= u.type_name === 'admin' ? 'bg-danger' :
+                        u.type_name === 'agents' ? 'bg-warning text-dark' :
+                        u.type_name === 'Customers' ? 'bg-info text-dark' : 'bg-secondary' %>">
+                    <%= u.type_name || 'N/A' %>
+                  </span>
+                </td>
+                <td>
+                  <% if (u.user_status == 0) { %>
+                  <span class="badge bg-success rounded-pill">Active</span>
+                  <% } else { %>
+                  <span class="badge bg-secondary rounded-pill">Inactive</span>
+                  <% } %>
+                </td>
+                <td>
+                  <small class="text-muted">
+                    <%= u.user_registered ? new Date(u.user_registered).toLocaleDateString('en-IN') : '-' %>
+                  </small>
+                </td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <a href="/store/admin/users/edit/<%= u.ID %>"
+                      class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1">
+                      <i data-feather="edit-2" style="width:13px;height:13px;"></i>
+                    </a>
+                    <form action="/store/admin/users/delete/<%= u.ID %>" method="POST"
+                      onsubmit="return confirm('Delete this user?')">
+                      <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1">
+                        <i data-feather="trash-2" style="width:13px;height:13px;"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function filterTable(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#usersTable tbody tr').forEach(function(row) {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+  feather.replace();
+</script>
+
+<%- include('../partials/footer') %>
