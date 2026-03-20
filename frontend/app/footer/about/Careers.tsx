@@ -76,7 +76,7 @@ export default function CareersPage() {
           }}
         >
           <img
-            src="/images/slides/shop-2.jpg"
+            src="/store/images/slides/shop-2.jpg"
             alt="Careers Banner"
             style={{
               position: "absolute",

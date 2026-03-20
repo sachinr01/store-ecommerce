@@ -53,7 +53,7 @@ export default function StoreLocatorPage() {
           }}
         >
           <img
-            src="/images/slides/shop-2.jpg"
+            src="/store/images/slides/shop-2.jpg"
             alt="Store Locator Banner"
             style={{
               position: "absolute",

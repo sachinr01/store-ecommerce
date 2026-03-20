@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
@@ -100,24 +101,34 @@ export default function Footer() {
               <div className="widget-content">
                 <ul className="with-border">
                   <li>
-                    <Link href="/footer/policies">Privacy Policy</Link>
+                    <Link href="/footer/policies/nav?type=privacy-policy">
+                      Privacy Policy
+                    </Link>
                   </li>
                   <li>
-                    <Link href="/footer/policies">
+                    <Link href="/footer/policies/nav?type=terms-and-conditions">
                       Terms &amp; Conditions of Use
                     </Link>
                   </li>
                   <li>
-                    <Link href="/footer/policies">Return Policy</Link>
+                    <Link href="/footer/policies/nav?type=return-policy">
+                      Return Policy
+                    </Link>
                   </li>
                   <li>
-                    <Link href="/footer/policies">Refund Policy</Link>
+                    <Link href="/footer/policies/nav?type=refund-policy">
+                      Refund Policy
+                    </Link>
                   </li>
                   <li>
-                    <Link href="/footer/policies">Cancellation Policy</Link>
+                    <Link href="/footer/policies/nav?type=cancellation-policy">
+                      Cancellation Policy
+                    </Link>
                   </li>
                   <li>
-                    <Link href="/footer/policies">Gift Voucher T&amp;C</Link>
+                    <Link href="/footer/policies/nav?type=gift-voucher">
+                      Gift Voucher T&amp;C
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -204,40 +215,48 @@ export default function Footer() {
           <ul className="inline clearfix text-end hidden-xsd">
             <li className="no-bottom-margin">
               <Link href="#">
-                <img
+                <Image
                   className="auto-width"
-                  src="store/images/icons/amex.jpg"
+                  src="/store/images/icons/amex.jpg"
                   alt="Amex"
+                  width={40}
+                  height={25}
                 />
               </Link>
             </li>
             <li className="no-bottom-margin">
               <Link href="#">
-                <img
+                <Image
                   className="auto-width"
-                  src="store/images/icons/discover.jpg"
+                  src="/store/images/icons/discover.jpg"
                   alt="Discover"
+                  width={40}
+                  height={25}
                 />
               </Link>
             </li>
             <li className="no-bottom-margin">
               <Link href="#">
-                <img
+                <Image
                   className="auto-width"
-                  src="store/images/icons/visa.jpg"
+                  src="/store/images/icons/visa.jpg"
                   alt="Visa"
+                  width={40}
+                  height={25}
                 />
               </Link>
             </li>
-            <li className="no-bottom-margin">
+           { /*<li className="no-bottom-margin">
               <Link href="#">
-                <img
+                <Image
                   className="auto-width"
-                  src="store/images/icons/mastercard.jpg"
+                  src="/store/images/icons/mastercard.jpg"
                   alt="Mastercard"
+                  width={40}
+                  height={25}
                 />
               </Link>
-            </li>
+            </li>*/}
           </ul>
         </div>
       </footer>

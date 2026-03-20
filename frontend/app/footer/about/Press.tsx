@@ -59,7 +59,7 @@ export default function PressPage() {
           }}
         >
           <img
-            src="/images/slides/shop-2.jpg"
+            src="/store/images/slides/shop-2.jpg"
             alt="Press Banner"
             style={{
               position: "absolute",

@@ -1,263 +1,157 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { useState } from "react";
+import MobileNavbar from "./MobileNavbar";
+import { useCart } from "../lib/cartContext";
+
+const PLACEHOLDER = '/store/images/dummy.png';
+
 export default function Header() {
+  const { items, count, total, removeItem } = useCart();
+  const [cartOpen, setCartOpen]     = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const toSlug = (text: string) =>
+    text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
   return (
-    <header role="banner">
-      {/* DESKTOP MENU */}
-      <div className="dima-navbar-wrap dima-navbar-fixed-top-active dima-topbar-active desk-nav">
-        <div className="dima-navbar fix-one">
-          <div className="dima-topbar dima-theme">
-            <div className="container">
-              <ul className="float-start text-start dima-menu">
-                <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-map-marker"></i>Bluett Avenue Seaview USA</a></li>
-                <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-phone"></i>+213 2020 555013</a></li>
-              </ul>
-              <ul className="float-end text-end dima-menu">
-                <li><a data-animated-link="fadeOut" href="my-account.html"><i className="fa fa-user"></i>My Account</a></li>
-                <li><a data-animated-link="fadeOut" href="wishlist.html"><i className="fa fa-heart"></i>Wishlist</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="clearfix dima-nav-fixed"></div>
-          <div className="container">
-            {/* Nav bar button */}
-            <a className="dima-btn-nav" href="#"><i className="fa fa-bars"></i></a>
-            {/* LOGO */}
-            <div className="logo">
-              <h1>
-                <a data-animated-link="fadeOut" href="/" title="PixelDima.com logo">
-                  <span className="vertical-middle"></span>
-                  <img src="store/images/okab_ecommerce_logo.png" alt="PixelDima Logo" title="PixelDima" />
-                </a>
-              </h1>
-            </div>
-            {/* MENU */}
-            <nav role="navigation" className="clearfix">
-              <ul className="dima-nav-end">
-                <li className="search-btn">
-                  <a data-animated-link="fadeOut" href="#"><i className="fa fa-search"></i></a>
-                </li>
-                <li className="shopping-btn sub-icon menu-item-has-children cart_wrapper">
-                  <a data-animated-link="fadeOut" href="#" className="start-border">
-                    <i className="fa fa-shopping-cart"></i>
-                    <span className="total"><span className="amount">$7.00</span></span>
-                    <span className="badge-number">2</span>
-                  </a>
-                  <ul className="sub-menu with-border product_list_widget">
-                    <li>
-                      <a data-animated-link="fadeOut" href="#" className="dima-close" title="Remove this item"></a>
-                      <a data-animated-link="fadeOut" href="#" title="">
-                        <img width="65" height="70" className="attachment-shop_thumbnail" src="https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/52152101SD00991/India-Circus-by-Krsnaa-Mehta-Ample-Lilies-Porcelain-Coffee-Mug-52152101SD00991-2.jpg" alt="" />
-                        Product Name Goes Here
-                      </a>
-                      <span className="price text-start">
-                        <ins><span className="amount">1 &nbsp;&nbsp;x&nbsp;&nbsp;  <span>$12.99</span></span></ins>
-                      </span>
-                    </li>
-                    <li>
-                      <a data-animated-link="fadeOut" href="#" className="dima-close" title="Remove this item"></a>
-                      <a data-animated-link="fadeOut" href="#" title="">
-                        <img width="65" height="70" className="attachment-shop_thumbnail" src="https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/52152101SD00991/India-Circus-by-Krsnaa-Mehta-Ample-Lilies-Porcelain-Coffee-Mug-52152101SD00991-2.jpg" alt="" />
-                        Product Name Goes Here
-                      </a>
-                      <span className="price text-start">
-                        <ins><span className="amount">1  &nbsp;&nbsp;x&nbsp;&nbsp;  <span>$92.25</span></span></ins>
-                      </span>
-                    </li>
-                    <li>
-                      <p>SUBTOTAL : <span className="float-end">$191.98</span></p>
-                    </li>
-                    <li>
-                      <span className="di_header button-block button fill">VIEW CART </span>
-                      <span className="button-block button fill no-bottom-margin">CHECKOUT</span>
-                    </li>
-                  </ul>
-                </li>
-              </ul>
-              
-              <ul className="dima-nav  ">
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="/">Home</a>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="#">Shop</a>
-                  <ul className="sub-menu nav-menu  ">
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-2clm-left-sidebar.html">2 Columns</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-2clm-left-sidebar.html">2 Columns Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-2clm-right-sidebar.html">2 Columns Right Sidebar</a></li>
-                      </ul>
-                    </li>
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-3clm-full.html">3 Columns</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-full.html">3 Columns Full</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-left-sidebar.html">3 Columns Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-right-sidebar.html">3 Columns Right Sidebar</a></li>
-                      </ul>
-                    </li>
-                    <li><a data-animated-link="fadeOut" href="shop-4clm-full.html">4 Columns</a></li>
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-list-full.html">List</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-list-left-sidebar.html">List Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-list-right-sidebar.html">List Right Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-list-full.html">List Full</a></li>
-                      </ul>
-                    </li>
-                    <li><a data-animated-link="fadeOut" href="cart.html">Cart</a></li>
-                    <li><a data-animated-link="fadeOut" href="wishlist.html">Wishlist</a></li>
-                    <li><a data-animated-link="fadeOut" href="checkout">Checkout</a></li>
-                  </ul>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="shop-product-detail-right-sidebar.html">Product Details</a>
-                  <ul className="sub-menu">
-                    <li><a data-animated-link="fadeOut" href="shop-product-detail-left-sidebar.html">Product Detail Left Sidebar</a></li>
-                    <li><a data-animated-link="fadeOut" href="shop-product-detail-right-sidebar.html">Product Detail Right Sidebar</a></li>
-                  </ul>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="my-account.html">My Account</a>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="cart.html">cart</a>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="checkout">checkout</a>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="contact-us.html">contact  us</a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-          {/* container */}
-          <div id="search-box">
-            <div className="container">
-              <form>
-                <input type="text" placeholder="Start Typing..." />
-              </form>
-              <div id="close">
-                <a data-animated-link="fadeOut" href="#"><i className="di-close"></i></a>
+    <>
+      <MobileNavbar />
+      <header role="banner">
+        <div className="dima-navbar-wrap dima-navbar-fixed-top-active dima-topbar-active desk-nav">
+          <div className="dima-navbar fix-one">
+
+            {/* Top bar */}
+            <div className="dima-topbar dima-theme">
+              <div className="container">
+                <ul className="float-start text-start dima-menu">
+                  <li><a href="#"><i className="fa fa-map-marker"></i>Bluett Avenue Seaview USA</a></li>
+                  <li><a href="#"><i className="fa fa-phone"></i>+213 2020 555013</a></li>
+                </ul>
+                <ul className="float-end text-end dima-menu">
+                  <li><Link href="/my-account"><i className="fa fa-user"></i>My Account</Link></li>
+                  <li><Link href="/wishlist"><i className="fa fa-heart"></i>Wishlist</Link></li>
+                </ul>
               </div>
             </div>
-          </div>
-        </div>
-        <div className="clear-nav"></div>
-      </div>
-      {/* !DESKTOP MENU */}
-      
-      {/* PHONE MENU */}
-      <div className="dima-navbar-wrap mobile-nav">
-        <div className="dima-navbar fix-one">
-          <div className="dima-topbar dima-theme">
+
+            <div className="clearfix dima-nav-fixed"></div>
+
             <div className="container">
-              <ul className="float-start text-start dima-menu">
-                <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-map-marker"></i>Bluett Avenue Seaview USA</a></li>
-                <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-phone"></i>+213 2020 555013</a></li>
-              </ul>
-              <ul className="float-end text-end dima-menu">
-                <li><a data-animated-link="fadeOut" href="my-account.html"><i className="fa fa-user"></i>My Account</a></li>
-                <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-heart"></i>Wishlist</a></li>
-              </ul>
+              {/* Logo */}
+              <div className="logo">
+                <h1>
+                  <Link href="/" title="Okab logo">
+                    <span className="vertical-middle"></span>
+                    <Image src="/store/images/okab_ecommerce_logo.png" alt="Okab Logo"
+                      width={160} height={44} style={{ height: "auto", width: "auto" }} />
+                  </Link>
+                </h1>
+              </div>
+
+              {/* Nav */}
+              <nav role="navigation" className="clearfix">
+                <ul className="dima-nav-end">
+
+                  {/* Search toggle */}
+                  <li className="search-btn">
+                    <a href="#" onClick={e => { e.preventDefault(); setSearchOpen(v => !v); }}>
+                      <i className="fa fa-search"></i>
+                    </a>
+                  </li>
+
+                  {/* Cart dropdown */}
+                  <li
+                    className={`shopping-btn sub-icon menu-item-has-children cart_wrapper${cartOpen ? ' dima-hover' : ''}`}
+                    onMouseEnter={() => setCartOpen(true)}
+                    onMouseLeave={() => setCartOpen(false)}
+                  >
+                    <a href="/store/cart" className="start-border">
+                      <i className="fa fa-shopping-cart"></i>
+                      <span className="total"><span className="amount">${total.toFixed(2)}</span></span>
+                      {count > 0 && <span className="badge-number">{count}</span>}
+                    </a>
+                    <ul className="sub-menu with-border product_list_widget">
+                      {items.length === 0 ? (
+                        <li><p style={{ padding: '10px 0' }}>Your cart is empty.</p></li>
+                      ) : items.map(item => (
+                        <li key={`${item.id}-${item.variationId ?? 0}`}>
+                          <a href="#" className="dima-close" title="Remove this item"
+                            onClick={e => { e.preventDefault(); removeItem(item.id, item.variationId); }} />
+                          <Link href={`/product/${toSlug(item.title)}-${item.id}`} title={item.title}>
+                            <img width={65} height={70} className="attachment-shop_thumbnail"
+                              src={item.image || PLACEHOLDER} alt={item.title} />
+                            {item.title}
+                          </Link>
+                          <span className="price text-start">
+                            <ins><span className="amount">
+                              {item.quantity}&nbsp;&nbsp;x&nbsp;&nbsp;<span>${item.price.toFixed(2)}</span>
+                            </span></ins>
+                          </span>
+                        </li>
+                      ))}
+                      {items.length > 0 && (
+                        <li><p>SUBTOTAL : <span className="float-end">${total.toFixed(2)}</span></p></li>
+                      )}
+                      <li style={{ padding: 0 }}>
+                        <Link href="/cart"
+                          className="button-block button fill cart-btn-link cart-btn-gray"
+                          style={{ display: 'block', width: '100%', padding: '0.9em 1em', textAlign: 'center', marginBottom: '8px', boxSizing: 'border-box', fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em' }}>
+                          VIEW CART
+                        </Link>
+                        <Link href="/checkout"
+                          className="button-block button fill cart-btn-link cart-btn-teal no-bottom-margin"
+                          style={{ display: 'block', width: '100%', padding: '0.9em 1em', textAlign: 'center', marginBottom: 0, boxSizing: 'border-box', fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em' }}>
+                          CHECKOUT
+                        </Link>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+
+                {/* Main nav */}
+                <ul className="dima-nav">
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/">Home</Link>
+                  </li>
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/shop">Shop</Link>
+                  </li>
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/my-account">My Account</Link>
+                  </li>
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/cart">Cart</Link>
+                  </li>
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/checkout">Checkout</Link>
+                  </li>
+                  <li className="sub-icon menu-item-has-children">
+                    <Link href="/contact-us">Contact Us</Link>
+                  </li>
+                </ul>
+              </nav>
             </div>
-          </div>
-          <div className="clearfix dima-nav-fixed"></div>
-          <div className="container">
-            <a className="dima-btn-nav" href="#"><i className="fa fa-bars"></i></a>
-            <div className="logo">
-              <h1>
-                <a data-animated-link="fadeOut" href="/" title="PixelDima.com logo">
-                  <span className="vertical-middle"></span>
-                  <img src="store/images/okab_ecommerce_logo.png" alt="PixelDima Logo" title="PixelDima" />
-                </a>
-              </h1>
-            </div>
-            <nav role="navigation" className="clearfix">
-              <ul className="dima-nav-end">
-                <li className="search-btn">
-                  <a data-animated-link="fadeOut" href="#"><i className="fa fa-search"></i></a>
-                </li>
-                <li className="shopping-btn cart_wrapper">
-                  <a data-animated-link="fadeOut" href="#" className="start-border">
-                    <i className="fa fa-shopping-cart"></i>
-                    <span className="total"><span className="amount">$7.00</span></span>
-                    <span className="badge-number">2</span>
+
+            {/* Search box — React-controlled */}
+            <div id="search-box" style={{ display: searchOpen ? 'block' : 'none' }}>
+              <div className="container">
+                <form onSubmit={e => { e.preventDefault(); setSearchOpen(false); }}>
+                  <input type="text" placeholder="Start Typing..." autoFocus={searchOpen} />
+                </form>
+                <div id="close">
+                  <a href="#" onClick={e => { e.preventDefault(); setSearchOpen(false); }}>
+                    <i className="di-close"></i>
                   </a>
-                </li>
-              </ul>
-              
-              <ul className="dima-nav  mobile-nav-sec">
-                <li className="">
-                  <a data-animated-link="fadeOut" href="/">Home</a>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="#">Shop</a>
-                  <ul className="sub-menu nav-menu  ">
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-2clm-left-sidebar.html">2 Columns</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-2clm-left-sidebar.html">2 Columns Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-2clm-right-sidebar.html">2 Columns Right Sidebar</a></li>
-                      </ul>
-                    </li>
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-3clm-full.html">3 Columns</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-full.html">3 Columns Full</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-left-sidebar.html">3 Columns Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-3clm-right-sidebar.html">3 Columns Right Sidebar</a></li>
-                      </ul>
-                    </li>
-                    <li><a data-animated-link="fadeOut" href="shop-4clm-full.html">4 Columns</a></li>
-                    <li className="sub-icon menu-item-has-children">
-                      <a data-animated-link="fadeOut" href="shop-list-full.html">List</a>
-                      <ul className="sub-menu">
-                        <li><a data-animated-link="fadeOut" href="shop-list-left-sidebar.html">List Left Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-list-right-sidebar.html">List Right Sidebar</a></li>
-                        <li><a data-animated-link="fadeOut" href="shop-list-full.html">List Full</a></li>
-                      </ul>
-                    </li>
-                    <li><a data-animated-link="fadeOut" href="cart.html">Cart</a></li>
-                    <li><a data-animated-link="fadeOut" href="wishlist.html">Wishlist</a></li>
-                    <li><a data-animated-link="fadeOut" href="checkout.html">Checkout</a></li>
-                  </ul>
-                </li>
-                <li className="sub-icon menu-item-has-children">
-                  <a data-animated-link="fadeOut" href="shop-product-detail-right-sidebar.html">Product Details</a>
-                  <ul className="sub-menu">
-                    <li><a data-animated-link="fadeOut" href="shop-product-detail-left-sidebar.html">Product Detail Left Sidebar</a></li>
-                    <li><a data-animated-link="fadeOut" href="shop-product-detail-right-sidebar.html">Product Detail Right Sidebar</a></li>
-                  </ul>
-                </li>
-                <li className="">
-                  <a data-animated-link="fadeOut" href="my-account.html">My Account</a>
-                </li>
-                <li className="">
-                  <a data-animated-link="fadeOut" href="cart.html">cart</a>
-                </li>
-                <li className="">
-                  <a data-animated-link="fadeOut" href="checkout.html">checkout</a>
-                </li>
-                <li className="">
-                  <a data-animated-link="fadeOut" href="contact-us.html">contact  us</a>
-                </li>
-              </ul>
-            </nav>
-          </div>
-          <div id="search-box">
-            <div className="container">
-              <form>
-                <input type="text" placeholder="Start Typing..." />
-              </form>
-              <div id="close">
-                <a data-animated-link="fadeOut" href="#"><i className="di-close"></i></a>
+                </div>
               </div>
             </div>
+
           </div>
+          <div className="clear-nav"></div>
         </div>
-      </div>
-      {/* !PHONE MENU */}
-    </header>
+      </header>
+    </>
   );
 }

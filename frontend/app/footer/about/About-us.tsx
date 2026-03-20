@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Header from "@/app/components/Header";
 import Footer from "@/app/components/Footer";
+import MobileNavbar from "@/app/components/MobileNavbar";
 
 const skills = [
   { name: "PHOTOSHOP", pct: 95, color: "#0288d1" },
@@ -40,7 +41,7 @@ const teamMembers = [
 
 const testimonials = [
   {
-    img: "/images/posts/user-3.jpg",
+    img: "https://i.pravatar.cc/80?img=8",
     text: "A designer is an emerging synthesis of artist, inventor, mechanic, objective economist and evolutionary strategist.",
     author: "AdelDima",
     role: "Web Developer",
@@ -74,8 +75,18 @@ const slideImages = [
   "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80"
 ];
 
+const socialIcons = [
+  { icon: "fa-facebook", href: "#" },
+  { icon: "fa-twitter", href: "#" },
+  { icon: "fa-google-plus", href: "#" },
+  { icon: "fa-dribbble", href: "#" },
+];
+
+import Image from "next/image";
+
 export default function AboutUsPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [hoveredMember, setHoveredMember] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -87,6 +98,7 @@ export default function AboutUsPage() {
   return (
     <>
       <Header />
+      <MobileNavbar />
 
       <div className="dima-main">
         {/* ── HERO BANNER ── */}
@@ -101,23 +113,15 @@ export default function AboutUsPage() {
             justifyContent: "center",
           }}
         >
-          {/* Background image */}
-          <img
-            src={slideImages[0]}
-            alt="About Us Banner"
+          <Image
+            src="/store/images/slides/shop-1.jpg"
+            alt=""
+            fill
             style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
               objectFit: "cover",
               objectPosition: "center",
-              display: "block",
             }}
           />
-
-          {/* Dark overlay */}
           <div
             style={{
               position: "absolute",
@@ -128,8 +132,6 @@ export default function AboutUsPage() {
               background: "rgba(30, 28, 24, 0.62)",
             }}
           />
-
-          {/* Text content */}
           <div
             style={{
               position: "relative",
@@ -151,8 +153,6 @@ export default function AboutUsPage() {
             >
               About Us
             </h2>
-
-            {/* Decorative separator */}
             <div
               style={{
                 display: "flex",
@@ -194,7 +194,6 @@ export default function AboutUsPage() {
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
-              {/* Mini image slider */}
               <article role="article" style={{ marginBottom: "40px" }}>
                 <div
                   style={{
@@ -206,15 +205,12 @@ export default function AboutUsPage() {
                   }}
                 >
                   {slideImages.map((src, i) => (
-                    <img
+                    <Image
                       key={i}
-                      src={src}
+                      src={'https://okcredit-blog-images-prod.storage.googleapis.com/2021/04/ecommerce3-2.jpg'}
                       alt={`About slide ${i + 1}`}
+                      fill
                       style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
                         objectFit: "cover",
                         objectPosition: "center",
                         opacity: i === currentSlide ? 1 : 0,
@@ -222,7 +218,6 @@ export default function AboutUsPage() {
                       }}
                     />
                   ))}
-                  {/* dots */}
                   <div
                     style={{
                       position: "absolute",
@@ -260,7 +255,6 @@ export default function AboutUsPage() {
 
               <div className="clear-section"></div>
 
-              {/* Welcome + Skills two columns */}
               <div className="ok-row">
                 {/* Left – Welcome text */}
                 <div className="ok-md-5 ok-xsd-12">
@@ -286,7 +280,6 @@ export default function AboutUsPage() {
                 <div className="ok-md-7 ok-xsd-12">
                   <h4 className="uppercase">Our Skills</h4>
                   <div className="clear"></div>
-
                   {skills.map((skill, idx) => (
                     <div
                       key={skill.name}
@@ -294,7 +287,6 @@ export default function AboutUsPage() {
                         marginBottom: idx === skills.length - 1 ? 0 : "18px",
                       }}
                     >
-                      {/* Track */}
                       <div
                         style={{
                           width: "100%",
@@ -306,7 +298,6 @@ export default function AboutUsPage() {
                           marginBottom: "6px",
                         }}
                       >
-                        {/* Fill */}
                         <div
                           style={{
                             width: `${skill.pct}%`,
@@ -376,45 +367,83 @@ export default function AboutUsPage() {
               <div className="clear-section"></div>
 
               <div className="ok-row">
-                {teamMembers.map((member) => (
+                {teamMembers.map((member, memberIdx) => (
                   <div key={member.name} className="ok-md-6 ok-xsd-12 ok-sd-12">
                     <div className="ok-row">
                       {/* Photo */}
                       <div className="ok-md-6 ok-xsd-12">
                         <div className="dima-team-member">
                           <div className="team-img">
-                            <div className="fix-chrome">
+                            {/* fix-chrome with position relative is the key fix */}
+                            <div
+                              className="fix-chrome"
+                              style={{
+                                position: "relative",
+                                overflow: "hidden",
+                              }}
+                              onMouseEnter={() => setHoveredMember(memberIdx)}
+                              onMouseLeave={() => setHoveredMember(null)}
+                            >
                               <figure style={{ margin: 0, overflow: "hidden" }}>
-                                <img
+                                <Image
                                   src={member.img}
                                   alt={member.name}
-                                  style={{ width: "100%", display: "block" }}
+                                  width={300}
+                                  height={300}
+                                  style={{
+                                    width: "100%",
+                                    height: "auto",
+                                    display: "block",
+                                  }}
                                 />
                               </figure>
-                              <div className="link_overlay with_opacity two_lines">
-                                <ul className="icons-media">
-                                  <li>
-                                    <a href="#">
-                                      <i className="fa fa-facebook"></i>
-                                    </a>
-                                  </li>
-                                  <li>
-                                    <a href="#">
-                                      <i className="fa fa-twitter"></i>
-                                    </a>
-                                  </li>
-                                  <li>
-                                    <a href="#">
-                                      <i className="fa fa-google-plus"></i>
-                                    </a>
-                                  </li>
-                                  <li>
-                                    <a href="#">
-                                      <i className="fa fa-dribbble"></i>
-                                    </a>
-                                  </li>
+
+                              {/* Overlay */}
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  background: "rgba(0, 207, 193, 0.80)",
+                                  opacity: hoveredMember === memberIdx ? 1 : 0,
+                                  transition: "opacity 0.3s ease",
+                                  zIndex: 2,
+                                }}
+                              >
+                                <ul
+                                  style={{
+                                    padding: 0,
+                                    margin: 0,
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(2, 50px)",
+                                    gap: "16px",
+                                    listStyle: "none",
+                                  }}
+                                >
+                                  {socialIcons.map(({ icon, href }) => (
+                                    <li key={icon}>
+                                      <a
+                                        href={href}
+                                        style={{
+                                          color: "#fff",
+                                          fontSize: "18px",
+                                          width: "50px",
+                                          height: "50px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          border:
+                                            "1px solid rgba(255,255,255,0.8)",
+                                          textDecoration: "none",
+                                        }}
+                                      >
+                                        <i className={"fa " + icon}></i>
+                                      </a>
+                                    </li>
+                                  ))}
                                 </ul>
-                                <span className="topaz-hover"></span>
                               </div>
                             </div>
                           </div>
@@ -470,7 +499,12 @@ export default function AboutUsPage() {
                         className="dima-testimonial testimonial-side quote-text quote-start"
                       >
                         <div className="dima-testimonial-image">
-                          <img src={t.img} alt={t.author} />
+                          <Image
+                            src={t.img}
+                            alt={t.author}
+                            width={80}
+                            height={80}
+                          />
                         </div>
                         <blockquote>
                           <div className="quote-content">
@@ -498,7 +532,12 @@ export default function AboutUsPage() {
                         className="dima-testimonial testimonial-side quote-text quote-end"
                       >
                         <div className="dima-testimonial-image">
-                          <img src={t.img} alt={t.author} />
+                          <Image
+                            src={t.img}
+                            alt={t.author}
+                            width={80}
+                            height={80}
+                          />
                         </div>
                         <blockquote>
                           <div className="quote-content">

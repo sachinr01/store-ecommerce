@@ -71,7 +71,7 @@ export default function CustomerSupportPage() {
           }}
         >
           <img
-            src="/images/slides/shop-1.jpg"
+            src="/store/images/slides/shop-1.jpg"
             alt="Customer Support Banner"
             style={{
               position: "absolute",

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* 
+/*
   The main styles are loaded from /public/css/styles-shop.css
   This file is imported in layout.tsx
   All original shop styles, fonts, and assets are preserved
@@ -99,8 +99,6 @@ h1, h2, h3, h4, h5, h6, p, span, div {
   writing-mode: horizontal-tb !important;
 }
 
-/* Additional custom styles can be added here if needed */
-
 /* Hide any old text layers that might be coming from a CSS file */
 .tp-caption, .rev-slider-text-layer {
   display: none !important;
@@ -109,4 +107,29 @@ h1, h2, h3, h4, h5, h6, p, span, div {
 /* Ensure our new text is always visible */
 .my-new-slider-text {
   display: flex !important;
+}
+
+/* Cart dropdown buttons — lock colors, no hover change */
+.product_list_widget .cart-btn-link,
+.product_list_widget .cart-btn-link:hover,
+.product_list_widget .cart-btn-link:focus,
+.product_list_widget .cart-btn-link:active {
+  color: #fff !important;
+  text-decoration: none !important;
+}
+.product_list_widget .cart-btn-gray,
+.product_list_widget .cart-btn-gray:hover,
+.product_list_widget .cart-btn-gray:focus,
+.product_list_widget .cart-btn-gray:active {
+  background-color: #5a5959 !important;
+  border-color: #5a5959 !important;
+  color: #fff !important;
+}
+.product_list_widget .cart-btn-teal,
+.product_list_widget .cart-btn-teal:hover,
+.product_list_widget .cart-btn-teal:focus,
+.product_list_widget .cart-btn-teal:active {
+  background-color: #2bbfaa !important;
+  border-color: #2bbfaa !important;
+  color: #fff !important;
 }
