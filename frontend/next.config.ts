@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'www.oceancowboy.com' },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/store/api/:path*',
+        destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/store/api/:path*`,
+        basePath: false,
+      },
+    ];
+  },
   async redirects() {
     return [
       {

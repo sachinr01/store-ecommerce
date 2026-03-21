@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api';
+// Use absolute URL on server (SSR/SSG), relative on client (browser fetch)
+const API_BASE = typeof window === 'undefined'
+  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api')
+  : '/store/api';
 
 export interface Product {
   ID: number;

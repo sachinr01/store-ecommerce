@@ -55,10 +55,13 @@ app.use('/store/admin', adminRoutes);
 app.use('/store/admin', productRoutes);
 app.use('/store/admin', userRoutes);
 
-// CORS for frontend (Next.js on port 3001)
+// CORS for frontend
 app.use('/store/api', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3001');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
 });
 app.use('/store/api', apiRoutes);
