@@ -2,7 +2,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+// Use relative path (via Next.js rewrite proxy) on client to keep cookies same-origin.
+// On server (SSR) fall back to the direct URL.
+const API_BASE =
+  typeof window === 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api')
+    : '/store/api';
 
 export interface CartItem {
   cartItemId: number;
