@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useCart } from "../lib/cartContext";
+import { useAuth } from "../lib/authContext";
 
 const PLACEHOLDER = "/store/images/dummy.png";
 
@@ -12,6 +13,7 @@ const toSlug = (t: string) =>
 
 export default function Header() {
   const { items, count, total, removeItem } = useCart();
+  const { user, isLoggedIn } = useAuth();
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -434,8 +436,31 @@ export default function Header() {
               </svg>
             </button>
 
-            {/* Login */}
-            <Link href="/my-account" className="nh-login">Login</Link>
+            {/* Login / Account */}
+            {isLoggedIn && user ? (
+              <Link href="/my-account" className="nh-login" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{
+                  width: 28, height: 28, borderRadius: "50%", background: "#8fb8a8",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                    stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </span>
+                {user.displayName}
+              </Link>
+            ) : (
+              <Link href="/my-account" className="nh-login" style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Login
+              </Link>
+            )}
 
             {/* Cart */}
             <div className="nh-cart-wrap" ref={cartRef}>
@@ -542,7 +567,7 @@ export default function Header() {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
             </svg>
-            Login / Register
+            {isLoggedIn && user ? user.displayName : "Login / Register"}
           </Link>
           <Link href="/wishlist" onClick={() => setMobileMenuOpen(false)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

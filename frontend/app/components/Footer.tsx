@@ -9,7 +9,7 @@ export default function Footer() {
             <h4>NEED HELP</h4>
             <ul className="footer-nav-list" role="list">
               <li><a href="#." className="link-faded">FAQs</a></li>
-              <li><a href="#." className="link-faded">Track Order</a></li>
+              <li><a href="/store/footer/about?tab=track-order" className="link-faded">Track Order</a></li>
               <li><a href="#." className="link-faded">Store Locator</a></li>
               <li><a href="#." className="link-faded">Return &amp; Exchange</a></li>
               <li><a href="#." className="link-faded">Site Map</a></li>
@@ -28,10 +28,10 @@ export default function Footer() {
           <div>
             <h4>COMPANY</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Privacy Policy</a></li>
+              <li><a href="/store/footer/policies/nav?type=privacy-policy" className="link-faded">Privacy Policy</a></li>
               <li><a href="#." className="link-faded">Terms Of Use</a></li>
               <li><a href="#." className="link-faded">Contact Us</a></li>
-              <li><a href="#." className="link-faded">Return Policy</a></li>
+              <li><a href="/store/footer/policies/nav?type=return-policy" className="link-faded">Return Policy</a></li>
             </ul>
           </div>
           <div>

@@ -70,6 +70,8 @@ export interface AuthUser {
   username: string;
   email: string;
   displayName: string;
+  role: string;
+  userType: number;
 }
 
 async function apiFetch<T>(path: string, withCredentials = false): Promise<T> {

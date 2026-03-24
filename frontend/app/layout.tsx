@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "./lib/cartContext";
 import { WishlistProvider } from "./lib/wishlistContext";
+import { AuthProvider } from "./lib/authContext";
 
 export const metadata: Metadata = {
   title: {
@@ -51,9 +52,11 @@ export default function RootLayout({
             <a href="#" className="load-close">X</a>
           </div>
           <CartProvider>
-            <WishlistProvider>
-              {children}
-            </WishlistProvider>
+            <AuthProvider>
+              <WishlistProvider>
+                {children}
+              </WishlistProvider>
+            </AuthProvider>
           </CartProvider>
         </div>
 
