@@ -123,9 +123,10 @@ const register = async (req, res) => {
     const newUserId = result.insertId;
 
     const oldSessionId = req.sessionId;
+    const guestCookieId = req.guestId || null;
     await req.rotateSession();
 
-    await mergeGuestCart(newUserId, oldSessionId);
+    await mergeGuestCart(newUserId, oldSessionId, guestCookieId);
 
     setSessionUser(req, {
       ID: newUserId,
@@ -180,9 +181,10 @@ const login = async (req, res) => {
     }
 
     const oldSessionId = req.sessionId;
+    const guestCookieId = req.guestId || null;
     await req.rotateSession();
 
-    await mergeGuestCart(user.ID, oldSessionId);
+    await mergeGuestCart(user.ID, oldSessionId, guestCookieId);
     setSessionUser(req, user);
 
     res.json({

@@ -25,7 +25,7 @@ app.use('/images', express.static(path.join(__dirname, 'public/images')));
 app.use('/fonts', express.static(path.join(__dirname, 'public/fonts')));
 app.use('/libs', express.static(path.join(__dirname, 'public/libs')));
 
-app.use(session({
+app.use('/store/admin', session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -46,9 +46,9 @@ app.use('/store/admin', adminRoutes);
 app.use('/store/api', (req, res, next) => {
     const allowed = [
         process.env.FRONTEND_URL,
-        'http://test-kappa-one-90.vercel.app',
+        'https://test-kappa-one-90.vercel.app',
         'http://localhost:3001',
-        'http://www.gaffis.org',
+        'https://www.gaffis.org',
         ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
     ].filter(Boolean);
     const origin = req.headers.origin;

@@ -1,4 +1,5 @@
 ﻿const db = require('../config/db');
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Retry once on transient connection errors (ECONNRESET, ENOTFOUND, PROTOCOL_CONNECTION_LOST)
 const RETRYABLE = new Set(['ECONNRESET', 'ENOTFOUND', 'PROTOCOL_CONNECTION_LOST', 'ETIMEDOUT', 'ECONNREFUSED']);
@@ -250,7 +251,7 @@ const getProducts = async (req, res) => {
         res.json({ success: true, count: products.length, data: products });
     } catch (err) {
         console.error('getProducts error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -264,7 +265,7 @@ const getFeaturedProducts = async (req, res) => {
         res.json({ success: true, count: products.length, data: products });
     } catch (err) {
         console.error('getFeaturedProducts error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -288,7 +289,7 @@ const getOnSaleProducts = async (req, res) => {
         res.json({ success: true, count: products.length, data: products });
     } catch (err) {
         console.error('getOnSaleProducts error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -440,7 +441,7 @@ const getProduct = async (req, res) => {
         });
     } catch (err) {
         console.error('getProduct error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -464,7 +465,7 @@ const getColors = async (req, res) => {
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error('getColors error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -495,7 +496,7 @@ const getAttributesByTaxonomy = async (req, res) => {
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error('getAttributesByTaxonomy error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 // GET /store/api/attributes/all
@@ -540,7 +541,7 @@ const getAllAttributeGroups = async (req, res) => {
         res.json({ success: true, data: Object.values(grouped) });
     } catch (err) {
         console.error('getAllAttributeGroups error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
@@ -558,8 +559,10 @@ const getProductBySlug = async (req, res) => {
         return getProduct(req, res);
     } catch (err) {
         console.error('getProductBySlug error:', err);
-        res.status(500).json({ success: false, message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
 
 module.exports = { getProducts, getFeaturedProducts, getOnSaleProducts, getProduct, getProductBySlug, getColors, getAttributesByTaxonomy, getAllAttributeGroups };
+
+

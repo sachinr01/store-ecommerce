@@ -1,6 +1,6 @@
 const db = require('../config/db');
 const { getSessionUser } = require('./session');
-const { getCartContext, buildCartSessionId } = require('./cartController');
+const { getCartIdentity } = require('./cartController');
 
 const toStr = (val) => {
   if (val === undefined || val === null) return '';
@@ -69,7 +69,7 @@ function validateBilling(billing) {
 const placeOrder = async (req, res) => {
   const user = getSessionUser(req);
   const userId = user ? user.id : 0;
-  const { cartSessionId } = getCartContext(req);
+  const { key, value, cookieId, sessionId } = getCartIdentity(req);
 
   const billing = sanitizeBilling(req.body.billing);
   const shipping = sanitizeShipping(req.body.shipping, billing);
@@ -91,10 +91,15 @@ const placeOrder = async (req, res) => {
         'SELECT * FROM cart_items WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
+    } else if (key === 'cookie_id') {
+      [cartItems] = await conn.query(
+        'SELECT * FROM cart_items WHERE cookie_id = ? AND user_id IS NULL ORDER BY created_at DESC',
+        [value]
+      );
     } else {
       [cartItems] = await conn.query(
         'SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL ORDER BY created_at DESC',
-        [cartSessionId]
+        [value]
       );
     }
 
@@ -146,7 +151,8 @@ const placeOrder = async (req, res) => {
       ['_shipping_postcode', shipping.postcode],
       ['_shipping_country', shipping.country],
       ['_shipping_company', shipping.company],
-      ['_session_id', cartSessionId],
+      ['_session_id', sessionId],
+      ['_cookie_id', cookieId || ''],
     ];
 
     for (const [key, value] of metaEntries) {
@@ -202,8 +208,10 @@ const placeOrder = async (req, res) => {
 
     if (userId) {
       await conn.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+    } else if (key === 'cookie_id') {
+      await conn.query('DELETE FROM cart_items WHERE cookie_id = ? AND user_id IS NULL', [value]);
     } else {
-      await conn.query('DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL', [cartSessionId]);
+      await conn.query('DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL', [value]);
     }
 
     await conn.commit();

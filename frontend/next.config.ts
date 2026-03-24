@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   basePath: '/store',
@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/store/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api'}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api'}/:path*`,
         basePath: false,
       },
     ];
@@ -33,3 +33,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

@@ -31,16 +31,23 @@ function resolveVariationId(inputVarId, productId, color, size) {
   return null;
 }
 
-function getCartContext(req) {
+function getCartIdentity(req) {
   const user = getSessionUser(req);
   const userId = user ? user.id : null;
   const sessionId = req.sessionId;
-  const cartSessionId = buildCartSessionId(userId, sessionId);
-  return { userId, sessionId, cartSessionId };
+  const cookieId = req.guestId || null;
+
+  if (userId) {
+    return { key: 'user_id', value: userId, userId, sessionId, cookieId };
+  }
+  if (cookieId) {
+    return { key: 'cookie_id', value: cookieId, userId: null, sessionId, cookieId };
+  }
+  return { key: 'session_id', value: sessionId, userId: null, sessionId, cookieId: null };
 }
 
 const getCart = async (req, res) => {
-  const { userId, cartSessionId } = getCartContext(req);
+  const { key, value, userId, cookieId } = getCartIdentity(req);
   try {
     let items;
     if (userId) {
@@ -48,10 +55,15 @@ const getCart = async (req, res) => {
         'SELECT * FROM cart_items WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
+    } else if (key === 'cookie_id') {
+      [items] = await db.query(
+        'SELECT * FROM cart_items WHERE cookie_id = ? AND user_id IS NULL ORDER BY created_at DESC',
+        [value]
+      );
     } else {
       [items] = await db.query(
         'SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL ORDER BY created_at DESC',
-        [cartSessionId]
+        [value]
       );
     }
     const count = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -64,7 +76,7 @@ const getCart = async (req, res) => {
 };
 
 const addToCart = async (req, res) => {
-  const { userId, cartSessionId } = getCartContext(req);
+  const { key, value, userId, sessionId, cookieId } = getCartIdentity(req);
   const body = req.body || {};
   const productId = toInt(body.product_id);
   if (!productId) {
@@ -79,17 +91,46 @@ const addToCart = async (req, res) => {
   const image = toStr(body.image);
 
   try {
-    const [existing] = await db.query(
-      `SELECT id, quantity
-       FROM cart_items
-       WHERE session_id = ?
-         AND product_id = ?
-         AND (variation_id <=> ?)
-         AND (color <=> ?)
-         AND (size <=> ?)
-       LIMIT 1`,
-      [cartSessionId, productId, variationId, color, size]
-    );
+    let existing;
+    if (key === 'user_id') {
+      [existing] = await db.query(
+        `SELECT id, quantity
+         FROM cart_items
+         WHERE user_id = ?
+           AND product_id = ?
+           AND (variation_id <=> ?)
+           AND (color <=> ?)
+           AND (size <=> ?)
+         LIMIT 1`,
+        [value, productId, variationId, color, size]
+      );
+    } else if (key === 'cookie_id') {
+      [existing] = await db.query(
+        `SELECT id, quantity
+         FROM cart_items
+         WHERE cookie_id = ?
+           AND user_id IS NULL
+           AND product_id = ?
+           AND (variation_id <=> ?)
+           AND (color <=> ?)
+           AND (size <=> ?)
+         LIMIT 1`,
+        [value, productId, variationId, color, size]
+      );
+    } else {
+      [existing] = await db.query(
+        `SELECT id, quantity
+         FROM cart_items
+         WHERE session_id = ?
+           AND user_id IS NULL
+           AND product_id = ?
+           AND (variation_id <=> ?)
+           AND (color <=> ?)
+           AND (size <=> ?)
+         LIMIT 1`,
+        [value, productId, variationId, color, size]
+      );
+    }
 
     if (existing.length) {
       await db.query(
@@ -99,9 +140,9 @@ const addToCart = async (req, res) => {
     } else {
       await db.query(
         `INSERT INTO cart_items
-         (session_id, user_id, product_id, variation_id, quantity, color, size, title, price, image)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [cartSessionId, userId, productId, variationId, quantity, color, size, title, price, image]
+         (session_id, cookie_id, user_id, product_id, variation_id, quantity, color, size, title, price, image)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [sessionId, cookieId, userId, productId, variationId, quantity, color, size, title, price, image]
       );
     }
 
@@ -113,7 +154,7 @@ const addToCart = async (req, res) => {
 };
 
 const updateCartItem = async (req, res) => {
-  const { userId, cartSessionId } = getCartContext(req);
+  const { key, value, userId } = getCartIdentity(req);
   const itemId = toInt(req.params.itemId);
   const body = req.body || {};
   const quantity = toInt(body.quantity, null);
@@ -128,10 +169,15 @@ const updateCartItem = async (req, res) => {
         'UPDATE cart_items SET quantity = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
         [quantity, itemId, userId]
       );
+    } else if (key === 'cookie_id') {
+      [result] = await db.query(
+        'UPDATE cart_items SET quantity = ?, updated_at = NOW() WHERE id = ? AND cookie_id = ? AND user_id IS NULL',
+        [quantity, itemId, value]
+      );
     } else {
       [result] = await db.query(
         'UPDATE cart_items SET quantity = ?, updated_at = NOW() WHERE id = ? AND session_id = ? AND user_id IS NULL',
-        [quantity, itemId, cartSessionId]
+        [quantity, itemId, value]
       );
     }
     if (!result.affectedRows) {
@@ -145,7 +191,7 @@ const updateCartItem = async (req, res) => {
 };
 
 const removeCartItem = async (req, res) => {
-  const { userId, cartSessionId } = getCartContext(req);
+  const { key, value, userId } = getCartIdentity(req);
   const itemId = toInt(req.params.itemId);
   if (!itemId) {
     return res.status(400).json({ success: false, message: 'Invalid item id.' });
@@ -157,10 +203,15 @@ const removeCartItem = async (req, res) => {
         'DELETE FROM cart_items WHERE id = ? AND user_id = ?',
         [itemId, userId]
       );
+    } else if (key === 'cookie_id') {
+      [result] = await db.query(
+        'DELETE FROM cart_items WHERE id = ? AND cookie_id = ? AND user_id IS NULL',
+        [itemId, value]
+      );
     } else {
       [result] = await db.query(
         'DELETE FROM cart_items WHERE id = ? AND session_id = ? AND user_id IS NULL',
-        [itemId, cartSessionId]
+        [itemId, value]
       );
     }
     if (!result.affectedRows) {
@@ -174,12 +225,14 @@ const removeCartItem = async (req, res) => {
 };
 
 const clearCart = async (req, res) => {
-  const { userId, cartSessionId } = getCartContext(req);
+  const { key, value, userId } = getCartIdentity(req);
   try {
     if (userId) {
       await db.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+    } else if (key === 'cookie_id') {
+      await db.query('DELETE FROM cart_items WHERE cookie_id = ? AND user_id IS NULL', [value]);
     } else {
-      await db.query('DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL', [cartSessionId]);
+      await db.query('DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL', [value]);
     }
     res.json({ success: true, message: 'Cart cleared.' });
   } catch (err) {
@@ -188,14 +241,26 @@ const clearCart = async (req, res) => {
   }
 };
 
-async function mergeGuestCart(userId, guestSessionId) {
-  if (!userId || !guestSessionId) return;
-  const userSessionId = buildCartSessionId(userId, guestSessionId);
+async function mergeGuestCart(userId, guestSessionId, guestCookieId) {
+  if (!userId) return;
 
-  const [guestItems] = await db.query(
-    'SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL',
-    [guestSessionId]
-  );
+  let guestItems = [];
+
+  if (guestCookieId) {
+    [guestItems] = await db.query(
+      'SELECT * FROM cart_items WHERE cookie_id = ? AND user_id IS NULL',
+      [guestCookieId]
+    );
+  }
+
+  if (!guestItems.length && guestSessionId) {
+    [guestItems] = await db.query(
+      'SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL',
+      [guestSessionId]
+    );
+  }
+
+  if (!guestItems.length) return;
 
   for (const item of guestItems) {
     const color = toStr(item.color);
@@ -205,13 +270,13 @@ async function mergeGuestCart(userId, guestSessionId) {
     const [existing] = await db.query(
       `SELECT id, quantity
        FROM cart_items
-       WHERE session_id = ?
+       WHERE user_id = ?
          AND product_id = ?
          AND (variation_id <=> ?)
          AND (color <=> ?)
          AND (size <=> ?)
        LIMIT 1`,
-      [userSessionId, item.product_id, variationId, color, size]
+      [userId, item.product_id, variationId, color, size]
     );
 
     if (existing.length) {
@@ -223,9 +288,9 @@ async function mergeGuestCart(userId, guestSessionId) {
     } else {
       await db.query(
         `UPDATE cart_items
-         SET user_id = ?, session_id = ?, variation_id = ?
+         SET user_id = ?, variation_id = ?, updated_at = NOW()
          WHERE id = ?`,
-        [userId, userSessionId, variationId, item.id]
+        [userId, variationId, item.id]
       );
     }
   }
@@ -238,6 +303,7 @@ module.exports = {
   removeCartItem,
   clearCart,
   mergeGuestCart,
-  getCartContext,
+  getCartIdentity,
   buildCartSessionId,
 };
+

@@ -5,8 +5,10 @@ const auth = require('./authController');
 const cart = require('./cartController');
 const orders = require('./orderController');
 const { sessionMiddleware } = require('./session');
+const { guestCookieMiddleware } = require('./guestCookie');
 const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddleware');
 
+router.use(guestCookieMiddleware());
 router.use(sessionMiddleware());
 
 // Debug

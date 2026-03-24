@@ -18,38 +18,92 @@ function getSwatchStyle(c: { attr_name?: string; attr_slug?: string }): SwatchSt
   const slug = (c.attr_slug ?? '').toLowerCase().replace(/[_]+/g, '-').trim();
 
   // Specific compound slugs first (before generic single-word checks)
-  if (slug === 'blue-ocean-camo' || slug === 'blue-camo')
-    return { style: { background: 'linear-gradient(135deg, #0f766e 0%, #3b82f6 45%, #1f2937 100%)' }, isLight: false };
-  if (slug === 'white-ocean-camo' || slug === 'white-camo')
-    return { style: { background: 'linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 50%, #f8fafc 100%)' }, isLight: true };
-  if (slug.includes('camo'))
-    return { style: { background: 'linear-gradient(135deg, #4d7c0f 0%, #365314 50%, #1c2a0a 100%)' }, isLight: false };
-  if (slug.includes('stripe') || slug.includes('striper'))
-    return { style: { background: 'repeating-linear-gradient(45deg, #111 0 6px, #f5f5f5 6px 12px)' }, isLight: false };
-  if (slug.includes('multi'))
-    return { style: { background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 45%, #3b82f6 100%)' }, isLight: false };
-  if (slug === 'ice-blue')        return { style: { background: '#cfe8ff' }, isLight: true };
-  if (slug === 'light-blue' || slug === 'aqua' || slug === 'water-blue') return { style: { background: '#8ec5ff' }, isLight: true };
-  if (slug === 'navy')            return { style: { background: '#1b2a4a' }, isLight: false };
-  if (slug === 'turquoise')       return { style: { background: '#43d5c1' }, isLight: true };
-  if (slug === 'mint')            return { style: { background: '#8de6c4' }, isLight: true };
-  if (slug === 'pink')            return { style: { background: '#f3a6c8' }, isLight: true };
-  if (slug === 'rose')            return { style: { background: '#e9a0b0' }, isLight: true };
-  if (slug === 'citrus' || slug === 'yellow') return { style: { background: '#ffd54f' }, isLight: true };
-  if (slug === 'orange')          return { style: { background: '#f59e0b' }, isLight: false };
-  if (slug === 'gold')            return { style: { background: '#d4af37' }, isLight: false };
-  if (slug === 'silver' || slug === 'steel' || slug === 'chrome' || slug === 'metal') return { style: { background: '#b5bcc8' }, isLight: true };
-  if (slug === 'gray' || slug === 'grey' || slug === 'smoke' || slug === 'concrete') return { style: { background: '#9ca3af' }, isLight: true };
-  if (slug === 'beige' || slug === 'natural' || slug === 'tan') return { style: { background: '#f5f0e6' }, isLight: true };
-  if (slug === 'brown' || slug === 'wood')  return { style: { background: '#8b5a2b' }, isLight: false };
-  if (slug === 'glass')           return { style: { background: '#e5f6ff' }, isLight: true };
-  if (slug === 'white')           return { style: { background: '#ffffff' }, isLight: true };
-  if (slug === 'black')           return { style: { background: '#111111' }, isLight: false };
-  if (slug === 'blue')            return { style: { background: '#1f6feb' }, isLight: false };
-  if (slug === 'red')             return { style: { background: '#dc2626' }, isLight: false };
-  if (slug === 'green')           return { style: { background: '#16a34a' }, isLight: false };
-  if (slug === 'purple')          return { style: { background: '#7c3aed' }, isLight: false };
+  // === PATTERNS (keep at top) ===
+if (slug === 'blue-ocean-camo' || slug === 'blue-camo')
+  return { style: { background: 'linear-gradient(135deg, #0f766e 0%, #3b82f6 45%, #1f2937 100%)' }, isLight: false };
 
+if (slug === 'white-ocean-camo' || slug === 'white-camo')
+  return { style: { background: 'linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 50%, #f8fafc 100%)' }, isLight: true };
+
+if (slug === 'navy-tumbler')
+  return { style: { background: 'linear-gradient(135deg, #1b2a4a 0%, #2d4a8a 100%)' }, isLight: false };
+
+if (slug.includes('camo'))
+  return { style: { background: 'linear-gradient(135deg, #4d7c0f 0%, #365314 50%, #1c2a0a 100%)' }, isLight: false };
+
+if (slug.includes('stripe') || slug.includes('striper'))
+  return { style: { background: 'repeating-linear-gradient(45deg, #111 0 6px, #f5f5f5 6px 12px)' }, isLight: false };
+
+if (slug.includes('multi'))
+  return { style: { background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 45%, #3b82f6 100%)' }, isLight: false };
+
+// === BLUES ===
+if (slug === 'ice-blue')
+  return { style: { background: '#cfe8ff' }, isLight: true };
+
+if (slug === 'light-blue' || slug === 'aqua' || slug === 'water-blue')
+  return { style: { background: '#8ec5ff' }, isLight: true };
+
+if (slug === 'navy')
+  return { style: { background: '#1b2a4a' }, isLight: false };
+
+if (slug === 'blue')
+  return { style: { background: '#1f6feb' }, isLight: false };
+
+if (slug === 'turquoise')
+  return { style: { background: '#0d9488' }, isLight: false }; // ✅ fixed - darker turquoise
+
+if (slug === 'mint')
+  return { style: { background: '#6ee7b7' }, isLight: true }; // ✅ slightly richer mint
+
+// === PINKS / REDS ===
+if (slug === 'pink')
+  return { style: { background: '#f472b6' }, isLight: true }; // ✅ richer pink
+
+if (slug === 'rose')
+  return { style: { background: '#fb7185' }, isLight: false }; // ✅ rose is medium-dark
+
+if (slug === 'red')
+  return { style: { background: '#dc2626' }, isLight: false };
+
+// === YELLOWS / ORANGES ===
+if (slug === 'citrus' || slug === 'yellow')
+  return { style: { background: '#fde047' }, isLight: true }; // ✅ brighter yellow
+
+if (slug === 'orange')
+  return { style: { background: '#f97316' }, isLight: false }; // ✅ proper orange
+
+if (slug === 'gold')
+  return { style: { background: '#d4af37' }, isLight: true }; // ✅ fixed isLight
+
+// === NEUTRALS ===
+if (slug === 'silver' || slug === 'steel' || slug === 'chrome' || slug === 'metal')
+  return { style: { background: '#b5bcc8' }, isLight: true };
+
+if (slug === 'gray' || slug === 'grey' || slug === 'smoke' || slug === 'concrete')
+  return { style: { background: '#9ca3af' }, isLight: true };
+
+if (slug === 'beige' || slug === 'natural' || slug === 'tan')
+  return { style: { background: '#f5f0e6' }, isLight: true };
+
+if (slug === 'brown' || slug === 'wood')
+  return { style: { background: '#8b5a2b' }, isLight: false };
+
+if (slug === 'glass')
+  return { style: { background: '#e5f6ff' }, isLight: true };
+
+// === BASICS ===
+if (slug === 'white')
+  return { style: { background: '#ffffff' }, isLight: true };
+
+if (slug === 'black')
+  return { style: { background: '#111111' }, isLight: false };
+
+if (slug === 'green')
+  return { style: { background: '#16a34a' }, isLight: false };
+
+if (slug === 'purple')
+  return { style: { background: '#7c3aed' }, isLight: false };
   // Fallback: try to parse as a CSS color from the name
   return { style: { background: '#cbd5e1' }, isLight: true };
 }

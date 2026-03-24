@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { authLogin, authRegister, type AuthUser } from '../lib/api';
+import { useCart } from '../lib/cartContext';
 
 export default function MyAccountPage() {
   const [login, setLogin] = useState({ username: '', password: '', remember: false });
@@ -15,6 +16,7 @@ export default function MyAccountPage() {
   const [regLoading, setRegLoading]     = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<AuthUser | null>(null);
   const [regSuccess, setRegSuccess]     = useState('');
+  const { refresh } = useCart();
 
   const setL = (k: keyof typeof login) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -32,6 +34,7 @@ export default function MyAccountPage() {
       const res = await authLogin(login.username, login.password);
       if (res.success && res.data) {
         setLoggedInUser(res.data);
+        await refresh();
       } else {
         setLoginErr(res.message || 'Login failed.');
       }
