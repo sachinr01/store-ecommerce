@@ -22,6 +22,10 @@ export default function CartPage() {
           padding: 0 0 48px;
         }
 
+        .cart-content {
+          padding-top: 24px;
+        }
+
         .cart-grid {
           display: grid;
           grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
@@ -36,32 +40,33 @@ export default function CartPage() {
 
         .cart-item {
           display: grid;
-          grid-template-columns: 96px minmax(0, 1fr);
-          gap: 18px;
-          padding: 20px;
+          grid-template-columns: 110px minmax(0, 1fr);
+          gap: 20px;
+          padding: 22px;
           border: 1px solid #ededed;
+          border-radius: 8px;
           background: #fff;
         }
 
         .cart-item-thumb {
-          width: 96px;
-          height: 96px;
+          width: 110px;
+          height: 110px;
           object-fit: cover;
-          border-radius: 6px;
+          border-radius: 8px;
           background: #f4f4f4;
         }
 
         .cart-item-main {
           min-width: 0;
           display: grid;
-          gap: 14px;
+          gap: 16px;
         }
 
         .cart-item-top {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          gap: 16px;
+          gap: 14px;
         }
 
         .cart-item-title {
@@ -70,10 +75,11 @@ export default function CartPage() {
           line-height: 1.2;
           font-weight: 700;
           text-decoration: none;
+          display: inline-block;
         }
 
         .cart-item-meta {
-          margin-top: 6px;
+          margin-top: 8px;
           color: #7b7b7b;
           font-size: 14px;
           line-height: 1.5;
@@ -113,6 +119,7 @@ export default function CartPage() {
           color: #222;
           font-size: 20px;
           font-weight: 600;
+          word-break: break-word;
         }
 
         .cart-qty {
@@ -120,6 +127,7 @@ export default function CartPage() {
           align-items: center;
           border: 1px solid #dddddd;
           width: fit-content;
+          max-width: 100%;
           background: #fff;
         }
 
@@ -131,6 +139,7 @@ export default function CartPage() {
           color: #444;
           font-size: 20px;
           cursor: pointer;
+          flex-shrink: 0;
         }
 
         .cart-qty input {
@@ -145,13 +154,17 @@ export default function CartPage() {
         }
 
         .cart-actions {
-          margin-top: 6px;
+          margin-top: 20px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
         }
 
         .cart-summary {
           border: 1px solid #e7e3d6;
           background: #fff;
           padding: 24px;
+          border-radius: 8px;
           position: sticky;
           top: 96px;
         }
@@ -216,6 +229,10 @@ export default function CartPage() {
         }
 
         @media (max-width: 991px) {
+          .cart-content {
+            padding-top: 20px;
+          }
+
           .cart-grid {
             grid-template-columns: 1fr;
           }
@@ -230,15 +247,19 @@ export default function CartPage() {
             padding-bottom: 32px;
           }
 
+          .cart-content {
+            padding-top: 16px;
+          }
+
           .cart-item {
-            grid-template-columns: 72px minmax(0, 1fr);
+            grid-template-columns: 82px minmax(0, 1fr);
             gap: 14px;
             padding: 16px;
           }
 
           .cart-item-thumb {
-            width: 72px;
-            height: 72px;
+            width: 82px;
+            height: 82px;
           }
 
           .cart-item-title {
@@ -261,9 +282,27 @@ export default function CartPage() {
           .cart-coupon {
             grid-template-columns: 1fr;
           }
+
+          .cart-summary-row {
+            font-size: 14px;
+          }
+
+          .cart-actions > * {
+            width: 100%;
+            text-align: center;
+          }
         }
 
         @media (max-width: 480px) {
+          .cart-page .page-section {
+            padding-top: 28px;
+            padding-bottom: 28px;
+          }
+
+          .cart-item {
+            grid-template-columns: 1fr;
+          }
+
           .cart-item-top {
             gap: 10px;
           }
@@ -272,8 +311,19 @@ export default function CartPage() {
             font-size: 16px;
           }
 
+          .cart-item-thumb {
+            width: 100%;
+            max-width: 180px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+          }
+
           .cart-item-meta {
             font-size: 13px;
+          }
+
+          .cart-remove {
+            font-size: 22px;
           }
 
           .cart-qty button {
@@ -289,6 +339,12 @@ export default function CartPage() {
 
           .cart-summary-title {
             font-size: 20px;
+          }
+
+          .cart-summary-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 4px;
           }
         }
       `}</style>
@@ -311,7 +367,7 @@ export default function CartPage() {
         </section>
 
         <section className="section">
-          <div className="page-section-content overflow-hidden">
+          <div className="page-section-content overflow-hidden cart-content">
             <div className="container">
               {items.length === 0 ? (
                 <div className="cart-empty">
