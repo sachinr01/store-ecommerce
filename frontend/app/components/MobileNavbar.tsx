@@ -175,7 +175,7 @@ export default function MobileNavbar() {
           >
             <span style={{ pointerEvents: "auto" }}>
               <Image
-                src="/store/images/okab_ecommerce_logo.png"
+                src="/store/images/logo-white.png"
                 alt="Okab Logo"
                 width={160}
                 height={44}
@@ -263,7 +263,7 @@ export default function MobileNavbar() {
             }}
           >
             <Image
-              src="/store/images/okab_ecommerce_logo.png"
+              src="/store/images/logo-white.png"
               alt="Okab Logo"
               width={160}
               height={44}

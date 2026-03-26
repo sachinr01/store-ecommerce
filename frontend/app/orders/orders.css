@@ -1,0 +1,116 @@
+.orders-page {
+  background: #f8f9fb;
+  padding: 28px 20px 80px;
+  min-height: 70vh;
+}
+.orders-header {
+  text-align: center;
+  margin: 12px 0 28px;
+}
+.orders-title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(26px, 3.2vw, 40px);
+  margin: 0 0 6px;
+  color: #1f2937;
+}
+.orders-sub {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+.orders-wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+.order-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  display: grid;
+  gap: 10px;
+}
+.order-link {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.order-link:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5f5;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.08);
+}
+.order-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.order-id {
+  font-weight: 700;
+  font-size: 14px;
+  color: #111827;
+}
+.order-status {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.order-status.pending { background: #fef3c7; color: #92400e; }
+.order-status.processing { background: #e0f2fe; color: #0369a1; }
+.order-status.completed { background: #dcfce7; color: #166534; }
+.order-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+  color: #4b5563;
+}
+.order-items {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+.order-items span {
+  display: inline-block;
+  margin-right: 6px;
+}
+.order-total {
+  margin-left: auto;
+  font-weight: 700;
+  color: #111827;
+}
+.orders-empty,
+.orders-error {
+  text-align: center;
+  padding: 60px 20px;
+  background: #fff;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  color: #6b7280;
+}
+.orders-cta {
+  margin-top: 12px;
+  display: inline-block;
+  background: #1a8a6e;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+}
+.orders-cta:hover { background: #12705a; }
+
+@media (max-width: 600px) {
+  .order-top { flex-direction: column; align-items: flex-start; }
+  .order-total { margin-left: 0; }
+}

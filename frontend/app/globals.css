@@ -64,51 +64,6 @@ html, body {
   display: block !important;
 }
 
-/* Fix text rotation in slider and other elements */
-h1, h2, h3, h4, h5, h6, p, span, div {
-  transform: none !important;
-  writing-mode: horizontal-tb !important;
-  text-orientation: mixed !important;
-}
-
-/* Hide old Revolution Slider captions */
-.tp-caption:not(.my-new-slider-text) {
-  display: none !important;
-}
-
-.tp-caption {
-  transform: none !important;
-  writing-mode: horizontal-tb !important;
-  left: 10% !important;
-  width: auto !important;
-  position: relative !important;
-}
-
-/* Disable animations on slider text */
-.absolute div {
-  transform: none !important;
-  animation: none !important;
-}
-
-/* Ensure slider content is not rotated */
-[style*="transform"] {
-  transform: none !important;
-}
-
-[style*="writing-mode"] {
-  writing-mode: horizontal-tb !important;
-}
-
-/* Hide any old text layers that might be coming from a CSS file */
-.tp-caption, .rev-slider-text-layer {
-  display: none !important;
-}
-
-/* Ensure our new text is always visible */
-.my-new-slider-text {
-  display: flex !important;
-}
-
 /* Cart dropdown buttons — lock colors, no hover change */
 .product_list_widget .cart-btn-link,
 .product_list_widget .cart-btn-link:hover,

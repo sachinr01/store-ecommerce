@@ -1,0 +1,60 @@
+'use client';
+
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import type { AuthUser } from './api';
+import { useCart } from './cartContext';
+
+const API_BASE = '/store/api';
+
+interface AuthState {
+  user: AuthUser | null;
+  isLoggedIn: boolean;
+  isLoading: boolean;
+}
+
+interface AuthContextValue extends AuthState {
+  setUser: (user: AuthUser | null) => void;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AuthState>({ user: null, isLoggedIn: false, isLoading: true });
+  const { refresh } = useCart();
+
+  useEffect(() => {
+    fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
+      .then(r => r.json())
+      .then((json: { success: boolean; data?: { isLoggedIn: boolean; user?: AuthUser } }) => {
+        if (json.success && json.data?.isLoggedIn && json.data.user) {
+          setState({ user: json.data.user, isLoggedIn: true, isLoading: false });
+        } else {
+          setState({ user: null, isLoggedIn: false, isLoading: false });
+        }
+      })
+      .catch(() => setState({ user: null, isLoggedIn: false, isLoading: false }));
+  }, []);
+
+  const setUser = useCallback((user: AuthUser | null) => {
+    setState({ user, isLoggedIn: !!user, isLoading: false });
+  }, []);
+
+  const logout = useCallback(async () => {
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+    setState({ user: null, isLoggedIn: false, isLoading: false });
+    await refresh();
+  }, [refresh]);
+
+  return (
+    <AuthContext.Provider value={{ ...state, setUser, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}

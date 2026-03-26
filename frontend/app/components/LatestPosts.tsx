@@ -1,73 +1,41 @@
 export default function LatestPosts() {
   const posts = [
     {
-      id: 1,
-      title: "Psychology In Branding",
-      image: "store/images/posts/post-6.jpg",
-      date: "11 Jul 2014",
-      views: 122,
-      comments: 12,
-      delay: 50
+      image: 'https://nestasia.in/cdn/shop/articles/467.png?v=1773144465&width=600',
+      date: 'March 01, 2026',
+      title: 'How To Prepare Your Home For A Stress-Free Summer',
     },
     {
-      id: 2,
-      title: "Responsive web design",
-      image: "store/images/posts/post-7.jpg",
-      date: "11 Jul 2014",
-      views: 122,
-      comments: 12,
-      delay: 150
+      image: 'https://nestasia.in/cdn/shop/articles/Blog_Banners_500_x_500_px_25_3efe0bf0-7b98-4208-b254-71edeca8e867.png?v=1773035780&width=600',
+      date: 'March 05, 2026',
+      title: 'Summertime Pre-Summer Home Refresh Checklist',
     },
     {
-      id: 3,
-      title: "Process of Prototyping",
-      image: "store/images/posts/post-8.jpg",
-      date: "11 Jul 2014",
-      views: 122,
-      comments: 12,
-      delay: 250
-    }
+      image: 'https://nestasia.in/cdn/shop/articles/What_s_your_dinner_hosting_score_4067574c-e3c7-4403-9b51-69a6e8ffea50.png?v=1772716953&width=600',
+      date: 'March 12, 2026',
+      title: 'What Your Dining Table Decor Says About Your Entertaining Style',
+    },
+    {
+      image: 'https://nestasia.in/cdn/shop/articles/WhatsApp_Image_2026-02-27_at_20.47.07_e9e9cc65-0179-456c-8f31-1b0e48afc7f5.jpg?v=1772716483&width=600',
+      date: 'March 16, 2026',
+      title: "Unique Holi Gifts That They'll Treasure Forever",
+    },
   ];
 
   return (
-    <section className="section section-colored with-top-border" data-bg="#fafafa" id="blog">
-      <div className="page-section-content overflow-hidden">
-        <div className="container">
-          <h2 className="uppercase text-center" data-animate="fadeInDown" data-delay="0">LATEST POSTS</h2>
-          <div className="topaz-line no-bottom-margin">
-            <i className="di-separator"></i>
+    <section className="home-section-gray">
+      <h2 className="section-title">From The Blog</h2>
+      <div className="blog-grid">
+        {posts.map((post, i) => (
+          <div key={i} className="blog-card">
+            <img src={post.image} alt={post.title} />
+            <div className="blog-card-body">
+              <span className="blog-card-date">{post.date}</span>
+              <h4 className="blog-card-title">{post.title}</h4>
+              <a href="#" className="blog-card-link">Read More</a>
+            </div>
           </div>
-          <div className="clear-section"></div>
-          <div className="container">
-            <section className="boxed-blog ok-row">
-              {posts.map(post => (
-                <article key={post.id} role="article" className="ok-md-4 ok-xsd-6" data-animate="fadeInUp" data-delay={post.delay}>
-                  <div className="post e-post">
-                    <div className="post-img ">
-                      <img src={post.image} alt={post.title} />
-                      <div className="link_overlay with_opacity">
-                        <ul className="icons-media">
-                          <li><a data-animated-link="fadeOut" href="#"><i className="fa fa-link"></i></a></li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div className="post-meta box">
-                      <ul>
-                        <li className="post-on">{post.date}</li>
-                        <li className="post-view"><i className="fa fa-eye"></i> {post.views}</li>
-                        <li className="post-comments"><i className="fa fa-comments"></i> {post.comments}</li>
-                      </ul>
-                    </div>
-                    <div className="post-content text-start box">
-                      <h5><a data-animated-link="fadeOut" href="#">{post.title}</a></h5>
-                      <p>Lorem ipsum gravida nibh vel auctor est aliquet, aenean sollicitudin lorem quis dum auctor. Gravida nibh vel velit lorem quis dum auctor...</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </section>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   );

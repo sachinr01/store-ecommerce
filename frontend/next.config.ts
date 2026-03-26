@@ -1,8 +1,17 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   basePath: '/store',
   assetPrefix: '/store',
+  async rewrites() {
+    return [
+      {
+        source: '/store/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api'}/:path*`,
+        basePath: false,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'icmedianew.gumlet.io' },
@@ -18,9 +27,10 @@ const nextConfig: NextConfig = {
         destination: '/store',
         permanent: true,
         basePath: false,
-      }
-    ]
-  }
+      },
+    ];
+  },
 };
 
 export default nextConfig;
+

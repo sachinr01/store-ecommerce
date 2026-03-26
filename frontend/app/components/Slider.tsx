@@ -34,6 +34,7 @@ export default function Slider() {
 
   return (
     <div
+      className="slider-root"
       style={{
         position: "relative",
         width: "100%",
@@ -167,7 +168,7 @@ export default function Slider() {
               {/* SHOP NOW */}
               <div style={{ marginTop: "30px" }}>
                 <a
-                  href="#"
+                  href="/store/shop"
                   style={{
                     display: "inline-block",
                     border: "2px solid #ffffff",

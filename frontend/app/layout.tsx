@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "./lib/cartContext";
 import { WishlistProvider } from "./lib/wishlistContext";
+import { AuthProvider } from "./lib/authContext";
 
 export const metadata: Metadata = {
   title: {
@@ -37,6 +38,7 @@ export default function RootLayout({
         <link rel="stylesheet" type="text/css" href="/store/js/specific/revolution-slider/css/settings.css" media="screen" />
         <link href="https://fonts.googleapis.com/css?family=Open+Sans:100,400,600,700,300" rel="stylesheet" type="text/css" />
         <link href="https://fonts.googleapis.com/css?family=Lato:300,400,300italic,400italic" rel="stylesheet" type="text/css" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
         <link rel="shortcut icon" href="/store/images/favicon.png" type="image/x-icon" />
         <link rel="apple-touch-icon" href="/store/images/favicon.png" type="image/x-icon" />
       </head>
@@ -50,9 +52,11 @@ export default function RootLayout({
             <a href="#" className="load-close">X</a>
           </div>
           <CartProvider>
-            <WishlistProvider>
-              {children}
-            </WishlistProvider>
+            <AuthProvider>
+              <WishlistProvider>
+                {children}
+              </WishlistProvider>
+            </AuthProvider>
           </CartProvider>
         </div>
 

@@ -8,10 +8,10 @@ export default function CategoriesPage() {
     <>
       <Header />
       <main className="dima-main">
-        <section className="py-20 text-center">
-          <div className="container mx-auto px-4">
-            <h1 className="text-4xl font-bold mb-5">CATEGORIES</h1>
-            <p className="text-gray-600">Categories page content coming soon...</p>
+        <section style={{ padding: '80px 20px', textAlign: 'center' }}>
+          <div className="container">
+            <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 20 }}>CATEGORIES</h1>
+            <p style={{ color: '#666' }}>Categories page content coming soon...</p>
           </div>
         </section>
       </main>

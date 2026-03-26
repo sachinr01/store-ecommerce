@@ -1,4 +1,9 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api';
+﻿// Server-side (SSR/SSG): call admin directly
+// Client-side (browser): go through Next.js rewrite proxy to avoid CORS
+const API_BASE =
+  typeof window === 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api')
+    : '/store/api';
 
 export interface Product {
   ID: number;
@@ -15,6 +20,12 @@ export interface Product {
   stock_status: string | null;
   total_sales: number | null;
   date_added: string;
+  color_slugs: string | null;
+  material_slugs: string | null;
+  style_slugs: string | null;
+  occasion_slugs: string | null;
+  feature_slugs: string | null;
+  size_slugs: string | null;
 }
 
 export interface Variation {
@@ -59,11 +70,14 @@ export interface AuthUser {
   username: string;
   email: string;
   displayName: string;
+  role: string;
+  userType: number;
 }
 
-async function apiFetch<T>(path: string): Promise<T> {
+async function apiFetch<T>(path: string, withCredentials = false): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     cache: 'no-store',
+    ...(withCredentials ? { credentials: 'include' } : {}),
     headers: { 'Accept': 'application/json' },
   });
   if (!res.ok) {
@@ -79,19 +93,99 @@ async function apiPost<T>(path: string, body: object): Promise<{ success: boolea
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     cache: 'no-store',
+    credentials: 'include',
     headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   return res.json();
 }
 
-export const getProducts    = ()        => apiFetch<Product[]>('/products');
+export interface AttributeOption {
+  attr_id: number;
+  attr_name: string;
+  attr_slug: string;
+}
+
+export interface AttributeGroup {
+  taxonomy: string;   // e.g. "pa_color"
+  label: string;      // e.g. "Color"
+  options: AttributeOption[];
+}
+
+export type ColorAttribute = AttributeOption;
+
+export const getProducts    = (searchParams?: URLSearchParams) => {
+  const qs = searchParams ? `?${searchParams.toString()}` : '';
+  return apiFetch<Product[]>(`/products${qs}`);
+};
 export const getFeatured    = (n = 4)   => apiFetch<Product[]>(`/products/featured?limit=${n}`);
 export const getOnSale      = (n?: number) => apiFetch<Product[]>(`/products/on-sale${n ? `?limit=${n}` : ''}`);
-export const getProductById = (id: number | string) => apiFetch<ProductDetail>(`/products/${id}`);
+export const getProductById  = (id: number | string) => apiFetch<ProductDetail>(`/products/${id}`);
+export const getProductBySlug = (slug: string) => apiFetch<ProductDetail>(`/products/slug/${slug}`);
+export const getColors      = ()        => apiFetch<ColorAttribute[]>('/attributes/colors');
+export const getAllAttributeGroups = () => apiFetch<AttributeGroup[]>('/attributes/all');
+export const getAttributeOptions = (taxonomy: string) =>
+  apiFetch<AttributeOption[]>(`/attributes/${taxonomy}`);
 
 export const authLogin    = (username: string, password: string) =>
   apiPost<AuthUser>('/auth/login', { username, password });
 
 export const authRegister = (username: string, email: string, password: string) =>
   apiPost<{ userId: number }>('/auth/register', { username, email, password });
+
+export interface OrderSummary {
+  order_id: number;
+  order_status: string;
+  order_date: string;
+  total: string | number | null;
+  items: string | null;
+}
+
+export const getMyOrders = () => apiFetch<OrderSummary[]>('/orders/my', true);
+
+export interface OrderItemDetail {
+  order_item_id: number;
+  order_item_name: string;
+  product_id: number;
+  qty: string | number | null;
+  line_total: string | number | null;
+  color: string | null;
+  size: string | null;
+}
+
+export interface OrderDetailResponse {
+  order: {
+    order_id: number;
+    order_status: string;
+    order_date: string;
+    total: string | number | null;
+    subtotal: string | number | null;
+    shipping: string | number | null;
+    payment_method: string | null;
+    billing_email?: string | null;
+    billing_first_name?: string | null;
+    billing_last_name?: string | null;
+    billing_phone?: string | null;
+    billing_address_1?: string | null;
+    billing_address_2?: string | null;
+    billing_city?: string | null;
+    billing_state?: string | null;
+    billing_postcode?: string | null;
+    billing_country?: string | null;
+    ship_first_name?: string | null;
+    ship_last_name?: string | null;
+    ship_phone?: string | null;
+    ship_address_1?: string | null;
+    ship_address_2?: string | null;
+    ship_city?: string | null;
+    ship_state?: string | null;
+    ship_postcode?: string | null;
+    ship_country?: string | null;
+    user_display_name?: string | null;
+    user_email?: string | null;
+  };
+  items: OrderItemDetail[];
+}
+
+export const getMyOrderById = (orderId: number | string) =>
+  apiFetch<OrderDetailResponse>(`/orders/${orderId}`, true);

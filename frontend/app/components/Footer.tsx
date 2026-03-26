@@ -1,265 +1,209 @@
-import Link from "next/link";
-import Image from "next/image";
+﻿import Link from "next/link";
 
 export default function Footer() {
   return (
-    <>
-      {/* TOP FOOTER */}
-      <div className="top-footer">
-        <div className="container">
-          <div className="ok-row">
-            {/* About */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">About</h5>
-              <div className="widget-content">
-                <ul className="with-border">
-                  <li>
-                    <Link href="/footer/about">About Us</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/about?tab=press">Press</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/about?tab=store-locator">
-                      Store Locator
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/about?tab=track-order">
-                      Track Order
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/about?tab=customer-support">
-                      Customer Support
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/about?tab=careers">Careers</Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+    <footer className="okab-footer">
+      <div className="footer-top">
+        <div className="footer-grid">
+          <div>
+            <h4>NEED HELP</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">FAQs</a></li>
+              <li><Link href="/orders" className="link-faded">Track Order</Link></li>
+              <li><a href="#." className="link-faded">Store Locator</a></li>
+              <li><a href="#." className="link-faded">Return &amp; Exchange</a></li>
+              <li><a href="#." className="link-faded">Site Map</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>ABOUT US</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Our Story</a></li>
+              <li><a href="#." className="link-faded">Community</a></li>
+              <li><a href="#." className="link-faded">Corporate Gifts</a></li>
+              <li><a href="#." className="link-faded">Daily Gifts</a></li>
+              <li><a href="#." className="link-faded">Store Locator</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>COMPANY</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="/store/footer/policies/nav?type=privacy-policy" className="link-faded">Privacy Policy</a></li>
+              <li><a href="#." className="link-faded">Terms Of Use</a></li>
+              <li><a href="#." className="link-faded">Contact Us</a></li>
+              <li><a href="/store/footer/policies/nav?type=return-policy" className="link-faded">Return Policy</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>POPULAR CATEGORIES</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Crockery Set</a></li>
+              <li><a href="#." className="link-faded">Tableware</a></li>
+              <li><a href="#." className="link-faded">Jars Online</a></li>
+              <li><a href="#." className="link-faded">Buy Bakeware Items</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>GET IN TOUCH</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Whatsapp: 91 0000000000</a></li>
+              <li><a href="#." className="link-faded">Mon-Sat 10AM - 6PM IST</a></li>
+              <li><a href="#." className="link-faded">Email: Info@test.com</a></li>
+              <li>
+                <a href="#." className="link-faded">Instagram</a>
+                <span className="link-sep"> / </span>
+                <a href="#." className="link-faded">Facebook</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="footer-middle" />
+      </div>
 
-            {/* Shop */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">Shop</h5>
-              <div className="widget-content">
-                <ul className="with-border">
-                  <li>
-                    <Link href="/footer/shop">Sale Corner</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/shop">Featured Products</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/shop">Top Products</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/shop">New Arrivals</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/shop">Store Locator</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/shop">Gifting</Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+      <div className="footer-bottom">
+        <div className="footer-grid">
+          <div>
+            <h4>GIFTING</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Festive Gifting</a></li>
+              <li><a href="#." className="link-faded">E-Gift Cards</a></li>
+              <li><a href="#." className="link-faded">Corporate Gifting</a></li>
+              <li><a href="#." className="link-faded">Birthday Gifts</a></li>
+            </ul>
+          </div>
 
-            {/* Categories */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">Categories</h5>
-              <div className="widget-content">
-                <ul className="with-border">
-                  <li>
-                    <Link href="/footer/categories">Home Decor</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/categories">Dining</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/categories">Accessories</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/categories">Fashion</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/categories">Furniture</Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/categories">Wall Decor</Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+          <div>
+            <h4>SHOP BY PRICE</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Gift Under 1000</a></li>
+              <li><a href="#." className="link-faded">Gift Under 2000</a></li>
+              <li><a href="#." className="link-faded">Gift Under 3000</a></li>
+              <li><a href="#." className="link-faded">Gift Under 5000</a></li>
+            </ul>
+          </div>
 
-            {/* Policies */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">Policies</h5>
-              <div className="widget-content">
-                <ul className="with-border">
-                  <li>
-                    <Link href="/footer/policies/nav?type=privacy-policy">
-                      Privacy Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/policies/nav?type=terms-and-conditions">
-                      Terms &amp; Conditions of Use
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/policies/nav?type=return-policy">
-                      Return Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/policies/nav?type=refund-policy">
-                      Refund Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/policies/nav?type=cancellation-policy">
-                      Cancellation Policy
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/footer/policies/nav?type=gift-voucher">
-                      Gift Voucher T&amp;C
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            </div>
+          <div>
+            <h4>DINING ACCESSORIES</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Crockery Set</a></li>
+              <li><a href="#." className="link-faded">Tableware</a></li>
+              <li><a href="#." className="link-faded">Jars Online</a></li>
+              <li><a href="#." className="link-faded">Buy Bakeware Items</a></li>
+            </ul>
+          </div>
 
-            {/* Contact Us */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">Contact us</h5>
-              <div className="widget-content">
-                <ul className="with-border featured-posts contact-icon">
-                  <li>
-                    <i className="fa fa-map-marker"></i>
-                    <p>Bluett Avenue, Seaview, Isle of Wight PO34, UK</p>
-                  </li>
-                  <li>
-                    <i className="fa fa-phone"></i>
-                    <p>+213 2020 555013</p>
-                    <p>+213 7700 900106</p>
-                  </li>
-                  <li>
-                    <i className="fa fa-envelope"></i>
-                    <p>Emal1@domain.com</p>
-                    <p>Emal2@domain.com</p>
-                  </li>
-                </ul>
-              </div>
-              <div className="widget-content" style={{ marginTop: "10px" }}>
-                <Link
-                  href="/footer/contact-us"
-                  className="button stroke uppercase"
-                  style={{ fontSize: "0.75rem", padding: "6px 14px" }}
-                >
-                  Contact Page
-                </Link>
-              </div>
-            </div>
+          <div>
+            <h4>HOME DECOR ITEMS</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Table Wall Decor</a></li>
+              <li><a href="#." className="link-faded">Planters and Pots</a></li>
+              <li><a href="#." className="link-faded">Buy Carpets Online</a></li>
+              <li><a href="#." className="link-faded">Candles</a></li>
+            </ul>
+          </div>
 
-            {/* Connect */}
-            <div className="ok-md-2 ok-xsd-12 ok-sd-6 widget">
-              <h5 className="widget-titel">Connect</h5>
-              <div className="widget-content">
-                <p>
-                  An ISO 9001 2015, ISO 14001 2015, ISO 45001 2018 Certified
-                  Company.
-                </p>
-              </div>
-              <div className="widget-content">
-                <div className="dima-social-footer social-media social-medium">
-                  <ul className="inline clearfix">
-                    <li>
-                      <Link href="/footer/connect">
-                        <i className="fa fa-facebook"></i>
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/footer/connect">
-                        <i className="fa fa-twitter"></i>
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/footer/connect">
-                        <i className="fa fa-google-plus"></i>
-                      </Link>
-                    </li>
-                    <li>
-                      <Link href="/footer/connect">
-                        <i className="fa fa-instagram"></i>
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          <div>
+            <h4>FURNITURE &amp; FURNISHING</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><a href="#." className="link-faded">Sofa</a></li>
+              <li><a href="#." className="link-faded">Pouffe</a></li>
+              <li><a href="#." className="link-faded">Breakfast Table</a></li>
+              <li><a href="#." className="link-faded">Bedding</a></li>
+            </ul>
           </div>
         </div>
       </div>
 
-      {/* BOTTOM FOOTER */}
-      <footer role="contentinfo" className="dima-footer e-footre">
-        <div className="container">
-          <div className="copyright dima-center-full">
-            <p>© 2026 ABC Technologies</p>
-          </div>
-          <ul className="inline clearfix text-end hidden-xsd">
-            <li className="no-bottom-margin">
-              <Link href="#">
-                <Image
-                  className="auto-width"
-                  src="/store/images/icons/amex.jpg"
-                  alt="Amex"
-                  width={40}
-                  height={25}
-                />
-              </Link>
-            </li>
-            <li className="no-bottom-margin">
-              <Link href="#">
-                <Image
-                  className="auto-width"
-                  src="/store/images/icons/discover.jpg"
-                  alt="Discover"
-                  width={40}
-                  height={25}
-                />
-              </Link>
-            </li>
-            <li className="no-bottom-margin">
-              <Link href="#">
-                <Image
-                  className="auto-width"
-                  src="/store/images/icons/visa.jpg"
-                  alt="Visa"
-                  width={40}
-                  height={25}
-                />
-              </Link>
-            </li>
-           { /*<li className="no-bottom-margin">
-              <Link href="#">
-                <Image
-                  className="auto-width"
-                  src="/store/images/icons/mastercard.jpg"
-                  alt="Mastercard"
-                  width={40}
-                  height={25}
-                />
-              </Link>
-            </li>*/}
-          </ul>
-        </div>
-      </footer>
-    </>
+      <div className="footer-bottom2">
+        <h4>POPULAR SEARCH</h4>
+        <p className="popular_search--p">
+          Gifts Under 1000 | Gifts for WomenLow Price Gift Items | Laptop Backpack for Women | Laptop Handbags for Women | Laptop Backpack | Laptop Cover | Small Handbags for Women| Handbags for Women | Office Handbags for Womens | Luggage Trolley Bags | Travel Bag for Women | Women's Clutch Wallet | Ladies Clutch Wallet | Stainless Steel Watch | Stainless Steel Watch Strap | Metal Strap Watches | Passport Holder | Passport Holder for Women | Crockery Set | Dining Table Accessories | Table Decoration Items | Home Decor Items | Home Decor Products | Home Decor | Wall Decor Items | Wrist Watches for Women | Smart Watch for Women | Ladies Smart Watch | Traveling Bags
+        </p>
+      </div>
+
+      <style>{`
+        .okab-footer {
+          width: 100%;
+          font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+          color: #111;
+          margin: 0;
+          padding: 0;
+          background: #8fb8a8;
+        }
+        .okab-footer h4 {
+          font-size: 14px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          margin: 0 0 14px 0;
+        }
+        .footer-top {
+          background: #8fb8a8 url("https://www.chumbak.com/cdn/shop/files/14_footer_d0d56a2f-2df7-41c0-a78b-25436a2cdabc.jpg?v=1695893379") no-repeat bottom center / 100% auto;
+          padding: 48px 120px 240px;
+        }
+        .footer-bottom {
+          background: #8fb8a8 url("https://www.chumbak.com/cdn/shop/files/gb.jpg?v=1712319238") no-repeat top center / 100% auto;
+          padding: 24px 120px 32px;
+        }
+        .footer-bottom2 {
+          background: #8fb8a8;
+          padding: 0 120px 36px;
+        }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 28px;
+        }
+        .footer-nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .footer-nav-list li {
+          margin: 0 0 8px 0;
+          font-size: 14px;
+          font-weight: 500;
+          color: #222;
+        }
+        .link-faded {
+          color: #222;
+          text-decoration: none;
+        }
+        .link-faded:hover {
+          text-decoration: underline;
+          opacity: 0.8;
+        }
+        .link-sep { color: #222; }
+        .popular_search--p {
+          font-size: 13px;
+          font-weight: 500;
+          color: #222;
+          line-height: 1.9;
+          margin: 0;
+        }
+
+        @media (max-width: 1200px) {
+          .footer-top,
+          .footer-bottom,
+          .footer-bottom2 { padding-left: 64px; padding-right: 64px; }
+          .footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .footer-top { padding-bottom: 200px; }
+        }
+        @media (max-width: 900px) {
+          .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .footer-top { padding-bottom: 180px; }
+        }
+        @media (max-width: 540px) {
+          .footer-grid { grid-template-columns: 1fr; }
+          .footer-top {
+            background-image: url("https://www.chumbak.com/cdn/shop/files/14--FOOTER-new.jpg?v=1696327172");
+            padding: 24px 20px 160px;
+            background-size: 100% auto;
+          }
+          .footer-bottom,
+          .footer-bottom2 { padding-left: 20px; padding-right: 20px; }
+        }
+      `}</style>
+    </footer>
   );
 }

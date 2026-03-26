@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -96,13 +96,13 @@ export default function WishlistPage() {
                             <tr key={item.id}>
                               <td className="product-name">
                                 <div className="product-thumbnail">
-                                   <Link href={`/product/${toSlug(title)}-${item.id}`}>
+                                   <Link href={`/shop/product/${toSlug(title)}`}>
                                      <img width={65} height={70} src={item.image || PLACEHOLDER}
                                        className="attachment-shop_thumbnail" alt={title} />
                                    </Link>
                                  </div>
                                  <div className="cart-item-details">
-                                   <h6><Link href={`/product/${toSlug(title)}-${item.id}`}>{title}</Link></h6>
+                                   <h6><Link href={`/shop/product/${toSlug(title)}`}>{title}</Link></h6>
                                  </div>
                               </td>
                               <td>${Number(price).toFixed(2)}</td>
@@ -115,7 +115,7 @@ export default function WishlistPage() {
                                 <a href="#" className="button mini fill uppercase"
                                   onClick={e => {
                                     e.preventDefault();
-                                    addItem({ id: item.id, title, price: Number(price), image: item.image, quantity: 1 });
+                                    addItem({ productId: item.id, title, price: Number(price), image: item.image, quantity: 1 });
                                   }}
                                   style={{ whiteSpace: 'nowrap' }}>
                                   ADD TO CART
@@ -157,3 +157,4 @@ export default function WishlistPage() {
     </>
   );
 }
+

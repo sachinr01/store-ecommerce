@@ -17,8 +17,6 @@ app.use('/store/admin/js', express.static(path.join(__dirname, 'public/js')));
 app.use('/store/admin/images', express.static(path.join(__dirname, 'public/images')));
 app.use('/store/admin/fonts', express.static(path.join(__dirname, 'public/fonts')));
 app.use('/store/admin/libs', express.static(path.join(__dirname, 'public/libs')));
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // ✅ Local paths working too
 app.use('/css', express.static(path.join(__dirname, 'public/css')));
@@ -27,43 +25,47 @@ app.use('/images', express.static(path.join(__dirname, 'public/images')));
 app.use('/fonts', express.static(path.join(__dirname, 'public/fonts')));
 app.use('/libs', express.static(path.join(__dirname, 'public/libs')));
 
-app.use(session({
+app.use('/store/admin', session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-// ✅ Auto pass admin session to all views
-app.use((req, res, next) => {
-    res.locals.admin = req.session.admin || null;
-    res.locals.basePath = process.env.BASE_PATH || '';
-    res.locals.currentRoute = req.path; // ✅ add this
-    next();
-});
+// ✅ basePath variable for EJS templates
+app.locals.basePath = process.env.BASE_PATH || '';
 
 const authRoutes  = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
-const productRoutes = require('./routes/productRoutes');
-const userRoutes = require('./routes/userRoutes');
 const apiRoutes   = require('./api/routes');
-const orderRoutes = require('./routes/orderRoutes');
 
-app.use('/store/admin', orderRoutes);
 app.use('/store/admin', authRoutes);
 app.use('/store/admin', adminRoutes);
-app.use('/store/admin', productRoutes);
-app.use('/store/admin', userRoutes);
 
-// CORS for frontend (Next.js on port 3001)
+// CORS for frontend
 app.use('/store/api', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3001');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    const allowed = [
+        process.env.FRONTEND_URL,
+        'https://test-kappa-one-90.vercel.app',
+        'http://localhost:3001',
+        'https://www.gaffis.org',
+        ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
+    ].filter(Boolean);
+    const origin = req.headers.origin;
+    if (origin && allowed.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
 });
 app.use('/store/api', apiRoutes);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

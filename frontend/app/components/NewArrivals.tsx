@@ -1,60 +1,47 @@
-import ProductCard from './ProductCard';
+import Link from 'next/link';
 
-export default function NewArrivals() {
-  const products = [
-    {
-      id: 1,
-      name: "Product Name Goes Here",
-      price: 149.99,
-      image: "https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/n/g/ngcpr-collection-karvy-stoneware-mug-52152101sd01063-7.jpg",
-      delay: 200
-    },
-    {
-      id: 2,
-      name: "Product Name Goes Here",
-      price: 124.99,
-      oldPrice: 249.99,
-      image: "https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/52152101SD01005/India-Circus-by-Krsnaa-Mehta-Vivacious-Vinca-Porcelain-Coffee-Mug-52152101SD01005-2.jpg",
-      onSale: true,
-      delay: 400
-    },
-    {
-      id: 3,
-      name: "Product Name Goes Here",
-      price: 189.99,
-      image: "https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/52152101SD00997/India-Circus-by-Krsnaa-Mehta-Jelling-Jaguars-Porcelain-Coffee-Mug-52152101SD00997-2.jpg",
-      delay: 600
-    },
-    {
-      id: 4,
-      name: "Product Name Goes Here",
-      price: 124.99,
-      oldPrice: 249.99,
-      image: "https://icmedianew.gumlet.io/pub/media/catalog/product/cache/f2d421546b83b64fb3f7a27d900ed3ed/52152101SD00991/India-Circus-by-Krsnaa-Mehta-Ample-Lilies-Porcelain-Coffee-Mug-52152101SD00991-2.jpg",
-      onSale: true,
-      delay: 800
-    }
+interface ProductItem { image: string; name: string; price: string; }
+
+function ProductGrid({ title, products }: { title: string; products: ProductItem[] }) {
+  return (
+    <div className="product-section">
+      <h2 className="section-title">{title}</h2>
+      <div className="product-grid">
+        {products.map((p, i) => (
+          <div key={i} className="product-card">
+            <div className="product-card-img-wrap">
+              <img src={p.image} alt={p.name} />
+            </div>
+            <p>{p.name}</p>
+            <strong>{p.price}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function NewlyLaunched() {
+  const newlyLaunched: ProductItem[] = [
+    { image: 'https://kixa-life.com/cdn/shop/files/tumbler25pink.jpg?v=1772957723&width=600',          name: '20oz Skinny Tumbler – Pink',       price: '$34.99' },
+    { image: 'https://kixa-life.com/cdn/shop/files/tumbler25skyblue.jpg?v=1772957736&width=600',       name: '20oz Skinny Tumbler – Sky Blue',   price: '$34.99' },
+    { image: 'https://kixa-life.com/cdn/shop/files/tumbler_25_candy_crush.jpg?v=1772957945&width=600', name: '20oz Skinny Tumbler – Candy Crush', price: '$34.99' },
+    { image: 'https://kixa-life.com/cdn/shop/files/tumbler25pink-blue.jpg?v=1772957729&width=600',     name: '20oz Skinny Tumbler – Pink Blue',   price: '$34.99' },
+  ];
+
+  const bestSellers: ProductItem[] = [
+    { image: 'https://kixa-life.com/cdn/shop/files/black-zaya.jpg?v=1772952422&width=600',   name: '26oz Flex Bottle – Black',  price: '$44.99' },
+    { image: 'https://kixa-life.com/cdn/shop/files/tumbler25pink.jpg?v=1772957723&width=600', name: '20oz Skinny Tumbler – Pink', price: '$34.99' },
+    { image: 'https://kixa-life.com/cdn/shop/files/bunny.jpg?v=1772987314&width=600',         name: 'Coffee Mug – Bunny',         price: '$12.00' },
+    { image: 'https://kixa-life.com/cdn/shop/files/candycrush-1.jpg?v=1771863755&width=600',  name: 'Decal – Candy Crush',        price: '$6.00'  },
   ];
 
   return (
-    <section className="section section-colored with-top-border" data-bg="#fafafa" id="team">
-      <div className="page-section-content overflow-hidden">
-        <div className="container text-center ">
-          <h2 data-animate="fadeInDown" data-delay="0">NEW ARRIVAL</h2>
-          <div className="topaz-line no-bottom-margin">
-            <i className="di-separator"></i>
-          </div>
-          <div className="clear-section"></div>
-          <div className="ok-row">
-            <div className="ok-md-12">
-              <ul className="rows ok-row  products-grids" id="rows">
-                {products.map(product => (
-                  <ProductCard key={product.id} {...product} />
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
+    <section className="home-section-alt">
+      <ProductGrid title="Newly Launched" products={newlyLaunched} />
+      <ProductGrid title="Best Sellers"   products={bestSellers} />
+      <div className="view-all-wrap">
+        <Link href="/shop" className="view-all-btn">View All Products</Link>
       </div>
     </section>
   );

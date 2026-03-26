@@ -7,9 +7,8 @@ import { ProductDetailsClient } from '../../product-details/page';
 function ProductBySlug() {
   const params = useParams();
   const slug = String(params?.slug ?? '');
-  const id = slug.split('-').pop();
 
-  return <ProductDetailsClient productId={id} />;
+  return <ProductDetailsClient productSlug={slug} />;
 }
 
 export default function ProductSlugPage() {
@@ -23,4 +22,3 @@ export default function ProductSlugPage() {
     </Suspense>
   );
 }
-
