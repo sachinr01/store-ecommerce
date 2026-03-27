@@ -32,15 +32,8 @@
               <div class="col-md-7 col-lg-12 col-xl-9">
                 <div>
                   <!-- ✅ Fixed image paths -->
-                  <span class="db"><img src="<%= basePath %>/images/logo-light-icon.png" alt="logo" /></span>
-                  <span class="db"><img src="<%= basePath %>/images/logo-light-text.png" alt="logo" /></span>
+                  <span class="db"><img src="<%= basePath %>/images/logo-white.png" class="w-100" alt="logo" /></span>
                 </div>
-                <h2 class="text-white mt-4 fw-light">
-                  Build <span class="font-medium">Fast & Responsive</span> Web Apps with Bootstrap 5
-                </h2>
-                <p class="op-5 text-white fs-4 mt-4">
-                  Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt.
-                </p>
               </div>
             </div>
           </div>
@@ -64,53 +57,11 @@
                 <div class="alert alert-success"><%= success %></div>
               <% } %>
 
-              <!-- Register Form -->
-              <div class="card" id="registerform" style="display:none;">
-                <div class="card-body">
-                  <h2>Sign Up Form</h2>
-                  <p class="text-muted fs-4">Enter given details for new account</p>
-                  <form class="form-horizontal mt-4 pt-4 needs-validation" novalidate
-                    action="/register" method="POST">
-                    <div class="form-floating mb-3">
-                      <input type="text" class="form-control form-input-bg"
-                        id="tb-rfname" name="name" placeholder="john deo" required />
-                      <label for="tb-rfname">Full Name</label>
-                      <div class="invalid-feedback">Full name is required</div>
-                    </div>
-                    <div class="form-floating mb-3">
-                      <input type="email" class="form-control form-input-bg"
-                        id="tb-remail" name="email" placeholder="john@gmail.com" required />
-                      <label for="tb-remail">Email</label>
-                      <div class="invalid-feedback">Email is required</div>
-                    </div>
-                    <div class="form-floating mb-3">
-                      <input type="password" class="form-control form-input-bg"
-                        id="text-rpassword" name="password" placeholder="*****" required />
-                      <label for="text-rpassword">Password</label>
-                      <div class="invalid-feedback">Password is required</div>
-                    </div>
-                    <div class="form-floating mb-3">
-                      <input type="password" class="form-control form-input-bg"
-                        id="text-rcpassword" name="confirm_password" placeholder="*****" required />
-                      <label for="text-rcpassword">Confirm Password</label>
-                      <div class="invalid-feedback">Password is required</div>
-                    </div>
-                    <div class="d-flex align-items-stretch button-group">
-                      <button type="submit" class="btn btn-info btn-lg px-4">Submit</button>
-                      <a href="javascript:void(0)" id="to-login2"
-                        class="btn btn-lg btn-light-secondary text-secondary font-medium">Cancel</a>
-                    </div>
-                  </form>
-                </div>
-              </div>
 
               <!-- ✅ Login Form — action points to POST /login -->
               <div class="card" id="loginform">
                 <div class="card-body">
                   <h2>Welcome to Admin</h2>
-                  <p class="text-muted fs-4">
-                    New Here? <a href="javascript:void(0)" id="to-register">Create an account</a>
-                  </p>
                   <form class="form-horizontal mt-4 pt-4 needs-validation" novalidate
                     action="/store/admin/login" method="POST">
                     <div class="form-floating mb-3">
@@ -136,14 +87,7 @@
                     </div>
                     <div class="d-flex align-items-stretch button-group mt-4 pt-2">
                       <button type="submit" class="btn btn-info btn-lg px-4">Sign in</button>
-                      <a href="javascript:void(0)"
-                        class="btn btn-lg btn-light-danger text-danger d-flex align-items-center justify-content-center font-medium">
-                        <i class="ri-google-fill fs-6 px-3"></i>
-                      </a>
-                      <a href="javascript:void(0)"
-                        class="btn btn-lg btn-light-info text-info d-flex align-items-center justify-content-center font-medium">
-                        <i class="ri-facebook-fill fs-6 px-3"></i>
-                      </a>
+                      
                     </div>
                   </form>
                 </div>
