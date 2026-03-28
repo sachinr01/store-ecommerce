@@ -44,13 +44,6 @@ export default function RootLayout({
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
         <div className="all_content" suppressHydrationWarning>
-          {/* Loading */}
-          <div className="dima-loading" suppressHydrationWarning>
-            <span className="loading-top"></span>
-            <span className="loading-bottom"></span>
-            <span className="spin-2"><p>LOADING</p></span>
-            <a href="#" className="load-close">X</a>
-          </div>
           <CartProvider>
             <AuthProvider>
               <WishlistProvider>

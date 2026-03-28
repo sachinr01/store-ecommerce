@@ -67,12 +67,28 @@ function validateBilling(billing) {
   return errors;
 }
 
-// Helper: insert one address row into tbl_user_address
-// Columns: user_id, order_id, address_type, address_primary,
-//          address_line1, address_line2, city, zipcode, state_name,
-//          city_id, state_id, country_id, address_notes,
-//          address_billing, latitude, longitude, created_at, updated_at, update_done
-async function insertAddress(conn, { userId, orderId, address, isBilling, createdAt }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// insertAddress helper
+//
+// address_primary → ALWAYS 'no' for order rows.
+//   Only set to 'yes' from profile/address-book page (like Amazon "Set as default").
+//
+// address_billing → identifies billing vs shipping ROW for this order:
+//   'yes' = billing address row
+//   'no'  = shipping address row
+//
+// Two types of rows in tbl_user_address:
+//   ORDER rows        → order_id = real ID, address_primary = 'no'
+//   SAVED ADDR rows   → order_id = NULL,    address_primary = 'yes'/'no'
+// ─────────────────────────────────────────────────────────────────────────────
+async function insertAddress(conn, {
+  userId,
+  orderId,
+  address,
+  isBilling,
+  createdAt,
+  notes = null,
+}) {
   await conn.query(
     `INSERT INTO tbl_user_address
      (user_id, order_id, address_type, address_primary,
@@ -80,26 +96,29 @@ async function insertAddress(conn, { userId, orderId, address, isBilling, create
       city_id, state_id, country_id, address_notes,
       address_billing, latitude, longitude, created_at, updated_at, update_done)
      VALUES
-     (?, ?, 'general', ?,
+     (?, ?, 'general', 'no',
       ?, ?, ?, ?, ?,
-      0, NULL, 226, NULL,
+      0, NULL, 226, ?,
       ?, '', '', ?, ?, 'no')`,
     [
-      userId,                        // user_id
-      orderId,                       // order_id
-      isBilling ? 'yes' : 'no',      // address_primary
-      address.line1  || '',          // address_line1
-      address.line2  || '',          // address_line2
-      address.city   || '',          // city
-      address.zip    || '',          // zipcode
-      address.state  || '',          // state_name
-      isBilling ? 'yes' : 'no',      // address_billing
-      createdAt,                     // created_at
-      createdAt,                     // updated_at
+      userId,                    // user_id
+      orderId,                   // order_id  (always a real ID for order rows)
+      address.line1 || '',       // address_line1
+      address.line2 || '',       // address_line2
+      address.city  || '',       // city
+      address.zip   || '',       // zipcode
+      address.state || '',       // state_name
+      notes,                     // address_notes
+      isBilling ? 'yes' : 'no', // address_billing → 'yes'=billing, 'no'=shipping
+      createdAt,                 // created_at
+      createdAt,                 // updated_at
     ]
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// placeOrder
+// ─────────────────────────────────────────────────────────────────────────────
 const placeOrder = async (req, res) => {
   const user          = getSessionUser(req);
   const userId        = user ? user.id : 0;
@@ -109,17 +128,22 @@ const placeOrder = async (req, res) => {
   const shipping      = sanitizeShipping(req.body.shipping, billing);
   const paymentMethod = toStr(req.body.payment_method) || 'cod';
   const shippingCost  = toAmount(req.body.shipping_cost || 0);
+  const orderNotes    = toStr(req.body.notes) || null;
 
   const billingErrors = validateBilling(billing);
   if (Object.keys(billingErrors).length) {
-    return res.status(400).json({ success: false, message: 'Invalid billing details.', errors: billingErrors });
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid billing details.',
+      errors: billingErrors,
+    });
   }
 
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
 
-    // ── Cart items ────────────────────────────────────────────────────────────
+    // ── 1. Fetch cart items ───────────────────────────────────────────────────
     let cartItems;
     if (userId) {
       [cartItems] = await conn.query(
@@ -143,16 +167,17 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cart is empty.' });
     }
 
+    // ── 2. Calculate totals ───────────────────────────────────────────────────
     const subtotal = cartItems.reduce(
       (sum, item) => sum + toAmount(item.price) * Number(item.quantity || 0), 0
     );
     const total    = subtotal + shippingCost;
     const currency = process.env.ORDER_CURRENCY || process.env.CURRENCY || 'INR';
 
+    // ── 3. Insert into tbl_orders ─────────────────────────────────────────────
     const orderName  = buildOrderName();
     const orderTitle = `Order - ${new Date().toLocaleString()}`;
 
-    // ── tbl_orders ────────────────────────────────────────────────────────────
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
@@ -162,7 +187,10 @@ const placeOrder = async (req, res) => {
     );
     const orderId = orderResult.insertId;
 
-    // ── tbl_ordermeta: financial + payment ONLY ───────────────────────────────
+    // ── 4. tbl_ordermeta: financial + payment data ONLY ──────────────────────
+    //    NO address, NO contact info here
+    //    name/email  → tbl_users via user_id
+    //    address     → tbl_user_address via order_id
     const metaEntries = [
       ['_customer_user',  userId],
       ['_payment_method', paymentMethod],
@@ -181,15 +209,24 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    // ── tbl_user_address: billing row (address_billing = 'yes') ──────────────
+    // ── 5. tbl_user_address: always 2 rows per order ─────────────────────────
+    //    Whether user used saved address or typed new address — always insert fresh.
+    //    Saved address (order_id = NULL) is just a template to pre-fill the form.
+    //    Order rows always get a real order_id.
+    //
+    //    address_primary = 'no' always for order rows
+    //    address_billing = 'yes' → billing row
+    //    address_billing = 'no'  → shipping row
     const addressUserId = userId > 0 ? userId : null;
     const createdAt     = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+    // Billing address row
     await insertAddress(conn, {
-      userId: addressUserId,
+      userId:    addressUserId,
       orderId,
       isBilling: true,
       createdAt,
+      notes:     orderNotes,
       address: {
         line1: billing.address,
         line2: billing.address_2,
@@ -199,12 +236,13 @@ const placeOrder = async (req, res) => {
       },
     });
 
-    // ── tbl_user_address: shipping row (address_billing = 'no') ──────────────
+    // Shipping address row
     await insertAddress(conn, {
-      userId: addressUserId,
+      userId:    addressUserId,
       orderId,
       isBilling: false,
       createdAt,
+      notes:     null,
       address: {
         line1: shipping.address,
         line2: shipping.address_2,
@@ -214,7 +252,7 @@ const placeOrder = async (req, res) => {
       },
     });
 
-    // ── tbl_order_items ───────────────────────────────────────────────────────
+    // ── 6. tbl_order_items + tbl_order_itemmeta ───────────────────────────────
     for (const item of cartItems) {
       const [itemResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -248,7 +286,7 @@ const placeOrder = async (req, res) => {
       }
     }
 
-    // ── Shipping cost line ────────────────────────────────────────────────────
+    // ── 7. Shipping cost line item ────────────────────────────────────────────
     if (shippingCost > 0) {
       const [shipResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -261,7 +299,7 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    // ── Clear cart ────────────────────────────────────────────────────────────
+    // ── 8. Clear cart ─────────────────────────────────────────────────────────
     if (userId) {
       await conn.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
     } else if (key === 'cookie_id') {
@@ -282,6 +320,101 @@ const placeOrder = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getDefaultAddress
+// Pre-fills checkout form with user's default saved address.
+// Only looks at saved address rows (order_id IS NULL).
+// Frontend: GET /store/api/address/default
+// ─────────────────────────────────────────────────────────────────────────────
+const getDefaultAddress = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  try {
+    const [[address]] = await db.query(
+      `SELECT * FROM tbl_user_address
+       WHERE user_id = ? AND order_id IS NULL AND address_primary = 'yes'
+       ORDER BY address_id DESC LIMIT 1`,
+      [user.id]
+    );
+    res.json({ success: true, data: address || null });
+  } catch (err) {
+    console.error('getDefaultAddress error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load default address.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setDefaultAddress
+// User sets a saved address as default from profile/address-book page.
+// Only touches saved address rows (order_id IS NULL).
+// Order rows are never affected.
+// Frontend: PUT /store/api/address/default/:addressId
+// ─────────────────────────────────────────────────────────────────────────────
+const setDefaultAddress = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  const addressId = Number.parseInt(req.params.addressId, 10);
+  if (!addressId) {
+    return res.status(400).json({ success: false, message: 'Invalid address id.' });
+  }
+  try {
+    // Step 1: Remove default from all saved addresses only (NOT order rows)
+    await db.query(
+      `UPDATE tbl_user_address
+       SET address_primary = 'no'
+       WHERE user_id = ? AND order_id IS NULL`,
+      [user.id]
+    );
+    // Step 2: Set selected saved address as default
+    await db.query(
+      `UPDATE tbl_user_address
+       SET address_primary = 'yes'
+       WHERE address_id = ? AND user_id = ? AND order_id IS NULL`,
+      [addressId, user.id]
+    );
+    res.json({ success: true, message: 'Default address updated.' });
+  } catch (err) {
+    console.error('setDefaultAddress error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update default address.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getSavedAddresses
+// Returns only saved address-book rows (order_id IS NULL).
+// Order rows are excluded — they are fetched via getMyOrderById.
+// Frontend: GET /store/api/address/saved
+// ─────────────────────────────────────────────────────────────────────────────
+const getSavedAddresses = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  try {
+    const [addresses] = await db.query(
+      `SELECT address_id, address_type, address_primary,
+              address_line1, address_line2, city, zipcode,
+              state_name, address_notes, address_billing
+       FROM tbl_user_address
+       WHERE user_id = ? AND order_id IS NULL
+       ORDER BY address_primary DESC, address_id DESC`,
+      [user.id]
+    );
+    res.json({ success: true, data: addresses });
+  } catch (err) {
+    console.error('getSavedAddresses error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load addresses.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getMyOrders
+// Frontend: GET /store/api/orders/my
+// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrders = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -290,8 +423,8 @@ const getMyOrders = async (req, res) => {
   try {
     const [orders] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status) AS order_status,
-              MAX(o.order_date)   AS order_date,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
               MAX(om_total.meta_value) AS total,
               GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
        FROM tbl_orders o
@@ -311,14 +444,19 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getAllOrders (admin)
+// Frontend: GET /store/api/admin/orders
+// ─────────────────────────────────────────────────────────────────────────────
 const getAllOrders = async (_req, res) => {
   try {
     const [orders] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status) AS order_status,
-              MAX(o.order_date)   AS order_date,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
               MAX(om_total.meta_value) AS total,
-              MAX(u.user_email)   AS billing_email,
+              MAX(u.user_email)        AS billing_email,
+              MAX(u.display_name)      AS customer_name,
               GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
        FROM tbl_orders o
        LEFT JOIN tbl_users u ON u.ID = o.user_id
@@ -337,6 +475,13 @@ const getAllOrders = async (_req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getMyOrderById
+// name/email  → tbl_users via user_id        (sir's instruction)
+// address     → tbl_user_address via order_id (sir's instruction)
+// financials  → tbl_ordermeta
+// Frontend: GET /store/api/orders/:orderId
+// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrderById = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -348,9 +493,6 @@ const getMyOrderById = async (req, res) => {
   }
 
   try {
-    // name/email → tbl_users (via user_id) — sir's instruction
-    // address    → tbl_user_address (via order_id)
-    // financials → tbl_ordermeta
     const [orderRows] = await db.query(
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
@@ -366,6 +508,7 @@ const getMyOrderById = async (req, res) => {
               MAX(ub.city)             AS billing_city,
               MAX(ub.state_name)       AS billing_state,
               MAX(ub.zipcode)          AS billing_postcode,
+              MAX(ub.address_notes)    AS billing_notes,
               MAX(us.address_line1)    AS ship_address_1,
               MAX(us.address_line2)    AS ship_address_2,
               MAX(us.city)             AS ship_city,
@@ -379,7 +522,8 @@ const getMyOrderById = async (req, res) => {
                 MAX(address_line2) AS address_line2,
                 MAX(city)          AS city,
                 MAX(state_name)    AS state_name,
-                MAX(zipcode)       AS zipcode
+                MAX(zipcode)       AS zipcode,
+                MAX(address_notes) AS address_notes
          FROM tbl_user_address
          WHERE address_billing = 'yes'
          GROUP BY order_id
@@ -436,6 +580,10 @@ const getMyOrderById = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// updateOrderStatus (admin)
+// Frontend: PUT /store/api/admin/orders/:orderId/status
+// ─────────────────────────────────────────────────────────────────────────────
 const updateOrderStatus = async (req, res) => {
   const orderId = Number.parseInt(req.params.orderId, 10);
   const status  = toStr(req.body.status);
@@ -460,4 +608,7 @@ module.exports = {
   getMyOrderById,
   getAllOrders,
   updateOrderStatus,
+  getDefaultAddress,
+  setDefaultAddress,
+  getSavedAddresses,
 };

@@ -11,42 +11,54 @@ const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddl
 router.use(guestCookieMiddleware());
 router.use(sessionMiddleware());
 
-// Debug
+// ── Health ────────────────────────────────────────────────────────────────────
 router.get('/health', (_req, res) => res.json({ success: true, message: 'API is running' }));
 
-// Product listing endpoints
-router.get('/products/featured',      ctrl.getFeaturedProducts);
-router.get('/products/on-sale',       ctrl.getOnSaleProducts);
-router.get('/products',               ctrl.getProducts);
-router.get('/products/slug/:slug',    ctrl.getProductBySlug);
-router.get('/products/:id',           ctrl.getProduct);
+// ── Products ──────────────────────────────────────────────────────────────────
+router.get('/products/featured',   ctrl.getFeaturedProducts);
+router.get('/products/on-sale',    ctrl.getOnSaleProducts);
+router.get('/products',            ctrl.getProducts);
+router.get('/products/slug/:slug', ctrl.getProductBySlug);
+router.get('/products/:id',        ctrl.getProduct);
 
-// Attribute endpoints
-router.get('/attributes/colors',  ctrl.getColors);
-router.get('/attributes/all',     ctrl.getAllAttributeGroups);
-router.get('/attributes/:taxonomy', ctrl.getAttributesByTaxonomy);
+// ── Attributes ────────────────────────────────────────────────────────────────
+router.get('/attributes/colors',     ctrl.getColors);
+router.get('/attributes/all',        ctrl.getAllAttributeGroups);
+router.get('/attributes/:taxonomy',  ctrl.getAttributesByTaxonomy);
 
-// Auth endpoints
+// ── Auth ──────────────────────────────────────────────────────────────────────
 router.post('/auth/register', auth.register);
 router.post('/auth/login',    auth.login);
 router.post('/auth/logout',   auth.logout);
 router.get('/auth/me',        auth.me);
 
-// Cart endpoints
-router.get('/cart',                cart.getCart);
-router.post('/cart/add',           cart.addToCart);
-router.put('/cart/update/:itemId', cart.updateCartItem);
+// ── Cart ──────────────────────────────────────────────────────────────────────
+router.get('/cart',                   cart.getCart);
+router.post('/cart/add',              cart.addToCart);
+router.put('/cart/update/:itemId',    cart.updateCartItem);
 router.delete('/cart/remove/:itemId', cart.removeCartItem);
-router.delete('/cart/clear',       cart.clearCart);
+router.delete('/cart/clear',          cart.clearCart);
 
-// Order endpoints
-router.post('/orders/place',       orders.placeOrder);
-router.get('/orders/my',           requireLogin, orders.getMyOrders);
-router.get('/orders/:orderId',     requireLogin, orders.getMyOrderById);
+// ── Orders ────────────────────────────────────────────────────────────────────
+// NOTE: /orders/my MUST come before /orders/:orderId to avoid route conflict
+router.post('/orders/place',      orders.placeOrder);
+router.get('/orders/my',          requireLogin, orders.getMyOrders);
+router.get('/orders/:orderId',    requireLogin, orders.getMyOrderById);
 
-// Admin/Agent endpoints
-router.get('/admin/orders',        requireAdmin, orders.getAllOrders);
-router.put('/admin/orders/:orderId/status', requireAdmin, orders.updateOrderStatus);
-router.get('/agent/orders',        requireAgentOrAdmin, orders.getAllOrders);
+// ── Address Book ──────────────────────────────────────────────────────────────
+// These routes only work with saved addresses (order_id IS NULL rows).
+// Order addresses are always fetched via /orders/:orderId — never here.
+//
+// GET  /address/default           → fetch default saved address (pre-fill checkout form)
+// PUT  /address/default/:addressId → set a saved address as default (from profile page)
+// GET  /address/saved             → all saved addresses for address book page
+router.get('/address/default',              requireLogin, orders.getDefaultAddress);
+router.put('/address/default/:addressId',   requireLogin, orders.setDefaultAddress);
+router.get('/address/saved',               requireLogin, orders.getSavedAddresses);
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+router.get('/admin/orders',                     requireAdmin,        orders.getAllOrders);
+router.put('/admin/orders/:orderId/status',     requireAdmin,        orders.updateOrderStatus);
+router.get('/agent/orders',                     requireAgentOrAdmin, orders.getAllOrders);
 
 module.exports = router;
