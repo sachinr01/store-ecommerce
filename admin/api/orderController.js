@@ -1,4 +1,7 @@
 const db = require('../config/db');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { getSessionUser } = require('./session');
 const { getCartIdentity } = require('./cartController');
 
@@ -16,6 +19,92 @@ const toInt = (val, fallback = 0) => {
   const n = Number.parseInt(val, 10);
   return Number.isFinite(n) ? n : fallback;
 };
+
+const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '';
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'rupeshmutkule2005@gmail.com';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'COFFR';
+const BREVO_LOGO_URL = process.env.BREVO_LOGO_URL || '';
+const DEFAULT_LOGO_PATH = path.join(__dirname, '..', '..', 'frontend', 'public', 'images', 'logo-white.png');
+
+let cachedLogoDataUri = '';
+
+function formatMoney(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '0.00';
+  return value.toFixed(2);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getLogoDataUri() {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  const logoPath = process.env.BREVO_LOGO_PATH || process.env.LOGO_PATH || DEFAULT_LOGO_PATH;
+  try {
+    if (!fs.existsSync(logoPath)) return '';
+    const buffer = fs.readFileSync(logoPath);
+    cachedLogoDataUri = `data:image/png;base64,${buffer.toString('base64')}`;
+    return cachedLogoDataUri;
+  } catch (err) {
+    console.error('Failed to load logo for email:', err);
+    return '';
+  }
+}
+
+async function sendBrevoEmail({ toEmail, toName, subject, html }) {
+  if (!BREVO_API_KEY) {
+    console.warn('Brevo API key missing. Set BREVO_API_KEY in environment.');
+    return false;
+  }
+
+  const payload = JSON.stringify({
+    sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+    to: [{ email: toEmail, name: toName || toEmail }],
+    subject,
+    htmlContent: html,
+  });
+
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        method: 'POST',
+        hostname: 'api.brevo.com',
+        path: '/v3/smtp/email',
+        headers: {
+          'api-key': BREVO_API_KEY,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(true);
+          } else {
+            console.error('Brevo send failed:', res.statusCode, body);
+            resolve(false);
+          }
+        });
+      }
+    );
+
+    req.on('error', (err) => {
+      console.error('Brevo send error:', err);
+      resolve(false);
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
 
 function buildOrderName() {
   const now = new Date();
@@ -309,7 +398,163 @@ const placeOrder = async (req, res) => {
     }
 
     await conn.commit();
-    res.json({ success: true, data: { orderId, total: total.toFixed(2) } });
+
+    let emailSent = false;
+    try {
+      const toEmail = billing.email;
+      const toName = `${billing.first_name} ${billing.last_name}`.trim();
+      const frontendBase = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+      const isLocalHost = /localhost|127\.0\.0\.1/.test(frontendBase);
+      let logoSrc = '';
+      if (BREVO_LOGO_URL) {
+        logoSrc = BREVO_LOGO_URL;
+      } else if (frontendBase && !isLocalHost) {
+        logoSrc = `${frontendBase}/store/images/logo-white.png`;
+      } else {
+        logoSrc = getLogoDataUri();
+      }
+      const itemRows = cartItems.map(item => {
+        const title = escapeHtml(item.title || 'Item');
+        const qty = Number(item.quantity || 0);
+        const price = toAmount(item.price);
+        const lineTotal = price * qty;
+        return `
+          <tr>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; font-size:14px;">${title}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:center; font-size:14px;">${qty}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(price)}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(lineTotal)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const billingBlock = `${escapeHtml(billing.address)}${billing.address_2 ? `, ${escapeHtml(billing.address_2)}` : ''}, ${escapeHtml(billing.city)}, ${escapeHtml(billing.state)} ${escapeHtml(billing.postcode)}, ${escapeHtml(billing.country)}`;
+      const shippingBlock = `${escapeHtml(shipping.address)}${shipping.address_2 ? `, ${escapeHtml(shipping.address_2)}` : ''}, ${escapeHtml(shipping.city)}, ${escapeHtml(shipping.state)} ${escapeHtml(shipping.postcode)}, ${escapeHtml(shipping.country)}`;
+      const orderDate = new Date().toLocaleString();
+
+      const emailHtml = `
+        <div style="margin:0; padding:0; background:#f5efe8;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5efe8; padding:28px 0;">
+            <tr>
+              <td align="center">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eadfce;">
+                  <tr>
+                    <td style="background:linear-gradient(135deg,#161616,#2c1f14); padding:22px 26px; text-align:left;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td>
+                            ${logoSrc ? `<img src="${logoSrc}" alt="COFFR" style="height:40px; width:auto; display:block;" />` : `<div style="color:#fff; font-size:20px; letter-spacing:2px; font-weight:700;">COFFR</div>`}
+                          </td>
+                          <td style="text-align:right; color:#fff; font-family: Arial, sans-serif; font-size:12px;">
+                            <div style="opacity:0.85;">Order Confirmed</div>
+                            <div style="font-size:14px; font-weight:700;">#${orderId}</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:24px 28px; font-family: Arial, sans-serif; color:#1b1b1b;">
+                      <h2 style="margin:0 0 8px; font-size:22px; color:#1b1b1b;">Thank you for your order!</h2>
+                      <p style="margin:0 0 6px; color:#4c4c4c;">Hi ${escapeHtml(toName || 'there')},</p>
+                      <p style="margin:0 0 18px; color:#4c4c4c;">We’ve received your order and it’s now being processed.</p>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+                        <tr>
+                          <td style="background:#faf6f0; border:1px solid #efe5d8; border-radius:10px; padding:14px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                              <tr>
+                                <td style="font-size:12px; color:#777;">Order Date</td>
+                                <td style="font-size:12px; color:#777; text-align:right;">Payment</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:14px; font-weight:700; color:#222;">${escapeHtml(orderDate)}</td>
+                                <td style="font-size:14px; font-weight:700; color:#222; text-align:right;">${escapeHtml(paymentMethod.toUpperCase())}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse; margin:0 0 18px; border:1px solid #efe5d8; border-radius:10px; overflow:hidden;">
+                        <thead>
+                          <tr style="background:#faf6f0;">
+                            <th style="text-align:left; font-size:12px; padding:10px 12px; color:#6b5b4b;">Item</th>
+                            <th style="text-align:center; font-size:12px; padding:10px 12px; color:#6b5b4b;">Qty</th>
+                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Price</th>
+                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${itemRows}
+                        </tbody>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+                        <tr>
+                          <td style="background:#111; color:#fff; border-radius:10px; padding:14px 16px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                              <tr>
+                                <td style="font-size:13px; opacity:0.8;">Subtotal</td>
+                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(subtotal)}</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:13px; opacity:0.8;">Shipping</td>
+                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(shippingCost)}</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:16px; font-weight:700; padding-top:8px;">Order Total</td>
+                                <td style="font-size:16px; font-weight:700; text-align:right; padding-top:8px;">₹${formatMoney(total)}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 10px;">
+                        <tr>
+                          <td style="width:50%; padding-right:10px; vertical-align:top;">
+                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
+                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Billing Address</div>
+                              <div style="font-size:13px; color:#222; line-height:1.5;">${billingBlock}</div>
+                            </div>
+                          </td>
+                          <td style="width:50%; padding-left:10px; vertical-align:top;">
+                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
+                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Shipping Address</div>
+                              <div style="font-size:13px; color:#222; line-height:1.5;">${shippingBlock}</div>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style="margin:14px 0 0; color:#555;">We’ll notify you once your order ships.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#f8f3ee; padding:14px 24px; text-align:center; font-family: Arial, sans-serif; font-size:12px; color:#7a6b5c;">
+                      Thank you for choosing COFFR
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      emailSent = await sendBrevoEmail({
+        toEmail,
+        toName,
+        subject: `Order Confirmed - #${orderId}`,
+        html: emailHtml,
+      });
+    } catch (emailErr) {
+      console.error('Order email error:', emailErr);
+    }
+
+    res.json({ success: true, data: { orderId, total: total.toFixed(2), emailSent } });
 
   } catch (err) {
     await conn.rollback();
