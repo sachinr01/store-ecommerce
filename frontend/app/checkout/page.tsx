@@ -194,6 +194,44 @@ export default function CheckoutPage() {
         .checkout-order-meta span { display: block; font-size: 12px; color: #777; margin-top: 4px; }
         .checkout-order-price { font-weight: 700; font-size: 14px; color: #222; }
         .checkout-cta { margin: 18px 0; }
+        .checkout-page .field > label:not(.checkout-toggle-label) { display: none; }
+        .checkout-page .field input,
+        .checkout-page .field select,
+        .checkout-page .field textarea {
+          font-size: 13px;
+          padding: 8px 12px;
+          border-radius: 4px;
+        }
+        .checkout-page .field input,
+        .checkout-page .field select {
+          height: 40px;
+        }
+        .checkout-page .field textarea {
+          min-height: 80px;
+        }
+        .checkout-page input.checkbox {
+          width: 14px;
+          height: 14px;
+          min-width: 14px;
+          min-height: 14px;
+          margin: 0;
+          border: 1px solid #cfc7bb;
+          border-radius: 0;
+          background: #fff;
+          appearance: none;
+          -webkit-appearance: none;
+          display: inline-block;
+          vertical-align: middle;
+        }
+        .checkout-page input.checkbox:checked {
+          background: #0db19a;
+          border-color: #0db19a;
+          box-shadow: inset 0 0 0 2px #fff;
+        }
+        .checkout-toggle-label,
+        .checkout-terms label {
+          gap: 6px;
+        }
         .checkout-section-title { margin: 0 0 16px; font-size: 24px; font-weight: 700; color: #1a1a1a; }
         .checkout-subsection-title { margin: 26px 0 14px; font-size: 22px; font-weight: 700; color: #1a1a1a; }
         .checkout-inline-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -304,24 +342,24 @@ export default function CheckoutPage() {
                     <div className="checkout-inline-row">
                       <div className="field">
                         <label className="required">First Name</label>
-                        <input type="text" placeholder="First Name" value={form.firstName} onChange={set('firstName')} />
+                        <input type="text" placeholder="First Name *" value={form.firstName} onChange={set('firstName')} aria-label="First Name" />
                         {errors.firstName && <span style={errStyle}>{errors.firstName}</span>}
                       </div>
                       <div className="field">
                         <label className="required">Last Name</label>
-                        <input type="text" placeholder="Last Name" value={form.lastName} onChange={set('lastName')} />
+                        <input type="text" placeholder="Last Name *" value={form.lastName} onChange={set('lastName')} aria-label="Last Name" />
                         {errors.lastName && <span style={errStyle}>{errors.lastName}</span>}
                       </div>
                     </div>
                     <div className="field">
                       <label className="required">Email Address</label>
-                      <input type="email" placeholder="Email Address" value={form.email} onChange={set('email')} />
+                      <input type="email" placeholder="Email Address *" value={form.email} onChange={set('email')} aria-label="Email Address" />
                       {errors.email && <span style={errStyle}>{errors.email}</span>}
                     </div>
                     <div className="checkout-inline-row">
                       <div className="field">
                         <label className="required">Mobile</label>
-                        <input type="tel" placeholder="Phone" value={form.phone} onChange={set('phone')} />
+                        <input type="tel" placeholder="Mobile *" value={form.phone} onChange={set('phone')} aria-label="Mobile" />
                         {errors.phone && <span style={errStyle}>{errors.phone}</span>}
                       </div>
                       <div className="field" style={{ display: 'flex', alignItems: 'center', color: '#666', fontSize: 13 }}>
@@ -330,7 +368,7 @@ export default function CheckoutPage() {
                     </div>
                     <div className="field">
                       <label className="checkout-toggle-label">
-                        <input className="checkbox" type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} />
+                        <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
                         Create an account?
                       </label>
                     </div>
@@ -351,56 +389,56 @@ export default function CheckoutPage() {
                     <h4 className="checkout-subsection-title">Shipping Address</h4>
                     <div className="field">
                       <label className="required">Country</label>
-                      <select className="orderby" value={form.country} onChange={set('country')}>
-                        <option value="">Select a country...</option>
+                      <select className="orderby" value={form.country} onChange={set('country')} aria-label="Country">
+                        <option value="">Country *</option>
                         {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div className="checkout-inline-row">
                       <div className="field">
                         <label className="required">First Name</label>
-                        <input type="text" placeholder="First Name" value={form.firstName} onChange={set('firstName')} />
+                        <input type="text" placeholder="First Name *" value={form.firstName} onChange={set('firstName')} aria-label="Shipping First Name" />
                         {errors.firstName && <span style={errStyle}>{errors.firstName}</span>}
                       </div>
                       <div className="field">
                         <label className="required">Last Name</label>
-                        <input type="text" placeholder="Last Name" value={form.lastName} onChange={set('lastName')} />
+                        <input type="text" placeholder="Last Name *" value={form.lastName} onChange={set('lastName')} aria-label="Shipping Last Name" />
                         {errors.lastName && <span style={errStyle}>{errors.lastName}</span>}
                       </div>
                     </div>
                     <div className="field">
                       <label>Company Name</label>
-                      <input type="text" placeholder="Company Name (optional)" value={form.company} onChange={set('company')} />
+                      <input type="text" placeholder="Company Name (optional)" value={form.company} onChange={set('company')} aria-label="Company Name" />
                     </div>
                     <div className="field">
                       <label className="required">Address</label>
-                      <input type="text" placeholder="Street address" value={form.address} onChange={set('address')} />
+                      <input type="text" placeholder="Address *" value={form.address} onChange={set('address')} aria-label="Address" />
                       {errors.address && <span style={errStyle}>{errors.address}</span>}
                     </div>
                     <div className="field">
-                      <input type="text" placeholder="Apartment, suite, unit etc. (optional)" value={form.address2} onChange={set('address2')} />
+                      <input type="text" placeholder="Apartment, suite, unit etc. (optional)" value={form.address2} onChange={set('address2')} aria-label="Address line 2" />
                     </div>
                     <div className="field">
                       <label className="required">Town / City</label>
-                      <input type="text" placeholder="Town / City" value={form.city} onChange={set('city')} />
+                      <input type="text" placeholder="Town / City *" value={form.city} onChange={set('city')} aria-label="Town / City" />
                       {errors.city && <span style={errStyle}>{errors.city}</span>}
                     </div>
                     <div className="checkout-inline-row">
                       <div className="field">
                         <label className="required">State / County</label>
-                        <input type="text" placeholder="State / County" value={form.state} onChange={set('state')} />
+                        <input type="text" placeholder="State / County *" value={form.state} onChange={set('state')} aria-label="State / County" />
                         {errors.state && <span style={errStyle}>{errors.state}</span>}
                       </div>
                       <div className="field">
                         <label className="required">Postcode / Zip</label>
-                        <input type="text" placeholder="Postcode / Zip" value={form.zip} onChange={set('zip')} />
+                        <input type="text" placeholder="Postcode / Zip *" value={form.zip} onChange={set('zip')} aria-label="Postcode / Zip" />
                         {errors.zip && <span style={errStyle}>{errors.zip}</span>}
                       </div>
                     </div>
 
                     <div className="field">
                       <label className="checkout-toggle-label">
-                        <input className="checkbox" type="checkbox" checked={shipToDifferent} onChange={(e) => setShipToDifferent(e.target.checked)} />
+                        <input type="checkbox" checked={shipToDifferent} onChange={(e) => setShipToDifferent(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
                         Bill to a different address
                       </label>
                     </div>
@@ -409,49 +447,49 @@ export default function CheckoutPage() {
                         <h5 style={{ marginBottom: 12 }}>Billing Address</h5>
                         <div className="field">
                           <label>Country</label>
-                          <select className="orderby" value={form.sCountry} onChange={set('sCountry')}>
-                            <option value="">Select a country...</option>
+                          <select className="orderby" value={form.sCountry} onChange={set('sCountry')} aria-label="Billing Country">
+                            <option value="">Country *</option>
                             {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </div>
                         <div className="checkout-inline-row">
                           <div className="field">
                             <label className="required">First Name</label>
-                            <input type="text" placeholder="First Name" value={form.sFirstName} onChange={set('sFirstName')} />
+                            <input type="text" placeholder="First Name *" value={form.sFirstName} onChange={set('sFirstName')} aria-label="Billing First Name" />
                             {errors.sFirstName && <span style={errStyle}>{errors.sFirstName}</span>}
                           </div>
                           <div className="field">
                             <label className="required">Last Name</label>
-                            <input type="text" placeholder="Last Name" value={form.sLastName} onChange={set('sLastName')} />
+                            <input type="text" placeholder="Last Name *" value={form.sLastName} onChange={set('sLastName')} aria-label="Billing Last Name" />
                             {errors.sLastName && <span style={errStyle}>{errors.sLastName}</span>}
                           </div>
                         </div>
                         <div className="field">
                           <label>Company Name</label>
-                          <input type="text" placeholder="Company Name" value={form.sCompany} onChange={set('sCompany')} />
+                          <input type="text" placeholder="Company Name (optional)" value={form.sCompany} onChange={set('sCompany')} aria-label="Billing Company Name" />
                         </div>
                         <div className="field">
                           <label className="required">Address</label>
-                          <input type="text" placeholder="Street address" value={form.sAddress} onChange={set('sAddress')} />
+                          <input type="text" placeholder="Address *" value={form.sAddress} onChange={set('sAddress')} aria-label="Billing Address" />
                           {errors.sAddress && <span style={errStyle}>{errors.sAddress}</span>}
                         </div>
                         <div className="field">
-                          <input type="text" placeholder="Apartment, suite, unit etc. (optional)" value={form.sAddress2} onChange={set('sAddress2')} />
+                          <input type="text" placeholder="Apartment, suite, unit etc. (optional)" value={form.sAddress2} onChange={set('sAddress2')} aria-label="Billing Address line 2" />
                         </div>
                         <div className="field">
                           <label className="required">Town / City</label>
-                          <input type="text" placeholder="Town / City" value={form.sCity} onChange={set('sCity')} />
+                          <input type="text" placeholder="Town / City *" value={form.sCity} onChange={set('sCity')} aria-label="Billing Town / City" />
                           {errors.sCity && <span style={errStyle}>{errors.sCity}</span>}
                         </div>
                         <div className="checkout-inline-row">
                           <div className="field">
                             <label className="required">State / County</label>
-                            <input type="text" placeholder="State / County" value={form.sState} onChange={set('sState')} />
+                            <input type="text" placeholder="State / County *" value={form.sState} onChange={set('sState')} aria-label="Billing State / County" />
                             {errors.sState && <span style={errStyle}>{errors.sState}</span>}
                           </div>
                           <div className="field">
                             <label className="required">Postcode / Zip</label>
-                            <input type="text" placeholder="Postcode / Zip" value={form.sZip} onChange={set('sZip')} />
+                            <input type="text" placeholder="Postcode / Zip *" value={form.sZip} onChange={set('sZip')} aria-label="Billing Postcode / Zip" />
                             {errors.sZip && <span style={errStyle}>{errors.sZip}</span>}
                           </div>
                         </div>
@@ -460,7 +498,7 @@ export default function CheckoutPage() {
 
                     <div className="field last">
                       <label>Order Notes</label>
-                      <textarea rows={4} placeholder="Notes about your order, e.g. special notes for delivery." value={form.notes} onChange={set('notes')} />
+                      <textarea rows={4} placeholder="Order notes (optional)" value={form.notes} onChange={set('notes')} aria-label="Order Notes" />
                     </div>
                   </div>
 
@@ -578,7 +616,7 @@ export default function CheckoutPage() {
 
                           <div className="field checkout-terms">
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                              <input className="checkbox" type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
+                              <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
                               <span>I&apos;ve read and accept the <a href="#">terms &amp; conditions</a></span>
                             </label>
                             {errors.terms && <span style={{ ...errStyle, display: 'block', marginTop: 4 }}>{errors.terms}</span>}
