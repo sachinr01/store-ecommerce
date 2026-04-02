@@ -6,17 +6,17 @@ export default function LatestPosts() {
       title: 'How To Prepare Your Home For A Stress-Free Summer',
     },
     {
-      image: 'https://nestasia.in/cdn/shop/articles/Blog_Banners_500_x_500_px_25_3efe0bf0-7b98-4208-b254-71edeca8e867.png?v=1773035780&width=600',
+      image: 'https://nestasia.in/cdn/shop/articles/Blog_Banners_500_x_500_px_25_c53d2c3d-1367-46fc-a922-ae67ccc299c5.png?v=1774874256&width=780',
       date: 'March 05, 2026',
       title: 'Summertime Pre-Summer Home Refresh Checklist',
     },
     {
-      image: 'https://nestasia.in/cdn/shop/articles/What_s_your_dinner_hosting_score_4067574c-e3c7-4403-9b51-69a6e8ffea50.png?v=1772716953&width=600',
+      image: 'https://nestasia.in/cdn/shop/articles/What_s_your_dinner_hosting_score_f9aac14d-58ea-4a8c-a08f-215822835ad3.png?v=1774874314&width=780',
       date: 'March 12, 2026',
       title: 'What Your Dining Table Decor Says About Your Entertaining Style',
     },
     {
-      image: 'https://nestasia.in/cdn/shop/articles/WhatsApp_Image_2026-02-27_at_20.47.07_e9e9cc65-0179-456c-8f31-1b0e48afc7f5.jpg?v=1772716483&width=600',
+      image: 'https://nestasia.in/cdn/shop/articles/WhatsApp_Image_2026-02-27_at_20.47.07_7b452509-c434-4d10-ad9c-ebb3b212868a.jpg?v=1774871271&width=780',
       date: 'March 16, 2026',
       title: "Unique Holi Gifts That They'll Treasure Forever",
     },

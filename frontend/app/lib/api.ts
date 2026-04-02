@@ -100,6 +100,17 @@ async function apiPost<T>(path: string, body: object): Promise<{ success: boolea
   return res.json();
 }
 
+async function apiPut<T>(path: string, body: object): Promise<{ success: boolean; message: string; data?: T; errors?: Record<string, string> }> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    cache: 'no-store',
+    credentials: 'include',
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
 export interface AttributeOption {
   attr_id: number;
   attr_name: string;
@@ -189,3 +200,28 @@ export interface OrderDetailResponse {
 
 export const getMyOrderById = (orderId: number | string) =>
   apiFetch<OrderDetailResponse>(`/orders/${orderId}`, true);
+
+export interface ProfileAddressForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+}
+
+export interface ProfileAddressesResponse {
+  billing: ProfileAddressForm;
+  shipping: ProfileAddressForm;
+}
+
+export const getProfileAddresses = () =>
+  apiFetch<ProfileAddressesResponse>('/address/profile', true);
+
+export const updateProfileAddress = (kind: 'billing' | 'shipping', body: ProfileAddressForm) =>
+  apiPut<ProfileAddressesResponse>(`/address/profile/${kind}`, body);

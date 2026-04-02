@@ -7,12 +7,10 @@ import Footer from '../components/Footer';
 import { authLogin, authRegister } from '../lib/api';
 import { useCart } from '../lib/cartContext';
 import { useAuth } from '../lib/authContext';
-import { useWishlist } from '../lib/wishlistContext';
 
 export default function MyAccountPage() {
   const { user, isLoggedIn, isLoading, setUser, logout } = useAuth();
-  const { refresh, count } = useCart();
-  const { items: wishlistItems } = useWishlist();
+  const { refresh } = useCart();
 
   const [login, setLogin] = useState({ username: '', password: '', remember: false });
   const [reg, setReg] = useState({ username: '', email: '', password: '' });
@@ -95,26 +93,8 @@ export default function MyAccountPage() {
     }
   };
 
-  const quickLinks = [
-    {
-      title: 'Wishlist',
-      value: `${wishlistItems.length}`,
-      note: 'Saved items',
-      href: '/wishlist',
-    },
-    {
-      title: 'My Cart',
-      value: `${count}`,
-      note: 'Items in cart',
-      href: '/cart',
-    },
-    {
-      title: 'Orders',
-      value: 'View',
-      note: 'Order details',
-      href: '/orders',
-    },
-  ];
+  const accountName = user?.displayName || user?.username || 'Guest';
+  const accountHandle = user?.username ? `@${user.username}` : user?.email || '@account';
 
   return (
     <>
@@ -130,32 +110,40 @@ export default function MyAccountPage() {
         }
 
         .account-auth-card,
-        .account-shell,
-        .account-card,
-        .account-quick-card {
+        .account-shell {
           background: #fff;
-          border: 1px solid #ece8df;
         }
 
         .account-auth-card {
+          border: 1px solid #ece8df;
           padding: 26px 24px;
         }
 
         .account-shell {
-          padding: 28px;
+          overflow: hidden;
         }
 
-        .account-hero {
+        .account-layout {
           display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto;
-          gap: 18px;
-          align-items: center;
-          margin-bottom: 28px;
+          grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+          align-items: start;
+          min-height: 560px;
+        }
+
+        .account-sidebar {
+          min-height: 100%;
+          padding: 60px 42px 48px;
+          background: #fff;
+        }
+
+        .account-sidebar-inner {
+          position: sticky;
+          top: 104px;
         }
 
         .account-avatar {
-          width: 74px;
-          height: 74px;
+          width: 140px;
+          height: 140px;
           border-radius: 50%;
           background: #8fb8a8;
           display: flex;
@@ -164,213 +152,120 @@ export default function MyAccountPage() {
           color: #fff;
         }
 
-        .account-title {
-          margin: 0;
-          font-size: 30px;
-          line-height: 1.1;
-          color: #1a1a1a;
-          font-weight: 700;
-        }
-
-        .account-subtitle {
-          margin: 6px 0 0;
-          color: #747474;
-          font-size: 14px;
-        }
-
-        .account-role {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 34px;
-          padding: 0 14px;
-          border-radius: 999px;
-          background: #f3efe7;
-          color: #444;
-          font-size: 12px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .account-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-          gap: 28px;
-          align-items: start;
-        }
-
-        .account-stack {
-          display: grid;
-          gap: 22px;
-        }
-
-        .account-card {
-          padding: 22px;
-        }
-
-        .account-card-title {
-          margin: 0 0 18px;
-          font-size: 20px;
-          font-weight: 700;
-          color: #1a1a1a;
-        }
-
-        .account-info-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 16px;
-        }
-
-        .account-info-item {
-          padding: 16px;
-          border: 1px solid #f0ece4;
-          background: #fcfbf8;
-        }
-
-        .account-info-label {
-          display: block;
-          margin-bottom: 6px;
-          color: #767676;
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .account-info-value {
-          color: #1f1f1f;
-          font-size: 16px;
-          font-weight: 600;
-          overflow-wrap: anywhere;
-        }
-
-        .account-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-
-        .account-quick-grid {
-          display: grid;
-          gap: 16px;
-        }
-
-        .account-quick-card {
-          padding: 20px;
-          transition: transform 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        .account-quick-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
-        }
-
-        .account-quick-top {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-          margin-bottom: 12px;
-        }
-
-        .account-quick-title {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 700;
-          color: #1b1b1b;
-        }
-
-        .account-quick-value {
-          color: #12bfb2;
-          font-size: 26px;
-          font-weight: 800;
+        .account-hello {
+          margin: 28px 0 10px;
+          color: #000;
+          font-size: 27px;
           line-height: 1;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
         }
 
-        .account-quick-note {
-          margin: 0 0 18px;
-          color: #6f6f6f;
-          font-size: 14px;
+        .account-handle {
+          margin: 0;
+          color: #42556d;
+          font-size: 18px;
           line-height: 1.5;
         }
 
-        .account-empty-note {
-          margin: 0;
-          color: #777;
-          font-size: 14px;
+        .account-nav {
+          display: grid;
+          gap: 8px;
+          margin-top: 66px;
+        }
+
+        .account-nav-link,
+        .account-nav-button {
+          display: block;
+          padding: 2px 0;
+          border: 0;
+          background: transparent;
+          color: #121212;
+          text-decoration: none;
+          text-align: left;
+          font-size: 17px;
+          line-height: 1.45;
+          cursor: pointer;
+        }
+
+        .account-nav-link:hover,
+        .account-nav-button:hover {
+          color: #14544f;
+        }
+
+        .account-main {
+          min-width: 0;
+          padding: 54px 56px 48px 36px;
+          background: #fff;
+        }
+
+        .account-top {
+          display: block;
+        }
+
+        .account-copy {
+          max-width: 940px;
+        }
+
+        .account-greeting {
+          margin: 0 0 18px;
+          color: #1f3550;
+          font-size: 18px;
           line-height: 1.6;
         }
 
+        .account-inline-action {
+          border: 0;
+          padding: 0;
+          background: transparent;
+          color: #111;
+          font: inherit;
+          cursor: pointer;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        .account-description {
+          margin: 0;
+          color: #111;
+          font-size: 19px;
+          line-height: 1.75;
+          max-width: 960px;
+        }
+
         @media (max-width: 991px) {
-          .account-grid,
+          .account-layout,
           .account-auth-grid {
             grid-template-columns: 1fr;
           }
 
-          .account-hero {
-            grid-template-columns: auto minmax(0, 1fr);
+          .account-sidebar-inner {
+            position: static;
           }
 
-          .account-role {
-            grid-column: 1 / -1;
-            justify-self: start;
+          .account-main {
+            padding-left: 42px;
           }
         }
 
         @media (max-width: 767px) {
-          .account-page {
-            padding-bottom: 32px;
-          }
-
-          .account-shell,
-          .account-auth-card,
-          .account-card,
-          .account-quick-card {
+          .account-sidebar,
+          .account-main,
+          .account-auth-card {
             padding: 18px;
           }
 
-          .account-title {
-            font-size: 24px;
+          .account-description {
+            font-size: 16px;
+            line-height: 1.7;
           }
 
-          .account-info-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .account-actions .button {
-            width: 100%;
-            text-align: center;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .account-hero {
-            grid-template-columns: 1fr;
-          }
-
-          .account-avatar {
-            width: 64px;
-            height: 64px;
-          }
         }
       `}</style>
 
       <Header />
       <div className="dima-main account-page">
-        <section className="title_container start-style">
-          <div className="page-section-content overflow-hidden">
-            <div className="container page-section">
-              <h2 className="uppercase undertitle text-start">MY ACCOUNT</h2>
-              <div className="dima-breadcrumbs breadcrumbs-end text-end">
-                <span><Link href="/" className="trail-begin">Home</Link></span>
-                <span className="sep">\</span>
-                <span className="trail-end">My Account</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
@@ -378,76 +273,41 @@ export default function MyAccountPage() {
                 <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
               ) : isLoggedIn && user ? (
                 <div className="account-shell">
-                  <div className="account-hero">
-                    <div className="account-avatar">
-                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <h3 className="account-title">Welcome, {user.displayName}</h3>
-                      <p className="account-subtitle">Manage your profile, saved products, cart, and order details from one place.</p>
-                    </div>
-
-                    <div className="account-role">{user.role}</div>
-                  </div>
-
-                  <div className="account-grid">
-                    <div className="account-stack">
-                      <div className="account-card">
-                        <h4 className="account-card-title">Account Details</h4>
-                        <div className="account-info-grid">
-                          <div className="account-info-item">
-                            <span className="account-info-label">Username</span>
-                            <span className="account-info-value">{user.username}</span>
-                          </div>
-                          <div className="account-info-item">
-                            <span className="account-info-label">Email</span>
-                            <span className="account-info-value">{user.email}</span>
-                          </div>
-                          <div className="account-info-item">
-                            <span className="account-info-label">Display Name</span>
-                            <span className="account-info-value">{user.displayName}</span>
-                          </div>
-                          <div className="account-info-item">
-                            <span className="account-info-label">Role</span>
-                            <span className="account-info-value" style={{ textTransform: 'capitalize' }}>{user.role}</span>
-                          </div>
+                  <div className="account-layout">
+                    <aside className="account-sidebar">
+                      <div className="account-sidebar-inner">
+                        <div className="account-avatar" aria-hidden="true">
+                          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
                         </div>
+                        <h3 className="account-hello">Hello</h3>
+                        <p className="account-handle">{accountHandle}</p>
+
+                        <nav className="account-nav" aria-label="Account navigation">
+                          <Link href="/my-account" className="account-nav-link">Dashboard</Link>
+                          <Link href="/my-account/edit-account" className="account-nav-link">Edit Profile</Link>
+                          <Link href="/my-account/edit-address" className="account-nav-link">My Addresses</Link>
+                          <Link href="/orders" className="account-nav-link">My Orders</Link>
+                          <Link href="/my-account/order-tracking" className="account-nav-link">Order Tracking</Link>
+                          <Link href="/wishlist" className="account-nav-link">Wishlist</Link>
+                          <button className="account-nav-button" onClick={logout}>Logout</button>
+                        </nav>
                       </div>
+                    </aside>
 
-                      <div className="account-card">
-                        <h4 className="account-card-title">Quick Actions</h4>
-                        <div className="account-actions">
-                          <Link href="/shop" className="button fill uppercase">Continue Shopping</Link>
-                          <button className="button stroke uppercase" onClick={logout}>Logout</button>
+                    <div className="account-main">
+                      <div className="account-top">
+                        <div className="account-copy">
+                          <p className="account-greeting">
+                            Hello {accountName} (not {accountName}? <button className="account-inline-action" onClick={logout}>Log out</button>)
+                          </p>
+                          <p className="account-description">
+                            From your account dashboard you can view your recent orders, manage your shipping and billing addresses,
+                            and edit your password and account details.
+                          </p>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="account-quick-grid">
-                      {quickLinks.map((item) => (
-                        <div key={item.title} className="account-quick-card">
-                          <div className="account-quick-top">
-                            <h4 className="account-quick-title">{item.title}</h4>
-                            <span className="account-quick-value">{item.value}</span>
-                          </div>
-                          <p className="account-quick-note">{item.note}</p>
-                          <Link href={item.href} className="button fill uppercase" style={{ display: 'block', textAlign: 'center' }}>
-                            {item.title === 'Orders' ? 'Order Details' : `Open ${item.title}`}
-                          </Link>
-                        </div>
-                      ))}
-
-                      <div className="account-quick-card">
-                        <div className="account-quick-top">
-                          <h4 className="account-quick-title">Need Something Fast?</h4>
-                        </div>
-                        <p className="account-empty-note">
-                          Use the quick links on the right to jump straight into your wishlist, cart, or past orders without hunting through the menu.
-                        </p>
                       </div>
                     </div>
                   </div>

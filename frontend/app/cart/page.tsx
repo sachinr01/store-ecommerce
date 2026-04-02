@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
 
-const PLACEHOLDER = '/store/images/dummy.png';
+const PLACEHOLDER = '/store/images/dummy.jpg';
 
 export default function CartPage() {
   const { items, removeItem, updateQty, total } = useCart();
@@ -414,7 +414,7 @@ export default function CartPage() {
                             <div className="cart-item-details">
                               <div className="cart-detail">
                                 <span className="cart-detail-label">Price</span>
-                                <span className="cart-detail-value">${item.price.toFixed(2)}</span>
+                                <span className="cart-detail-value">₹{item.price.toFixed(2)}</span>
                               </div>
 
                               <div className="cart-detail">
@@ -446,7 +446,7 @@ export default function CartPage() {
 
                               <div className="cart-detail">
                                 <span className="cart-detail-label">Total</span>
-                                <span className="cart-detail-value">${(item.price * item.quantity).toFixed(2)}</span>
+                                <span className="cart-detail-value">₹{(item.price * item.quantity).toFixed(2)}</span>
                               </div>
                             </div>
                           </div>
@@ -475,7 +475,7 @@ export default function CartPage() {
                     <div className="cart-summary-table">
                       <div className="cart-summary-row">
                         <span>Cart Subtotal</span>
-                        <span>${total.toFixed(2)}</span>
+                        <span>₹{total.toFixed(2)}</span>
                       </div>
 
                       <div className="cart-summary-row">
@@ -485,7 +485,7 @@ export default function CartPage() {
 
                       <div className="cart-summary-row total">
                         <span>Order Total</span>
-                        <span>${orderTotal.toFixed(2)}</span>
+                        <span>₹{orderTotal.toFixed(2)}</span>
                       </div>
                     </div>
 

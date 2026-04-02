@@ -191,7 +191,7 @@ export default function TrackOrderPage() {
                             {STATUS_LABEL[order.order_status] || order.order_status}
                           </span>
                         </td>
-                        <td style={tdStyle}>{order.total ? `$${parseFloat(order.total).toFixed(2)}` : "—"}</td>
+        <td style={tdStyle}>{order.total ? `₹${parseFloat(order.total).toFixed(2)}` : "—"}</td>
                         <td style={{ ...tdStyle, color: "#555" }}>{order.items || "—"}</td>
                       </tr>
                     ))}

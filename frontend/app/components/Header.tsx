@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "../lib/cartContext";
 import { useAuth } from "../lib/authContext";
 
-const PLACEHOLDER = "/store/images/dummy.png";
+const PLACEHOLDER = "/store/images/dummy.jpg";
 
 export default function Header() {
   const { items, count, total, removeItem } = useCart();
@@ -642,7 +642,6 @@ export default function Header() {
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                 </span>
-                <span className="nh-account-text">{user.displayName}</span>
               </Link>
             ) : (
               <Link href="/my-account" className="nh-account-link nh-login" onClick={() => setCartOpen(false)}>
@@ -669,7 +668,7 @@ export default function Header() {
                   <line x1="3" y1="6" x2="21" y2="6" />
                   <path d="M16 10a4 4 0 0 1-8 0" />
                 </svg>
-                <span className="nh-cart-label">Cart</span>
+
                 {count > 0 && <span className="nh-cart-badge">{count}</span>}
               </button>
 
@@ -688,7 +687,7 @@ export default function Header() {
                         <div>
                           <p className="nh-cart-item-title">{item.title}</p>
                           <div className="nh-cart-item-meta">
-                            {item.quantity} x ${item.price.toFixed(2)}
+                            {item.quantity} x ₹{item.price.toFixed(2)}
                           </div>
                         </div>
                         <button
@@ -704,7 +703,7 @@ export default function Header() {
 
                     <div className="nh-cart-subtotal">
                       <span>Subtotal</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>₹{total.toFixed(2)}</span>
                     </div>
                   </>
                 )}

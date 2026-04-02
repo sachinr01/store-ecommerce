@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback, type ReactNode, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getProducts, getAllAttributeGroups, type Product, type AttributeGroup } from '../lib/api';
 import { useWishlist } from '../lib/wishlistContext';
 
-const PLACEHOLDER = '/store/images/dummy.png';
+const PLACEHOLDER = '/store/images/dummy.jpg';
 
 const toSlug = (value: string): string =>
   value
@@ -15,8 +16,6 @@ const toSlug = (value: string): string =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-
-type SortOption = 'best-selling' | 'price-ascending' | 'price-descending' | 'title-ascending';
 
 const DEFAULT_OPEN_FILTERS: Record<string, boolean> = {};
 
@@ -51,8 +50,8 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
   const priceMin = Number(product.price_min ?? 0);
   const priceMax = Number(product.price_max ?? 0);
   const priceStr = priceMin !== priceMax
-    ? `$${priceMin.toFixed(2)} - $${priceMax.toFixed(2)}`
-    : `$${priceMin.toFixed(2)}`;
+    ? `₹${priceMin.toFixed(2)} - ₹${priceMax.toFixed(2)}`
+    : `₹${priceMin.toFixed(2)}`;
 
   return (
     <div
@@ -115,7 +114,7 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
         <div className="csp-price-row">
           {isOnSale && product.price_max && (
             <span className="csp-old-price" aria-label="Original price">
-              ${Number(product.price_max).toFixed(2)}
+              ₹{Number(product.price_max).toFixed(2)}
             </span>
           )}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
@@ -141,9 +140,9 @@ function DualRangeSlider({
   return (
     <div className="drs-outer">
       <div className="drs-values-row">
-        <span className="drs-val-bubble">${valueMin.toLocaleString()}</span>
+        <span className="drs-val-bubble">₹{valueMin.toLocaleString()}</span>
         <span className="drs-val-sep">-</span>
-        <span className="drs-val-bubble">${valueMax.toLocaleString()}</span>
+        <span className="drs-val-bubble">₹{valueMax.toLocaleString()}</span>
       </div>
       <div className="drs-track-row">
         <div className="drs-track">
@@ -236,10 +235,15 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
   // Dynamic selected values: { taxonomy -> string[] }
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string[]>>({});
-  const [sortBy, setSortBy] = useState<SortOption>('best-selling');
   const [absoluteMax, setAbsoluteMax] = useState(200);
   const [sliderMin, setSliderMin] = useState(0);
   const [sliderMax, setSliderMax] = useState(200);
+  const absoluteMin = 0;
+
+  const searchParams = useSearchParams();
+  const queryMaxRaw = searchParams.get('max');
+  const queryMax = queryMaxRaw ? Number.parseFloat(queryMaxRaw) : Number.NaN;
+  const appliedQueryRef = useRef<number | null>(null);
 
   // Load all attribute groups dynamically in one call
   useEffect(() => {
@@ -270,6 +274,18 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   }, []);
 
   useEffect(() => {
+    if (loading) return;
+    if (!Number.isFinite(queryMax)) return;
+    if (appliedQueryRef.current === queryMax) return;
+    if (absoluteMax <= 0) return;
+    const cappedMax = Math.max(absoluteMin, Math.min(queryMax, absoluteMax));
+    setSliderMin(absoluteMin);
+    setSliderMax(cappedMax);
+    setOpenFilters(prev => ({ ...prev, price: true }));
+    appliedQueryRef.current = queryMax;
+  }, [queryMax, absoluteMax, absoluteMin, loading]);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && sidebarOpen) setSidebarOpen(false);
     };
@@ -281,8 +297,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
-
-  const absoluteMin = 0;
 
   const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handlePriceChange = useCallback((gte: number, lte: number) => {
@@ -325,7 +339,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
       return hi >= sliderMin && lo <= sliderMax;
     })
     .filter(p => {
-      // Check every active taxonomy filter
       return Object.entries(selectedAttrs).every(([taxonomy, selected]) => {
         if (selected.length === 0) return true;
         const field = taxonomyToField[taxonomy];
@@ -334,12 +347,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
         return selected.some(v => productSlugs.includes(v));
       });
     })
-    .sort((a, b) => {
-      if (sortBy === 'price-ascending') return (a.price_min ?? 0) - (b.price_min ?? 0);
-      if (sortBy === 'price-descending') return (b.price_min ?? 0) - (a.price_min ?? 0);
-      if (sortBy === 'title-ascending') return a.title.localeCompare(b.title);
-      return a.menu_order - b.menu_order;
-    });
+    .sort((a, b) => a.menu_order - b.menu_order);
 
   const toSlugLocal = (s: string) =>
     s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -519,20 +527,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
               {!loading && <span className="csp-count">{sorted.length} product{sorted.length !== 1 ? 's' : ''}</span>}
             </div>
             <div className="csp-toolbar-right">
-              <div className="csp-sort-wrap">
-                <label className="csp-sort-label" htmlFor="csp-sort-select">Sort:</label>
-                <select
-                  id="csp-sort-select"
-                  className="csp-sort-select"
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value as SortOption)}
-                >
-                  <option value="best-selling">Best Selling</option>
-                  <option value="title-ascending">Name A-Z</option>
-                  <option value="price-ascending">Price: Low to High</option>
-                  <option value="price-descending">Price: High to Low</option>
-                </select>
-              </div>
               <div className="csp-view-toggle" role="group" aria-label="View mode">
                 <button
                   className={`csp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
@@ -568,7 +562,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
               <button className="csp-chips-clear" onClick={allClear}>Clear all</button>
               {isPriceActive && (
                 <span className="csp-chip">
-                  ${sliderMin}-${sliderMax}
+                  ₹{sliderMin}-₹{sliderMax}
                   <button
                     className="csp-chip-x"
                     onClick={() => { setSliderMin(absoluteMin); setSliderMax(absoluteMax); }}
@@ -647,5 +641,9 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 }
 
 export default function ShopPage({ heading, subheading }: { heading: string; subheading: string }) {
-  return <ShopInner heading={heading} subheading={subheading} />;
+  return (
+    <Suspense fallback={null}>
+      <ShopInner heading={heading} subheading={subheading} />
+    </Suspense>
+  );
 }

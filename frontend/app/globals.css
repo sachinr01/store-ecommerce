@@ -6,6 +6,17 @@
   All original shop styles, fonts, and assets are preserved
 */
 
+/* ─── GLOBAL FONT TOKENS ─── */
+:root {
+  --font-body: 'Lato', Helvetica, Arial, sans-serif;
+  --font-head: 'Lato', Helvetica, Arial, sans-serif;
+}
+
+/* Single source of truth for fonts — overrides everything */
+*, *::before, *::after {
+  font-family: 'Lato', Helvetica, Arial, sans-serif !important;
+}
+
 /* Ensure full viewport height for slider */
 html, body {
   height: 100%;

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -9,7 +9,7 @@ import { useCart } from '../lib/cartContext';
 import { getProductById } from '../lib/api';
 import type { ProductDetail } from '../lib/api';
 
-const PLACEHOLDER = '/store/images/dummy.png';
+const PLACEHOLDER = '/store/images/dummy.jpg';
 
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist();
@@ -46,6 +46,25 @@ export default function WishlistPage() {
 
   return (
     <>
+      <style>{`
+        .wishlist-centered-wrap {
+          max-width: 1240px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .wishlist-centered-wrap .cart-table {
+          width: 100%;
+        }
+
+        .wishlist-centered-wrap .product-name {
+          min-width: 320px;
+        }
+
+        .wishlist-centered-wrap .social-media ul {
+          padding-left: 0;
+        }
+      `}</style>
       <Header />
       <div className="dima-main">
 
@@ -64,8 +83,8 @@ export default function WishlistPage() {
 
         <section className="section">
           <div className="page-section-content overflow-hidden">
-            <div className="container mini-sidebar">
-              <div className="dima-container float-start">
+            <div className="container">
+              <div className="wishlist-centered-wrap">
 
                 {items.length === 0 ? (
                   <div style={{ padding: '40px 0', textAlign: 'center' }}>
@@ -105,7 +124,7 @@ export default function WishlistPage() {
                                    <h6><Link href={`/shop/product/${toSlug(title)}`}>{title}</Link></h6>
                                  </div>
                               </td>
-                              <td>${Number(price).toFixed(2)}</td>
+                              <td>₹{Number(price).toFixed(2)}</td>
                               <td>
                                 <span style={{ color: inStock ? '#2bbfaa' : '#c62828' }}>
                                   {inStock ? 'In Stock' : 'Out of Stock'}
@@ -157,4 +176,3 @@ export default function WishlistPage() {
     </>
   );
 }
-

@@ -9,7 +9,7 @@ import { getProductById, getProductBySlug, type ProductDetail } from '../lib/api
 import { useCart } from '../lib/cartContext';
 import { useWishlist } from '../lib/wishlistContext';
 
-const PLACEHOLDER = '/store/images/dummy.png';
+const PLACEHOLDER = '/store/images/dummy.jpg';
 
 type SwatchStyle = { style: { background?: string }; isLight: boolean };
 
@@ -206,8 +206,8 @@ export function ProductDetailsClient({ productId, productSlug }: { productId?: s
   const displaySalePrice = currentSalePrice ?? simpleSalePrice ?? null;
   const showRange = !hasFullSelection && priceMax > priceMin;
   const priceRangeStr = priceMax > priceMin
-    ? `$${priceMin.toFixed(2)} - $${priceMax.toFixed(2)}`
-    : `$${priceMin.toFixed(2)}`;
+    ? `₹${priceMin.toFixed(2)} - ₹${priceMax.toFixed(2)}`
+    : `₹${priceMin.toFixed(2)}`;
 
   const isAddToCartEnabled = !product.variations.length || hasFullSelection;
 
@@ -235,8 +235,16 @@ export function ProductDetailsClient({ productId, productSlug }: { productId?: s
     });
   };
 
-  const shortDesc = product.short_description?.replace(/<[^>]+>/g, '') || '';
-  const fullDesc  = product.description?.replace(/<[^>]+>/g, '')       || shortDesc;
+  const decodeEntities = (str: string) =>
+    str.replace(/&amp;/g, '&')
+       .replace(/&quot;/g, '"')
+       .replace(/&#039;/g, "'")
+       .replace(/&lt;/g, '<')
+       .replace(/&gt;/g, '>')
+       .replace(/&nbsp;/g, ' ');
+
+  const shortDesc = decodeEntities(product.short_description?.replace(/<[^>]+>/g, '') || '');
+  const fullDesc  = decodeEntities(product.description?.replace(/<[^>]+>/g, '')       || shortDesc);
 
   const anyInStock = product.variations.length
     ? product.variations.some(isVariationInStock)
@@ -377,14 +385,14 @@ export function ProductDetailsClient({ productId, productSlug }: { productId?: s
               <span className="cpd-price">{priceRangeStr}</span>
             ) : displaySalePrice ? (
               <>
-                <span className="cpd-price sale">${displaySalePrice.toFixed(2)}</span>
-                <span className="cpd-old-price">${Number(displayPrice).toFixed(2)}</span>
+                <span className="cpd-price sale">₹{displaySalePrice.toFixed(2)}</span>
+                <span className="cpd-old-price">₹{Number(displayPrice).toFixed(2)}</span>
                 <span className="cpd-save-badge">
-                  Save ${(Number(displayPrice) - displaySalePrice).toFixed(2)}
+                  Save ₹{(Number(displayPrice) - displaySalePrice).toFixed(2)}
                 </span>
               </>
             ) : displayPrice ? (
-              <span className="cpd-price">${Number(displayPrice).toFixed(2)}</span>
+              <span className="cpd-price">₹{Number(displayPrice).toFixed(2)}</span>
             ) : (
               <span className="cpd-price">{priceRangeStr}</span>
             )}
@@ -554,7 +562,7 @@ export function ProductDetailsClient({ productId, productSlug }: { productId?: s
           {/* ── Trust badges ── */}
           <div className="cpd-trust-row">
             {[
-              { icon: '🚚', label: 'Free Shipping', sub: 'Orders over $75' },
+              { icon: '🚚', label: 'Free Shipping', sub: 'Orders over ₹75' },
               { icon: '↩',  label: 'Easy Returns',  sub: '30-day policy' },
               { icon: '🔒', label: 'Secure Payment', sub: 'SSL encrypted' },
             ].map(b => (
@@ -577,7 +585,7 @@ export function ProductDetailsClient({ productId, productSlug }: { productId?: s
           <img src={PLACEHOLDER} alt="" className="cpd-sticky-thumb" />
           <span className="cpd-sticky-name">{product.title}</span>
           <span className="cpd-sticky-price">
-            {displaySalePrice ? `$${displaySalePrice.toFixed(2)}` : displayPrice ? `$${Number(displayPrice).toFixed(2)}` : priceRangeStr}
+            {displaySalePrice ? `₹${displaySalePrice.toFixed(2)}` : displayPrice ? `₹${Number(displayPrice).toFixed(2)}` : priceRangeStr}
           </span>
           <button
             type="button"
@@ -665,8 +673,8 @@ const baseCss = `
   --cpd-bg:          #fafafa;
   --cpd-white:       #ffffff;
   --cpd-sale:        #e74c3c;
-  --font-head: 'Playfair Display', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-head: 'Lato', Helvetica, Arial, sans-serif;
+  --font-body: 'Lato', Helvetica, Arial, sans-serif;
   --radius: 12px;
   --shadow: 0 4px 20px rgba(0,0,0,.09);
 }

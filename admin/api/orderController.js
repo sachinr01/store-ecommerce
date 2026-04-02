@@ -1,4 +1,7 @@
 const db = require('../config/db');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { getSessionUser } = require('./session');
 const { getCartIdentity } = require('./cartController');
 
@@ -12,6 +15,97 @@ const toAmount = (val) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const toInt = (val, fallback = 0) => {
+  const n = Number.parseInt(val, 10);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const BREVO_API_KEY = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '';
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'rupeshmutkule2005@gmail.com';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'COFFR';
+const BREVO_LOGO_URL = process.env.BREVO_LOGO_URL || '';
+const DEFAULT_LOGO_PATH = path.join(__dirname, '..', '..', 'frontend', 'public', 'images', 'logo-white.png');
+
+let cachedLogoDataUri = '';
+
+function formatMoney(amount) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '0.00';
+  return value.toFixed(2);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getLogoDataUri() {
+  if (cachedLogoDataUri) return cachedLogoDataUri;
+  const logoPath = process.env.BREVO_LOGO_PATH || process.env.LOGO_PATH || DEFAULT_LOGO_PATH;
+  try {
+    if (!fs.existsSync(logoPath)) return '';
+    const buffer = fs.readFileSync(logoPath);
+    cachedLogoDataUri = `data:image/png;base64,${buffer.toString('base64')}`;
+    return cachedLogoDataUri;
+  } catch (err) {
+    console.error('Failed to load logo for email:', err);
+    return '';
+  }
+}
+
+async function sendBrevoEmail({ toEmail, toName, subject, html }) {
+  if (!BREVO_API_KEY) {
+    console.warn('Brevo API key missing. Set BREVO_API_KEY in environment.');
+    return false;
+  }
+
+  const payload = JSON.stringify({
+    sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+    to: [{ email: toEmail, name: toName || toEmail }],
+    subject,
+    htmlContent: html,
+  });
+
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        method: 'POST',
+        hostname: 'api.brevo.com',
+        path: '/v3/smtp/email',
+        headers: {
+          'api-key': BREVO_API_KEY,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(true);
+          } else {
+            console.error('Brevo send failed:', res.statusCode, body);
+            resolve(false);
+          }
+        });
+      }
+    );
+
+    req.on('error', (err) => {
+      console.error('Brevo send error:', err);
+      resolve(false);
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
 function buildOrderName() {
   const now = new Date();
   const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');
@@ -22,16 +116,16 @@ function sanitizeBilling(billing) {
   const b = billing || {};
   return {
     first_name: toStr(b.first_name),
-    last_name: toStr(b.last_name),
-    email: toStr(b.email),
-    phone: toStr(b.phone),
-    address: toStr(b.address),
-    address_2: toStr(b.address_2),
-    city: toStr(b.city),
-    state: toStr(b.state),
-    postcode: toStr(b.postcode),
-    country: toStr(b.country),
-    company: toStr(b.company),
+    last_name:  toStr(b.last_name),
+    email:      toStr(b.email),
+    phone:      toStr(b.phone),
+    address:    toStr(b.address),
+    address_2:  toStr(b.address_2),
+    city:       toStr(b.city),
+    state:      toStr(b.state),
+    postcode:   toStr(b.postcode),
+    country:    toStr(b.country),
+    company:    toStr(b.company),
   };
 }
 
@@ -39,52 +133,227 @@ function sanitizeShipping(shipping, billing) {
   const s = shipping || {};
   const b = billing || {};
   return {
-    first_name: toStr(s.first_name || b.first_name),
-    last_name: toStr(s.last_name || b.last_name),
-    phone: toStr(s.phone || b.phone),
-    address: toStr(s.address || b.address),
+    address:   toStr(s.address   || b.address),
     address_2: toStr(s.address_2 || b.address_2),
-    city: toStr(s.city || b.city),
-    state: toStr(s.state || b.state),
-    postcode: toStr(s.postcode || b.postcode),
-    country: toStr(s.country || b.country),
-    company: toStr(s.company || b.company),
+    city:      toStr(s.city      || b.city),
+    state:     toStr(s.state     || b.state),
+    postcode:  toStr(s.postcode  || b.postcode),
+    country:   toStr(s.country   || b.country),
   };
 }
 
 function validateBilling(billing) {
   const errors = {};
   if (!billing.first_name) errors.first_name = 'First name required';
-  if (!billing.last_name) errors.last_name = 'Last name required';
-  if (!billing.email) errors.email = 'Email required';
-  if (!billing.phone) errors.phone = 'Phone required';
-  if (!billing.address) errors.address = 'Address required';
-  if (!billing.city) errors.city = 'City required';
-  if (!billing.state) errors.state = 'State required';
-  if (!billing.postcode) errors.postcode = 'Postcode required';
-  if (!billing.country) errors.country = 'Country required';
+  if (!billing.last_name)  errors.last_name  = 'Last name required';
+  if (!billing.email)      errors.email      = 'Email required';
+  if (!billing.phone)      errors.phone      = 'Phone required';
+  if (!billing.address)    errors.address    = 'Address required';
+  if (!billing.city)       errors.city       = 'City required';
+  if (!billing.state)      errors.state      = 'State required';
+  if (!billing.postcode)   errors.postcode   = 'Postcode required';
+  if (!billing.country)    errors.country    = 'Country required';
   return errors;
 }
 
+const PROFILE_META_KEYS = [
+  'first_name',
+  'last_name',
+  'billing_first_name',
+  'billing_last_name',
+  'billing_address_1',
+  'billing_address_2',
+  'billing_city',
+  'billing_state',
+  'billing_postcode',
+  'billing_country',
+  'billing_company',
+  'billing_phone',
+  'shipping_first_name',
+  'shipping_last_name',
+  'shipping_address_1',
+  'shipping_address_2',
+  'shipping_city',
+  'shipping_state',
+  'shipping_postcode',
+  'shipping_country',
+  'shipping_company',
+  'shipping_phone',
+];
+
+async function getUserMetaMap(userId) {
+  const [rows] = await db.query(
+    `SELECT meta_key, meta_value
+     FROM tbl_usermeta
+     WHERE user_id = ? AND meta_key IN (?)`,
+    [userId, PROFILE_META_KEYS]
+  );
+
+  return rows.reduce((acc, row) => {
+    acc[row.meta_key] = toStr(row.meta_value);
+    return acc;
+  }, {});
+}
+
+async function upsertUserMeta(conn, userId, metaKey, metaValue) {
+  await conn.query(
+    `INSERT INTO tbl_usermeta (user_id, meta_key, meta_value)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+    [userId, metaKey, toStr(metaValue)]
+  );
+}
+
+function normalizeProfileAddressInput(payload, kind) {
+  const prefix = kind === 'billing' ? 'billing' : 'shipping';
+
+  return {
+    firstName: toStr(payload.firstName),
+    lastName: toStr(payload.lastName),
+    email: toStr(payload.email),
+    phone: toStr(payload.phone),
+    company: toStr(payload.company),
+    address1: toStr(payload.address1),
+    address2: toStr(payload.address2),
+    city: toStr(payload.city),
+    state: toStr(payload.state),
+    postcode: toStr(payload.postcode),
+    country: toStr(payload.country),
+    meta: {
+      [`${prefix}_first_name`]: toStr(payload.firstName),
+      [`${prefix}_last_name`]: toStr(payload.lastName),
+      [`${prefix}_address_1`]: toStr(payload.address1),
+      [`${prefix}_address_2`]: toStr(payload.address2),
+      [`${prefix}_city`]: toStr(payload.city),
+      [`${prefix}_state`]: toStr(payload.state),
+      [`${prefix}_postcode`]: toStr(payload.postcode),
+      [`${prefix}_country`]: toStr(payload.country),
+      [`${prefix}_company`]: toStr(payload.company),
+      [`${prefix}_phone`]: toStr(payload.phone),
+    },
+  };
+}
+
+function validateProfileAddress(address) {
+  const errors = {};
+  if (!address.firstName) errors.firstName = 'First name required';
+  if (!address.lastName) errors.lastName = 'Last name required';
+  if (!address.address1) errors.address1 = 'Address required';
+  if (!address.city) errors.city = 'City required';
+  if (!address.state) errors.state = 'State required';
+  if (!address.postcode) errors.postcode = 'Postcode required';
+  if (!address.country) errors.country = 'Country required';
+  return errors;
+}
+
+function buildProfileAddressResponse(userRow, meta) {
+  return {
+    billing: {
+      firstName: toStr(meta.billing_first_name || meta.first_name || userRow.display_name),
+      lastName: toStr(meta.billing_last_name || meta.last_name),
+      email: toStr(userRow.user_email),
+      phone: toStr(meta.billing_phone),
+      company: toStr(meta.billing_company),
+      address1: toStr(meta.billing_address_1),
+      address2: toStr(meta.billing_address_2),
+      city: toStr(meta.billing_city),
+      state: toStr(meta.billing_state),
+      postcode: toStr(meta.billing_postcode),
+      country: toStr(meta.billing_country),
+    },
+    shipping: {
+      firstName: toStr(meta.shipping_first_name || meta.first_name || userRow.display_name),
+      lastName: toStr(meta.shipping_last_name || meta.last_name),
+      email: toStr(userRow.user_email),
+      phone: toStr(meta.shipping_phone),
+      company: toStr(meta.shipping_company),
+      address1: toStr(meta.shipping_address_1),
+      address2: toStr(meta.shipping_address_2),
+      city: toStr(meta.shipping_city),
+      state: toStr(meta.shipping_state),
+      postcode: toStr(meta.shipping_postcode),
+      country: toStr(meta.shipping_country),
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// insertAddress helper
+//
+// address_primary → ALWAYS 'no' for order rows.
+//   Only set to 'yes' from profile/address-book page (like Amazon "Set as default").
+//
+// address_billing → identifies billing vs shipping ROW for this order:
+//   'yes' = billing address row
+//   'no'  = shipping address row
+//
+// Two types of rows in tbl_user_address:
+//   ORDER rows        → order_id = real ID, address_primary = 'no'
+//   SAVED ADDR rows   → order_id = NULL,    address_primary = 'yes'/'no'
+// ─────────────────────────────────────────────────────────────────────────────
+async function insertAddress(conn, {
+  userId,
+  orderId,
+  address,
+  isBilling,
+  createdAt,
+  notes = null,
+}) {
+  await conn.query(
+    `INSERT INTO tbl_user_address
+     (user_id, order_id, address_type, address_primary,
+      address_line1, address_line2, city, zipcode, state_name,
+      city_id, state_id, country_id, address_notes,
+      address_billing, latitude, longitude, created_at, updated_at, update_done)
+     VALUES
+     (?, ?, 'general', 'no',
+      ?, ?, ?, ?, ?,
+      0, NULL, 226, ?,
+      ?, '', '', ?, ?, 'no')`,
+    [
+      userId,                    // user_id
+      orderId,                   // order_id  (always a real ID for order rows)
+      address.line1 || '',       // address_line1
+      address.line2 || '',       // address_line2
+      address.city  || '',       // city
+      address.zip   || '',       // zipcode
+      address.state || '',       // state_name
+      notes,                     // address_notes
+      isBilling ? 'yes' : 'no', // address_billing → 'yes'=billing, 'no'=shipping
+      createdAt,                 // created_at
+      createdAt,                 // updated_at
+    ]
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// placeOrder
+// ─────────────────────────────────────────────────────────────────────────────
 const placeOrder = async (req, res) => {
-  const user = getSessionUser(req);
-  const userId = user ? user.id : 0;
+  const user          = getSessionUser(req);
+  const userId        = user ? user.id : 0;
   const { key, value, cookieId, sessionId } = getCartIdentity(req);
 
-  const billing = sanitizeBilling(req.body.billing);
-  const shipping = sanitizeShipping(req.body.shipping, billing);
+  const billing       = sanitizeBilling(req.body.billing);
+  const shipping      = sanitizeShipping(req.body.shipping, billing);
   const paymentMethod = toStr(req.body.payment_method) || 'cod';
-  const shippingCost = toAmount(req.body.shipping_cost || 0);
+  const shippingCost  = toAmount(req.body.shipping_cost || 0);
+  const orderNotes    = toStr(req.body.notes) || null;
 
   const billingErrors = validateBilling(billing);
   if (Object.keys(billingErrors).length) {
-    return res.status(400).json({ success: false, message: 'Invalid billing details.', errors: billingErrors });
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid billing details.',
+      errors: billingErrors,
+    });
   }
 
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
 
+    // ── 1. Fetch cart items ───────────────────────────────────────────────────
     let cartItems;
     if (userId) {
       [cartItems] = await conn.query(
@@ -108,60 +377,92 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Cart is empty.' });
     }
 
-    const subtotal = cartItems.reduce((sum, item) => sum + toAmount(item.price) * Number(item.quantity || 0), 0);
-    const total = subtotal + shippingCost;
+    // ── 2. Calculate totals ───────────────────────────────────────────────────
+    const subtotal = cartItems.reduce(
+      (sum, item) => sum + toAmount(item.price) * Number(item.quantity || 0), 0
+    );
+    const total    = subtotal + shippingCost;
     const currency = process.env.ORDER_CURRENCY || process.env.CURRENCY || 'INR';
 
-    const orderName = buildOrderName();
+    // ── 3. Insert into tbl_orders ─────────────────────────────────────────────
+    const orderName  = buildOrderName();
     const orderTitle = `Order - ${new Date().toLocaleString()}`;
 
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
-       (parent_id, user_id, order_name, order_title, order_content, order_status, order_type, order_date, order_modified)
+       (parent_id, user_id, order_name, order_title, order_content,
+        order_status, order_type, order_date, order_modified)
        VALUES (0, ?, ?, ?, '', 'wc-pending', 'shop_order', NOW(), NOW())`,
       [userId, orderName, orderTitle]
     );
     const orderId = orderResult.insertId;
 
+    // ── 4. tbl_ordermeta: financial + payment data ONLY ──────────────────────
+    //    NO address, NO contact info here
+    //    name/email  → tbl_users via user_id
+    //    address     → tbl_user_address via order_id
     const metaEntries = [
-      ['_customer_user', userId],
+      ['_customer_user',  userId],
       ['_payment_method', paymentMethod],
       ['_order_currency', currency],
-      ['_order_total', total.toFixed(2)],
+      ['_order_total',    total.toFixed(2)],
       ['_order_subtotal', subtotal.toFixed(2)],
       ['_order_shipping', shippingCost.toFixed(2)],
-      ['_billing_first_name', billing.first_name],
-      ['_billing_last_name', billing.last_name],
-      ['_billing_email', billing.email],
-      ['_billing_phone', billing.phone],
-      ['_billing_address_1', billing.address],
-      ['_billing_address_2', billing.address_2],
-      ['_billing_city', billing.city],
-      ['_billing_state', billing.state],
-      ['_billing_postcode', billing.postcode],
-      ['_billing_country', billing.country],
-      ['_billing_company', billing.company],
-      ['_shipping_first_name', shipping.first_name],
-      ['_shipping_last_name', shipping.last_name],
-      ['_shipping_phone', shipping.phone],
-      ['_shipping_address_1', shipping.address],
-      ['_shipping_address_2', shipping.address_2],
-      ['_shipping_city', shipping.city],
-      ['_shipping_state', shipping.state],
-      ['_shipping_postcode', shipping.postcode],
-      ['_shipping_country', shipping.country],
-      ['_shipping_company', shipping.company],
-      ['_session_id', sessionId],
-      ['_cookie_id', cookieId || ''],
+      ['_session_id',     sessionId],
+      ['_cookie_id',      cookieId || ''],
     ];
 
-    for (const [key, value] of metaEntries) {
+    for (const [metaKey, metaValue] of metaEntries) {
       await conn.query(
         'INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, ?, ?)',
-        [orderId, key, value]
+        [orderId, metaKey, metaValue]
       );
     }
 
+    // ── 5. tbl_user_address: always 2 rows per order ─────────────────────────
+    //    Whether user used saved address or typed new address — always insert fresh.
+    //    Saved address (order_id = NULL) is just a template to pre-fill the form.
+    //    Order rows always get a real order_id.
+    //
+    //    address_primary = 'no' always for order rows
+    //    address_billing = 'yes' → billing row
+    //    address_billing = 'no'  → shipping row
+    const addressUserId = userId > 0 ? userId : null;
+    const createdAt     = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Billing address row
+    await insertAddress(conn, {
+      userId:    addressUserId,
+      orderId,
+      isBilling: true,
+      createdAt,
+      notes:     orderNotes,
+      address: {
+        line1: billing.address,
+        line2: billing.address_2,
+        city:  billing.city,
+        zip:   billing.postcode,
+        state: billing.state,
+      },
+    });
+
+    // Shipping address row
+    await insertAddress(conn, {
+      userId:    addressUserId,
+      orderId,
+      isBilling: false,
+      createdAt,
+      notes:     null,
+      address: {
+        line1: shipping.address,
+        line2: shipping.address_2,
+        city:  shipping.city,
+        zip:   shipping.postcode,
+        state: shipping.state,
+      },
+    });
+
+    // ── 6. tbl_order_items + tbl_order_itemmeta ───────────────────────────────
     for (const item of cartItems) {
       const [itemResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -170,30 +471,32 @@ const placeOrder = async (req, res) => {
       );
       const orderItemId = itemResult.insertId;
 
-      const variationId = item.variation_id && Number(item.variation_id) > 0 ? item.variation_id : 0;
+      const variationId = item.variation_id && Number(item.variation_id) > 0
+        ? item.variation_id : 0;
       const lineTotal = toAmount(item.price) * Number(item.quantity || 0);
 
       const itemMeta = [
-        ['_product_id', item.product_id],
-        ['_variation_id', variationId],
-        ['_qty', item.quantity],
-        ['_line_subtotal', lineTotal.toFixed(2)],
-        ['_line_total', lineTotal.toFixed(2)],
-        ['_line_tax', '0'],
+        ['_product_id',        item.product_id],
+        ['_variation_id',      variationId],
+        ['_qty',               item.quantity],
+        ['_line_subtotal',     lineTotal.toFixed(2)],
+        ['_line_total',        lineTotal.toFixed(2)],
+        ['_line_tax',          '0'],
         ['_line_subtotal_tax', '0'],
       ];
 
       if (item.color) itemMeta.push(['pa_color', item.color]);
-      if (item.size) itemMeta.push(['pa_size', item.size]);
+      if (item.size)  itemMeta.push(['pa_size',  item.size]);
 
-      for (const [key, value] of itemMeta) {
+      for (const [metaKey, metaValue] of itemMeta) {
         await conn.query(
           'INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)',
-          [orderItemId, key, value]
+          [orderItemId, metaKey, metaValue]
         );
       }
     }
 
+    // ── 7. Shipping cost line item ────────────────────────────────────────────
     if (shippingCost > 0) {
       const [shipResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -206,6 +509,7 @@ const placeOrder = async (req, res) => {
       );
     }
 
+    // ── 8. Clear cart ─────────────────────────────────────────────────────────
     if (userId) {
       await conn.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
     } else if (key === 'cookie_id') {
@@ -215,7 +519,164 @@ const placeOrder = async (req, res) => {
     }
 
     await conn.commit();
-    res.json({ success: true, data: { orderId, total: total.toFixed(2) } });
+
+    let emailSent = false;
+    try {
+      const toEmail = billing.email;
+      const toName = `${billing.first_name} ${billing.last_name}`.trim();
+      const frontendBase = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+      const isLocalHost = /localhost|127\.0\.0\.1/.test(frontendBase);
+      let logoSrc = '';
+      if (BREVO_LOGO_URL) {
+        logoSrc = BREVO_LOGO_URL;
+      } else if (frontendBase && !isLocalHost) {
+        logoSrc = `${frontendBase}/store/images/logo-white.png`;
+      } else {
+        logoSrc = getLogoDataUri();
+      }
+      const itemRows = cartItems.map(item => {
+        const title = escapeHtml(item.title || 'Item');
+        const qty = Number(item.quantity || 0);
+        const price = toAmount(item.price);
+        const lineTotal = price * qty;
+        return `
+          <tr>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; font-size:14px;">${title}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:center; font-size:14px;">${qty}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(price)}</td>
+            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(lineTotal)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const billingBlock = `${escapeHtml(billing.address)}${billing.address_2 ? `, ${escapeHtml(billing.address_2)}` : ''}, ${escapeHtml(billing.city)}, ${escapeHtml(billing.state)} ${escapeHtml(billing.postcode)}, ${escapeHtml(billing.country)}`;
+      const shippingBlock = `${escapeHtml(shipping.address)}${shipping.address_2 ? `, ${escapeHtml(shipping.address_2)}` : ''}, ${escapeHtml(shipping.city)}, ${escapeHtml(shipping.state)} ${escapeHtml(shipping.postcode)}, ${escapeHtml(shipping.country)}`;
+      const orderDate = new Date().toLocaleString();
+
+      const emailHtml = `
+        <div style="margin:0; padding:0; background:#f5efe8;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5efe8; padding:28px 0;">
+            <tr>
+              <td align="center">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eadfce;">
+                  <tr>
+                    <td style="background:linear-gradient(135deg,#161616,#2c1f14); padding:22px 26px; text-align:left;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td>
+                            ${logoSrc ? `<img src="${logoSrc}" alt="COFFR" style="height:40px; width:auto; display:block;" />` : `<div style="color:#fff; font-size:20px; letter-spacing:2px; font-weight:700;">COFFR</div>`}
+                          </td>
+                          <td style="text-align:right; color:#fff; font-family: Arial, sans-serif; font-size:12px;">
+                            <div style="opacity:0.85;">Order Confirmed</div>
+                            <div style="font-size:14px; font-weight:700;">#${orderId}</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:24px 28px; font-family: Arial, sans-serif; color:#1b1b1b;">
+                      <h2 style="margin:0 0 8px; font-size:22px; color:#1b1b1b;">Thank you for your order!</h2>
+                      <p style="margin:0 0 6px; color:#4c4c4c;">Hi ${escapeHtml(toName || 'there')},</p>
+                      <p style="margin:0 0 18px; color:#4c4c4c;">We’ve received your order and it’s now being processed.</p>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+                        <tr>
+                          <td style="background:#faf6f0; border:1px solid #efe5d8; border-radius:10px; padding:14px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                              <tr>
+                                <td style="font-size:12px; color:#777;">Order Date</td>
+                                <td style="font-size:12px; color:#777; text-align:right;">Payment</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:14px; font-weight:700; color:#222;">${escapeHtml(orderDate)}</td>
+                                <td style="font-size:14px; font-weight:700; color:#222; text-align:right;">${escapeHtml(paymentMethod.toUpperCase())}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse; margin:0 0 18px; border:1px solid #efe5d8; border-radius:10px; overflow:hidden;">
+                        <thead>
+                          <tr style="background:#faf6f0;">
+                            <th style="text-align:left; font-size:12px; padding:10px 12px; color:#6b5b4b;">Item</th>
+                            <th style="text-align:center; font-size:12px; padding:10px 12px; color:#6b5b4b;">Qty</th>
+                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Price</th>
+                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${itemRows}
+                        </tbody>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
+                        <tr>
+                          <td style="background:#111; color:#fff; border-radius:10px; padding:14px 16px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                              <tr>
+                                <td style="font-size:13px; opacity:0.8;">Subtotal</td>
+                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(subtotal)}</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:13px; opacity:0.8;">Shipping</td>
+                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(shippingCost)}</td>
+                              </tr>
+                              <tr>
+                                <td style="font-size:16px; font-weight:700; padding-top:8px;">Order Total</td>
+                                <td style="font-size:16px; font-weight:700; text-align:right; padding-top:8px;">₹${formatMoney(total)}</td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 10px;">
+                        <tr>
+                          <td style="width:50%; padding-right:10px; vertical-align:top;">
+                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
+                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Billing Address</div>
+                              <div style="font-size:13px; color:#222; line-height:1.5;">${billingBlock}</div>
+                            </div>
+                          </td>
+                          <td style="width:50%; padding-left:10px; vertical-align:top;">
+                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
+                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Shipping Address</div>
+                              <div style="font-size:13px; color:#222; line-height:1.5;">${shippingBlock}</div>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style="margin:14px 0 0; color:#555;">We’ll notify you once your order ships.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background:#f8f3ee; padding:14px 24px; text-align:center; font-family: Arial, sans-serif; font-size:12px; color:#7a6b5c;">
+                      Thank you for choosing COFFR
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `;
+
+      emailSent = await sendBrevoEmail({
+        toEmail,
+        toName,
+        subject: `Order Confirmed - #${orderId}`,
+        html: emailHtml,
+      });
+    } catch (emailErr) {
+      console.error('Order email error:', emailErr);
+    }
+
+    res.json({ success: true, data: { orderId, total: total.toFixed(2), emailSent } });
+
   } catch (err) {
     await conn.rollback();
     console.error('placeOrder error:', err);
@@ -225,6 +686,202 @@ const placeOrder = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getDefaultAddress
+// Pre-fills checkout form with user's default saved address.
+// Only looks at saved address rows (order_id IS NULL).
+// Frontend: GET /store/api/address/default
+// ─────────────────────────────────────────────────────────────────────────────
+const getDefaultAddress = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  try {
+    const [[address]] = await db.query(
+      `SELECT * FROM tbl_user_address
+       WHERE user_id = ? AND order_id IS NULL AND address_primary = 'yes'
+       ORDER BY address_id DESC LIMIT 1`,
+      [user.id]
+    );
+    res.json({ success: true, data: address || null });
+  } catch (err) {
+    console.error('getDefaultAddress error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load default address.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setDefaultAddress
+// User sets a saved address as default from profile/address-book page.
+// Only touches saved address rows (order_id IS NULL).
+// Order rows are never affected.
+// Frontend: PUT /store/api/address/default/:addressId
+// ─────────────────────────────────────────────────────────────────────────────
+const setDefaultAddress = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  const addressId = Number.parseInt(req.params.addressId, 10);
+  if (!addressId) {
+    return res.status(400).json({ success: false, message: 'Invalid address id.' });
+  }
+  try {
+    // Step 1: Remove default from all saved addresses only (NOT order rows)
+    await db.query(
+      `UPDATE tbl_user_address
+       SET address_primary = 'no'
+       WHERE user_id = ? AND order_id IS NULL`,
+      [user.id]
+    );
+    // Step 2: Set selected saved address as default
+    await db.query(
+      `UPDATE tbl_user_address
+       SET address_primary = 'yes'
+       WHERE address_id = ? AND user_id = ? AND order_id IS NULL`,
+      [addressId, user.id]
+    );
+    res.json({ success: true, message: 'Default address updated.' });
+  } catch (err) {
+    console.error('setDefaultAddress error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update default address.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getSavedAddresses
+// Returns only saved address-book rows (order_id IS NULL).
+// Order rows are excluded — they are fetched via getMyOrderById.
+// Frontend: GET /store/api/address/saved
+// ─────────────────────────────────────────────────────────────────────────────
+const getSavedAddresses = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+  try {
+    const [addresses] = await db.query(
+      `SELECT address_id, address_type, address_primary,
+              address_line1, address_line2, city, zipcode,
+              state_name, address_notes, address_billing
+       FROM tbl_user_address
+       WHERE user_id = ? AND order_id IS NULL
+       ORDER BY address_primary DESC, address_id DESC`,
+      [user.id]
+    );
+    res.json({ success: true, data: addresses });
+  } catch (err) {
+    console.error('getSavedAddresses error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load addresses.' });
+  }
+};
+
+const getProfileAddresses = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+
+  try {
+    const [[userRow]] = await db.query(
+      `SELECT ID, display_name, user_email
+       FROM tbl_users
+       WHERE ID = ?
+       LIMIT 1`,
+      [user.id]
+    );
+
+    if (!userRow) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const meta = await getUserMetaMap(user.id);
+    res.json({ success: true, data: buildProfileAddressResponse(userRow, meta) });
+  } catch (err) {
+    console.error('getProfileAddresses error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load profile addresses.' });
+  }
+};
+
+const updateProfileAddress = async (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Login required.' });
+  }
+
+  const kind = req.params.kind === 'billing' ? 'billing' : req.params.kind === 'shipping' ? 'shipping' : '';
+  if (!kind) {
+    return res.status(400).json({ success: false, message: 'Invalid address type.' });
+  }
+
+  const address = normalizeProfileAddressInput(req.body || {}, kind);
+  const errors = validateProfileAddress(address);
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please fill all required address fields.',
+      errors,
+    });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE tbl_users
+       SET user_email = CASE WHEN ? <> '' THEN ? ELSE user_email END,
+           display_name = CASE
+             WHEN ? <> '' AND ? = 'billing' THEN TRIM(CONCAT(?, CASE WHEN ? <> '' THEN ' ' ELSE '' END, ?))
+             ELSE display_name
+           END
+       WHERE ID = ?`,
+      [
+        address.email,
+        address.email,
+        address.firstName,
+        kind,
+        address.firstName,
+        address.lastName,
+        address.lastName,
+        user.id,
+      ]
+    );
+
+    for (const [metaKey, metaValue] of Object.entries(address.meta)) {
+      await upsertUserMeta(conn, user.id, metaKey, metaValue);
+    }
+
+    await conn.commit();
+
+    const [[userRow]] = await db.query(
+      `SELECT ID, display_name, user_email
+       FROM tbl_users
+       WHERE ID = ?
+       LIMIT 1`,
+      [user.id]
+    );
+    const meta = await getUserMetaMap(user.id);
+
+    res.json({
+      success: true,
+      message: `${kind === 'billing' ? 'Billing' : 'Shipping'} address updated successfully.`,
+      data: buildProfileAddressResponse(userRow, meta),
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error('updateProfileAddress error:', err);
+    res.status(500).json({ success: false, message: 'Failed to update profile address.' });
+  } finally {
+    conn.release();
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getMyOrders
+// Frontend: GET /store/api/orders/my
+// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrders = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -233,8 +890,8 @@ const getMyOrders = async (req, res) => {
   try {
     const [orders] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status) AS order_status,
-              MAX(o.order_date) AS order_date,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
               MAX(om_total.meta_value) AS total,
               GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
        FROM tbl_orders o
@@ -254,20 +911,24 @@ const getMyOrders = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getAllOrders (admin)
+// Frontend: GET /store/api/admin/orders
+// ─────────────────────────────────────────────────────────────────────────────
 const getAllOrders = async (_req, res) => {
   try {
     const [orders] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status) AS order_status,
-              MAX(o.order_date) AS order_date,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
               MAX(om_total.meta_value) AS total,
-              MAX(om_email.meta_value) AS billing_email,
+              MAX(u.user_email)        AS billing_email,
+              MAX(u.display_name)      AS customer_name,
               GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
        FROM tbl_orders o
+       LEFT JOIN tbl_users u ON u.ID = o.user_id
        LEFT JOIN tbl_ordermeta om_total
          ON o.order_id = om_total.order_id AND om_total.meta_key = '_order_total'
-       LEFT JOIN tbl_ordermeta om_email
-         ON o.order_id = om_email.order_id AND om_email.meta_key = '_billing_email'
        LEFT JOIN tbl_order_items oi
          ON o.order_id = oi.order_id AND oi.order_item_type = 'line_item'
        WHERE o.order_type = 'shop_order'
@@ -281,6 +942,13 @@ const getAllOrders = async (_req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getMyOrderById
+// name/email  → tbl_users via user_id        (sir's instruction)
+// address     → tbl_user_address via order_id (sir's instruction)
+// financials  → tbl_ordermeta
+// Frontend: GET /store/api/orders/:orderId
+// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrderById = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -294,35 +962,50 @@ const getMyOrderById = async (req, res) => {
   try {
     const [orderRows] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status) AS order_status,
-              MAX(o.order_date) AS order_date,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
               MAX(om_total.meta_value) AS total,
-              MAX(om_sub.meta_value) AS subtotal,
-              MAX(om_ship.meta_value) AS shipping,
-              MAX(om_pay.meta_value) AS payment_method,
-              MAX(om_bemail.meta_value) AS billing_email,
-              MAX(om_bfn.meta_value) AS billing_first_name,
-              MAX(om_bln.meta_value) AS billing_last_name,
-              MAX(om_bph.meta_value) AS billing_phone,
-              MAX(om_ba1.meta_value) AS billing_address_1,
-              MAX(om_ba2.meta_value) AS billing_address_2,
-              MAX(om_bcity.meta_value) AS billing_city,
-              MAX(om_bstate.meta_value) AS billing_state,
-              MAX(om_bpc.meta_value) AS billing_postcode,
-              MAX(om_bcountry.meta_value) AS billing_country,
-              MAX(om_sfn.meta_value) AS ship_first_name,
-              MAX(om_sln.meta_value) AS ship_last_name,
-              MAX(om_sph.meta_value) AS ship_phone,
-              MAX(om_sa1.meta_value) AS ship_address_1,
-              MAX(om_sa2.meta_value) AS ship_address_2,
-              MAX(om_scity.meta_value) AS ship_city,
-              MAX(om_sstate.meta_value) AS ship_state,
-              MAX(om_spc.meta_value) AS ship_postcode,
-              MAX(om_scountry.meta_value) AS ship_country,
-              MAX(u.display_name) AS user_display_name,
-              MAX(u.user_email) AS user_email
+              MAX(om_sub.meta_value)   AS subtotal,
+              MAX(om_ship.meta_value)  AS shipping,
+              MAX(om_pay.meta_value)   AS payment_method,
+              MAX(u.display_name)      AS user_display_name,
+              MAX(u.user_email)        AS user_email,
+              MAX(ub.address_line1)    AS billing_address_1,
+              MAX(ub.address_line2)    AS billing_address_2,
+              MAX(ub.city)             AS billing_city,
+              MAX(ub.state_name)       AS billing_state,
+              MAX(ub.zipcode)          AS billing_postcode,
+              MAX(ub.address_notes)    AS billing_notes,
+              MAX(us.address_line1)    AS ship_address_1,
+              MAX(us.address_line2)    AS ship_address_2,
+              MAX(us.city)             AS ship_city,
+              MAX(us.state_name)       AS ship_state,
+              MAX(us.zipcode)          AS ship_postcode
        FROM tbl_orders o
        LEFT JOIN tbl_users u ON u.ID = o.user_id
+       LEFT JOIN (
+         SELECT order_id,
+                MAX(address_line1) AS address_line1,
+                MAX(address_line2) AS address_line2,
+                MAX(city)          AS city,
+                MAX(state_name)    AS state_name,
+                MAX(zipcode)       AS zipcode,
+                MAX(address_notes) AS address_notes
+         FROM tbl_user_address
+         WHERE address_billing = 'yes'
+         GROUP BY order_id
+       ) ub ON ub.order_id = o.order_id
+       LEFT JOIN (
+         SELECT order_id,
+                MAX(address_line1) AS address_line1,
+                MAX(address_line2) AS address_line2,
+                MAX(city)          AS city,
+                MAX(state_name)    AS state_name,
+                MAX(zipcode)       AS zipcode
+         FROM tbl_user_address
+         WHERE address_billing = 'no'
+         GROUP BY order_id
+       ) us ON us.order_id = o.order_id
        LEFT JOIN tbl_ordermeta om_total
          ON o.order_id = om_total.order_id AND om_total.meta_key = '_order_total'
        LEFT JOIN tbl_ordermeta om_sub
@@ -331,44 +1014,6 @@ const getMyOrderById = async (req, res) => {
          ON o.order_id = om_ship.order_id AND om_ship.meta_key = '_order_shipping'
        LEFT JOIN tbl_ordermeta om_pay
          ON o.order_id = om_pay.order_id AND om_pay.meta_key = '_payment_method'
-       LEFT JOIN tbl_ordermeta om_bemail
-         ON o.order_id = om_bemail.order_id AND om_bemail.meta_key = '_billing_email'
-       LEFT JOIN tbl_ordermeta om_bfn
-         ON o.order_id = om_bfn.order_id AND om_bfn.meta_key = '_billing_first_name'
-       LEFT JOIN tbl_ordermeta om_bln
-         ON o.order_id = om_bln.order_id AND om_bln.meta_key = '_billing_last_name'
-       LEFT JOIN tbl_ordermeta om_bph
-         ON o.order_id = om_bph.order_id AND om_bph.meta_key = '_billing_phone'
-       LEFT JOIN tbl_ordermeta om_ba1
-         ON o.order_id = om_ba1.order_id AND om_ba1.meta_key = '_billing_address_1'
-       LEFT JOIN tbl_ordermeta om_ba2
-         ON o.order_id = om_ba2.order_id AND om_ba2.meta_key = '_billing_address_2'
-       LEFT JOIN tbl_ordermeta om_bcity
-         ON o.order_id = om_bcity.order_id AND om_bcity.meta_key = '_billing_city'
-       LEFT JOIN tbl_ordermeta om_bstate
-         ON o.order_id = om_bstate.order_id AND om_bstate.meta_key = '_billing_state'
-       LEFT JOIN tbl_ordermeta om_bpc
-         ON o.order_id = om_bpc.order_id AND om_bpc.meta_key = '_billing_postcode'
-       LEFT JOIN tbl_ordermeta om_bcountry
-         ON o.order_id = om_bcountry.order_id AND om_bcountry.meta_key = '_billing_country'
-       LEFT JOIN tbl_ordermeta om_sfn
-         ON o.order_id = om_sfn.order_id AND om_sfn.meta_key = '_shipping_first_name'
-       LEFT JOIN tbl_ordermeta om_sln
-         ON o.order_id = om_sln.order_id AND om_sln.meta_key = '_shipping_last_name'
-       LEFT JOIN tbl_ordermeta om_sph
-         ON o.order_id = om_sph.order_id AND om_sph.meta_key = '_shipping_phone'
-       LEFT JOIN tbl_ordermeta om_sa1
-         ON o.order_id = om_sa1.order_id AND om_sa1.meta_key = '_shipping_address_1'
-       LEFT JOIN tbl_ordermeta om_sa2
-         ON o.order_id = om_sa2.order_id AND om_sa2.meta_key = '_shipping_address_2'
-       LEFT JOIN tbl_ordermeta om_scity
-         ON o.order_id = om_scity.order_id AND om_scity.meta_key = '_shipping_city'
-       LEFT JOIN tbl_ordermeta om_sstate
-         ON o.order_id = om_sstate.order_id AND om_sstate.meta_key = '_shipping_state'
-       LEFT JOIN tbl_ordermeta om_spc
-         ON o.order_id = om_spc.order_id AND om_spc.meta_key = '_shipping_postcode'
-       LEFT JOIN tbl_ordermeta om_scountry
-         ON o.order_id = om_scountry.order_id AND om_scountry.meta_key = '_shipping_country'
        WHERE o.order_id = ? AND o.user_id = ? AND o.order_type = 'shop_order'
        GROUP BY o.order_id`,
       [orderId, user.id]
@@ -384,10 +1029,10 @@ const getMyOrderById = async (req, res) => {
       `SELECT oi.order_item_id,
               oi.order_item_name,
               oi.product_id,
-              MAX(CASE WHEN oim.meta_key = '_qty' THEN oim.meta_value END) AS qty,
+              MAX(CASE WHEN oim.meta_key = '_qty'        THEN oim.meta_value END) AS qty,
               MAX(CASE WHEN oim.meta_key = '_line_total' THEN oim.meta_value END) AS line_total,
-              MAX(CASE WHEN oim.meta_key = 'pa_color' THEN oim.meta_value END) AS color,
-              MAX(CASE WHEN oim.meta_key = 'pa_size' THEN oim.meta_value END) AS size
+              MAX(CASE WHEN oim.meta_key = 'pa_color'    THEN oim.meta_value END) AS color,
+              MAX(CASE WHEN oim.meta_key = 'pa_size'     THEN oim.meta_value END) AS size
        FROM tbl_order_items oi
        LEFT JOIN tbl_order_itemmeta oim ON oim.order_item_id = oi.order_item_id
        WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
@@ -402,14 +1047,21 @@ const getMyOrderById = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// updateOrderStatus (admin)
+// Frontend: PUT /store/api/admin/orders/:orderId/status
+// ─────────────────────────────────────────────────────────────────────────────
 const updateOrderStatus = async (req, res) => {
   const orderId = Number.parseInt(req.params.orderId, 10);
-  const status = toStr(req.body.status);
+  const status  = toStr(req.body.status);
   if (!orderId || !status) {
     return res.status(400).json({ success: false, message: 'orderId and status required.' });
   }
   try {
-    await db.query('UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?', [status, orderId]);
+    await db.query(
+      'UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?',
+      [status, orderId]
+    );
     res.json({ success: true });
   } catch (err) {
     console.error('updateOrderStatus error:', err);
@@ -423,4 +1075,9 @@ module.exports = {
   getMyOrderById,
   getAllOrders,
   updateOrderStatus,
+  getDefaultAddress,
+  setDefaultAddress,
+  getSavedAddresses,
+  getProfileAddresses,
+  updateProfileAddress,
 };

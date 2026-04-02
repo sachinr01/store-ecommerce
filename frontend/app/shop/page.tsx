@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const minPrice = prices.length ? Math.min(...prices) : null;
   const maxPrice = prices.length ? Math.max(...prices) : null;
   const priceRange = minPrice && maxPrice
-    ? ` Prices from $${minPrice.toFixed(0)} to $${maxPrice.toFixed(0)}.`
+    ? ` Prices from ₹${minPrice.toFixed(0)} to ₹${maxPrice.toFixed(0)}.`
     : '';
 
   const title = count > 0
@@ -47,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
     'shop',
     'products',
     ...keywordTokens,
-    ...(minPrice ? [`gifts under $${Math.ceil(minPrice / 10) * 10 + 10}`] : []),
+    ...(minPrice ? [`gifts under ₹${Math.ceil(minPrice / 10) * 10 + 10}`] : []),
   ];
 
   return {

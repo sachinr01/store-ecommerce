@@ -8,12 +8,10 @@ export default function TrendingCategories() {
 
   return (
     <section className="home-section">
-      <h2 className="section-title">Trending Categories</h2>
       <div className="cat-grid">
         {categories.map((c) => (
           <div key={c.label} className="cat-card">
             <img src={c.image} alt={c.label} />
-            <h3>{c.label}</h3>
           </div>
         ))}
       </div>

@@ -75,10 +75,10 @@ export default function Footer() {
           <div>
             <h4>SHOP BY PRICE</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Gift Under 1000</a></li>
-              <li><a href="#." className="link-faded">Gift Under 2000</a></li>
-              <li><a href="#." className="link-faded">Gift Under 3000</a></li>
-              <li><a href="#." className="link-faded">Gift Under 5000</a></li>
+              <li><Link href="/shop?max=1000" className="link-faded">Gift Under 1000</Link></li>
+              <li><Link href="/shop?max=2000" className="link-faded">Gift Under 2000</Link></li>
+              <li><Link href="/shop?max=3000" className="link-faded">Gift Under 3000</Link></li>
+              <li><Link href="/shop?max=5000" className="link-faded">Gift Under 5000</Link></li>
             </ul>
           </div>
 
@@ -124,7 +124,7 @@ export default function Footer() {
       <style>{`
         .okab-footer {
           width: 100%;
-          font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+          font-family: var(--font-body);
           color: #111;
           margin: 0;
           padding: 0;

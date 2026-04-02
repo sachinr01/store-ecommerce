@@ -197,7 +197,7 @@ const removeCartItem = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid item id.' });
   }
   try {
-    let result;
+       let result;
     if (userId) {
       [result] = await db.query(
         'DELETE FROM cart_items WHERE id = ? AND user_id = ?',
