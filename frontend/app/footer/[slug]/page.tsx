@@ -93,6 +93,7 @@ export default async function FooterSlugPage({ params }: { params: Promise<{ slu
           display: grid;
           grid-template-columns: minmax(0, 1fr) 300px;
           gap: 36px;
+          align-items: start;
         }
         .static-body.no-sidebar {
           max-width: 820px;
@@ -132,8 +133,7 @@ export default async function FooterSlugPage({ params }: { params: Promise<{ slu
           display: flex;
           flex-direction: column;
           gap: 22px;
-          position: sticky;
-          top: 100px;
+          position: static;
           align-self: start;
         }
         .sidebar-box {
