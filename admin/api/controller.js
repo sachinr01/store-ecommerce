@@ -22,6 +22,60 @@ const toSlug = (value) =>
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
+const stripShortcodes = (value = '') => String(value || '').replace(/\[[^\]]+\]/g, ' ');
+
+const sanitizeContent = (value) => String(value || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript:/gi, '');
+
+const sanitizeSummary = (value) => String(value || '')
+    .replace(/<[^>]+>/g, '')
+    .trim();
+
+
+const BLOG_IMAGES = [
+    'https://nestasia.in/cdn/shop/articles/467.png?v=1773144465&width=600',
+    'https://nestasia.in/cdn/shop/articles/Blog_Banners_500_x_500_px_25_c53d2c3d-1367-46fc-a922-ae67ccc299c5.png?v=1774874256&width=780',
+    'https://nestasia.in/cdn/shop/articles/What_s_your_dinner_hosting_score_f9aac14d-58ea-4a8c-a08f-215822835ad3.png?v=1774874314&width=780',
+    'https://nestasia.in/cdn/shop/articles/WhatsApp_Image_2026-02-27_at_20.47.07_7b452509-c434-4d10-ad9c-ebb3b212868a.jpg?v=1774871271&width=780',
+];
+
+const formatPostDate = (value) => {
+    if (!value) return '';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return String(value);
+    return dt.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+};
+
+const normalizePost = (row, index = 0) => {
+    const rawContent = stripShortcodes(row.post_content || '');
+    const rawSummary = stripShortcodes(row.post_short_desc || '');
+    const safeContent = sanitizeContent(rawContent).trim();
+    const safeSummary = sanitizeSummary(rawSummary);
+    return {
+        slug: row.post_slug,
+        title: row.post_title,
+        content: safeContent,
+        summary: safeSummary,
+        date: formatPostDate(row.post_date),
+        image: BLOG_IMAGES[index % BLOG_IMAGES.length],
+    };
+};
+
+const normalizePage = (row) => {
+    const rawContent = stripShortcodes(row.post_content || '');
+    const rawSummary = stripShortcodes(row.post_short_desc || '');
+    const safeContent = sanitizeContent(rawContent).trim();
+    const safeSummary = sanitizeSummary(rawSummary);
+    return {
+        slug: row.post_slug,
+        title: row.post_title,
+        content: safeContent,
+        summary: safeSummary,
+        date: formatPostDate(row.post_date),
+    };
+};
 
 async function withRetry(fn) {
     try {
@@ -590,6 +644,91 @@ const getProductBySlug = async (req, res) => {
     }
 };
 
-module.exports = { getProducts, getFeaturedProducts, getOnSaleProducts, getProduct, getProductBySlug, getColors, getAttributesByTaxonomy, getAllAttributeGroups };
+// GET /store/api/blogs
+const getBlogs = async (req, res) => {
+    try {
+        const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+        const limitClause = Number.isFinite(limit) ? 'LIMIT ?' : '';
+        const params = Number.isFinite(limit) ? [limit] : [];
+        const [rows] = await withRetry(() => db.query(`
+            SELECT post_slug, post_title, post_content, post_short_desc, post_date
+            FROM tbl_posts
+            WHERE post_type = 'post' AND post_status = 'publish'
+            ORDER BY post_date DESC
+            ${limitClause}
+        `, params));
+        const data = rows.map((row, idx) => normalizePost(row, idx));
+        res.json({ success: true, count: data.length, data });
+    } catch (err) {
+        console.error('getBlogs error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
 
+// GET /store/api/blogs/slug/:slug
+const getBlogBySlug = async (req, res) => {
+    const { slug } = req.params;
+    try {
+        const [[row]] = await withRetry(() => db.query(`
+            SELECT post_slug, post_title, post_content, post_short_desc, post_date
+            FROM tbl_posts
+            WHERE post_type = 'post' AND post_status = 'publish' AND post_slug = ?
+            LIMIT 1
+        `, [slug]));
+        if (!row) return res.status(404).json({ success: false, message: 'Blog not found' });
+        res.json({ success: true, data: normalizePost(row, 0) });
+    } catch (err) {
+        console.error('getBlogBySlug error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
 
+// GET /store/api/pages
+const getPages = async (_req, res) => {
+    try {
+        const [rows] = await withRetry(() => db.query(`
+            SELECT post_slug, post_title, post_content, post_short_desc, post_date
+            FROM tbl_posts
+            WHERE post_type = 'page' AND post_status = 'publish'
+            ORDER BY post_date DESC
+        `));
+        const data = rows.map((row) => normalizePage(row));
+        res.json({ success: true, count: data.length, data });
+    } catch (err) {
+        console.error('getPages error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
+
+// GET /store/api/pages/slug/:slug
+const getPageBySlug = async (req, res) => {
+    const { slug } = req.params;
+    try {
+        const [[row]] = await withRetry(() => db.query(`
+            SELECT post_slug, post_title, post_content, post_short_desc, post_date
+            FROM tbl_posts
+            WHERE post_type = 'page' AND post_status = 'publish' AND post_slug = ?
+            LIMIT 1
+        `, [slug]));
+        if (!row) return res.status(404).json({ success: false, message: 'Page not found' });
+        res.json({ success: true, data: normalizePage(row) });
+    } catch (err) {
+        console.error('getPageBySlug error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
+
+module.exports = {
+    getProducts,
+    getFeaturedProducts,
+    getOnSaleProducts,
+    getProduct,
+    getProductBySlug,
+    getColors,
+    getAttributesByTaxonomy,
+    getAllAttributeGroups,
+    getBlogs,
+    getBlogBySlug,
+    getPages,
+    getPageBySlug,
+};

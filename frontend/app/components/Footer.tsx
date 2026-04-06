@@ -18,20 +18,20 @@ export default function Footer() {
           <div>
             <h4>ABOUT US</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Our Story</a></li>
-              <li><a href="#." className="link-faded">Community</a></li>
-              <li><a href="#." className="link-faded">Corporate Gifts</a></li>
-              <li><a href="#." className="link-faded">Daily Gifts</a></li>
-              <li><a href="#." className="link-faded">Store Locator</a></li>
+              <li><Link href="/footer/about-us" className="link-faded">Our Story</Link></li>
+              <li><Link href="/footer/contact-us" className="link-faded">Contact Us</Link></li>
+              <li><Link href="/footer/shipping-policy" className="link-faded">Shipping Policy</Link></li>
+              <li><Link href="/footer/refund_returns" className="link-faded">Refund &amp; Returns</Link></li>
+              <li><Link href="/footer/terms-conditions" className="link-faded">Terms &amp; Conditions</Link></li>
             </ul>
           </div>
           <div>
             <h4>COMPANY</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="/store/footer/policies/nav?type=privacy-policy" className="link-faded">Privacy Policy</a></li>
-              <li><a href="#." className="link-faded">Terms Of Use</a></li>
-              <li><a href="#." className="link-faded">Contact Us</a></li>
-              <li><a href="/store/footer/policies/nav?type=return-policy" className="link-faded">Return Policy</a></li>
+              <li><Link href="/footer/privacy-policy" className="link-faded">Privacy Policy</Link></li>
+              <li><Link href="/footer/terms-conditions" className="link-faded">Terms Of Use</Link></li>
+              <li><Link href="/footer/contact-us" className="link-faded">Contact Us</Link></li>
+              <li><Link href="/footer/refund_returns" className="link-faded">Refund &amp; Returns</Link></li>
             </ul>
           </div>
           <div>

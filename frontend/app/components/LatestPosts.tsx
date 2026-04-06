@@ -1,42 +1,219 @@
-export default function LatestPosts() {
-  const posts = [
-    {
-      image: 'https://nestasia.in/cdn/shop/articles/467.png?v=1773144465&width=600',
-      date: 'March 01, 2026',
-      title: 'How To Prepare Your Home For A Stress-Free Summer',
-    },
-    {
-      image: 'https://nestasia.in/cdn/shop/articles/Blog_Banners_500_x_500_px_25_c53d2c3d-1367-46fc-a922-ae67ccc299c5.png?v=1774874256&width=780',
-      date: 'March 05, 2026',
-      title: 'Summertime Pre-Summer Home Refresh Checklist',
-    },
-    {
-      image: 'https://nestasia.in/cdn/shop/articles/What_s_your_dinner_hosting_score_f9aac14d-58ea-4a8c-a08f-215822835ad3.png?v=1774874314&width=780',
-      date: 'March 12, 2026',
-      title: 'What Your Dining Table Decor Says About Your Entertaining Style',
-    },
-    {
-      image: 'https://nestasia.in/cdn/shop/articles/WhatsApp_Image_2026-02-27_at_20.47.07_7b452509-c434-4d10-ad9c-ebb3b212868a.jpg?v=1774871271&width=780',
-      date: 'March 16, 2026',
-      title: "Unique Holi Gifts That They'll Treasure Forever",
-    },
-  ];
+﻿'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { blogs as fallbackBlogs } from '../lib/blogs';
+
+type Blog = {
+  slug: string;
+  image: string;
+  date: string;
+  title: string;
+  summary: string;
+  content: string;
+};
+
+export default function LatestPosts() {
+  const [posts, setPosts] = useState<Blog[]>(fallbackBlogs);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/store/api/blogs?limit=4')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!mounted) return;
+        if (data?.success && Array.isArray(data.data)) {
+          setPosts(data.data);
+        }
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (mounted) setLoaded(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const isLoading = !loaded;
+  if (loaded && posts.length === 0) return null;
   return (
-    <section className="home-section-gray">
-      <h2 className="section-title">From The Blog</h2>
-      <div className="blog-grid">
-        {posts.map((post, i) => (
-          <div key={i} className="blog-card">
-            <img src={post.image} alt={post.title} />
-            <div className="blog-card-body">
-              <span className="blog-card-date">{post.date}</span>
-              <h4 className="blog-card-title">{post.title}</h4>
-              <a href="#" className="blog-card-link">Read More</a>
-            </div>
+    <>
+      <style>{`
+        .blog-section {
+          padding: 56px 0 64px;
+          background: #f7f5f2;
+        }
+        .blog-section-inner {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 24px;
+        }
+        .blog-section-header {
+          text-align: center;
+          margin-bottom: 40px;
+        }
+        .blog-section-label {
+          display: block;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: #aaa;
+          margin-bottom: 10px;
+        }
+        .blog-section-title {
+          font-size: 28px;
+          font-weight: 700;
+          color: #1a1a1a;
+          letter-spacing: -0.5px;
+          margin: 0;
+        }
+        .blog-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 24px;
+        }
+        .blog-card {
+          background: #fff;
+          border: 1px solid #ece7df;
+          border-radius: 3px;
+          overflow: hidden;
+          text-decoration: none;
+          display: block;
+          transition: box-shadow 0.22s ease, transform 0.22s ease;
+        }
+        .blog-card:hover {
+          box-shadow: 0 8px 28px rgba(0,0,0,0.09);
+          transform: translateY(-3px);
+        }
+        .blog-card-img-wrap {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          overflow: hidden;
+          background: #f0ebe3;
+        }
+        .blog-card-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 0.4s ease;
+        }
+        .blog-card:hover .blog-card-img-wrap img {
+          transform: scale(1.04);
+        }
+        .blog-card-body {
+          padding: 18px 20px 22px;
+        }
+        .blog-card-date {
+          display: block;
+          font-size: 11px;
+          color: #aaa;
+          margin-bottom: 8px;
+          letter-spacing: 0.3px;
+        }
+        .blog-card-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #1a1a1a;
+          line-height: 1.45;
+          margin: 0 0 14px;
+        }
+        .blog-card-summary {
+          font-size: 12px;
+          color: #888;
+          line-height: 1.6;
+          margin: 0 0 16px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .blog-card-link {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: #1a1a1a;
+          text-decoration: none;
+          border-bottom: 1.5px solid #1a1a1a;
+          padding-bottom: 1px;
+          transition: opacity 0.2s;
+        }
+        .blog-card:hover .blog-card-link { opacity: 0.6; }
+        .blog-card--skeleton {
+          border-style: dashed;
+        }
+        .skeleton-block {
+          background: linear-gradient(90deg, #f3eee8 25%, #f8f4ef 37%, #f3eee8 63%);
+          background-size: 400% 100%;
+          animation: shimmer 1.4s ease infinite;
+          border-radius: 4px;
+        }
+        .skeleton-img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+        }
+        .skeleton-line {
+          height: 10px;
+          margin-bottom: 10px;
+        }
+        .skeleton-line.short { width: 60%; }
+        .skeleton-line.medium { width: 80%; }
+        .skeleton-line.long { width: 100%; }
+        @keyframes shimmer {
+          0% { background-position: 100% 0; }
+          100% { background-position: -100% 0; }
+        }
+
+        @media (max-width: 1024px) {
+          .blog-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+          .blog-grid { grid-template-columns: 1fr; gap: 16px; }
+          .blog-section { padding: 40px 0 48px; }
+          .blog-section-title { font-size: 22px; }
+        }
+      `}</style>
+
+      <section className="blog-section" id="blog">
+        <div className="blog-section-inner">
+          <div className="blog-section-header">
+            <span className="blog-section-label">Journal</span>
+            <h2 className="blog-section-title">From The Blog</h2>
           </div>
-        ))}
-      </div>
-    </section>
+          <div className="blog-grid">
+            {isLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={`skeleton-${i}`} className="blog-card blog-card--skeleton">
+                    <div className="blog-card-img-wrap">
+                      <div className="skeleton-block skeleton-img" />
+                    </div>
+                    <div className="blog-card-body">
+                      <div className="skeleton-block skeleton-line short" />
+                      <div className="skeleton-block skeleton-line long" />
+                      <div className="skeleton-block skeleton-line medium" />
+                    </div>
+                  </div>
+                ))
+              : posts.map((post) => (
+                  <Link key={post.slug} href={`/blog/${post.slug}`} className="blog-card">
+                    <div className="blog-card-img-wrap">
+                      <img src={post.image} alt={post.title} />
+                    </div>
+                    <div className="blog-card-body">
+                      <span className="blog-card-date">{post.date}</span>
+                      <h4 className="blog-card-title">{post.title}</h4>
+                      <p className="blog-card-summary">{post.summary}</p>
+                      <span className="blog-card-link">Read More</span>
+                    </div>
+                  </Link>
+                ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

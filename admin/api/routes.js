@@ -29,6 +29,12 @@ router.get('/media/products',             media.getProductsWithImages);
 router.get('/media/product/:productId',   media.getProductMedia);
 router.get('/media/:id',                  media.getMediaById);
 
+// ── Content (Blogs + Pages) ────────────────────────────────────────────────
+router.get('/blogs',            ctrl.getBlogs);
+router.get('/blogs/slug/:slug', ctrl.getBlogBySlug);
+router.get('/pages',            ctrl.getPages);
+router.get('/pages/slug/:slug', ctrl.getPageBySlug);
+
 // ── Attributes ────────────────────────────────────────────────────────────────
 router.get('/attributes/colors',     ctrl.getColors);
 router.get('/attributes/all',        ctrl.getAllAttributeGroups);

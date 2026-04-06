@@ -99,3 +99,13 @@ html, body {
   border-color: #2bbfaa !important;
   color: #fff !important;
 }
+
+input[type="checkbox"] {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  flex-shrink: 0 !important;
+}

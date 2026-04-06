@@ -22,6 +22,7 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    unoptimized: false,
     remotePatterns: [
       { protocol: 'https', hostname: 'icmedianew.gumlet.io' },
       { protocol: 'https', hostname: 'okcredit-blog-images-prod.storage.googleapis.com' },
@@ -31,7 +32,9 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'topperskit.com' },
       { protocol: 'https', hostname: 'm.media-amazon.com' },
       { protocol: 'https', hostname: 'rukminim1.flixcart.com' },
+      { protocol: 'https', hostname: 'rukminim2.flixcart.com' },
     ],
+    dangerouslyAllowSVG: false,
   },
   async redirects() {
     return [

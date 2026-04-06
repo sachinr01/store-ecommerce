@@ -209,28 +209,49 @@ export default function CheckoutPage() {
         .checkout-page .field textarea {
           min-height: 80px;
         }
-        .checkout-page input.checkbox {
-          width: 14px;
-          height: 14px;
-          min-width: 14px;
-          min-height: 14px;
-          margin: 0;
-          border: 1px solid #cfc7bb;
-          border-radius: 0;
+
+        /* ── Custom checkbox (div-based, immune to global input rules) ── */
+        .ck-box {
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          min-height: 20px;
+          border: 2px solid #ccc;
+          border-radius: 4px;
           background: #fff;
-          appearance: none;
-          -webkit-appearance: none;
-          display: inline-block;
-          vertical-align: middle;
+          cursor: pointer;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.15s, border-color 0.15s;
+          box-sizing: border-box;
         }
-        .checkout-page input.checkbox:checked {
-          background: #0db19a;
-          border-color: #0db19a;
-          box-shadow: inset 0 0 0 2px #fff;
+        .ck-box.checked {
+          background: #e53935;
+          border-color: #e53935;
         }
+        .ck-box.checked::after {
+          content: '';
+          width: 5px;
+          height: 9px;
+          border: solid #fff;
+          border-width: 0 2px 2px 0;
+          transform: rotate(45deg) translateY(-1px);
+          display: block;
+        }
+
         .checkout-toggle-label,
         .checkout-terms label {
-          gap: 6px;
+          gap: 10px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #2563eb;
+        }
+        .checkout-terms label span,
+        .checkout-terms label a {
+          color: #2563eb;
+          font-weight: 600;
         }
         .checkout-section-title { margin: 0 0 16px; font-size: 24px; font-weight: 700; color: #1a1a1a; }
         .checkout-subsection-title { margin: 26px 0 14px; font-size: 22px; font-weight: 700; color: #1a1a1a; }
@@ -242,10 +263,13 @@ export default function CheckoutPage() {
         .checkout-order-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
         .checkout-order-table-wrap { overflow-x: auto; }
         .checkout-order-table-wrap table { width: 100%; min-width: 320px; }
-        .checkout-payment-list { margin: 0; padding: 0; list-style: none; }
-        .checkout-payment-list li + li { margin-top: 14px; padding-top: 14px; border-top: 1px solid #efefef; }
-        .checkout-payment-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+        .checkout-payment-list { margin: 0; padding: 0; display: grid; gap: 12px; }
+        .checkout-payment-item { border: 1px solid #eee3d6; border-radius: 10px; padding: 12px 14px; background: #fff; }
+        .checkout-payment-item.selected { border-color: #00cfc1; background: #f7fffd; }
+        .checkout-payment-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; width: 100%; }
+        .checkout-payment-label input { margin-top: 3px; }
         .checkout-payment-copy { font-size: 13px; color: #666; margin: 4px 0 0; }
+        .checkout-card-box { border: 1px solid #eee3d6; background: #fff; border-radius: 10px; padding: 14px; }
         .checkout-submit { width: 100%; margin-bottom: 12px; cursor: pointer; }
         .checkout-terms { margin-top: 8px; font-size: 13px; }
         .checkout-terms a { white-space: nowrap; }
@@ -359,12 +383,19 @@ export default function CheckoutPage() {
                         Verify your contact details with simple OTP for smooth delivery process.
                       </div>
                     </div>
+
+                    {/* Create account toggle */}
                     <div className="field">
-                      <label className="checkout-toggle-label">
-                        <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
+                      <div
+                        className="checkout-toggle-label"
+                        onClick={() => setCreateAccount(v => !v)}
+                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div className={`ck-box ${createAccount ? 'checked' : ''}`} />
                         Create an account?
-                      </label>
+                      </div>
                     </div>
+
                     {createAccount && (
                       <div className="checkout-account-box">
                         <p>Create an account by entering the information below. If you are a returning customer please login at the top of the page.</p>
@@ -429,12 +460,18 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
+                    {/* Bill to different address toggle */}
                     <div className="field">
-                      <label className="checkout-toggle-label">
-                        <input type="checkbox" checked={shipToDifferent} onChange={(e) => setShipToDifferent(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
+                      <div
+                        className="checkout-toggle-label"
+                        onClick={() => setShipToDifferent(v => !v)}
+                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        <div className={`ck-box ${shipToDifferent ? 'checked' : ''}`} />
                         Bill to a different address
-                      </label>
+                      </div>
                     </div>
+
                     {shipToDifferent && (
                       <div className="checkout-shipping-box">
                         <h5 style={{ marginBottom: 12 }}>Billing Address</h5>
@@ -503,22 +540,22 @@ export default function CheckoutPage() {
                           <span>Cart Subtotal</span>
                           <strong>&#8377;{total.toFixed(2)}</strong>
                         </div>
-                      <div className="checkout-summary-row">
-                        <span>Discount</span>
-                        <strong>&#8377;0.00</strong>
+                        <div className="checkout-summary-row">
+                          <span>Discount</span>
+                          <strong>&#8377;0.00</strong>
+                        </div>
+                        <div className="checkout-summary-row">
+                          <span>Shipping &amp; Handling</span>
+                          <strong>&#8377;0.00</strong>
+                        </div>
+                        <div className="checkout-summary-total">
+                          <span>Order Total</span>
+                          <span>&#8377;{orderTotal.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="checkout-summary-row">
-                        <span>Shipping &amp; Handling</span>
-                        <strong>&#8377;0.00</strong>
-                      </div>
-                      <div className="checkout-summary-total">
-                        <span>Order Total</span>
-                        <span>&#8377;{orderTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
 
-                    <div className="checkout-order-items">
-                      <h4 className="checkout-subsection-title" style={{ marginTop: 0 }}>Your Item</h4>
+                      <div className="checkout-order-items">
+                        <h4 className="checkout-subsection-title" style={{ marginTop: 0 }}>Your Item</h4>
                         {items.map((item) => (
                           <div key={item.cartItemId} className="checkout-order-item">
                             <img
@@ -556,26 +593,20 @@ export default function CheckoutPage() {
                       {showPayment && (
                         <>
                           <h4 className="checkout-subsection-title" style={{ marginTop: 20 }}>Payment Method</h4>
-                          <ul className="with-border checkout-payment-list">
-                            <li>
+                          <div className="checkout-payment-list">
+                            <div className={`checkout-payment-item ${paymentMethod === 'cod' ? 'selected' : ''}`}>
                               <label className="checkout-payment-label">
-                                <input className="radio" type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={(e) => setPaymentMethod(e.target.value)} />
-                                <span>
-                                  <strong>Cash on Delivery (COD)</strong>
-                                  {paymentMethod === 'cod' && <p className="checkout-payment-copy">Pay with cash when your order is delivered.</p>}
-                                </span>
+                                <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={(e) => setPaymentMethod(e.target.value)} />
+                                <span><strong>Cash on Delivery</strong></span>
                               </label>
-                            </li>
-                            <li className="field last">
+                            </div>
+                            <div className={`checkout-payment-item ${paymentMethod === 'card' ? 'selected' : ''}`}>
                               <label className="checkout-payment-label">
-                                <input className="radio" type="radio" name="payment" value="card" checked={paymentMethod === 'card'} onChange={(e) => setPaymentMethod(e.target.value)} />
-                                <span>
-                                  <strong>Card Payment</strong>
-                                  {paymentMethod === 'card' && <p className="checkout-payment-copy">Pay securely using your debit or credit card.</p>}
-                                </span>
+                                <input type="radio" name="payment" value="card" checked={paymentMethod === 'card'} onChange={(e) => setPaymentMethod(e.target.value)} />
+                                <span><strong>Credit/Debit Card</strong></span>
                               </label>
-                            </li>
-                          </ul>
+                            </div>
+                          </div>
 
                           {showCardDetails && (
                             <div className="checkout-card-box" style={{ marginTop: 14 }}>
@@ -607,11 +638,17 @@ export default function CheckoutPage() {
 
                           {orderError && <div style={{ color: '#c62828', fontSize: 13, marginBottom: 10 }}>{orderError}</div>}
 
+                          {/* Terms checkbox */}
                           <div className="field checkout-terms">
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-                              <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} style={{ width: 10, height: 10, accentColor: '#00cfc1' }} />
-                              <span>I&apos;ve read and accept the <a href="#">terms &amp; conditions</a></span>
-                            </label>
+                            <div
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, userSelect: 'none' }}
+                              onClick={() => setTerms(v => !v)}
+                            >
+                              <div className={`ck-box ${terms ? 'checked' : ''}`} />
+                              <span style={{ color: '#2563eb', fontWeight: 600 }}>
+                                I&apos;ve read and accept the <a href="#" onClick={e => e.stopPropagation()}>terms &amp; conditions</a>
+                              </span>
+                            </div>
                             {errors.terms && <span style={{ ...errStyle, display: 'block', marginTop: 4 }}>{errors.terms}</span>}
                           </div>
                         </>
