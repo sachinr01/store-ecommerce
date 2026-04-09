@@ -204,12 +204,15 @@ const storeProduct = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    const body      = req.body;
-    const authorId  = req.session.admin.id;
+    const body = req.body;
+    const authorId = req.session.admin.id;
 
-    const slug = body.product_url ||
-      (body.product_title || "").toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const slug =
+      body.product_url ||
+      (body.product_title || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
 
     const guid = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
 
@@ -226,13 +229,13 @@ const storeProduct = async (req, res) => {
         authorId,
         slug,
         body.product_title,
-        body.product_content     || "",
-        body.product_short_desc  || "",
-        body.product_status      || "draft",
-        body.product_type        || "product",
+        body.product_content || "",
+        body.product_short_desc || "",
+        body.product_status || "draft",
+        body.product_type || "product",
         guid,
-        body.menu_order          || 0,
-      ]
+        body.menu_order || 0,
+      ],
     );
     const productId = result.insertId;
 
@@ -242,25 +245,37 @@ const storeProduct = async (req, res) => {
     const insertMeta = async (pid, key, value) => {
       await conn.query(
         "INSERT INTO tbl_productmeta (product_id, meta_key, meta_value) VALUES (?, ?, ?)",
-        [pid, key, value || ""]
+        [pid, key, value || ""],
       );
     };
 
-    await insertMeta(productId, "_sku",                   body.sku);
-    await insertMeta(productId, "_regular_price",         body.regular_price);
-    await insertMeta(productId, "_sale_price",            body.sale_price);
-    await insertMeta(productId, "_sale_price_dates_from", body.sale_price_dates_from);
-    await insertMeta(productId, "_sale_price_dates_to",   body.sale_price_dates_to);
-    await insertMeta(productId, "_price",                 body.sale_price || body.regular_price);
-    await insertMeta(productId, "_stock",                 body.stock      || "0");
-    await insertMeta(productId, "_stock_status",          body.stock_status || "instock");
-    await insertMeta(productId, "_manage_stock",          body.manage_stock ? "yes" : "no");
-    await insertMeta(productId, "_backorders",            body.backorders || "no");
-    await insertMeta(productId, "_weight",                body.weight);
-    await insertMeta(productId, "_length",                body.length);
-    await insertMeta(productId, "_width",                 body.width);
-    await insertMeta(productId, "_virtual",               body.is_virtual      ? "yes" : "no");
-    await insertMeta(productId, "_downloadable",          body.is_downloadable ? "yes" : "no");
+    await insertMeta(productId, "_sku", body.sku);
+    await insertMeta(productId, "_regular_price", body.regular_price);
+    await insertMeta(productId, "_sale_price", body.sale_price);
+    await insertMeta(
+      productId,
+      "_sale_price_dates_from",
+      body.sale_price_dates_from,
+    );
+    await insertMeta(
+      productId,
+      "_sale_price_dates_to",
+      body.sale_price_dates_to,
+    );
+    await insertMeta(productId, "_stock", body.stock || "0");
+    await insertMeta(
+      productId,
+      "_stock_status",
+      body.stock_status || "instock",
+    );
+    await insertMeta(productId, "_product_features", body.product_features || "");
+    await insertMeta(productId, "_product_material", body.product_material || "");
+    await insertMeta(productId, "_product_collection", body.product_collection || "");
+    await insertMeta(productId, "_product_included", body.product_included || "");
+    await insertMeta(productId, "_product_care", body.product_care || "");
+    await insertMeta(productId, "_product_more_info", body.product_more_info || "");
+
+    
 
     // ═══════════════════════════════════════════════════════
     // STEP 3: MAIN FEATURED IMAGE
@@ -268,7 +283,7 @@ const storeProduct = async (req, res) => {
     // save to tbl_media + tbl_mediameta, store media_id in _thumbnail_id
     // ═══════════════════════════════════════════════════════
     if (req.files) {
-      const mainImageFile = req.files.find(function(f) {
+      const mainImageFile = req.files.find(function (f) {
         return f.fieldname === "main_image";
       });
 
@@ -279,13 +294,18 @@ const storeProduct = async (req, res) => {
           `INSERT INTO tbl_media
              (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
            VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-          [authorId, productId, mainImageFile.originalname, mainImageFile.mimetype]
+          [
+            authorId,
+            productId,
+            mainImageFile.originalname,
+            mainImageFile.mimetype,
+          ],
         );
         const mediaId = mediaRes.insertId;
 
         await conn.query(
           "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
-          [mediaId, savedPath]
+          [mediaId, savedPath],
         );
 
         await insertMeta(productId, "_thumbnail_id", mediaId);
@@ -295,7 +315,7 @@ const storeProduct = async (req, res) => {
       // STEP 4: MAIN PRODUCT GALLERY IMAGES
       // field: gallery_images[]
       // ═══════════════════════════════════════════════════════
-      const galleryFiles = req.files.filter(function(f) {
+      const galleryFiles = req.files.filter(function (f) {
         return f.fieldname === "gallery_images[]";
       });
 
@@ -306,13 +326,13 @@ const storeProduct = async (req, res) => {
           `INSERT INTO tbl_media
              (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
            VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-          [authorId, productId, file.originalname, file.mimetype]
+          [authorId, productId, file.originalname, file.mimetype],
         );
         const mediaId = mediaRes.insertId;
 
         await conn.query(
           "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
-          [mediaId, savedPath]
+          [mediaId, savedPath],
         );
       }
     }
@@ -323,21 +343,23 @@ const storeProduct = async (req, res) => {
     // selected_attr_values[] = comma-separated attr_ids
     // attr_for_variation[]   = "1" if used for variations
     // ═══════════════════════════════════════════════════════
-    const attrTypeIds   = [].concat(body.selected_attr_type   || []);
+    const attrTypeIds = [].concat(body.selected_attr_type || []);
     const attrValuesCsv = [].concat(body.selected_attr_values || []);
-    const attrForVar    = [].concat(body.attr_for_variation    || []);
+    const attrForVar = [].concat(body.attr_for_variation || []);
 
     for (let i = 0; i < attrTypeIds.length; i++) {
-      const typeId      = attrTypeIds[i];
+      const typeId = attrTypeIds[i];
       const isVariation = attrForVar.includes("1") ? 1 : 0;
-      const valueIds    = (attrValuesCsv[i] || "")
-        .split(",").map(v => v.trim()).filter(Boolean);
+      const valueIds = (attrValuesCsv[i] || "")
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
 
       if (!valueIds.length) continue;
 
       const [[attrType]] = await conn.query(
         "SELECT attribute_type_name FROM tbl_attribute_type WHERE attribute_type_id = ?",
-        [typeId]
+        [typeId],
       );
       if (!attrType) continue;
 
@@ -346,9 +368,13 @@ const storeProduct = async (req, res) => {
       // Save attribute slugs on main product meta
       const [attrRows] = await conn.query(
         `SELECT attr_id, attr_slug FROM tbl_attributes WHERE attr_id IN (${valueIds.map(() => "?").join(",")})`,
-        valueIds
+        valueIds,
       );
-      await insertMeta(productId, "attribute_" + taxonomy, attrRows.map(a => a.attr_slug).join("|"));
+      await insertMeta(
+        productId,
+        "attribute_" + taxonomy,
+        attrRows.map((a) => a.attr_slug).join("|"),
+      );
 
       // Insert into lookup
       for (const attrRow of attrRows) {
@@ -356,7 +382,7 @@ const storeProduct = async (req, res) => {
           `INSERT IGNORE INTO tbl_attributes_lookup
              (product_id, product_or_parent_id, taxonomy, attr_id, is_variation_attribute, in_stock)
            VALUES (?, ?, ?, ?, ?, 1)`,
-          [productId, productId, taxonomy, attrRow.attr_id, isVariation]
+          [productId, productId, taxonomy, attrRow.attr_id, isVariation],
         );
       }
     }
@@ -366,28 +392,36 @@ const storeProduct = async (req, res) => {
     // var_attr_combo[] = "pa_color:white,pa_size:xl"
     // var_attr_ids[]   = "93,119"
     // ═══════════════════════════════════════════════════════
-    const combos      = [].concat(body.var_attr_combo    || []);
-    const varSkus     = [].concat(body.var_sku           || []);
-    const varPrices   = [].concat(body.var_regular_price || []);
-    const varSales    = [].concat(body.var_sale_price    || []);
-    const varStocks   = [].concat(body.var_stock         || []);
-    const varStatuses = [].concat(body.var_stock_status  || []);
-    const varWeights  = [].concat(body.var_weight        || []);
-    const varDescs    = [].concat(body.var_description   || []);
-    const varAttrIds  = [].concat(body.var_attr_ids      || []);
+    const combos = [].concat(body.var_attr_combo || []);
+    const varSkus = [].concat(body.var_sku || []);
+    const varPrices = [].concat(body.var_regular_price || []);
+    const varSales = [].concat(body.var_sale_price || []);
+    const varStocks = [].concat(body.var_stock || []);
+    const varStatuses = [].concat(body.var_stock_status || []);
+    const varWeights = [].concat(body.var_weight || []);
+    const varDescs = [].concat(body.var_description || []);
+    const varAttrIds = [].concat(body.var_attr_ids || []);
 
     if (body.product_type === "product_variation" && combos.length) {
       for (let i = 0; i < combos.length; i++) {
-        const combo   = combos[i];
+        const combo = combos[i];
         const inStock = varStatuses[i] === "instock" ? 1 : 0;
 
         // Build label: "pa_color:white,pa_size:xl" → "White / Xl"
-        const label = combo.split(",").map(function(part) {
-          var val = (part.split(":")[1] || "").trim();
-          return val.charAt(0).toUpperCase() + val.slice(1);
-        }).join(" / ");
+        const label = combo
+          .split(",")
+          .map(function (part) {
+            var val = (part.split(":")[1] || "").trim();
+            return val.charAt(0).toUpperCase() + val.slice(1);
+          })
+          .join(" / ");
 
-        const varGuid = Date.now() + "-var-" + i + "-" + Math.random().toString(36).substr(2, 5);
+        const varGuid =
+          Date.now() +
+          "-var-" +
+          i +
+          "-" +
+          Math.random().toString(36).substr(2, 5);
 
         const [varResult] = await conn.query(
           `INSERT INTO tbl_products
@@ -403,19 +437,19 @@ const storeProduct = async (req, res) => {
             combo,
             varGuid,
             i,
-          ]
+          ],
         );
         const varId = varResult.insertId;
 
         // Variation meta
-        await insertMeta(varId, "_sku",                   varSkus[i]    || "");
-        await insertMeta(varId, "_regular_price",         varPrices[i]  || "");
-        await insertMeta(varId, "_sale_price",            varSales[i]   || "");
-        await insertMeta(varId, "_price",                 varSales[i]   || varPrices[i] || "");
-        await insertMeta(varId, "_stock",                 varStocks[i]  || "0");
-        await insertMeta(varId, "_stock_status",          varStatuses[i]|| "instock");
-        await insertMeta(varId, "_weight",                varWeights[i] || "");
-        await insertMeta(varId, "_variation_description", varDescs[i]   || "");
+        await insertMeta(varId, "_sku", varSkus[i] || "");
+        await insertMeta(varId, "_regular_price", varPrices[i] || "");
+        await insertMeta(varId, "_sale_price", varSales[i] || "");
+        await insertMeta(varId, "_price", varSales[i] || varPrices[i] || "");
+        await insertMeta(varId, "_stock", varStocks[i] || "0");
+        await insertMeta(varId, "_stock_status", varStatuses[i] || "instock");
+        await insertMeta(varId, "_weight", varWeights[i] || "");
+        await insertMeta(varId, "_variation_description", varDescs[i] || "");
 
         // Attribute meta: "pa_color:white,pa_size:xl"
         const comboParts = combo.split(",");
@@ -429,12 +463,14 @@ const storeProduct = async (req, res) => {
 
         // Variation lookup
         const attrIdList = (varAttrIds[i] || "")
-          .split(",").map(v => v.trim()).filter(Boolean);
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
 
         for (const attrId of attrIdList) {
           const [amRows] = await conn.query(
             "SELECT meta_key FROM tbl_attributemeta WHERE attr_id = ? AND meta_key LIKE 'order_pa_%' LIMIT 1",
-            [attrId]
+            [attrId],
           );
           if (!amRows.length) continue;
           const taxonomy = amRows[0].meta_key.replace("order_", "");
@@ -443,7 +479,7 @@ const storeProduct = async (req, res) => {
             `INSERT IGNORE INTO tbl_attributes_lookup
                (product_id, product_or_parent_id, taxonomy, attr_id, is_variation_attribute, in_stock)
              VALUES (?, ?, ?, ?, 1, ?)`,
-            [varId, productId, taxonomy, attrId, inStock]
+            [varId, productId, taxonomy, attrId, inStock],
           );
         }
 
@@ -452,9 +488,11 @@ const storeProduct = async (req, res) => {
         // field sent as: var_image_new_{i} for new products
         if (req.files) {
           // Try by new index first (add page), then by varId (if somehow known)
-          const varImageFile = req.files.find(function(f) {
-            return f.fieldname === "var_image_new_" + i ||
-                   f.fieldname === "var_image_" + varId;
+          const varImageFile = req.files.find(function (f) {
+            return (
+              f.fieldname === "var_image_new_" + i ||
+              f.fieldname === "var_image_" + varId
+            );
           });
 
           if (varImageFile) {
@@ -464,22 +502,29 @@ const storeProduct = async (req, res) => {
               `INSERT INTO tbl_media
                  (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
                VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-              [authorId, varId, varImageFile.originalname, varImageFile.mimetype]
+              [
+                authorId,
+                varId,
+                varImageFile.originalname,
+                varImageFile.mimetype,
+              ],
             );
             const mediaId = mediaRes.insertId;
 
             await conn.query(
               "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
-              [mediaId, savedPath]
+              [mediaId, savedPath],
             );
 
             await insertMeta(varId, "_thumbnail_id", mediaId);
           }
 
           // Variation gallery — field: var_gallery_new_{i}[]
-          const varGalleryFiles = req.files.filter(function(f) {
-            return f.fieldname === "var_gallery_new_" + i + "[]" ||
-                   f.fieldname === "var_gallery_" + varId + "[]";
+          const varGalleryFiles = req.files.filter(function (f) {
+            return (
+              f.fieldname === "var_gallery_new_" + i + "[]" ||
+              f.fieldname === "var_gallery_" + varId + "[]"
+            );
           });
 
           for (const file of varGalleryFiles) {
@@ -489,13 +534,13 @@ const storeProduct = async (req, res) => {
               `INSERT INTO tbl_media
                  (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
                VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-              [authorId, varId, file.originalname, file.mimetype]
+              [authorId, varId, file.originalname, file.mimetype],
             );
             const mediaId = mediaRes.insertId;
 
             await conn.query(
               "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
-              [mediaId, savedPath]
+              [mediaId, savedPath],
             );
           }
         }
@@ -504,12 +549,11 @@ const storeProduct = async (req, res) => {
 
     await conn.commit();
     res.redirect("/store/admin/products?success=Product added successfully");
-
   } catch (err) {
     await conn.rollback();
     console.error("Store Product Error:", err.message, err.stack);
     res.redirect(
-      "/store/admin/products/add?error=" + encodeURIComponent(err.message)
+      "/store/admin/products/add?error=" + encodeURIComponent(err.message),
     );
   } finally {
     conn.release();
@@ -546,6 +590,7 @@ const showEditProduct = async (req, res) => {
       mainMeta[row.meta_key] = row.meta_value;
     });
 
+
     product.sku = mainMeta["_sku"] || "";
     product.regular_price =
       mainMeta["_regular_price"] || mainMeta["_price"] || "";
@@ -556,6 +601,12 @@ const showEditProduct = async (req, res) => {
     product.length = mainMeta["_length"] || "";
     product.width = mainMeta["_width"] || "";
     product.backorders = mainMeta["_backorders"] || "no";
+    product.product_features = mainMeta["_product_features"] || "";
+    product.product_material = mainMeta["_product_material"] || "";
+    product.product_collection = mainMeta["_product_collection"] || "";
+    product.product_included = mainMeta["_product_included"] || "";
+    product.product_care = mainMeta["_product_care"] || "";
+    product.product_more_info = mainMeta["_product_more_info"] || "";
 
     // ── Main product thumbnail ──────────────────────────────
     // _thumbnail_id = media_id of the featured image
@@ -791,6 +842,60 @@ const showEditProduct = async (req, res) => {
   }
 };
 
+const moveTobin = (filePath) => {
+  try {
+    // filePath = "products/1773817269410-1-main-1.jpg"  (value from tbl_mediameta)
+    const fullPath = path.join(__dirname, "../public/uploads", filePath);
+    const binDir = path.join(__dirname, "../public/uploads/bin");
+
+    // Create bin folder if not exists
+    if (!fs.existsSync(binDir)) {
+      fs.mkdirSync(binDir, { recursive: true });
+    }
+
+    if (fs.existsSync(fullPath)) {
+      const fileName = path.basename(fullPath);
+      const binPath = path.join(binDir, fileName);
+      fs.renameSync(fullPath, binPath);
+      console.log("Moved to bin:", fileName);
+    }
+  } catch (err) {
+    console.error("moveTobin error:", err.message);
+    // Don't throw — file move failure should not break the DB update
+  }
+};
+
+// ─── HELPER: Delete media record + move file to bin ──────────────────────────
+const deleteMedia = async (conn, mediaId) => {
+  // Get file path from mediameta
+  const [[mm]] = await conn.query(
+    "SELECT meta_value FROM tbl_mediameta WHERE media_id = ? AND meta_key = '_wp_attached_file'",
+    [mediaId],
+  );
+  if (mm && mm.meta_value) {
+    moveTobin(mm.meta_value);
+  }
+  // Delete mediameta rows
+  await conn.query("DELETE FROM tbl_mediameta WHERE media_id = ?", [mediaId]);
+  // Delete media row
+  await conn.query("DELETE FROM tbl_media WHERE media_id = ?", [mediaId]);
+};
+
+// ─── HELPER: Delete all media for a product (main + gallery) ─────────────────
+const deleteProductMedia = async (conn, productId, exceptMediaId = null) => {
+  let query =
+    "SELECT media_id FROM tbl_media WHERE parent_id = ? AND media_type = 'product_image'";
+  const args = [productId];
+  if (exceptMediaId) {
+    query += " AND media_id != ?";
+    args.push(exceptMediaId);
+  }
+  const [mediaRows] = await conn.query(query, args);
+  for (const row of mediaRows) {
+    await deleteMedia(conn, row.media_id);
+  }
+};
+
 const updateProduct = async (req, res) => {
   const conn = await db.getConnection();
 
@@ -867,6 +972,12 @@ const updateProduct = async (req, res) => {
     await updateMeta(id, "_price", body.sale_price || body.regular_price);
     await updateMeta(id, "_stock", body.stock);
     await updateMeta(id, "_stock_status", body.stock_status || "instock");
+    await updateMeta(id, "_product_features", body.product_features || "");
+    await updateMeta(id, "_product_material", body.product_material || "");
+    await updateMeta(id, "_product_collection", body.product_collection || "");
+    await updateMeta(id, "_product_included", body.product_included || "");
+    await updateMeta(id, "_product_care", body.product_care || "");
+    await updateMeta(id, "_product_more_info", body.product_more_info || "");
 
     // ═══════════════════════════════════════════════════════
     // STEP 3: MAIN IMAGE
@@ -879,20 +990,33 @@ const updateProduct = async (req, res) => {
       });
 
       if (mainImageFile) {
-        // Save original filename
-        const originalName = mainImageFile.originalname;
+        // ── Delete old thumbnail ──────────────────────────────
+        const [[oldThumbMeta]] = await conn.query(
+          "SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_thumbnail_id'",
+          [id],
+        );
+        if (oldThumbMeta && oldThumbMeta.meta_value) {
+          await deleteMedia(conn, oldThumbMeta.meta_value);
+        }
+
+        // ── Insert new thumbnail ──────────────────────────────
         const savedPath = "products/" + mainImageFile.filename;
 
         const [mediaRes] = await conn.query(
           `INSERT INTO tbl_media
-             (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
-           VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-          [req.session.admin.id, id, originalName, mainImageFile.mimetype],
+         (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
+       VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
+          [
+            req.session.admin.id,
+            id,
+            mainImageFile.originalname,
+            mainImageFile.mimetype,
+          ],
         );
         const mediaId = mediaRes.insertId;
 
         await conn.query(
-          `INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)`,
+          "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
           [mediaId, savedPath],
         );
 
@@ -909,24 +1033,36 @@ const updateProduct = async (req, res) => {
         return f.fieldname === "gallery_images[]";
       });
 
-      for (const file of galleryFiles) {
-        const savedPath = "products/" + file.filename;
-
-        const [mediaRes] = await conn.query(
-          `INSERT INTO tbl_media
-             (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
-           VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-          [req.session.admin.id, id, file.originalname, file.mimetype],
+      if (galleryFiles.length > 0) {
+        // Get current thumbnail_id so we don't delete it
+        const [[thumbMeta]] = await conn.query(
+          "SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_thumbnail_id'",
+          [id],
         );
-        const mediaId = mediaRes.insertId;
+        const thumbId = thumbMeta ? thumbMeta.meta_value : null;
 
-        await conn.query(
-          `INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)`,
-          [mediaId, savedPath],
-        );
+        // Delete all old gallery media for this product (except thumbnail)
+        await deleteProductMedia(conn, id, thumbId);
+
+        // Insert new gallery images
+        for (const file of galleryFiles) {
+          const savedPath = "products/" + file.filename;
+
+          const [mediaRes] = await conn.query(
+            `INSERT INTO tbl_media
+           (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
+         VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
+            [req.session.admin.id, id, file.originalname, file.mimetype],
+          );
+          const mediaId = mediaRes.insertId;
+
+          await conn.query(
+            "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
+            [mediaId, savedPath],
+          );
+        }
       }
     }
-
     // ═══════════════════════════════════════════════════════
     // STEP 5: ATTRIBUTES
     // selected_attr_type[]   = attribute_type_id (e.g. "1")
@@ -1111,12 +1247,22 @@ const updateProduct = async (req, res) => {
         });
 
         if (varImageFile) {
+          // Delete old variation thumbnail
+          const [[oldVarThumb]] = await conn.query(
+            "SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_thumbnail_id'",
+            [vid],
+          );
+          if (oldVarThumb && oldVarThumb.meta_value) {
+            await deleteMedia(conn, oldVarThumb.meta_value);
+          }
+
+          // Insert new variation thumbnail
           const savedPath = "products/" + varImageFile.filename;
 
           const [mediaRes] = await conn.query(
             `INSERT INTO tbl_media
-               (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
-             VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
+         (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
+       VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
             [
               req.session.admin.id,
               vid,
@@ -1127,7 +1273,7 @@ const updateProduct = async (req, res) => {
           const mediaId = mediaRes.insertId;
 
           await conn.query(
-            `INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)`,
+            "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
             [mediaId, savedPath],
           );
 
@@ -1140,21 +1286,34 @@ const updateProduct = async (req, res) => {
           return f.fieldname === "var_gallery_" + vid + "[]";
         });
 
-        for (const file of varGalleryFiles) {
-          const savedPath = "products/" + file.filename;
-
-          const [mediaRes] = await conn.query(
-            `INSERT INTO tbl_media
-               (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
-             VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
-            [req.session.admin.id, vid, file.originalname, file.mimetype],
+        if (varGalleryFiles.length > 0) {
+          // Get variation thumbnail id to protect it
+          const [[varThumbMeta]] = await conn.query(
+            "SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_thumbnail_id'",
+            [vid],
           );
-          const mediaId = mediaRes.insertId;
+          const varThumbId = varThumbMeta ? varThumbMeta.meta_value : null;
 
-          await conn.query(
-            `INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)`,
-            [mediaId, savedPath],
-          );
+          // Delete old variation gallery (except thumbnail)
+          await deleteProductMedia(conn, vid, varThumbId);
+
+          // Insert new variation gallery
+          for (const file of varGalleryFiles) {
+            const savedPath = "products/" + file.filename;
+
+            const [mediaRes] = await conn.query(
+              `INSERT INTO tbl_media
+           (author_id, parent_id, media_title, media_status, media_type, media_mime_type, date_added, date_modified)
+         VALUES (?, ?, ?, 'inherit', 'product_image', ?, NOW(), NOW())`,
+              [req.session.admin.id, vid, file.originalname, file.mimetype],
+            );
+            const mediaId = mediaRes.insertId;
+
+            await conn.query(
+              "INSERT INTO tbl_mediameta (media_id, meta_key, meta_value) VALUES (?, '_wp_attached_file', ?)",
+              [mediaId, savedPath],
+            );
+          }
         }
       }
     }

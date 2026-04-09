@@ -78,7 +78,7 @@
 
                           <div class="mb-3">
                             <label class="form-label fw-semibold">Short Description</label>
-                            <textarea name="product_short_desc" class="form-control" rows="3"
+                            <textarea name="product_short_desc" id="product_short_desc" class="form-control" rows="3"
                               placeholder="Brief product description..."><%= isEdit ? (p.product_short_desc || '') : '' %></textarea>
                           </div>
 
@@ -617,6 +617,58 @@
                         </div>
                       </div><!-- /Product Data Card -->
 
+
+                      <div class="card mb-3">
+                        <div class="card-body">
+
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Features</label>
+                            <textarea name="product_features" id="product_features" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_features || '') : '' %>
+                        </textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Material</label>
+                            <textarea name="product_material" id="product_material" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_material || '') : '' %>
+                        </textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Collection</label>
+                            <textarea name="product_collection" id="product_collection" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_collection || '') : '' %>
+                        </textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Products Included</label>
+                            <textarea name="product_included" id="product_included" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_included || '') : '' %>
+                        </textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Care Instructions</label>
+                            <textarea name="product_care" id="product_care" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_care || '') : '' %>
+                        </textarea>
+                          </div>
+
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">More Information</label>
+                            <textarea name="product_more_info" id="product_more_info" class="form-control" rows="3">
+                          <%= isEdit ? (p.product_more_info || '') : '' %>
+                        </textarea>
+                          </div>
+
+                        </div>
+                      </div>
+
+
+
                     </div><!-- /col-lg-8 -->
 
                     <!-- RIGHT COLUMN -->
@@ -747,6 +799,55 @@
         </style>
 
         <script>
+
+          ClassicEditor
+            .create(document.querySelector('#product_short_desc'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#productContent'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_features'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_material'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_collection'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_included'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_care'))
+            .catch(error => {
+              console.error(error);
+            });
+
+          ClassicEditor
+            .create(document.querySelector('#product_more_info'))
+            .catch(error => {
+              console.error(error);
+            });
+
           (function () {
             onProductTypeChange(document.getElementById('productType').value);
           })();
