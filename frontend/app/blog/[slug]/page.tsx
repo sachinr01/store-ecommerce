@@ -265,7 +265,7 @@ export default async function BlogDetailPage({ params }: { params: Promise<{ slu
 
             <div className="blog-content" dangerouslySetInnerHTML={{ __html: htmlContent }} />
 
-            <Link href="/" className="blog-back-btn">Back to Home</Link>
+            <Link href="/blog" className="blog-back-btn">Back to Blogs</Link>
           </div>
 
           <aside className="blog-sidebar">
