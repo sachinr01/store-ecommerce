@@ -7,6 +7,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getProducts, getAllAttributeGroups, getImageUrl, type Product, type AttributeGroup } from '../lib/api';
 import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
+import { getDiscountPercent } from '../lib/helpers/pricing';
 import { useWishlist } from '../lib/wishlistContext';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
@@ -43,16 +44,15 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
   const slugBase = toSlug(product.slug || product.title) || 'product';
   const productHref = `/shop/product/${slugBase}`;
 
-  const isOnSale =
-    product.sale_price_min !== null &&
-    product.price_min !== null &&
-    product.sale_price_min < product.price_min;
-
   const priceMin = Number(product.price_min ?? 0);
-  const priceMax = Number(product.price_max ?? 0);
-  const priceStr = priceMin !== priceMax
-    ? formatPriceRange(priceMin, priceMax)
-    : formatPrice(priceMin);
+  const priceMax = Number(product.price_max ?? product.price_min ?? 0);
+  const showRange = priceMax > priceMin;
+  const salePrice = product._sale_price ? Number(product._sale_price) : null;
+  const regularPrice = product._regular_price ? Number(product._regular_price) : null;
+  const displayPrice = salePrice ?? regularPrice ?? priceMin;
+  const isOnSale = !showRange && salePrice !== null;
+  const priceStr = showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice);
+  const discountPercent = showRange ? null : getDiscountPercent(salePrice, regularPrice);
 
   return (
     <div
@@ -70,6 +70,7 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
             alt={product.title}
             className={`csp-img${hovered ? ' zoomed' : ''}`}
             loading={idx < 8 ? 'eager' : 'lazy'}
+            onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
           />
         </Link>
 
@@ -89,7 +90,7 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
               addItem({
                 id: product.ID,
                 title: product.title,
-                price: Number(product.sale_price_min ?? product.price_min ?? 0),
+                price: displayPrice,
                 image: getImageUrl(product.thumbnail_url),
                 inStock: product.stock_status === 'instock' || product.stock_status === 'onbackorder',
               });
@@ -111,14 +112,16 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
 
       <div className="csp-info">
         <Link href={productHref} className="csp-name">{product.title}</Link>
-        <MiniStars rating={4} />
         <div className="csp-price-row">
-          {isOnSale && product.price_max && (
-            <span className="csp-old-price" aria-label="Original price">
-              {formatPrice(product.price_max)}
+          {!showRange && salePrice !== null && regularPrice !== null && (
+            <span className="csp-old-price" aria-label="Regular price">
+              {formatPrice(regularPrice)}
             </span>
           )}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
+          {discountPercent !== null && (
+            <span className="csp-save-badge">{discountPercent}% off</span>
+          )}
         </div>
       </div>
     </div>
@@ -233,6 +236,8 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState<Record<string, boolean>>({ ...DEFAULT_OPEN_FILTERS });
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
 
   // Dynamic selected values: { taxonomy -> string[] }
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string[]>>({});
@@ -385,7 +390,12 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     setSelectedAttrs({});
     setSliderMin(absoluteMin);
     setSliderMax(absoluteMax);
+    setPage(1);
   };
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const paginated  = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const goToPage   = (p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   // Build label maps per taxonomy for chips
   const labelMaps: Record<string, Map<string, string>> = {};
@@ -482,10 +492,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
         <span aria-current="page">Shop</span>
       </nav>
 
-      <div className="csp-page-header">
-        <h1 className="csp-page-title">{heading}</h1>
-        <p className="csp-page-sub">{subheading}</p>
-      </div>
+
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">
@@ -652,19 +659,22 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
           {!loading && !error && sorted.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label="Products">
-              {sorted.map((product, idx) => (
+              {paginated.map((product, idx) => (
                 <ShopProductCard key={product.ID} product={product} idx={idx} />
               ))}
             </div>
           )}
 
-          {!loading && !error && sorted.length > 0 && (
+          {!loading && !error && sorted.length > 0 && totalPages > 1 && (
             <nav className="csp-pagination" aria-label="Pagination">
-              <button className="csp-page-btn active" aria-current="page">1</button>
-              <button className="csp-page-btn">2</button>
-              <button className="csp-page-btn">3</button>
-              <span className="csp-page-dots">...</span>
-              <button className="csp-page-btn next">Next &gt;</button>
+              <button className="csp-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}
+                aria-label="Previous page">&lt; Prev</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button key={p} className={`csp-page-btn${p === page ? ' active' : ''}`}
+                  onClick={() => goToPage(p)} aria-current={p === page ? 'page' : undefined}>{p}</button>
+              ))}
+              <button className="csp-page-btn next" onClick={() => goToPage(page + 1)} disabled={page === totalPages}
+                aria-label="Next page">Next &gt;</button>
             </nav>
           )}
         </main>

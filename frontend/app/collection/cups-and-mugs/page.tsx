@@ -7,30 +7,30 @@ import Footer from '../../components/Footer';
 import '../../shop/shop.css';
 
 const ALL_PRODUCTS = [
-  { id:1,  name:'Fruits/Vegetables Kitchen Rack DM PLUS 4 Tier Multipurpose Storage Kitchen Rack Trolley with Wheels (BROWN) Plastic',               price:2499, oldPrice:3299, rating:4.7, reviews:1543, material:'Cast Iron', style:'Classic',    type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/kitchen-rack/x/r/d/dm-toy-4t-brown-01-dm-plus-original-imahm2a47fh2vuku.jpeg?q=90' },
-  { id:2,  name:'Bird Land Chopping Board',             price:899,  oldPrice:1299, rating:4.4, reviews:876,  material:'Bamboo',    style:'Rustic',     type:'Prep Tools',   image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/i/n/india-circus-by-krsnaa-mehta-bird-land-chopping-board-52151704sd00123-4.jpg' },
-  { id:3,  name:'Sage Serenity Steel Cookie Jar',   price:1299, oldPrice:null, rating:4.5, reviews:654,  material:'Steel',     style:'Modern',     type:'Prep Tools',   image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/52152000SD02629/India-Circus-by-Krsnaa-Mehta-Sage-Serenity-Steel-Cookie-Jar-52152000SD02629-2.jpg' },
-  { id:4,  name:'IMPEX Nonstick Induction Bottom Granite Festival GiftMFKT 5 Layer Super Granite Induction Bottom Non-Stick Coated Cookware Set (Aluminium, 6 - Piece)',          price:1799, oldPrice:2499, rating:4.6, reviews:987,  material:'Ceramic',   style:'Modern',     type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/cookware-set/u/p/l/6-mfkt-6-impex-original-imahhwktzgu7npec.jpeg?q=90' },
-  { id:5,  name:'NIMBA NATURALS 1000 ml Cooking Oil Dispenser (Pack of 1)',           price:599,  oldPrice:799,  rating:4.3, reviews:432,  material:'Wood',      style:'Rustic',     type:'Utensils',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-oil-dispenser/p/j/l/combo-oil-dispenser-flagcart-original-imahks8jydt7jmup.jpeg?q=90' },
-  { id:6,  name:'Ecodex Hand Push Chopper with 3 Blades for Effortless Chopping Vegetables & Fruits Kitchen Tool Set (Chopper)',  price:1499, oldPrice:1999, rating:4.5, reviews:765,  material:'Glass',     style:'Minimalist', type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/chopper/e/r/p/push-chopper-with-steel-blades-for-effortless-chopping-original-imahharshf67kgt3.jpeg?q=90' },
-  { id:7,  name:'ZKU 12 in 1 Multipurpose Chopper, Unbreakable, Chopper for Kitchen Vegetable & Fruit Chopper (1 Chopper)',    price:799,  oldPrice:null, rating:4.2, reviews:321,  material:'Marble',    style:'Classic',    type:'Prep Tools',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-chopper/e/u/o/no-12-in-1-quick-nicer-dicer-grater-chopper-chopper-shree-original-imah3fnwvzjhvxvc.jpeg?q=90' },
-  { id:8,  name:'Shriyagic Empty Cutlery Holder Case (Transparent  Holds 31 Pieces)',  price:2199, oldPrice:2999, rating:4.6, reviews:1203, material:'Steel',     style:'Classic',    type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/cutlery-case/f/n/g/36-spoon-stand-of-23-holes-6-hooks-a36-shriyagic-2-original-imahgz4yzd6gutax.jpeg?q=90' },
-  { id:9,  name:'DECORASIA Wooden Serving Spoon Set (Pack of 6)',         price:999,  oldPrice:1399, rating:4.4, reviews:543,  material:'Silicone',  style:'Modern',     type:'Utensils',     image:'https://rukminim1.flixcart.com/image/1280/1280/ksnjp8w0/spatula/r/5/c/1024-wood-spatula-woodincline-original-imag65kv7dhrubmh.jpeg?q=90' },
-  { id:10, name:'UK ZONE 12 Cavities Non Stick Appam Patra with Lid and Side Handle/ kulipaniyaram pan nonstick/ appe/ aapee ka sacha/ panniyaram kadai/ Paniyarrakal/Paniyaram/Appam Pan/Appam Maker/Pan Cake/guntapongadalu pan/appam kadai/Ponganal Maker/idali Maker/idali Pan kadai/litti maker/unniyappam chatti non stick/ unniyappam chatti Paniarakkal with Lid with Lid 0.5 L capacity 24 cm diameter (Aluminium, Non-stick) Paniarakkal Pan 24 cm diameter with Lid 0.5 L capacity (Aluminium, Non-stick)',         price:1699, oldPrice:null, rating:4.5, reviews:876,  material:'Ceramic',   style:'Minimalist', type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-pot-pan/p/c/8/paniyarakkal-red-shopglobal-original-imahe9fzgznevavw.jpeg?q=90' },
-  { id:11, name:'OMORTEX Stainless steel potato masher and Egg whisker (Multicolor) Kitchen Tool Set (Masher, Whisk)',           price:699,  oldPrice:999,  rating:4.1, reviews:432,  material:'Seagrass',  style:'Boho',       type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/kitchen-tool-set/0/k/k/masher-combo-kitchen-set-omortex-original-imahfr38ndgndqz3.jpeg?q=90' },
-  { id:12, name:'Platter Portrayal Steel Container (Set of 3)',   price:3499, oldPrice:4499, rating:4.8, reviews:2103, material:'Steel',     style:'Modern',     type:'Utensils',     image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/i/n/india-circus-platter-portrayal-steel-container-set-of-3-52152002sd00053-2.jpg' },
+  { id:1,  name:'YUMWARE Snoopy_Brown Plastic, Stainless Steel Coffee Mug (350 ml)',        price:499,  oldPrice:699,  rating:4.5, reviews:1203, material:'Ceramic',    style:'Floral',     type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/h/7/1/snoopy-coffee-mug-with-sipper-lid-blue-300-2-culinary-crafts-original-imahky4g4x2pg89y.jpeg?q=90' },
+  { id:2,  name:'OFFYX Stainless Steel Coffee with Lid Anti-Spill Silicone Ring For Travel & Office Stainless Steel Coffee Mug (301 ml)',             price:899,  oldPrice:1299, rating:4.6, reviews:876,  material:'Ceramic',    style:'Boho',       type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/m/w/m/stainless-steel-coffee-mug-with-lid-anti-spill-silicone-ring-for-original-imahgngshhhphvev.jpeg?q=90' },
+  { id:3,  name:'SUARD Happy Birthday Coffee mug for friend wife husband brother sister-114 Ceramic Coffee Mug (350 ml)',      price:1599, oldPrice:null, rating:4.7, reviews:654,  material:'Bone China', style:'Classic',    type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/p/7/s/happy-birthday-coffee-mug-for-friend-wife-husband-brother-sister-original-imahh7ddpumuvfca.jpeg?q=90' },
+  { id:4,  name:'Uniquetrader Insulated Coffee with Lid Stainless Steel Coffee Mug (300 ml, Pack of 2)',      price:699,  oldPrice:999,  rating:4.4, reviews:432,  material:'Glass',      style:'Minimalist', type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/p/i/insulated-coffee-mug-with-lid-300-2-uniquetrader-original-imahhhzmdgjh3tzh.jpeg?q=90' },
+  { id:5,  name:'The Sanaatan Store Birthday Gift, Alphabate, Gift For Brother, Sister, Friend Ceramic Coffee Mug (320 ml)',       price:1299, oldPrice:1799, rating:4.5, reviews:765,  material:'Stoneware',  style:'Minimalist', type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/x/k/o/birthday-gift-a-alphabate-mug-gift-for-brother-sister-friend-320-original-imahh6xvfxpaabpf.jpeg?q=90' },
+  { id:6,  name:'Category pages are a crucial part of any eCommerce website, designed to organize products into structured groups for a seamless shopping experience. Building category pages involves creating visually appealing, user-friendly layouts that help customers easily browse and discover products based on specific categories such as clothing, electronics, or accessories.',                price:399,  oldPrice:null, rating:4.3, reviews:987,  material:'Ceramic',    style:'Rustic',     type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/x/e/h/stainless-steel-coffee-mug-withlid-anti-spill-silicone-ring-for-original-imahgngxg7jhhha5.jpeg?q=90' },
+  { id:7,  name:'AVISTRA Happy Birthday Printed Cup, Gifting Cup, Birthday Gifting Ceramic Coffee Mug (330 ml)',   price:799,  oldPrice:1099, rating:4.6, reviews:543,  material:'Porcelain',  style:'Floral',     type:'Espresso Cup',image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/6/x/e/happy-birthday-printed-cup-gifting-cup-birthday-gifting-330-1-original-imahhry8pgpahunr.jpeg?q=90' },
+  { id:8,  name:'GIVENTA Messi Football Legend Ceramic Coffee – High Quality Printed Tea Cup Ceramic Coffee Mug (350 ml, Pack of 2)',      price:999,  oldPrice:1399, rating:4.4, reviews:321,  material:'Steel',      style:'Modern',     type:'Travel Mug', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/d/m/messi-football-legend-ceramic-coffee-mug-high-quality-printed-original-imahkchhr8bqftrc.jpeg?q=90' },
+  { id:9,  name:'Plast Boy LLP Penguin Wink Plastic Coffee Mug (450 ml)',      price:649,  oldPrice:null, rating:4.5, reviews:2103, material:'Ceramic',    style:'Boho',       type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/q/b/penguin-mug-wink-450-0-1-plast-boy-llp-original-imahkd3rtzez5gqb.jpeg?q=90' },
+  { id:10, name:'Gharwithfashion Marble Pattern Ceramic 380 ml Ceramic Coffee Mug (380 ml)',       price:849,  oldPrice:1199, rating:4.3, reviews:432,  material:'Glass',      style:'Minimalist', type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/g/c/marble-pattern-ceramic-mug-380-ml-380-1-gharwithfashion-original-imahgszfzcdghjg3.jpeg?q=90' },
+  { id:11, name:'Madhut Deer Print | Blue Nature Design ceramic Coffee Ceramic Coffee Mug (325 ml)',             price:549,  oldPrice:749,  rating:4.7, reviews:876,  material:'Bone China', style:'Floral',     type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/l/j/deer-print-ceramic-mug-set-blue-nature-design-coffee-mug-pack-of-original-imahjnsknpupghfv.jpeg?q=90' },
+  { id:12, name:'Human Hydro Prime Steel Tea Cup, Rust-Free & Reusable Stainless Steel Coffee Mug (240 ml)',  price:1099, oldPrice:null, rating:4.4, reviews:543,  material:'Stoneware',  style:'Rustic',     type:'Espresso Cup',image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/1/p/1/prime-steel-tea-cup-rust-free-reusable-240-0-1-human-hydro-original-imahgbfawffuwz6z.jpeg?q=90' },
 ];
 
-const MATERIALS  = ['Bamboo','Cast Iron','Ceramic','Glass','Marble','Seagrass','Silicone','Steel','Wood'];
-const STYLES     = ['Boho','Classic','Minimalist','Modern','Rustic'];
-const TYPES      = ['Cookware','Prep Tools','Storage','Utensils'];
+const MATERIALS  = ['Bone China','Ceramic','Glass','Porcelain','Steel','Stoneware'];
+const STYLES     = ['Boho','Classic','Floral','Minimalist','Modern','Rustic'];
+const TYPES      = ['Cup','Espresso Cup','Mug','Travel Mug'];
 const SORT_OPTIONS = [
   { label:'Featured',           value:'featured'   },
   { label:'Price: Low to High', value:'price-asc'  },
   { label:'Price: High to Low', value:'price-desc' },
   { label:'Top Rated',          value:'rating'     },
 ];
-const MAX_PRICE = 6000;
+const MAX_PRICE = 3000;
 
 function MiniStars({ rating }: { rating: number }) {
   return (
@@ -117,7 +117,6 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
       </div>
       <div className="csp-info">
         <Link href="/shop" className="csp-name">{p.name}</Link>
-        <MiniStars rating={p.rating}/>
         <div className="csp-price-row">
           {isOnSale && p.oldPrice && <span className="csp-old-price">₹{p.oldPrice.toLocaleString()}</span>}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>
@@ -130,11 +129,11 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
   );
 }
 
-export default function KitchenPage() {
+export default function CupsAndMugsPage() {
   const [sort,        setSort]        = useState('featured');
   const [viewMode,    setViewMode]    = useState<'grid'|'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openFilters, setOpenFilters] = useState({ price:true, type:true, material:false, style:false });
+  const [openFilters, setOpenFilters] = useState({ price:false, type:false, material:false, style:false });
   const [selMaterials, setSelMaterials] = useState<string[]>([]);
   const [selStyles,    setSelStyles]    = useState<string[]>([]);
   const [selTypes,     setSelTypes]     = useState<string[]>([]);
@@ -255,13 +254,10 @@ export default function KitchenPage() {
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
         <Link href="/collection">Collections</Link>
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Kitchen</span>
+        <span aria-current="page">Cups & Mugs</span>
       </nav>
 
-      <div className="csp-page-header">
-        <h1 className="csp-page-title">Kitchen</h1>
-        <p className="csp-page-sub">Cook, prep and store in style — quality kitchen essentials for every home chef.</p>
-      </div>
+
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

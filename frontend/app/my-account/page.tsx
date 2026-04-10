@@ -290,7 +290,6 @@ export default function MyAccountPage() {
                           <Link href="/my-account/edit-account" className="account-nav-link">Edit Profile</Link>
                           <Link href="/my-account/edit-address" className="account-nav-link">My Addresses</Link>
                           <Link href="/orders" className="account-nav-link">My Orders</Link>
-                          <Link href="/my-account/order-tracking" className="account-nav-link">Order Tracking</Link>
                           <Link href="/wishlist" className="account-nav-link">Wishlist</Link>
                           <button className="account-nav-button" onClick={logout}>Logout</button>
                         </nav>

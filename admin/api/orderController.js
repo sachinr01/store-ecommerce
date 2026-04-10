@@ -247,6 +247,13 @@ function validateProfileAddress(address) {
 }
 
 function buildProfileAddressResponse(userRow, meta) {
+  return buildProfileAddressResponseWithFallback(userRow, meta, {});
+}
+
+function buildProfileAddressResponseWithFallback(userRow, meta, fallback) {
+  const billingFallback = fallback.billing || {};
+  const shippingFallback = fallback.shipping || {};
+
   return {
     billing: {
       firstName: toStr(meta.billing_first_name || meta.first_name || userRow.display_name),
@@ -254,11 +261,11 @@ function buildProfileAddressResponse(userRow, meta) {
       email: toStr(userRow.user_email),
       phone: toStr(meta.billing_phone),
       company: toStr(meta.billing_company),
-      address1: toStr(meta.billing_address_1),
-      address2: toStr(meta.billing_address_2),
-      city: toStr(meta.billing_city),
-      state: toStr(meta.billing_state),
-      postcode: toStr(meta.billing_postcode),
+      address1: toStr(meta.billing_address_1 || billingFallback.address1),
+      address2: toStr(meta.billing_address_2 || billingFallback.address2),
+      city: toStr(meta.billing_city || billingFallback.city),
+      state: toStr(meta.billing_state || billingFallback.state),
+      postcode: toStr(meta.billing_postcode || billingFallback.postcode),
       country: toStr(meta.billing_country),
     },
     shipping: {
@@ -267,14 +274,61 @@ function buildProfileAddressResponse(userRow, meta) {
       email: toStr(userRow.user_email),
       phone: toStr(meta.shipping_phone),
       company: toStr(meta.shipping_company),
-      address1: toStr(meta.shipping_address_1),
-      address2: toStr(meta.shipping_address_2),
-      city: toStr(meta.shipping_city),
-      state: toStr(meta.shipping_state),
-      postcode: toStr(meta.shipping_postcode),
+      address1: toStr(meta.shipping_address_1 || shippingFallback.address1),
+      address2: toStr(meta.shipping_address_2 || shippingFallback.address2),
+      city: toStr(meta.shipping_city || shippingFallback.city),
+      state: toStr(meta.shipping_state || shippingFallback.state),
+      postcode: toStr(meta.shipping_postcode || shippingFallback.postcode),
       country: toStr(meta.shipping_country),
     },
   };
+}
+
+async function getLatestOrderAddressFallback(userId) {
+  const [rows] = await db.query(
+    `SELECT ua.address_billing,
+            ua.address_line1,
+            ua.address_line2,
+            ua.city,
+            ua.state_name,
+            ua.zipcode
+     FROM tbl_user_address ua
+     JOIN tbl_orders o ON o.order_id = ua.order_id
+     WHERE ua.user_id = ?
+       AND ua.order_id IS NOT NULL
+       AND o.order_type = 'shop_order'
+     ORDER BY o.order_date DESC, ua.address_id DESC`,
+    [userId]
+  );
+
+  const fallback = { billing: {}, shipping: {} };
+  for (const row of rows) {
+    if (row.address_billing === 'yes' && !fallback.billing.address1) {
+      fallback.billing = {
+        address1: toStr(row.address_line1),
+        address2: toStr(row.address_line2),
+        city: toStr(row.city),
+        state: toStr(row.state_name),
+        postcode: toStr(row.zipcode),
+      };
+    }
+
+    if (row.address_billing !== 'yes' && !fallback.shipping.address1) {
+      fallback.shipping = {
+        address1: toStr(row.address_line1),
+        address2: toStr(row.address_line2),
+        city: toStr(row.city),
+        state: toStr(row.state_name),
+        postcode: toStr(row.zipcode),
+      };
+    }
+
+    if (fallback.billing.address1 && fallback.shipping.address1) {
+      break;
+    }
+  }
+
+  return fallback;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -798,8 +852,11 @@ const getProfileAddresses = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    const meta = await getUserMetaMap(user.id);
-    res.json({ success: true, data: buildProfileAddressResponse(userRow, meta) });
+    const [meta, orderFallback] = await Promise.all([
+      getUserMetaMap(user.id),
+      getLatestOrderAddressFallback(user.id),
+    ]);
+    res.json({ success: true, data: buildProfileAddressResponseWithFallback(userRow, meta, orderFallback) });
   } catch (err) {
     console.error('getProfileAddresses error:', err);
     res.status(500).json({ success: false, message: 'Failed to load profile addresses.' });

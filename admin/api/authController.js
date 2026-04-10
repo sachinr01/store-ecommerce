@@ -248,4 +248,100 @@ const me = async (req, res) => {
   });
 };
 
-module.exports = { register, login, logout, me };
+// PUT /store/api/auth/profile
+const updateProfile = async (req, res) => {
+  const sessionUser = req.sessionData && req.sessionData.user;
+  if (!sessionUser) {
+    return res.status(401).json({ success: false, message: 'Not logged in.' });
+  }
+
+  const { displayName, email, firstName, lastName, currentPassword, newPassword } = req.body;
+
+  if (!displayName || !displayName.trim()) {
+    return res.status(400).json({ success: false, message: 'Display name is required.' });
+  }
+  if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    return res.status(400).json({ success: false, message: 'A valid email is required.' });
+  }
+
+  try {
+    const [[user]] = await db.query(
+      'SELECT ID, user_pass, user_email FROM tbl_users WHERE ID = ? LIMIT 1',
+      [sessionUser.id]
+    );
+    if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+    // Check email uniqueness if changed
+    if (email.trim().toLowerCase() !== user.user_email.toLowerCase()) {
+      const [[taken]] = await db.query(
+        'SELECT ID FROM tbl_users WHERE user_email = ? AND ID != ? LIMIT 1',
+        [email.trim(), user.ID]
+      );
+      if (taken) return res.status(409).json({ success: false, message: 'Email already in use.' });
+    }
+
+    // Password change
+    let newHash = null;
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: 'Current password is required to set a new password.' });
+      }
+      const { ok } = await verifyPassword(currentPassword, user.user_pass);
+      if (!ok) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+      }
+      newHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    const updates = [
+      'display_name = ?',
+      'user_email = ?',
+    ];
+    const values = [displayName.trim(), email.trim()];
+
+    if (newHash) {
+      updates.push('user_pass = ?');
+      values.push(newHash);
+    }
+
+    values.push(user.ID);
+    await db.query(`UPDATE tbl_users SET ${updates.join(', ')} WHERE ID = ?`, values);
+
+    // Save first/last name to tbl_usermeta
+    if (firstName !== undefined || lastName !== undefined) {
+      const upsertMeta = async (key, value) => {
+        await db.query(
+          `INSERT INTO tbl_usermeta (user_id, meta_key, meta_value)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+          [user.ID, key, String(value ?? '')]
+        );
+      };
+      if (firstName !== undefined) await upsertMeta('first_name', firstName.trim());
+      if (lastName  !== undefined) await upsertMeta('last_name',  lastName.trim());
+    }
+
+    // Update session
+    req.sessionData.user.name  = displayName.trim();
+    req.sessionData.user.email = email.trim();
+    req.touchSession();
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: {
+        id: user.ID,
+        username: sessionUser.username,
+        email: email.trim(),
+        displayName: displayName.trim(),
+        role: sessionUser.userTypeSlug,
+        userType: sessionUser.userType,
+      },
+    });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+module.exports = { register, login, logout, me, updateProfile };

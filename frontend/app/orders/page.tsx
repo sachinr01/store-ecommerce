@@ -210,18 +210,19 @@ export default function OrdersPage() {
         .orders-table {
           width: 100%;
           border-top: 1px solid #ece8df;
+          max-width: 980px;
         }
 
         .orders-head,
         .orders-row {
           display: grid;
-          grid-template-columns: 140px 1.2fr 1fr 1.1fr 1.8fr;
-          gap: 14px;
+          grid-template-columns: minmax(88px, 108px) minmax(165px, 1.15fr) minmax(110px, .78fr) minmax(150px, .95fr) minmax(170px, 1fr);
+          gap: 18px;
           align-items: center;
         }
 
         .orders-head {
-          padding: 0 0 16px;
+          padding: 14px 0;
           border-bottom: 1px solid #ece8df;
         }
 
@@ -234,7 +235,7 @@ export default function OrdersPage() {
         }
 
         .orders-row {
-          padding: 18px 0;
+          padding: 20px 0;
           border-bottom: 1px solid #ece8df;
         }
 
@@ -276,6 +277,7 @@ export default function OrdersPage() {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
+          justify-content: flex-start;
         }
 
         .orders-empty,
@@ -335,17 +337,20 @@ export default function OrdersPage() {
         }
 
         .orders-action-btn {
-          min-width: 120px;
-          min-height: 46px;
-          padding: 12px 16px;
+          min-width: 92px;
+          min-height: 40px;
+          padding: 10px 14px;
           background: #172233;
           color: #fff;
           text-decoration: none;
           text-align: center;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .orders-action-btn:hover {
@@ -387,6 +392,10 @@ export default function OrdersPage() {
             grid-template-columns: 1fr;
             gap: 8px;
             padding: 18px 0;
+          }
+
+          .orders-table {
+            max-width: none;
           }
 
           .orders-empty-panel {
@@ -453,7 +462,6 @@ export default function OrdersPage() {
                           <Link href="/my-account/edit-account" className="orders-account-link">Edit Profile</Link>
                           <Link href="/my-account/edit-address" className="orders-account-link">My Addresses</Link>
                           <Link href="/orders" className="orders-account-link active">My Orders</Link>
-                          <Link href="/my-account/order-tracking" className="orders-account-link">Order Tracking</Link>
                           <Link href="/wishlist" className="orders-account-link">Wishlist</Link>
                           <button className="orders-account-button" onClick={logout}>Logout</button>
                         </nav>

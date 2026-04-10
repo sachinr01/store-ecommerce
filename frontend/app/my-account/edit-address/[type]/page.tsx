@@ -407,7 +407,6 @@ export default function EditAddressTypePage() {
                           <Link href="/my-account/edit-account" className="account-address-link">Edit Profile</Link>
                           <Link href="/my-account/edit-address" className="account-address-link active">My Addresses</Link>
                           <Link href="/orders" className="account-address-link">My Orders</Link>
-                          <Link href="/my-account/order-tracking" className="account-address-link">Order Tracking</Link>
                           <Link href="/wishlist" className="account-address-link">Wishlist</Link>
                           <button className="account-address-button" onClick={logout}>Logout</button>
                         </nav>

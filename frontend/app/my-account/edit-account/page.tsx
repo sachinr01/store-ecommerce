@@ -4,40 +4,21 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { updateProfile } from '../../lib/api';
 import { useAuth } from '../../lib/authContext';
-
-function splitNameParts(displayName: string, username: string) {
-  const source = (displayName || username || '').trim();
-  if (!source) {
-    return { firstName: '', lastName: '' };
-  }
-
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: '' };
-  }
-
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(' '),
-  };
-}
 
 export default function EditAccountPage() {
   const { user, isLoggedIn, isLoading, setUser, logout } = useAuth();
 
-  const initialFields = useMemo(() => {
-    const nameParts = splitNameParts(user?.displayName || '', user?.username || '');
-    return {
-      firstName: nameParts.firstName,
-      lastName: nameParts.lastName,
-      displayName: user?.displayName || user?.username || '',
-      email: user?.email || '',
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    };
-  }, [user]);
+  const initialFields = useMemo(() => ({
+    firstName: '',
+    lastName: '',
+    displayName: user?.displayName || user?.username || '',
+    email: user?.email || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  }), [user]);
 
   const [form, setForm] = useState(initialFields);
   const [error, setError] = useState('');
@@ -58,12 +39,6 @@ export default function EditAccountPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
-
-    if (!form.firstName.trim()) {
-      setError('First name is required.');
-      setSuccess('');
-      return;
-    }
 
     if (!form.displayName.trim()) {
       setError('Display name is required.');
@@ -99,27 +74,38 @@ export default function EditAccountPage() {
     setSaving(true);
     setError('');
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    try {
+      const result = await updateProfile({
+        displayName: form.displayName.trim(),
+        email: form.email.trim(),
+        firstName: form.firstName,
+        lastName: form.lastName,
+        currentPassword: form.currentPassword || undefined,
+        newPassword: form.newPassword || undefined,
+      });
 
-    setUser({
-      ...user,
-      email: form.email.trim(),
-      displayName: form.displayName.trim(),
-    });
+      if (!result.success) {
+        setError(result.message || 'Could not save profile.');
+        return;
+      }
 
-    setForm((current) => ({
-      ...current,
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    }));
+      if (result.data) {
+        setUser(result.data);
+      }
 
-    setSuccess(
-      wantsPasswordChange
-        ? 'Profile details were updated in the app. Password change UI is ready, but backend password updates are not connected yet.'
-        : 'Profile details were updated in the app.'
-    );
-    setSaving(false);
+      setForm((current) => ({
+        ...current,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      }));
+
+      setSuccess('Profile updated successfully.');
+    } catch {
+      setError('Could not connect to server.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -375,7 +361,6 @@ export default function EditAccountPage() {
                           <Link href="/my-account/edit-account" className="account-edit-link active">Edit Profile</Link>
                           <Link href="/my-account/edit-address" className="account-edit-link">My Addresses</Link>
                           <Link href="/orders" className="account-edit-link">My Orders</Link>
-                          <Link href="/my-account/order-tracking" className="account-edit-link">Order Tracking</Link>
                           <Link href="/wishlist" className="account-edit-link">Wishlist</Link>
                           <button className="account-edit-button" onClick={logout}>Logout</button>
                         </nav>
@@ -390,12 +375,12 @@ export default function EditAccountPage() {
 
                       <form className="account-edit-form" onSubmit={handleSubmit} noValidate>
                         <div className="account-edit-field">
-                          <label className="account-edit-label required">First name</label>
+                          <label className="account-edit-label">First name</label>
                           <input className="account-edit-input" type="text" value={form.firstName} onChange={setField('firstName')} />
                         </div>
 
                         <div className="account-edit-field">
-                          <label className="account-edit-label required">Last name</label>
+                          <label className="account-edit-label">Last name</label>
                           <input className="account-edit-input" type="text" value={form.lastName} onChange={setField('lastName')} />
                         </div>
 

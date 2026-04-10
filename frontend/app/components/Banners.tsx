@@ -2,10 +2,10 @@ import Link from 'next/link';
 
 export default function TrendingCategories() {
   const categories = [
-    { label: 'Cups & Mugs', image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg', href: '/cups-and-mugs' },
-    { label: 'Home Decor',  image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller01-10.03.2026.jpg', href: '/home-decor' },
-    { label: 'Dining',      image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg', href: '/dining' },
-    { label: 'Kitchen',     image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg', href: '/kitchen' },
+    { label: 'Cups & Mugs', image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg', href: '/collection/cups-and-mugs' },
+    { label: 'Home Decor',  image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller01-10.03.2026.jpg', href: '/collection/home-decor' },
+    { label: 'Dining',      image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg', href: '/collection/dining' },
+    { label: 'Kitchen',     image: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg', href: '/collection/kitchen' },
   ];
 
   return (

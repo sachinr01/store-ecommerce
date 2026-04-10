@@ -104,37 +104,49 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
             p.menu_order,
             p.product_date_added  AS date_added,
             (
-                SELECT MIN(CAST(pm.meta_value AS DECIMAL(10,2)))
-                FROM tbl_productmeta pm
-                WHERE pm.meta_key = '_price'
-                  AND pm.product_id IN (
-                      SELECT ID FROM tbl_products
-                      WHERE (parent_id = p.ID AND product_type = 'product_variation')
-                         OR (ID = p.ID AND product_type = 'product')
-                  )
-                  AND pm.meta_value != ''
+                SELECT MIN(CAST((
+                    SELECT pm.meta_value
+                    FROM tbl_productmeta pm
+                    WHERE pm.product_id = p2.ID
+                      AND pm.meta_key = '_price'
+                      AND pm.meta_value != ''
+                    ORDER BY pm.meta_id DESC
+                    LIMIT 1
+                ) AS DECIMAL(10,2)))
+                FROM tbl_products p2
+                WHERE (p2.parent_id = p.ID AND p2.product_type = 'product_variation')
+                   OR (p2.ID = p.ID AND p2.product_type = 'product')
             ) AS price_min,
             (
-                SELECT MAX(CAST(pm.meta_value AS DECIMAL(10,2)))
-                FROM tbl_productmeta pm
-                WHERE pm.meta_key = '_price'
-                  AND pm.product_id IN (
-                      SELECT ID FROM tbl_products
-                      WHERE (parent_id = p.ID AND product_type = 'product_variation')
-                         OR (ID = p.ID AND product_type = 'product')
-                  )
-                  AND pm.meta_value != ''
+                SELECT MAX(CAST((
+                    SELECT pm.meta_value
+                    FROM tbl_productmeta pm
+                    WHERE pm.product_id = p2.ID
+                      AND pm.meta_key = '_price'
+                      AND pm.meta_value != ''
+                    ORDER BY pm.meta_id DESC
+                    LIMIT 1
+                ) AS DECIMAL(10,2)))
+                FROM tbl_products p2
+                WHERE (p2.parent_id = p.ID AND p2.product_type = 'product_variation')
+                   OR (p2.ID = p.ID AND p2.product_type = 'product')
             ) AS price_max,
             (
-                SELECT MIN(CAST(pm.meta_value AS DECIMAL(10,2)))
+                SELECT pm.meta_value
                 FROM tbl_productmeta pm
-                WHERE pm.meta_key = '_sale_price'
-                  AND pm.product_id IN (
-                      SELECT ID FROM tbl_products
-                      WHERE parent_id = p.ID AND product_type = 'product_variation'
-                  )
-                  AND pm.meta_value != ''
-            ) AS sale_price_min,
+                WHERE pm.product_id = p.ID
+                  AND pm.meta_key = '_regular_price'
+                ORDER BY pm.meta_id DESC
+                LIMIT 1
+            ) AS _regular_price,
+            (
+                SELECT pm.meta_value
+                FROM tbl_productmeta pm
+                WHERE pm.product_id = p.ID
+                  AND pm.meta_key = '_sale_price'
+                ORDER BY pm.meta_id DESC
+                LIMIT 1
+            ) AS _sale_price,
             (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS thumbnail_id,
             (
                 SELECT mm.meta_value
@@ -351,18 +363,42 @@ const getFeaturedProducts = async (req, res) => {
 };
 
 //  GET /store/api/products/on-sale 
-// Products that have at least one variation with a sale price set.
+// Products that have a valid sale price lower than the regular price.
 // Query params: ?limit=N
 const getOnSaleProducts = async (req, res) => {
     try {
         const products = await withRetry(() => queryProductList(
             `AND EXISTS (
-                SELECT 1 FROM tbl_productmeta pm
-                JOIN tbl_products v ON v.ID = pm.product_id
+                SELECT 1
+                FROM tbl_products v
                 WHERE v.parent_id = p.ID
                   AND v.product_type = 'product_variation'
-                  AND pm.meta_key = '_sale_price'
-                  AND pm.meta_value != ''
+                  AND CAST(COALESCE((
+                    SELECT pm_sale.meta_value
+                    FROM tbl_productmeta pm_sale
+                    WHERE pm_sale.product_id = v.ID
+                      AND pm_sale.meta_key = '_sale_price'
+                      AND pm_sale.meta_value != ''
+                    ORDER BY pm_sale.meta_id DESC
+                    LIMIT 1
+                  ), '0') AS DECIMAL(10,2)) > 0
+                  AND CAST(COALESCE((
+                    SELECT pm_sale.meta_value
+                    FROM tbl_productmeta pm_sale
+                    WHERE pm_sale.product_id = v.ID
+                      AND pm_sale.meta_key = '_sale_price'
+                      AND pm_sale.meta_value != ''
+                    ORDER BY pm_sale.meta_id DESC
+                    LIMIT 1
+                  ), '0') AS DECIMAL(10,2)) < CAST(COALESCE((
+                    SELECT pm_regular.meta_value
+                    FROM tbl_productmeta pm_regular
+                    WHERE pm_regular.product_id = v.ID
+                      AND pm_regular.meta_key = '_regular_price'
+                      AND pm_regular.meta_value != ''
+                    ORDER BY pm_regular.meta_id DESC
+                    LIMIT 1
+                  ), '0') AS DECIMAL(10,2))
             )`,
             'p.menu_order ASC',
             req.query.limit || null
@@ -401,16 +437,22 @@ const getProduct = async (req, res) => {
                     LIMIT 1
                 )                     AS thumbnail_url,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' LIMIT 1) AS gallery_ids,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_sku' LIMIT 1) AS sku,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_sku' ORDER BY meta_id DESC LIMIT 1) AS sku,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_stock_status' ORDER BY meta_id DESC LIMIT 1) AS stock_status,
-                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'total_sales' LIMIT 1) AS total_sales,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_price' LIMIT 1) AS price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_regular_price' LIMIT 1) AS regular_price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_sale_price' LIMIT 1) AS sale_price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_title' LIMIT 1) AS seo_title,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_metadesc' LIMIT 1) AS seo_description,
-                (SELECT CAST(meta_value AS DECIMAL(3,2)) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_average_rating' LIMIT 1) AS avg_rating,
-                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' LIMIT 1) AS review_count
+                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'total_sales' ORDER BY meta_id DESC LIMIT 1) AS total_sales,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1) AS price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_regular_price' ORDER BY meta_id DESC LIMIT 1) AS regular_price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_sale_price' ORDER BY meta_id DESC LIMIT 1) AS sale_price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_features' ORDER BY meta_id DESC LIMIT 1) AS product_features,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_material' ORDER BY meta_id DESC LIMIT 1) AS product_material,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_collection' ORDER BY meta_id DESC LIMIT 1) AS product_collection,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_care' ORDER BY meta_id DESC LIMIT 1) AS product_care,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_included' ORDER BY meta_id DESC LIMIT 1) AS product_included,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_more_info' ORDER BY meta_id DESC LIMIT 1) AS product_more_info,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_title' ORDER BY meta_id DESC LIMIT 1) AS seo_title,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_metadesc' ORDER BY meta_id DESC LIMIT 1) AS seo_description,
+                (SELECT CAST(meta_value AS DECIMAL(3,2)) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_average_rating' ORDER BY meta_id DESC LIMIT 1) AS avg_rating,
+                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' ORDER BY meta_id DESC LIMIT 1) AS review_count
             FROM tbl_products p
             WHERE p.ID = ?
               AND p.product_type   = 'product'
@@ -427,14 +469,14 @@ const getProduct = async (req, res) => {
                 v.ID,
                 v.product_title       AS title,
                 v.menu_order,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_price'            LIMIT 1) AS price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_regular_price'    LIMIT 1) AS regular_price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_sale_price'       LIMIT 1) AS sale_price,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = 'attribute_pa_color' LIMIT 1) AS color,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = 'attribute_pa_size'  LIMIT 1) AS size,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1) AS price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_regular_price' ORDER BY meta_id DESC LIMIT 1) AS regular_price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_sale_price' ORDER BY meta_id DESC LIMIT 1) AS sale_price,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = 'attribute_pa_color' ORDER BY meta_id DESC LIMIT 1) AS color,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = 'attribute_pa_size' ORDER BY meta_id DESC LIMIT 1) AS size,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_stock_status'     ORDER BY meta_id DESC LIMIT 1) AS stock_status,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_stock'            ORDER BY meta_id DESC LIMIT 1) AS stock_qty,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_thumbnail_id'     LIMIT 1) AS thumbnail_id,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS thumbnail_id,
                 (
                     SELECT mm.meta_value
                     FROM tbl_productmeta pm
@@ -444,8 +486,8 @@ const getProduct = async (req, res) => {
                     WHERE pm.product_id = v.ID AND pm.meta_key = '_thumbnail_id'
                     LIMIT 1
                 ) AS thumbnail_url,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_sku'              LIMIT 1) AS sku,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_variation_description' LIMIT 1) AS variation_description
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_sku' ORDER BY meta_id DESC LIMIT 1) AS sku,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_variation_description' ORDER BY meta_id DESC LIMIT 1) AS variation_description
             FROM tbl_products v
             WHERE v.parent_id = ? AND v.product_type = 'product_variation'
             ORDER BY v.menu_order ASC
@@ -502,11 +544,19 @@ const getProduct = async (req, res) => {
             ORDER BY a.attr_name ASC
         `, [id]));
 
-        // Price range  include parent price (simple products) + variation prices
-        const prices = [
-            ...(product.price ? [parseFloat(product.price)] : []),
-            ...variations.map(v => parseFloat(v.price)).filter(p => !isNaN(p))
-        ].filter(p => !isNaN(p) && p > 0);
+        // Price range — for variable products use ONLY variation prices
+        // For simple products (no variations) use the parent _price
+        // Effective price = sale_price if sale < regular, else regular_price
+        const effectiveVarPrices = variations.map(v => {
+            const reg  = parseFloat(v.regular_price) || 0;
+            const sale = parseFloat(v.sale_price)    || 0;
+            const eff  = (sale > 0 && sale < reg) ? sale : (reg || parseFloat(v.price) || 0);
+            return eff;
+        }).filter(p => p > 0);
+
+        const prices = variations.length > 0
+            ? effectiveVarPrices
+            : (product.price ? [parseFloat(product.price)] : []);
 
         const price_min = prices.length ? Math.min(...prices) : null;
         const price_max = prices.length ? Math.max(...prices) : null;

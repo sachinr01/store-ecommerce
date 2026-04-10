@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getProducts, getImageUrl, type Product } from '../lib/api';
-import { formatPrice } from '../lib/price';
+import { formatPrice, formatPriceRange } from '../lib/price';
+import { getDiscountPercent } from '../lib/helpers/pricing';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
 
@@ -25,10 +26,13 @@ function StarRating({ rating = 4 }: { rating?: number }) {
 }
 
 function ProductCard({ p, idx }: { p: Product; idx: number }) {
-  const price    = Number(p.sale_price_min ?? p.price_min ?? 0);
-  const oldPrice = p.sale_price_min !== null && p.price_min !== null && p.sale_price_min < p.price_min
-    ? Number(p.price_min)
-    : null;
+  const priceMin = Number(p.price_min ?? 0);
+  const priceMax = Number(p.price_max ?? p.price_min ?? 0);
+  const showRange = priceMax > priceMin;
+  const salePrice = p._sale_price ? Number(p._sale_price) : null;
+  const regularPrice = p._regular_price ? Number(p._regular_price) : null;
+  const displayPrice = salePrice ?? regularPrice ?? Number(p.price_min ?? 0);
+  const discountPercent = showRange ? null : getDiscountPercent(salePrice, regularPrice);
   const href = `/shop/product/${toSlug(p.slug || p.title)}`;
 
   return (
@@ -39,18 +43,23 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
           alt={p.title}
           loading={idx < 4 ? 'eager' : 'lazy'}
           className="na-img"
+          onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
         />
-        {p.sale_price_min !== null && p.price_min !== null && p.sale_price_min < p.price_min && (
-          <span className="na-badge">Sale</span>
-        )}
+        {!showRange && salePrice !== null && <span className="na-badge">Sale</span>}
       </div>
 
       <div className="na-info">
         <p className="na-name">{p.title}</p>
-        <StarRating />
         <div className="na-price-row">
-          {oldPrice && <span className="na-old-price">{formatPrice(oldPrice)}</span>}
-          <span className={`na-price${oldPrice ? ' sale' : ''}`}>{formatPrice(price)}</span>
+          {!showRange && salePrice !== null && regularPrice !== null && (
+            <span className="na-old-price">{formatPrice(regularPrice)}</span>
+          )}
+          <span className={`na-price${!showRange && salePrice !== null ? ' sale' : ''}`}>
+            {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
+          </span>
+          {discountPercent !== null && (
+            <span className="na-save-badge">{discountPercent}% off</span>
+          )}
         </div>
       </div>
     </Link>
@@ -236,6 +245,12 @@ export default function NewArrivals() {
           font-size: 13px;
           color: #aaa;
           text-decoration: line-through;
+        }
+
+        .na-save-badge {
+          font-size: 12px;
+          font-weight: 600;
+          color: #e74c3c;
         }
 
         /* ── Skeleton ── */

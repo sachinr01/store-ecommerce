@@ -37,10 +37,10 @@ export default function Footer() {
           <div>
             <h4>POPULAR CATEGORIES</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Crockery Set</a></li>
-              <li><a href="#." className="link-faded">Tableware</a></li>
-              <li><a href="#." className="link-faded">Jars Online</a></li>
-              <li><a href="#." className="link-faded">Buy Bakeware Items</a></li>
+              <li><a href="/store/collection/cups-and-mugs" className="link-faded">Cups & Mugs</a></li>
+              <li><a href="/store/collection/home-decor" className="link-faded">Home Decor</a></li>
+              <li><a href="/store/collection/dining" className="link-faded">Dining</a></li>
+              <li><a href="/store/collection/kitchen" className="link-faded">Kitchen</a></li>
             </ul>
           </div>
           <div>

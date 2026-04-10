@@ -7,30 +7,30 @@ import Footer from '../../components/Footer';
 import '../../shop/shop.css';
 
 const ALL_PRODUCTS = [
-  { id:1,  name:'SHRI KHATU SHYAM CREATION MDF Wall Photo Frame (Multicolor, 1 Photo(s), 30)', price:1299, oldPrice:1799, rating:4.5, reviews:1203, material:'Cotton',   style:'Floral',     type:'Cushion',    image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/normal-photo-frame/n/m/i/7-horses-wall-photo-frame-1-sksc-ctl-12x24-06-shri-khatu-shyam-original-imahkhnjh5hyjawv.jpeg?q=90' },
-  { id:2,  name:'DECOR  Production Wall Painting Scenery for Home Decor, Office etc Digital Reprint 40 inch x 20 inch Painting (Without Frame)',      price:899,  oldPrice:null, rating:4.3, reviews:876,  material:'Ceramic',  style:'Minimalist', type:'Vase',       image:'https://rukminim1.flixcart.com/image/1280/1280/kl175ow0/painting/v/b/t/20-wall-painting-scenery-for-home-decor-etc-self-adhesive-vinyl-original-imagy8y3gpk2a6z6.jpeg?q=90' },
-  { id:3,  name:'BHAARUSH9 Multicolor Wild Flower Artificial Flower  with Pot (15 cm, Pack of 8, Flower with Basket)',      price:1599, oldPrice:2199, rating:4.6, reviews:543,  material:'Cotton',   style:'Boho',       type:'Wall Decor', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/artificial-flower/3/v/y/8-123-bhaarush9-original-imahmf9mnahr8gnr.jpeg?q=90' },
-  { id:4,  name:'DECOR  Production Wall Painting Scenery for Home Decor, Office etc Digital Reprint 56 inch x 28 inch Painting (Without Frame)',            price:699,  oldPrice:999,  rating:4.2, reviews:432,  material:'Ceramic',  style:'Rustic',     type:'Planter',    image:'https://rukminim1.flixcart.com/image/1280/1280/kl175ow0/painting/l/f/i/20-largepainting-35-hd-rapid-design-original-imagy8w5dnpfzpgg.jpeg?q=90' },
-  { id:5,  name:'GiftzLane Lord KHATU ji Idol for car Dashboard & Home Decorative Showpiece  -  7.62 cm (Wood, Multicolor)',          price:1099, oldPrice:null, rating:4.4, reviews:765,  material:'Seagrass', style:'Boho',       type:'Storage',    image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/showpiece-figurine/s/k/e/0-2-7-62-tran-gzl-d-1919-march-color-splash-7-62-original-imahherzej27gqke.jpeg?q=90' },
-  { id:6,  name:'FASTQT 24.2 inch UNIQUE WALL CLOCK FOR HOME ,OFFICE Self Adhesive Sticker (Pack of 1)',   price:2499, oldPrice:3499, rating:4.7, reviews:987,  material:'Canvas',   style:'Modern',     type:'Wall Decor', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/sticker/f/6/r/large-unique-wall-clock-for-home-office-1-24-2-ts-fastqt-original-imaheaf7qvtf7df2.jpeg?q=90' },
-  { id:7,  name:'DAKSHITA 100 cm 12 Hexagon-Silver (Pack of 12) Acrylic Mirror Self Adhesive Sticker (Pack of 12)',    price:599,  oldPrice:799,  rating:4.5, reviews:2103, material:'Soy Wax',  style:'Minimalist', type:'Candle',     image:'https://rukminim1.flixcart.com/image/1280/1280/kmqn3bk0/sticker/m/4/1/large-12-hexagon-silver-each-hexagon-size-size-10-5-x-12-1-3d-original-imagfkjqz33suteh.jpeg?q=90' },
-  { id:8,  name:'Painting Mantra Elegant Mandala Round Framed Wall Art Painting For Living Room Digital Reprint 16 inch x 16 inch Painting (With Frame)',            price:849,  oldPrice:null, rating:4.1, reviews:321,  material:'Rattan',   style:'Boho',       type:'Frame',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/painting/a/w/u/16-1-asfrp2603056-paintingmantra-original-imahhynmzrzb8rvb.jpeg?q=90' },
-  { id:9,  name:'DecorWhiz Luxury Design Gold Candle Stand Set | Decorative Holder for Home Decoration Gold Plated Candle Holder Set (Gold, Pack of 2)',         price:3299, oldPrice:4499, rating:4.8, reviews:654,  material:'Ceramic',  style:'Floral',     type:'Lamp',       image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/candle-tealight-holder/e/u/j/3-75-2-candle-holder-m4-decor-whiz-7-original-imahks92aahjxcyv.jpeg?q=90' },
-  { id:10, name:'Rose, Jasmine Diffuser Set deverauxbluecolourdiffuser (5 x 6 ml)',          price:1799, oldPrice:2499, rating:4.3, reviews:432,  material:'Jute',     style:'Rustic',     type:'Rug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/air-freshener/7/a/t/30-deverauxbluecolourdiffuser-liquid-deveraux-original-imahjx5zzyj3g7qe.jpeg?q=90' },
-  { id:11, name:'Aatiutik Magic Fruit Diffuser Set Electric Camphor Diffuser Aroma Oil Burner with Ceramic Bowl | Kapoor Dani Electric Burner | Room Freshener, Camphor & Diffuser/Essential Oil Fragrance (20 ml)',          price:499,  oldPrice:null, rating:4.2, reviews:876,  material:'Metal',    style:'Modern',     type:'Candle',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/air-freshener/1/w/c/20-electric-camphor-diffuser-aroma-oil-burner-with-ceramic-bowl-original-imahmyyqhss37fuk.jpeg?q=90' },
-  { id:12, name:'ambika fashion Premium Premanand Ji Maharaj Wall Hanging for Living Room,Bedroom,Spiritual Acrylic 30 inch x 12 inch Painting (Without Frame)',               price:799,  oldPrice:1099, rating:4.6, reviews:1543, material:'Natural',  style:'Boho',       type:'Vase',       image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/painting/d/l/f/12-1-premium-premanand-ji-maharaj-wall-hanging-for-living-room-original-imah8s2zpe9hvgvd.jpeg?q=90' },
+  { id:1,  name:'Fruits/Vegetables Kitchen Rack DM PLUS 4 Tier Multipurpose Storage Kitchen Rack Trolley with Wheels (BROWN) Plastic',               price:2499, oldPrice:3299, rating:4.7, reviews:1543, material:'Cast Iron', style:'Classic',    type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/kitchen-rack/x/r/d/dm-toy-4t-brown-01-dm-plus-original-imahm2a47fh2vuku.jpeg?q=90' },
+  { id:2,  name:'Bird Land Chopping Board',             price:899,  oldPrice:1299, rating:4.4, reviews:876,  material:'Bamboo',    style:'Rustic',     type:'Prep Tools',   image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/i/n/india-circus-by-krsnaa-mehta-bird-land-chopping-board-52151704sd00123-4.jpg' },
+  { id:3,  name:'Sage Serenity Steel Cookie Jar',   price:1299, oldPrice:null, rating:4.5, reviews:654,  material:'Steel',     style:'Modern',     type:'Prep Tools',   image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/52152000SD02629/India-Circus-by-Krsnaa-Mehta-Sage-Serenity-Steel-Cookie-Jar-52152000SD02629-2.jpg' },
+  { id:4,  name:'IMPEX Nonstick Induction Bottom Granite Festival GiftMFKT 5 Layer Super Granite Induction Bottom Non-Stick Coated Cookware Set (Aluminium, 6 - Piece)',          price:1799, oldPrice:2499, rating:4.6, reviews:987,  material:'Ceramic',   style:'Modern',     type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/cookware-set/u/p/l/6-mfkt-6-impex-original-imahhwktzgu7npec.jpeg?q=90' },
+  { id:5,  name:'NIMBA NATURALS 1000 ml Cooking Oil Dispenser (Pack of 1)',           price:599,  oldPrice:799,  rating:4.3, reviews:432,  material:'Wood',      style:'Rustic',     type:'Utensils',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-oil-dispenser/p/j/l/combo-oil-dispenser-flagcart-original-imahks8jydt7jmup.jpeg?q=90' },
+  { id:6,  name:'Ecodex Hand Push Chopper with 3 Blades for Effortless Chopping Vegetables & Fruits Kitchen Tool Set (Chopper)',  price:1499, oldPrice:1999, rating:4.5, reviews:765,  material:'Glass',     style:'Minimalist', type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/chopper/e/r/p/push-chopper-with-steel-blades-for-effortless-chopping-original-imahharshf67kgt3.jpeg?q=90' },
+  { id:7,  name:'ZKU 12 in 1 Multipurpose Chopper, Unbreakable, Chopper for Kitchen Vegetable & Fruit Chopper (1 Chopper)',    price:799,  oldPrice:null, rating:4.2, reviews:321,  material:'Marble',    style:'Classic',    type:'Prep Tools',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-chopper/e/u/o/no-12-in-1-quick-nicer-dicer-grater-chopper-chopper-shree-original-imah3fnwvzjhvxvc.jpeg?q=90' },
+  { id:8,  name:'Shriyagic Empty Cutlery Holder Case (Transparent  Holds 31 Pieces)',  price:2199, oldPrice:2999, rating:4.6, reviews:1203, material:'Steel',     style:'Classic',    type:'Cookware',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/cutlery-case/f/n/g/36-spoon-stand-of-23-holes-6-hooks-a36-shriyagic-2-original-imahgz4yzd6gutax.jpeg?q=90' },
+  { id:9,  name:'DECORASIA Wooden Serving Spoon Set (Pack of 6)',         price:999,  oldPrice:1399, rating:4.4, reviews:543,  material:'Silicone',  style:'Modern',     type:'Utensils',     image:'https://rukminim1.flixcart.com/image/1280/1280/ksnjp8w0/spatula/r/5/c/1024-wood-spatula-woodincline-original-imag65kv7dhrubmh.jpeg?q=90' },
+  { id:10, name:'UK ZONE 12 Cavities Non Stick Appam Patra with Lid and Side Handle/ kulipaniyaram pan nonstick/ appe/ aapee ka sacha/ panniyaram kadai/ Paniyarrakal/Paniyaram/Appam Pan/Appam Maker/Pan Cake/guntapongadalu pan/appam kadai/Ponganal Maker/idali Maker/idali Pan kadai/litti maker/unniyappam chatti non stick/ unniyappam chatti Paniarakkal with Lid with Lid 0.5 L capacity 24 cm diameter (Aluminium, Non-stick) Paniarakkal Pan 24 cm diameter with Lid 0.5 L capacity (Aluminium, Non-stick)',         price:1699, oldPrice:null, rating:4.5, reviews:876,  material:'Ceramic',   style:'Minimalist', type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/shopsy-pot-pan/p/c/8/paniyarakkal-red-shopglobal-original-imahe9fzgznevavw.jpeg?q=90' },
+  { id:11, name:'OMORTEX Stainless steel potato masher and Egg whisker (Multicolor) Kitchen Tool Set (Masher, Whisk)',           price:699,  oldPrice:999,  rating:4.1, reviews:432,  material:'Seagrass',  style:'Boho',       type:'Storage',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/kitchen-tool-set/0/k/k/masher-combo-kitchen-set-omortex-original-imahfr38ndgndqz3.jpeg?q=90' },
+  { id:12, name:'Platter Portrayal Steel Container (Set of 3)',   price:3499, oldPrice:4499, rating:4.8, reviews:2103, material:'Steel',     style:'Modern',     type:'Utensils',     image:'https://icmedianew.gumlet.io/pub/media/catalog/product/cache/7c90eecf75182456ca0a208cc3917af8/i/n/india-circus-platter-portrayal-steel-container-set-of-3-52152002sd00053-2.jpg' },
 ];
 
-const MATERIALS  = ['Canvas','Ceramic','Cotton','Jute','Metal','Natural','Rattan','Seagrass','Soy Wax'];
-const STYLES     = ['Boho','Floral','Minimalist','Modern','Rustic'];
-const TYPES      = ['Candle','Cushion','Frame','Lamp','Planter','Rug','Storage','Vase','Wall Decor'];
+const MATERIALS  = ['Bamboo','Cast Iron','Ceramic','Glass','Marble','Seagrass','Silicone','Steel','Wood'];
+const STYLES     = ['Boho','Classic','Minimalist','Modern','Rustic'];
+const TYPES      = ['Cookware','Prep Tools','Storage','Utensils'];
 const SORT_OPTIONS = [
   { label:'Featured',           value:'featured'   },
   { label:'Price: Low to High', value:'price-asc'  },
   { label:'Price: High to Low', value:'price-desc' },
   { label:'Top Rated',          value:'rating'     },
 ];
-const MAX_PRICE = 5000;
+const MAX_PRICE = 6000;
 
 function MiniStars({ rating }: { rating: number }) {
   return (
@@ -50,8 +50,7 @@ function FilterSection({ label, isOpen, onToggle, children }: {
 }) {
   return (
     <div className="nf-section">
-      <button className={`nf-section-btn${isOpen ? ' open' : ''}`} onClick={onToggle}
-        aria-expanded={isOpen}>
+      <button className={`nf-section-btn${isOpen ? ' open' : ''}`} onClick={onToggle} aria-expanded={isOpen}>
         <span className="nf-section-label">{label}</span>
         <svg className="nf-chevron" width="12" height="12" viewBox="0 0 12 12"
           fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -118,7 +117,6 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
       </div>
       <div className="csp-info">
         <Link href="/shop" className="csp-name">{p.name}</Link>
-        <MiniStars rating={p.rating}/>
         <div className="csp-price-row">
           {isOnSale && p.oldPrice && <span className="csp-old-price">₹{p.oldPrice.toLocaleString()}</span>}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>
@@ -131,11 +129,11 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
   );
 }
 
-export default function HomeDecorPage() {
+export default function KitchenPage() {
   const [sort,        setSort]        = useState('featured');
   const [viewMode,    setViewMode]    = useState<'grid'|'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openFilters, setOpenFilters] = useState({ price:true, type:true, material:false, style:false });
+  const [openFilters, setOpenFilters] = useState({ price:false, type:false, material:false, style:false });
   const [selMaterials, setSelMaterials] = useState<string[]>([]);
   const [selStyles,    setSelStyles]    = useState<string[]>([]);
   const [selTypes,     setSelTypes]     = useState<string[]>([]);
@@ -256,13 +254,10 @@ export default function HomeDecorPage() {
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
         <Link href="/collection">Collections</Link>
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Home Decor</span>
+        <span aria-current="page">Kitchen</span>
       </nav>
 
-      <div className="csp-page-header">
-        <h1 className="csp-page-title">Home Decor</h1>
-        <p className="csp-page-sub">Transform your space with handpicked pieces that bring warmth and character to every room.</p>
-      </div>
+
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

@@ -13,7 +13,8 @@ export interface Product {
   menu_order: number;
   price_min: number | null;
   price_max: number | null;
-  sale_price_min: number | null;
+  _regular_price: string | null;
+  _sale_price: string | null;
   thumbnail_id: string | null;
   thumbnail_url: string | null;
   gallery_ids: string | null;
@@ -78,6 +79,12 @@ export interface ProductDetail extends Product {
   price: string | null;
   regular_price: string | null;
   sale_price: string | null;
+  product_features: string | null;
+  product_material: string | null;
+  product_collection: string | null;
+  product_care: string | null;
+  product_included: string | null;
+  product_more_info: string | null;
   seo_title: string | null;
   seo_description: string | null;
   avg_rating: number | null;
@@ -168,6 +175,15 @@ export const authLogin    = (username: string, password: string) =>
 
 export const authRegister = (username: string, email: string, password: string) =>
   apiPost<{ userId: number }>('/auth/register', { username, email, password });
+
+export const updateProfile = (body: {
+  displayName: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}) => apiPut<AuthUser>('/auth/profile', body);
 
 export interface OrderSummary {
   order_id: number;

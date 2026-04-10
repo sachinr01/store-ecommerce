@@ -7,30 +7,30 @@ import Footer from '../../components/Footer';
 import '../../shop/shop.css';
 
 const ALL_PRODUCTS = [
-  { id:1,  name:'YUMWARE Snoopy_Brown Plastic, Stainless Steel Coffee Mug (350 ml)',        price:499,  oldPrice:699,  rating:4.5, reviews:1203, material:'Ceramic',    style:'Floral',     type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/h/7/1/snoopy-coffee-mug-with-sipper-lid-blue-300-2-culinary-crafts-original-imahky4g4x2pg89y.jpeg?q=90' },
-  { id:2,  name:'OFFYX Stainless Steel Coffee with Lid Anti-Spill Silicone Ring For Travel & Office Stainless Steel Coffee Mug (301 ml)',             price:899,  oldPrice:1299, rating:4.6, reviews:876,  material:'Ceramic',    style:'Boho',       type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/m/w/m/stainless-steel-coffee-mug-with-lid-anti-spill-silicone-ring-for-original-imahgngshhhphvev.jpeg?q=90' },
-  { id:3,  name:'SUARD Happy Birthday Coffee mug for friend wife husband brother sister-114 Ceramic Coffee Mug (350 ml)',      price:1599, oldPrice:null, rating:4.7, reviews:654,  material:'Bone China', style:'Classic',    type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/p/7/s/happy-birthday-coffee-mug-for-friend-wife-husband-brother-sister-original-imahh7ddpumuvfca.jpeg?q=90' },
-  { id:4,  name:'Uniquetrader Insulated Coffee with Lid Stainless Steel Coffee Mug (300 ml, Pack of 2)',      price:699,  oldPrice:999,  rating:4.4, reviews:432,  material:'Glass',      style:'Minimalist', type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/p/i/insulated-coffee-mug-with-lid-300-2-uniquetrader-original-imahhhzmdgjh3tzh.jpeg?q=90' },
-  { id:5,  name:'The Sanaatan Store Birthday Gift, Alphabate, Gift For Brother, Sister, Friend Ceramic Coffee Mug (320 ml)',       price:1299, oldPrice:1799, rating:4.5, reviews:765,  material:'Stoneware',  style:'Minimalist', type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/x/k/o/birthday-gift-a-alphabate-mug-gift-for-brother-sister-friend-320-original-imahh6xvfxpaabpf.jpeg?q=90' },
-  { id:6,  name:'Category pages are a crucial part of any eCommerce website, designed to organize products into structured groups for a seamless shopping experience. Building category pages involves creating visually appealing, user-friendly layouts that help customers easily browse and discover products based on specific categories such as clothing, electronics, or accessories.',                price:399,  oldPrice:null, rating:4.3, reviews:987,  material:'Ceramic',    style:'Rustic',     type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/x/e/h/stainless-steel-coffee-mug-withlid-anti-spill-silicone-ring-for-original-imahgngxg7jhhha5.jpeg?q=90' },
-  { id:7,  name:'AVISTRA Happy Birthday Printed Cup, Gifting Cup, Birthday Gifting Ceramic Coffee Mug (330 ml)',   price:799,  oldPrice:1099, rating:4.6, reviews:543,  material:'Porcelain',  style:'Floral',     type:'Espresso Cup',image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/6/x/e/happy-birthday-printed-cup-gifting-cup-birthday-gifting-330-1-original-imahhry8pgpahunr.jpeg?q=90' },
-  { id:8,  name:'GIVENTA Messi Football Legend Ceramic Coffee – High Quality Printed Tea Cup Ceramic Coffee Mug (350 ml, Pack of 2)',      price:999,  oldPrice:1399, rating:4.4, reviews:321,  material:'Steel',      style:'Modern',     type:'Travel Mug', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/d/m/messi-football-legend-ceramic-coffee-mug-high-quality-printed-original-imahkchhr8bqftrc.jpeg?q=90' },
-  { id:9,  name:'Plast Boy LLP Penguin Wink Plastic Coffee Mug (450 ml)',      price:649,  oldPrice:null, rating:4.5, reviews:2103, material:'Ceramic',    style:'Boho',       type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/q/b/penguin-mug-wink-450-0-1-plast-boy-llp-original-imahkd3rtzez5gqb.jpeg?q=90' },
-  { id:10, name:'Gharwithfashion Marble Pattern Ceramic 380 ml Ceramic Coffee Mug (380 ml)',       price:849,  oldPrice:1199, rating:4.3, reviews:432,  material:'Glass',      style:'Minimalist', type:'Cup',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/g/c/marble-pattern-ceramic-mug-380-ml-380-1-gharwithfashion-original-imahgszfzcdghjg3.jpeg?q=90' },
-  { id:11, name:'Madhut Deer Print | Blue Nature Design ceramic Coffee Ceramic Coffee Mug (325 ml)',             price:549,  oldPrice:749,  rating:4.7, reviews:876,  material:'Bone China', style:'Floral',     type:'Mug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/l/j/deer-print-ceramic-mug-set-blue-nature-design-coffee-mug-pack-of-original-imahjnsknpupghfv.jpeg?q=90' },
-  { id:12, name:'Human Hydro Prime Steel Tea Cup, Rust-Free & Reusable Stainless Steel Coffee Mug (240 ml)',  price:1099, oldPrice:null, rating:4.4, reviews:543,  material:'Stoneware',  style:'Rustic',     type:'Espresso Cup',image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/1/p/1/prime-steel-tea-cup-rust-free-reusable-240-0-1-human-hydro-original-imahgbfawffuwz6z.jpeg?q=90' },
+  { id:1,  name:'SHRI KHATU SHYAM CREATION MDF Wall Photo Frame (Multicolor, 1 Photo(s), 30)', price:1299, oldPrice:1799, rating:4.5, reviews:1203, material:'Cotton',   style:'Floral',     type:'Cushion',    image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/normal-photo-frame/n/m/i/7-horses-wall-photo-frame-1-sksc-ctl-12x24-06-shri-khatu-shyam-original-imahkhnjh5hyjawv.jpeg?q=90' },
+  { id:2,  name:'DECOR  Production Wall Painting Scenery for Home Decor, Office etc Digital Reprint 40 inch x 20 inch Painting (Without Frame)',      price:899,  oldPrice:null, rating:4.3, reviews:876,  material:'Ceramic',  style:'Minimalist', type:'Vase',       image:'https://rukminim1.flixcart.com/image/1280/1280/kl175ow0/painting/v/b/t/20-wall-painting-scenery-for-home-decor-etc-self-adhesive-vinyl-original-imagy8y3gpk2a6z6.jpeg?q=90' },
+  { id:3,  name:'BHAARUSH9 Multicolor Wild Flower Artificial Flower  with Pot (15 cm, Pack of 8, Flower with Basket)',      price:1599, oldPrice:2199, rating:4.6, reviews:543,  material:'Cotton',   style:'Boho',       type:'Wall Decor', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/artificial-flower/3/v/y/8-123-bhaarush9-original-imahmf9mnahr8gnr.jpeg?q=90' },
+  { id:4,  name:'DECOR  Production Wall Painting Scenery for Home Decor, Office etc Digital Reprint 56 inch x 28 inch Painting (Without Frame)',            price:699,  oldPrice:999,  rating:4.2, reviews:432,  material:'Ceramic',  style:'Rustic',     type:'Planter',    image:'https://rukminim1.flixcart.com/image/1280/1280/kl175ow0/painting/l/f/i/20-largepainting-35-hd-rapid-design-original-imagy8w5dnpfzpgg.jpeg?q=90' },
+  { id:5,  name:'GiftzLane Lord KHATU ji Idol for car Dashboard & Home Decorative Showpiece  -  7.62 cm (Wood, Multicolor)',          price:1099, oldPrice:null, rating:4.4, reviews:765,  material:'Seagrass', style:'Boho',       type:'Storage',    image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/showpiece-figurine/s/k/e/0-2-7-62-tran-gzl-d-1919-march-color-splash-7-62-original-imahherzej27gqke.jpeg?q=90' },
+  { id:6,  name:'FASTQT 24.2 inch UNIQUE WALL CLOCK FOR HOME ,OFFICE Self Adhesive Sticker (Pack of 1)',   price:2499, oldPrice:3499, rating:4.7, reviews:987,  material:'Canvas',   style:'Modern',     type:'Wall Decor', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/sticker/f/6/r/large-unique-wall-clock-for-home-office-1-24-2-ts-fastqt-original-imaheaf7qvtf7df2.jpeg?q=90' },
+  { id:7,  name:'DAKSHITA 100 cm 12 Hexagon-Silver (Pack of 12) Acrylic Mirror Self Adhesive Sticker (Pack of 12)',    price:599,  oldPrice:799,  rating:4.5, reviews:2103, material:'Soy Wax',  style:'Minimalist', type:'Candle',     image:'https://rukminim1.flixcart.com/image/1280/1280/kmqn3bk0/sticker/m/4/1/large-12-hexagon-silver-each-hexagon-size-size-10-5-x-12-1-3d-original-imagfkjqz33suteh.jpeg?q=90' },
+  { id:8,  name:'Painting Mantra Elegant Mandala Round Framed Wall Art Painting For Living Room Digital Reprint 16 inch x 16 inch Painting (With Frame)',            price:849,  oldPrice:null, rating:4.1, reviews:321,  material:'Rattan',   style:'Boho',       type:'Frame',      image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/painting/a/w/u/16-1-asfrp2603056-paintingmantra-original-imahhynmzrzb8rvb.jpeg?q=90' },
+  { id:9,  name:'DecorWhiz Luxury Design Gold Candle Stand Set | Decorative Holder for Home Decoration Gold Plated Candle Holder Set (Gold, Pack of 2)',         price:3299, oldPrice:4499, rating:4.8, reviews:654,  material:'Ceramic',  style:'Floral',     type:'Lamp',       image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/candle-tealight-holder/e/u/j/3-75-2-candle-holder-m4-decor-whiz-7-original-imahks92aahjxcyv.jpeg?q=90' },
+  { id:10, name:'Rose, Jasmine Diffuser Set deverauxbluecolourdiffuser (5 x 6 ml)',          price:1799, oldPrice:2499, rating:4.3, reviews:432,  material:'Jute',     style:'Rustic',     type:'Rug',        image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/air-freshener/7/a/t/30-deverauxbluecolourdiffuser-liquid-deveraux-original-imahjx5zzyj3g7qe.jpeg?q=90' },
+  { id:11, name:'Aatiutik Magic Fruit Diffuser Set Electric Camphor Diffuser Aroma Oil Burner with Ceramic Bowl | Kapoor Dani Electric Burner | Room Freshener, Camphor & Diffuser/Essential Oil Fragrance (20 ml)',          price:499,  oldPrice:null, rating:4.2, reviews:876,  material:'Metal',    style:'Modern',     type:'Candle',     image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/air-freshener/1/w/c/20-electric-camphor-diffuser-aroma-oil-burner-with-ceramic-bowl-original-imahmyyqhss37fuk.jpeg?q=90' },
+  { id:12, name:'ambika fashion Premium Premanand Ji Maharaj Wall Hanging for Living Room,Bedroom,Spiritual Acrylic 30 inch x 12 inch Painting (Without Frame)',               price:799,  oldPrice:1099, rating:4.6, reviews:1543, material:'Natural',  style:'Boho',       type:'Vase',       image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/painting/d/l/f/12-1-premium-premanand-ji-maharaj-wall-hanging-for-living-room-original-imah8s2zpe9hvgvd.jpeg?q=90' },
 ];
 
-const MATERIALS  = ['Bone China','Ceramic','Glass','Porcelain','Steel','Stoneware'];
-const STYLES     = ['Boho','Classic','Floral','Minimalist','Modern','Rustic'];
-const TYPES      = ['Cup','Espresso Cup','Mug','Travel Mug'];
+const MATERIALS  = ['Canvas','Ceramic','Cotton','Jute','Metal','Natural','Rattan','Seagrass','Soy Wax'];
+const STYLES     = ['Boho','Floral','Minimalist','Modern','Rustic'];
+const TYPES      = ['Candle','Cushion','Frame','Lamp','Planter','Rug','Storage','Vase','Wall Decor'];
 const SORT_OPTIONS = [
   { label:'Featured',           value:'featured'   },
   { label:'Price: Low to High', value:'price-asc'  },
   { label:'Price: High to Low', value:'price-desc' },
   { label:'Top Rated',          value:'rating'     },
 ];
-const MAX_PRICE = 3000;
+const MAX_PRICE = 5000;
 
 function MiniStars({ rating }: { rating: number }) {
   return (
@@ -50,7 +50,8 @@ function FilterSection({ label, isOpen, onToggle, children }: {
 }) {
   return (
     <div className="nf-section">
-      <button className={`nf-section-btn${isOpen ? ' open' : ''}`} onClick={onToggle} aria-expanded={isOpen}>
+      <button className={`nf-section-btn${isOpen ? ' open' : ''}`} onClick={onToggle}
+        aria-expanded={isOpen}>
         <span className="nf-section-label">{label}</span>
         <svg className="nf-chevron" width="12" height="12" viewBox="0 0 12 12"
           fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -117,7 +118,6 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
       </div>
       <div className="csp-info">
         <Link href="/shop" className="csp-name">{p.name}</Link>
-        <MiniStars rating={p.rating}/>
         <div className="csp-price-row">
           {isOnSale && p.oldPrice && <span className="csp-old-price">₹{p.oldPrice.toLocaleString()}</span>}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>
@@ -130,11 +130,11 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
   );
 }
 
-export default function CupsAndMugsPage() {
+export default function HomeDecorPage() {
   const [sort,        setSort]        = useState('featured');
   const [viewMode,    setViewMode]    = useState<'grid'|'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openFilters, setOpenFilters] = useState({ price:true, type:true, material:false, style:false });
+  const [openFilters, setOpenFilters] = useState({ price:false, type:false, material:false, style:false });
   const [selMaterials, setSelMaterials] = useState<string[]>([]);
   const [selStyles,    setSelStyles]    = useState<string[]>([]);
   const [selTypes,     setSelTypes]     = useState<string[]>([]);
@@ -255,13 +255,10 @@ export default function CupsAndMugsPage() {
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
         <Link href="/collection">Collections</Link>
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Cups & Mugs</span>
+        <span aria-current="page">Home Decor</span>
       </nav>
 
-      <div className="csp-page-header">
-        <h1 className="csp-page-title">Cups & Mugs</h1>
-        <p className="csp-page-sub">Sip in style — handcrafted cups and mugs for every mood and moment.</p>
-      </div>
+
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

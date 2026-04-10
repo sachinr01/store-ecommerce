@@ -45,6 +45,7 @@ router.post('/auth/register', auth.register);
 router.post('/auth/login',    auth.login);
 router.post('/auth/logout',   auth.logout);
 router.get('/auth/me',        auth.me);
+router.put('/auth/profile',   requireLogin, auth.updateProfile);
 
 // ── Cart ──────────────────────────────────────────────────────────────────────
 router.get('/cart',                   cart.getCart);

@@ -117,7 +117,6 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
       </div>
       <div className="csp-info">
         <Link href="/shop" className="csp-name">{p.name}</Link>
-        <MiniStars rating={p.rating}/>
         <div className="csp-price-row">
           {isOnSale && p.oldPrice && <span className="csp-old-price">₹{p.oldPrice.toLocaleString()}</span>}
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>
@@ -134,7 +133,7 @@ export default function DiningPage() {
   const [sort,        setSort]        = useState('featured');
   const [viewMode,    setViewMode]    = useState<'grid'|'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openFilters, setOpenFilters] = useState({ price:true, type:true, material:false, style:false });
+  const [openFilters, setOpenFilters] = useState({ price:false, type:false, material:false, style:false });
   const [selMaterials, setSelMaterials] = useState<string[]>([]);
   const [selStyles,    setSelStyles]    = useState<string[]>([]);
   const [selTypes,     setSelTypes]     = useState<string[]>([]);
@@ -258,10 +257,7 @@ export default function DiningPage() {
         <span aria-current="page">Dining</span>
       </nav>
 
-      <div className="csp-page-header">
-        <h1 className="csp-page-title">Dining</h1>
-        <p className="csp-page-sub">Elevate every meal — from everyday dinners to special occasions, beautifully set.</p>
-      </div>
+
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

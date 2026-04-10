@@ -7,6 +7,8 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getProductById, getProductBySlug, getImageUrl, type ProductDetail } from '../lib/api';
 import { formatPrice, formatPriceRange } from '../lib/price';
+import { getDiscountPercent } from '../lib/helpers/pricing';
+import { htmlToText, sanitizeHtml } from '../lib/helpers/html';
 import { useCart } from '../lib/cartContext';
 import { useWishlist } from '../lib/wishlistContext';
 
@@ -138,6 +140,22 @@ function ProductDetailsWithSearchParams({ productId }: { productId?: string }) {
   return <ProductDetailsInner id={id} slug={undefined} />;
 }
 
+function AccordionItem({ label, content }: { label: string; content: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`cpd-acc-item${open ? ' open' : ''}`}>
+      <button className="cpd-acc-header" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="cpd-acc-label">{label}</span>
+        <svg className="cpd-acc-chevron" width="14" height="14" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && <div className="cpd-acc-body"><p>{content}</p></div>}
+    </div>
+  );
+}
+
 function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
   const { addItem }    = useCart();
   const { hasItem: inWishlist, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlist();
@@ -151,7 +169,6 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
   const [quantity,      setQuantity]      = useState(1);
   const [addedFlash,    setAddedFlash]    = useState(false);
   const [pinned,        setPinned]        = useState(false);
-  const [activeTab,     setActiveTab]     = useState('description');
 
   useEffect(() => {
     let cancelled = false;
@@ -227,24 +244,23 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
 
   const bestMatch = selectedVariation;
 
-  // Debug: log variation data to confirm API is returning variation_description
-  if (bestMatch) {
-    console.log('[Variation]', { id: bestMatch.ID, variation_description: bestMatch.variation_description });
-  }
-
-  const currentPrice     = bestMatch ? Number(bestMatch.price || bestMatch.regular_price || 0) || null : null;
+  const currentRegular   = bestMatch ? Number(bestMatch.regular_price || 0) || null : null;
   const currentSalePrice = bestMatch?.sale_price && bestMatch.sale_price !== '' ? Number(bestMatch.sale_price) : null;
 
   const priceMin = Number(product.price_min ?? 0);
   const priceMax = Number(product.price_max ?? 0);
 
-  const simplePrice     = !product.variations.length && product.price     ? Number(product.price)     : null;
-  const simpleSalePrice = !product.variations.length && product.sale_price ? Number(product.sale_price) : null;
+  // Frontend display rule:
+  // if _sale_price exists, show it; otherwise show _regular_price
+  const simpleRegular   = !product.variations.length && product.regular_price ? Number(product.regular_price) : null;
+  const simpleSalePrice = !product.variations.length && product.sale_price    ? Number(product.sale_price)    : null;
 
-  const displayPrice     = currentPrice ?? simplePrice ?? (hasFullSelection ? priceMin : null);
-  const displaySalePrice = currentSalePrice ?? simpleSalePrice ?? null;
-  const showRange = !hasFullSelection && priceMax > priceMin;
-  const priceRangeStr = formatPriceRange(priceMin, priceMax);
+  const displayRegular = bestMatch ? currentRegular : (simpleRegular ?? null);
+  const displaySalePrice = bestMatch ? currentSalePrice : simpleSalePrice;
+  const displayMRP = displaySalePrice !== null && displayRegular !== null ? displayRegular : null;
+  const displayPrice = displaySalePrice ?? displayRegular ?? (product.variations.length > 0 ? null : (hasFullSelection ? priceMin : null));
+  const showRange        = product.variations.length > 0 && !bestMatch && priceMax > priceMin;
+  const priceRangeStr    = formatPriceRange(priceMin, priceMax);
 
   const isAddToCartEnabled = !product.variations.length || hasFullSelection;
 
@@ -272,19 +288,21 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
     });
   };
 
-  const decodeEntities = (str: string) =>
-    str.replace(/&amp;/g, '&')
-       .replace(/&quot;/g, '"')
-       .replace(/&#039;/g, "'")
-       .replace(/&lt;/g, '<')
-       .replace(/&gt;/g, '>')
-       .replace(/&nbsp;/g, ' ');
-
-  const shortDesc = decodeEntities(product.short_description?.replace(/<[^>]+>/g, '') || '');
-  const varDesc   = bestMatch?.variation_description
-    ? decodeEntities(bestMatch.variation_description.replace(/<[^>]+>/g, ''))
-    : null;
-  const fullDesc  = varDesc || decodeEntities(product.description?.replace(/<[^>]+>/g, '') || shortDesc);
+  const shortDescHtml = sanitizeHtml(product.short_description || '', { normalizeSpecLists: false });
+  const shortDescText = htmlToText(product.short_description || '');
+  const variationDescHtml = sanitizeHtml(bestMatch?.variation_description || '', { normalizeSpecLists: false });
+  const hasVariationDesc = variationDescHtml.trim().length > 0;
+  const fullDescHtml = hasVariationDesc
+    ? variationDescHtml
+    : sanitizeHtml(product.description || product.short_description || '', { normalizeSpecLists: false });
+  const accordionItems = [
+    { id: 'acc1', label: 'Features', content: htmlToText(product.product_features || '') },
+    { id: 'acc2', label: 'Material', content: htmlToText(product.product_material || '') },
+    { id: 'acc3', label: 'Collection', content: htmlToText(product.product_collection || '') },
+    { id: 'acc4', label: 'Included', content: htmlToText(product.product_included || '') },
+    { id: 'acc5', label: 'Care', content: htmlToText(product.product_care || '') },
+    { id: 'acc6', label: 'More Info', content: htmlToText(product.product_more_info || '') },
+  ];
 
   const anyInStock = product.variations.length
     ? product.variations.some(isVariationInStock)
@@ -303,7 +321,7 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
         productId: product.ID,
         variationId: bestMatch?.ID,
         title: product.title,
-        price: displaySalePrice ?? displayPrice ?? priceMin,
+        price: displayPrice ?? priceMin,
         color: selectedColor || undefined,
         size: selectedSize || undefined,
         quantity,
@@ -323,7 +341,7 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
       addToWishlist({
         id: product.ID,
         title: product.title,
-        price: Number(displaySalePrice ?? displayPrice) || 0,
+        price: Number(displayPrice) || 0,
         image: productImage,
         inStock,
       });
@@ -355,10 +373,6 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
   const allImages = selectedVariationImages ?? defaultImages;
   const productImage = allImages[0];
 
-  const reviews: never[] = [];
-  const avgRating  = Number(product.avg_rating  ?? 0);
-  const reviewCount = Number(product.review_count ?? 0);
-
   return (
     <>
       <Header />
@@ -388,7 +402,8 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
                   key={idx}
                   onClick={() => setMainImage(idx)}
                   className={`cpd-thumb${mainImage === idx ? ' active' : ''}`}>
-                  <img src={img} alt="" loading="lazy" />
+                  <img src={img} alt="" loading="lazy"
+                    onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }} />
                   {isLast && (
                     <span className="cpd-thumb-more">+{remaining}</span>
                   )}
@@ -399,7 +414,8 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
 
           {/* Main image */}
           <div className="cpd-main-img-wrap">
-            <img src={allImages[mainImage]} alt={product.title} className="cpd-main-img" />
+            <img src={allImages[mainImage]} alt={product.title} className="cpd-main-img"
+              onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
 
             {/* Image nav arrows (mobile) */}
             <button className="cpd-img-arrow prev"
@@ -432,17 +448,8 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
         {/* ════ RIGHT: Info ════ */}
         <div className="cpd-info-col">
 
-          {/* Title */}
-          <h1 className="cpd-title">{product.title}</h1>
-
-          {/* Rating row */}
-          <div className="cpd-rating-row">
-            {avgRating > 0 && <StarRating rating={avgRating} />}
-            <span className="cpd-rating-num">{avgRating > 0 ? avgRating.toFixed(1) : ''}</span>
-            <button className="cpd-review-count"
-              onClick={() => setActiveTab('reviews')}>
-              ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
-            </button>
+          <div className="cpd-heading-row">
+            <h1 className="cpd-title">{product.title}</h1>
             <span className={`cpd-stock-badge${inStock ? ' in' : ' out'}`}>
               {inStock ? '✓ In Stock' : '✗ Out of Stock'}
             </span>
@@ -452,13 +459,15 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
           <div className="cpd-price-block">
             {showRange ? (
               <span className="cpd-price">{priceRangeStr}</span>
-            ) : displaySalePrice ? (
+            ) : displayMRP ? (
               <>
-                <span className="cpd-price sale">{formatPrice(displaySalePrice)}</span>
-                <span className="cpd-old-price">{formatPrice(displayPrice)}</span>
-                <span className="cpd-save-badge">
-                  Save {formatPrice(Number(displayPrice) - displaySalePrice)}
-                </span>
+                <span className="cpd-old-price">{formatPrice(displayMRP)}</span>
+                <span className="cpd-price sale">{formatPrice(displayPrice)}</span>
+                {displayMRP && displayPrice && (
+                  <span className="cpd-save-badge">
+                    {getDiscountPercent(Number(displayPrice), displayMRP)}% off
+                  </span>
+                )}
               </>
             ) : displayPrice ? (
               <span className="cpd-price">{formatPrice(displayPrice)}</span>
@@ -470,10 +479,11 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
           <div className="cpd-divider" />
 
           {/* Short desc */}
-          {(varDesc || shortDesc) && (
-            <p className="cpd-short-desc">
-              {(varDesc || shortDesc).substring(0, 220)}{(varDesc || shortDesc).length > 220 ? '…' : ''}
-            </p>
+          {(hasVariationDesc || shortDescHtml) && (
+            <div
+              className="cpd-short-desc"
+              dangerouslySetInnerHTML={{ __html: hasVariationDesc ? variationDescHtml : shortDescHtml }}
+            />
           )}
 
           {/* ── Color selector ── */}
@@ -553,11 +563,6 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
             </div>
           )}
 
-          {/* Variation description */}
-          {varDesc && (
-            <p className="cpd-var-desc">{varDesc}</p>
-          )}
-
           <div className="cpd-divider" />
 
           {/* ── Qty + Add to Cart + Wishlist ── */}
@@ -596,19 +601,6 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </button>
-          </div>
-
-          {/* ── Highlights ── */}
-          <div className="cpd-highlights">
-            {['Premium quality materials', 'Comfortable everyday fit', 'Easy care & long-lasting', 'Gift-ready packaging']
-              .map((h, i) => (
-                <div key={i} className="cpd-highlight-item">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a8a6e" strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span>{h}</span>
-                </div>
-              ))}
           </div>
 
           {/* ── Meta ── */}
@@ -650,6 +642,26 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
             ))}
           </div>
 
+          {/* ── Description ── */}
+          <div className="cpd-tabs-section cpd-tabs-section-inline">
+            <div className="cpd-section-heading">Description</div>
+            <div className="cpd-tab-content">
+              <div className="cpd-desc-panel">
+                <div
+                  className="cpd-desc-text"
+                  dangerouslySetInnerHTML={{ __html: fullDescHtml || '<p>No description available.</p>' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Accordion ── */}
+          <div className="cpd-accordion">
+            {accordionItems.map(item => (
+              <AccordionItem key={item.id} label={item.label} content={item.content} />
+            ))}
+          </div>
+
         </div>
       </div>
 
@@ -659,7 +671,7 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
           <img src={productImage} alt="" className="cpd-sticky-thumb" />
           <span className="cpd-sticky-name">{product.title}</span>
           <span className="cpd-sticky-price">
-            {displaySalePrice ? formatPrice(displaySalePrice) : displayPrice ? formatPrice(displayPrice) : priceRangeStr}
+            {displayPrice ? formatPrice(displayPrice) : priceRangeStr}
           </span>
           <button
             type="button"
@@ -670,57 +682,6 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
           </button>
         </div>
       )}
-
-      {/* ── Tabs ── */}
-      <div className="cpd-tabs-section">
-        <div className="cpd-tabs-nav">
-          {[
-            { key: 'description', label: 'Description' },
-            { key: 'reviews', label: `Reviews (${reviewCount})` },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`cpd-tab${activeTab === t.key ? ' active' : ''}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="cpd-tab-content">
-
-          {activeTab === 'description' && (
-            <div className="cpd-desc-panel">
-              {varDesc && (
-                <p className="cpd-var-desc-label">
-                  Variation Description
-                </p>
-              )}
-              <p className="cpd-desc-text">{fullDesc || 'No description available.'}</p>
-            </div>
-          )}
-
-          {activeTab === 'reviews' && (
-            <div className="cpd-reviews-panel">
-              {reviewCount > 0 ? (
-                <div className="cpd-review-summary">
-                  <div className="cpd-review-avg">
-                    <span className="cpd-avg-num">{avgRating.toFixed(1)}</span>
-                    <StarRating rating={avgRating} size={20} />
-                    <span className="cpd-avg-sub">out of 5 ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ padding: '32px 0', textAlign: 'center', color: '#888', fontFamily: 'var(--font-body)', fontSize: 15 }}>
-                  <p style={{ margin: 0 }}>No reviews yet. Be the first to review this product.</p>
-                </div>
-              )}
-              <button className="cpd-write-review">Write a Review</button>
-            </div>
-          )}
-
-        </div>
-      </div>
 
       <Footer />
     </>
@@ -862,11 +823,19 @@ const baseCss = `
 /* ════ INFO ════ */
 .cpd-info-col { display: flex; flex-direction: column; }
 
+.cpd-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 .cpd-title {
   font-family: var(--font-head);
   font-size: clamp(22px, 2.6vw, 30px);
   font-weight: 700; color: var(--cpd-text);
-  margin: 0 0 14px; line-height: 1.25; letter-spacing: -.3px;
+  margin: 0; line-height: 1.25; letter-spacing: -.3px;
 }
 
 /* Rating */
@@ -880,8 +849,10 @@ const baseCss = `
   text-decoration: underline;
 }
 .cpd-stock-badge {
-  margin-left: auto; font-family: var(--font-body); font-size: 12px; font-weight: 600;
-  padding: 3px 10px; border-radius: 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600;
+  padding: 7px 14px; border-radius: 20px;
 }
 .cpd-stock-badge.in  { background: var(--cpd-brand-light); color: var(--cpd-brand); }
 .cpd-stock-badge.out { background: #fdecea; color: var(--cpd-sale); }
@@ -896,12 +867,13 @@ const baseCss = `
 .cpd-price.sale { color: var(--cpd-sale); }
 .cpd-price.muted { font-size: 22px; color: var(--cpd-muted); font-weight: 400; }
 .cpd-old-price {
-  font-family: var(--font-body); font-size: 16px;
-  color: #bbb; text-decoration: line-through;
+  font-family: var(--font-body); font-size: 18px;
+  color: #aaa; text-decoration: line-through;
 }
 .cpd-save-badge {
-  font-family: var(--font-body); font-size: 12px; font-weight: 600;
-  background: #fef4e8; color: var(--cpd-accent); padding: 3px 9px; border-radius: 20px;
+  font-family: var(--font-body); font-size: 14px; font-weight: 600;
+  color: var(--cpd-sale);
+}
 }
 
 .cpd-divider { height: 1px; background: var(--cpd-border); margin: 16px 0; }
@@ -910,6 +882,54 @@ const baseCss = `
 .cpd-short-desc {
   font-family: var(--font-body); font-size: 14.5px; line-height: 1.75;
   color: #555; margin: 0 0 20px;
+}
+.cpd-short-desc p,
+.cpd-short-desc ul,
+.cpd-short-desc ol {
+  margin: 0 0 10px;
+}
+.cpd-short-desc ul,
+.cpd-short-desc ol {
+  padding-left: 20px;
+  list-style-position: outside !important;
+  margin-left: 18px;
+}
+.cpd-short-desc ul {
+  list-style: disc outside !important;
+}
+.cpd-short-desc ol {
+  list-style: decimal outside !important;
+}
+.cpd-short-desc li {
+  display: list-item !important;
+  list-style: inherit !important;
+}
+.cpd-short-desc li::marker {
+  color: var(--cpd-text);
+}
+.cpd-short-desc li + li {
+  margin-top: 6px;
+}
+.cpd-short-desc .oc-spec-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+  display: grid;
+  gap: 10px;
+}
+.cpd-short-desc .oc-spec-item {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.cpd-short-desc .oc-spec-label,
+.cpd-short-desc .oc-spec-value {
+  display: block;
+}
+.cpd-short-desc .oc-spec-label {
+  color: var(--cpd-text);
+  font-weight: 700;
 }
 
 /* Options */
@@ -970,17 +990,6 @@ const baseCss = `
 .cpd-var-sku { color: var(--cpd-muted); }
 
 /* Variation description */
-.cpd-var-desc {
-  font-family: var(--font-body);
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: #555;
-  margin: 10px 0 4px;
-  padding: 10px 14px;
-  background: #f9f9f9;
-  border-left: 3px solid var(--cpd-brand);
-  border-radius: 0 4px 4px 0;
-}
 .cpd-var-desc-label {
   font-family: var(--font-body);
   font-size: 11px;
@@ -1039,18 +1048,6 @@ const baseCss = `
 .cpd-wishlist-btn:hover { border-color: var(--cpd-sale); color: var(--cpd-sale); background: #fff5f5; }
 .cpd-wishlist-btn.active { border-color: var(--cpd-sale); background: #fff5f5; }
 
-/* Highlights */
-.cpd-highlights {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 16px; border-radius: 10px;
-  background: var(--cpd-brand-light); margin-bottom: 20px;
-}
-.cpd-highlight-item {
-  display: flex; align-items: flex-start; gap: 9px;
-  font-family: var(--font-body); font-size: 13.5px; color: #2c6b5a; line-height: 1.5;
-}
-.cpd-highlight-item svg { flex-shrink: 0; margin-top: 2px; }
-
 /* Meta */
 .cpd-meta {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -1075,6 +1072,22 @@ const baseCss = `
 .cpd-trust-icon { font-size: 20px; flex-shrink: 0; }
 .cpd-trust-label { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--cpd-text); line-height: 1.3; }
 .cpd-trust-sub   { font-family: var(--font-body); font-size: 11px; color: var(--cpd-muted); }
+
+/* Accordion */
+.cpd-accordion { margin-top: 16px; border-top: 1px solid var(--cpd-border); }
+.cpd-acc-item { border-bottom: 1px solid var(--cpd-border); }
+.cpd-acc-header {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 0; background: none; border: none; cursor: pointer; text-align: left;
+}
+.cpd-acc-label {
+  font-family: var(--font-body); font-size: 15px; font-weight: 400;
+  color: var(--cpd-text);
+}
+.cpd-acc-chevron { flex-shrink: 0; color: var(--cpd-muted); transition: transform 0.2s; }
+.cpd-acc-item.open .cpd-acc-chevron { transform: rotate(180deg); }
+.cpd-acc-body { padding: 0 0 14px; }
+.cpd-acc-body p { font-family: var(--font-body); font-size: 13.5px; line-height: 1.7; color: #555; margin: 0; }
 
 /* Sticky bar */
 .cpd-sticky-bar {
@@ -1103,23 +1116,78 @@ const baseCss = `
 
 /* Tabs */
 .cpd-tabs-section { max-width: 1240px; margin: 0 auto 80px; padding: 0 48px; }
-.cpd-tabs-nav {
-  display: flex; border-bottom: 2px solid var(--cpd-border);
+.cpd-tabs-section-inline { max-width: none; margin: 24px 0 20px; padding: 0; }
+.cpd-section-heading {
+  border-bottom: 2px solid var(--cpd-border);
+  padding: 0 0 14px;
+  font-family: var(--font-body); font-size: 14px; font-weight: 700;
+  color: var(--cpd-brand); letter-spacing: .3px;
 }
-.cpd-tab {
-  background: none; border: none; cursor: pointer;
-  font-family: var(--font-body); font-size: 14px; font-weight: 500;
-  color: var(--cpd-muted); padding: 14px 28px;
-  border-bottom: 2px solid transparent; margin-bottom: -2px;
-  transition: all .2s; letter-spacing: .3px;
-}
-.cpd-tab:hover { color: var(--cpd-brand); }
-.cpd-tab.active { color: var(--cpd-brand); font-weight: 700; border-bottom-color: var(--cpd-brand); }
 .cpd-tab-content { padding: 36px 0; font-family: var(--font-body); font-size: 14.5px; line-height: 1.8; color: #444; }
 
 /* Description */
 .cpd-desc-panel { max-width: 720px; }
 .cpd-desc-text { margin: 0; }
+.cpd-desc-text p,
+.cpd-desc-text ul,
+.cpd-desc-text ol,
+.cpd-desc-text h1,
+.cpd-desc-text h2,
+.cpd-desc-text h3,
+.cpd-desc-text h4,
+.cpd-desc-text h5,
+.cpd-desc-text h6 {
+  margin: 0 0 14px;
+}
+.cpd-desc-text ul,
+.cpd-desc-text ol {
+  padding-left: 22px;
+  list-style-position: outside !important;
+  margin-left: 18px;
+}
+.cpd-desc-text ul {
+  list-style: disc outside !important;
+}
+.cpd-desc-text ol {
+  list-style: decimal outside !important;
+}
+.cpd-desc-text li {
+  display: list-item !important;
+  list-style: inherit !important;
+}
+.cpd-desc-text li::marker {
+  color: var(--cpd-text);
+}
+.cpd-desc-text li + li {
+  margin-top: 8px;
+}
+.cpd-desc-text .oc-spec-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+  display: grid;
+  gap: 12px;
+}
+.cpd-desc-text .oc-spec-item {
+  display: grid;
+  grid-template-columns: minmax(130px, max-content) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.cpd-desc-text .oc-spec-label,
+.cpd-desc-text .oc-spec-value {
+  display: block;
+}
+.cpd-desc-text .oc-spec-label {
+  color: var(--cpd-text);
+  font-weight: 700;
+}
+.cpd-desc-text img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 14px 0;
+}
 
 /* Reviews */
 .cpd-reviews-panel { max-width: 780px; }
@@ -1194,9 +1262,27 @@ const baseCss = `
   .cpd-sticky-bar { padding:10px 20px; gap:10px; }
   .cpd-sticky-name { max-width:200px; }
   .cpd-trust-badge { min-width:80px; }
+
+  .cpd-heading-row {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 600px) {
+  .cpd-heading-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cpd-stock-badge {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+
+  .cpd-price-block {
+    margin-bottom: 12px;
+  }
+
   /* Cart row wraps earlier on mid-size phones */
   .cpd-cart-row { flex-wrap:wrap; }
   .cpd-atc-btn { flex:1; min-width:0; }
@@ -1211,6 +1297,11 @@ const baseCss = `
   .cpd-atc-btn { flex:100%; order:2; }
   .cpd-qty-wrap { flex:1; }
   .cpd-wishlist-btn { flex-shrink:0; }
+  .cpd-short-desc .oc-spec-item,
+  .cpd-desc-text .oc-spec-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 
   /* Tighter main image on small phones */
   .cpd-main-img-wrap { max-height:320px; }
@@ -1231,9 +1322,3 @@ export default function ProductDetailsPage() {
     </Suspense>
   );
 }
-
-
-
-
-
-

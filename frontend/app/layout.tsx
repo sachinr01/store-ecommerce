@@ -6,7 +6,7 @@ import { AuthProvider } from "./lib/authContext";
 
 export const metadata: Metadata = {
   title: {
-    default: 'e-commerce store',
+    default: 'coffer e-commerce store',
     template: '%s | All in one e-commerce store & customization platform ',
   },
   description:
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001'
   ),
   openGraph: {
-    siteName: 'e-commerce store',
+    siteName: 'coffer e-commerce store',
     type: 'website',
   },
   robots: {

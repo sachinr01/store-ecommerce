@@ -72,7 +72,6 @@ export default function EditAddressPage() {
 
   const billingLines = useMemo(() => billingAddress?.lines ?? [], [billingAddress]);
   const shippingLines = useMemo(() => shippingAddress?.lines ?? [], [shippingAddress]);
-
   return (
     <>
       <style>{`
@@ -174,13 +173,6 @@ export default function EditAddressPage() {
           max-width: 760px;
         }
 
-        .account-address-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 72px;
-          align-items: start;
-        }
-
         .account-address-card {
           min-width: 0;
         }
@@ -242,8 +234,7 @@ export default function EditAddressPage() {
         }
 
         @media (max-width: 991px) {
-          .account-address-layout,
-          .account-address-grid {
+          .account-address-layout {
             grid-template-columns: 1fr;
           }
 
@@ -309,7 +300,6 @@ export default function EditAddressPage() {
                           <Link href="/my-account/edit-account" className="account-address-link">Edit Profile</Link>
                           <Link href="/my-account/edit-address" className="account-address-link active">My Addresses</Link>
                           <Link href="/orders" className="account-address-link">My Orders</Link>
-                          <Link href="/my-account/order-tracking" className="account-address-link">Order Tracking</Link>
                           <Link href="/wishlist" className="account-address-link">Wishlist</Link>
                           <button className="account-address-button" onClick={logout}>Logout</button>
                         </nav>
@@ -326,47 +316,45 @@ export default function EditAddressPage() {
                       {addressError && <p className="account-address-message">{addressError}</p>}
                       {loadingAddress && <p className="account-address-message">Loading your latest saved checkout addresses...</p>}
 
-                      <div className="account-address-grid">
-                        <section className="account-address-card">
-                          <h3 className="account-address-title">Billing Address</h3>
-                          <Link href="/my-account/edit-address/billing" className="account-address-edit-link">
-                            <span className="account-address-edit-icon">{'->'}</span>
-                            <span>Edit Billing address</span>
-                          </Link>
+                      <section className="account-address-card">
+                        <h3 className="account-address-title">Billing Address</h3>
+                        <Link href="/my-account/edit-address/billing" className="account-address-edit-link">
+                          <span className="account-address-edit-icon">{'->'}</span>
+                          <span>Edit Billing address</span>
+                        </Link>
 
-                          {billingAddress ? (
-                            <div className="account-address-lines">
-                              {billingAddress.name && <p>{billingAddress.name}</p>}
-                              {billingAddress.company && <p>{billingAddress.company}</p>}
-                              {billingLines.map((line) => <p key={line}>{line}</p>)}
-                            </div>
-                          ) : (
-                            <p className="account-address-empty">
-                              You have not set up a billing address yet.
-                            </p>
-                          )}
-                        </section>
+                        {billingAddress ? (
+                          <div className="account-address-lines">
+                            {billingAddress.name && <p>{billingAddress.name}</p>}
+                            {billingAddress.company && <p>{billingAddress.company}</p>}
+                            {billingLines.map((line) => <p key={line}>{line}</p>)}
+                          </div>
+                        ) : (
+                          <p className="account-address-empty">
+                            You have not set up a billing address yet.
+                          </p>
+                        )}
+                      </section>
 
-                        <section className="account-address-card">
-                          <h3 className="account-address-title">Shipping Address</h3>
-                          <Link href="/my-account/edit-address/shipping" className="account-address-edit-link">
-                            <span className="account-address-edit-icon">{'->'}</span>
-                            <span>Edit Shipping address</span>
-                          </Link>
+                      <section className="account-address-card" style={{ marginTop: 40 }}>
+                        <h3 className="account-address-title">Shipping Address</h3>
+                        <Link href="/my-account/edit-address/shipping" className="account-address-edit-link">
+                          <span className="account-address-edit-icon">{'->'}</span>
+                          <span>Edit Shipping address</span>
+                        </Link>
 
-                          {shippingAddress ? (
-                            <div className="account-address-lines">
-                              {shippingAddress.name && <p>{shippingAddress.name}</p>}
-                              {shippingAddress.company && <p>{shippingAddress.company}</p>}
-                              {shippingLines.map((line) => <p key={line}>{line}</p>)}
-                            </div>
-                          ) : (
-                            <p className="account-address-empty">
-                              You have not set up a shipping address yet.
-                            </p>
-                          )}
-                        </section>
-                      </div>
+                        {shippingAddress ? (
+                          <div className="account-address-lines">
+                            {shippingAddress.name && <p>{shippingAddress.name}</p>}
+                            {shippingAddress.company && <p>{shippingAddress.company}</p>}
+                            {shippingLines.map((line) => <p key={line}>{line}</p>)}
+                          </div>
+                        ) : (
+                          <p className="account-address-empty">
+                            You have not set up a shipping address yet.
+                          </p>
+                        )}
+                      </section>
                     </div>
                   </div>
                 </div>

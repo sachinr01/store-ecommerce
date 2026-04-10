@@ -100,9 +100,8 @@ export default function Header() {
   }, [searchOpen]);
 
   const navLinks: Array<{ label: string; href: string; mega?: MegaMenu }> = [
-    { label: "Home", href: "/" },
     {
-      label: "Shop",
+      label: "DRINKWARE",
       href: "/shop",
       mega: {
         columns: [
@@ -162,7 +161,7 @@ export default function Header() {
         contentColumns: 3,
       },
     },
-    { label: "Collections", href: "/collection",
+    { label: "GLASSWARE", href: "/collection",
       mega: {
         columns: [],
         featureGroupLabel: "Category",
@@ -171,31 +170,33 @@ export default function Header() {
             image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg",
             eyebrow: "Cups & Mugs",
             title: "Cups & Mugs",
-            href: "/cups-and-mugs",
+            href: "/collection/cups-and-mugs",
           },
           {
             image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller01-10.03.2026.jpg",
             eyebrow: "Home Decor",
             title: "Home Decor",
-            href: "/home-decor",
+            href: "/collection/home-decor",
           },
           {
             image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg",
             eyebrow: "Dining",
             title: "Dining",
-            href: "/dining",
+            href: "/collection/dining",
           },
           {
             image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg",
             eyebrow: "Kitchen",
             title: "Kitchen",
-            href: "/kitchen",
+            href: "/collection/kitchen",
           },
         ],
         contentColumns: 2,
       },
     },
-    { label: "Gifting",     href: "/shop" },
+    { label: "KITCHEN ORGANISERS", href: "/shop" },
+    { label: "ABOUT US", href: "/about-us" },
+    { label: "B2B CONNECT", href: "/b2b-connect" },
   ];
 
   const closeOverlays = () => {
