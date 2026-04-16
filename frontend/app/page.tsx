@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import './home.css';
 import Header from './components/Header';
 import Slider from './components/Slider';
-import TrendingCategories from './components/Banners';
 import NewlyLaunched, { BestSellers } from './components/NewArrivals';
 import VideoBanner from './components/SalesEvent';
-import CuratedGifting, { PopularCategories } from './components/PopularProducts';
+import CuratedGifting from './components/PopularProducts';
 import GiftingWorld from './components/GiftingWorld';
 import LatestPosts from './components/LatestPosts';
-import TrustBar from './components/TrustBar';
 import Footer from './components/Footer';
+import { BLOG_HOME_LIMIT } from './blog/utils/config';
+import { getLatestBlogs } from './blog/utils/getBlogs';
 
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'e-commerce store';
@@ -80,7 +80,9 @@ const jsonLd = {
   ],
 };
 
-export default function Home() {
+export default async function Home() {
+  const latestPosts = await getLatestBlogs(BLOG_HOME_LIMIT);
+
   return (
     <>
       <script
@@ -97,7 +99,7 @@ export default function Home() {
       <VideoBanner />
       <GiftingWorld />
       <BestSellers />
-      <LatestPosts />
+      <LatestPosts posts={latestPosts} />
       <Footer />
     </>
   );

@@ -30,8 +30,9 @@ router.get('/media/product/:productId',   media.getProductMedia);
 router.get('/media/:id',                  media.getMediaById);
 
 // ── Content (Blogs + Pages) ────────────────────────────────────────────────
-router.get('/blogs',            ctrl.getBlogs);
-router.get('/blogs/slug/:slug', ctrl.getBlogBySlug);
+router.get('/blogs',                ctrl.getBlogs);
+router.get('/blogs/slug/:slug',     ctrl.getBlogBySlug);
+router.get('/blog-categories',      ctrl.getBlogCategories);
 router.get('/pages',            ctrl.getPages);
 router.get('/pages/slug/:slug', ctrl.getPageBySlug);
 
