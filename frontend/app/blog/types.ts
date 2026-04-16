@@ -10,7 +10,6 @@ export type Blog = {
   author_name?: string | null;
   primary_category_id?: number | null;
   primary_category_name?: string | null;
-  primary_category_slug?: string | null;
 };
 
 export type BlogCard = Pick<Blog, 'slug' | 'image' | 'date' | 'title' | 'summary'>;

@@ -1,4 +1,4 @@
-﻿const db = require('../config/db');
+const db = require('../config/db');
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Retry once on transient connection errors (ECONNRESET, ENOTFOUND, PROTOCOL_CONNECTION_LOST)
@@ -53,7 +53,6 @@ const normalizePost = (row) => {
     const rawSummary = stripShortcodes(row.post_short_desc || '');
     const safeContent = sanitizeContent(rawContent).trim();
     const safeSummary = sanitizeSummary(rawSummary);
-    const categorySlug = row.primary_category_slug || toSlug(row.primary_category_name || '') || null;
     return {
         slug:                  row.post_slug,
         title:                 row.post_title,
@@ -62,7 +61,6 @@ const normalizePost = (row) => {
         date:                  formatPostDate(row.post_date),
         image:                 row.post_image || BLOG_IMAGES[0],
         author_name:           row.author_name || 'Admin',
-        primary_category_slug: categorySlug,
         primary_category_name: row.primary_category_name || null,
         primary_category_id:   row.primary_category_id   || null,
     };
@@ -737,7 +735,6 @@ const POST_WITH_CATEGORY_SQL = `
         p.post_short_desc,
         p.post_date,
         u.display_name          AS author_name,
-        pc.category_slug        AS primary_category_slug,
         pc.category_name        AS primary_category_name,
         pc.category_id          AS primary_category_id,
         (
@@ -753,8 +750,11 @@ const POST_WITH_CATEGORY_SQL = `
     FROM tbl_posts p
     LEFT JOIN tbl_users u
         ON u.ID = p.user_id
-    LEFT JOIN tbl_posts_category_link pl
-        ON pl.post_id = p.ID AND pl.is_primary_category = 1
+    LEFT JOIN (
+        SELECT post_id, MIN(category_id) AS category_id
+        FROM tbl_posts_category_link
+        GROUP BY post_id
+    ) pl ON pl.post_id = p.ID
     LEFT JOIN tbl_posts_category pc
         ON pc.category_id = pl.category_id
 `;
@@ -786,7 +786,9 @@ const getBlogs = async (req, res) => {
                       FROM tbl_posts_category_link fl
                       INNER JOIN tbl_posts_category fc ON fc.category_id = fl.category_id
                       WHERE fl.post_id = p.ID
-                        AND (fc.category_slug = ? OR LOWER(fc.category_name) = LOWER(?))
+                        AND (LOWER(fc.category_name) = LOWER(?)
+                          OR LOWER(REPLACE(REPLACE(REPLACE(fc.category_name, ' ', '-'), '&', ''), '--', '-')) = LOWER(?)
+                        )
                   )
                 ORDER BY p.post_date DESC
                 ${limitClause}
@@ -813,20 +815,20 @@ const getBlogs = async (req, res) => {
 const getBlogCategories = async (req, res) => {
     try {
         const [rows] = await withRetry(() => db.query(`
-            SELECT c.category_id, c.category_name, c.category_slug,
+            SELECT c.category_id, c.category_name,
                    COUNT(DISTINCT p.ID) AS post_count
             FROM tbl_posts_category c
             LEFT JOIN tbl_posts_category_link l ON l.category_id = c.category_id
             LEFT JOIN tbl_posts p ON p.ID = l.post_id
                 AND p.post_type = 'post' AND p.post_status = 'publish'
-            GROUP BY c.category_id, c.category_name, c.category_slug
+            GROUP BY c.category_id, c.category_name
             ORDER BY c.category_name ASC
         `));
         const data = rows.map((row) => ({
-            category_id: row.category_id,
+            category_id:   row.category_id,
             category_name: row.category_name,
-            category_slug: row.category_slug || toSlug(row.category_name),
-            post_count: Number(row.post_count) || 0,
+            category_slug: toSlug(row.category_name),
+            post_count:    Number(row.post_count) || 0,
         }));
         res.json({ success: true, count: data.length, data });
     } catch (err) {

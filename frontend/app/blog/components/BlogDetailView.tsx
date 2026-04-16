@@ -238,8 +238,6 @@ export default function BlogDetailView({
 
             {/* ── Sanitized HTML — safe to render ── */}
             <div className="blog-content" dangerouslySetInnerHTML={{ __html: htmlContent }} />
-
-            <Link href={backHref} className="blog-back-btn">{backLabel}</Link>
           </div>
 
           <BlogSidebar
