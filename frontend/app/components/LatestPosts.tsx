@@ -1,46 +1,19 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { blogs as fallbackBlogs } from '../lib/blogs';
+import Image from 'next/image';
+import type { Blog } from '../blog/types';
+import { BLOG_HOME_LIMIT } from '../blog/utils/config';
+import { getBlogDetailHref } from '../blog/utils/links';
 
-type Blog = {
-  slug: string;
-  image: string;
-  date: string;
-  title: string;
-  summary: string;
-  content: string;
-};
+export default function LatestPosts({ posts }: { posts: Blog[] }) {
+  const visiblePosts = posts.slice(0, BLOG_HOME_LIMIT);
 
-export default function LatestPosts() {
-  const [posts, setPosts] = useState<Blog[]>(fallbackBlogs);
-  const [loaded, setLoaded] = useState(false);
+  if (visiblePosts.length === 0) return null;
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/store/api/blogs?limit=4')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!mounted) return;
-        if (data?.success && Array.isArray(data.data)) {
-          setPosts(data.data);
-        }
-        setLoaded(true);
-      })
-      .catch(() => {
-        if (mounted) setLoaded(true);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const isLoading = !loaded;
-  if (loaded && posts.length === 0) return null;
   return (
     <>
-      <style>{`
+      <style>{` 
         .blog-section {
           padding: 56px 0 64px;
           background: #f7f5f2;
@@ -93,12 +66,10 @@ export default function LatestPosts() {
           aspect-ratio: 1 / 1;
           overflow: hidden;
           background: #f0ebe3;
+          position: relative;
         }
         .blog-card-img-wrap img {
-          width: 100%;
-          height: 100%;
           object-fit: cover;
-          display: block;
           transition: transform 0.4s ease;
         }
         .blog-card:hover .blog-card-img-wrap img {
@@ -143,31 +114,6 @@ export default function LatestPosts() {
           transition: opacity 0.2s;
         }
         .blog-card:hover .blog-card-link { opacity: 0.6; }
-        .blog-card--skeleton {
-          border-style: dashed;
-        }
-        .skeleton-block {
-          background: linear-gradient(90deg, #f3eee8 25%, #f8f4ef 37%, #f3eee8 63%);
-          background-size: 400% 100%;
-          animation: shimmer 1.4s ease infinite;
-          border-radius: 4px;
-        }
-        .skeleton-img {
-          width: 100%;
-          aspect-ratio: 1 / 1;
-        }
-        .skeleton-line {
-          height: 10px;
-          margin-bottom: 10px;
-        }
-        .skeleton-line.short { width: 60%; }
-        .skeleton-line.medium { width: 80%; }
-        .skeleton-line.long { width: 100%; }
-        @keyframes shimmer {
-          0% { background-position: 100% 0; }
-          100% { background-position: -100% 0; }
-        }
-
         @media (max-width: 1024px) {
           .blog-grid { grid-template-columns: repeat(2, 1fr); }
         }
@@ -181,36 +127,34 @@ export default function LatestPosts() {
       <section className="blog-section" id="blog">
         <div className="blog-section-inner">
           <div className="blog-section-header">
-            <span className="blog-section-label">Journal</span>
+            <span className="blog-section-label">Latest Posts</span>
             <h2 className="blog-section-title">From The Blog</h2>
           </div>
           <div className="blog-grid">
-            {isLoading
-              ? Array.from({ length: 4 }).map((_, i) => (
-                  <div key={`skeleton-${i}`} className="blog-card blog-card--skeleton">
-                    <div className="blog-card-img-wrap">
-                      <div className="skeleton-block skeleton-img" />
-                    </div>
-                    <div className="blog-card-body">
-                      <div className="skeleton-block skeleton-line short" />
-                      <div className="skeleton-block skeleton-line long" />
-                      <div className="skeleton-block skeleton-line medium" />
-                    </div>
-                  </div>
-                ))
-              : posts.map((post) => (
-                  <Link key={post.slug} href={`/blog/${post.slug}`} className="blog-card">
-                    <div className="blog-card-img-wrap">
-                      <img src={post.image} alt={post.title} />
-                    </div>
-                    <div className="blog-card-body">
-                      <span className="blog-card-date">{post.date}</span>
-                      <h4 className="blog-card-title">{post.title}</h4>
-                      <p className="blog-card-summary">{post.summary}</p>
-                      <span className="blog-card-link">Read More</span>
-                    </div>
-                  </Link>
-                ))}
+            {visiblePosts.map((post) => (
+              <Link key={post.slug} href={getBlogDetailHref(post)} className="blog-card">
+                <div className="blog-card-img-wrap">
+                  <Image
+                    src={post.image}
+                    alt={post.title}
+                    fill
+                    unoptimized
+                    sizes="(max-width: 560px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    onError={(event) => {
+                      const target = event.currentTarget;
+                      if (target.dataset.fallbackApplied === '1') return;
+                      target.dataset.fallbackApplied = '1';
+                      target.src = '/store/images/dummy.jpg';
+                    }}
+                  />
+                </div>
+                <div className="blog-card-body">
+                  <span className="blog-card-date">{post.date}</span>
+                  <h4 className="blog-card-title">{post.title}</h4>
+                  <p className="blog-card-summary">{post.summary}</p>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

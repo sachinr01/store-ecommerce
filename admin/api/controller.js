@@ -1,4 +1,4 @@
-﻿const db = require('../config/db');
+const db = require('../config/db');
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Retry once on transient connection errors (ECONNRESET, ENOTFOUND, PROTOCOL_CONNECTION_LOST)
@@ -48,18 +48,21 @@ const formatPostDate = (value) => {
     return dt.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
 };
 
-const normalizePost = (row, index = 0) => {
+const normalizePost = (row) => {
     const rawContent = stripShortcodes(row.post_content || '');
     const rawSummary = stripShortcodes(row.post_short_desc || '');
     const safeContent = sanitizeContent(rawContent).trim();
     const safeSummary = sanitizeSummary(rawSummary);
     return {
-        slug: row.post_slug,
-        title: row.post_title,
-        content: safeContent,
-        summary: safeSummary,
-        date: formatPostDate(row.post_date),
-        image: BLOG_IMAGES[index % BLOG_IMAGES.length],
+        slug:                  row.post_slug,
+        title:                 row.post_title,
+        content:               safeContent,
+        summary:               safeSummary,
+        date:                  formatPostDate(row.post_date),
+        image:                 row.post_image || BLOG_IMAGES[0],
+        author_name:           row.author_name || 'Admin',
+        primary_category_name: row.primary_category_name || null,
+        primary_category_id:   row.primary_category_id   || null,
     };
 };
 
@@ -152,7 +155,7 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
                 SELECT mm.meta_value
                 FROM tbl_productmeta pm
                 JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
+                LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
                                      AND mm.meta_key = '_wp_attached_file'
                 WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
                 ORDER BY pm.meta_id DESC
@@ -279,7 +282,6 @@ const getProducts = async (req, res) => {
         const styles = getArray('filter.p.m.pa_style').map(toSlug).filter(Boolean);
         const occasions = getArray('filter.p.m.pa_occasion').map(toSlug).filter(Boolean);
         const features = getArray('filter.p.m.pa_feature').map(toSlug).filter(Boolean);
-        const searchTerm = String(getSingle('search') || '').trim();
 
         const priceGte = getSingle('filter.v.price.gte');
         const priceLte = getSingle('filter.v.price.lte');
@@ -287,17 +289,6 @@ const getProducts = async (req, res) => {
 
         const whereParts = [];
         const params = [];
-
-        // Full-text search on title, slug, short_description
-        if (searchTerm) {
-            whereParts.push(`AND (
-                p.product_title LIKE ?
-                OR p.product_url LIKE ?
-                OR p.product_short_desc LIKE ?
-            )`);
-            const like = `%${searchTerm}%`;
-            params.push(like, like, like);
-        }
 
         if (productTypes.length > 0) {
             const placeholders = productTypes.map(() => '?').join(', ');
@@ -442,7 +433,7 @@ const getProduct = async (req, res) => {
                     SELECT mm.meta_value
                     FROM tbl_productmeta pm
                     JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                    JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
+                    LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
                                          AND mm.meta_key = '_wp_attached_file'
                     WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
                     ORDER BY pm.meta_id DESC
@@ -493,7 +484,7 @@ const getProduct = async (req, res) => {
                     SELECT mm.meta_value
                     FROM tbl_productmeta pm
                     JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                    JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
+                    LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
                                          AND mm.meta_key = '_wp_attached_file'
                     WHERE pm.product_id = v.ID AND pm.meta_key = '_thumbnail_id'
                     LIMIT 1
@@ -512,7 +503,7 @@ const getProduct = async (req, res) => {
             const [varImgRows] = await withRetry(() => db.query(
                 `SELECT m.parent_id AS variation_id, mm.meta_value AS file_path
                  FROM tbl_media m
-                 JOIN tbl_mediameta mm ON mm.media_id = m.media_id
+                 LEFT JOIN tbl_mediameta mm ON mm.media_id = m.media_id
                                       AND mm.meta_key = '_wp_attached_file'
                  WHERE m.parent_id IN (${variationIds.map(() => '?').join(',')})
                  ORDER BY m.parent_id, m.media_id ASC`,
@@ -579,7 +570,7 @@ const getProduct = async (req, res) => {
             `SELECT m.media_id, mm.meta_value AS file_path,
                     CASE WHEN m.media_id = ? THEN 1 ELSE 0 END AS is_thumbnail
              FROM tbl_media m
-             JOIN tbl_mediameta mm ON mm.media_id = m.media_id
+             LEFT JOIN tbl_mediameta mm ON mm.media_id = m.media_id
                                   AND mm.meta_key = '_wp_attached_file'
              WHERE m.parent_id = ?
              ORDER BY is_thumbnail DESC, m.media_id ASC`,
@@ -734,23 +725,114 @@ const getProductBySlug = async (req, res) => {
     }
 };
 
+// Shared SQL fragment: fetch post with its primary category in one query
+const POST_WITH_CATEGORY_SQL = `
+    SELECT
+        p.ID,
+        p.post_slug,
+        p.post_title,
+        p.post_content,
+        p.post_short_desc,
+        p.post_date,
+        u.display_name          AS author_name,
+        pc.category_name        AS primary_category_name,
+        pc.category_id          AS primary_category_id,
+        (
+            SELECT mm.meta_value
+            FROM tbl_postmeta pm
+            JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
+            LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
+                AND mm.meta_key = '_wp_attached_file'
+            WHERE pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id'
+            ORDER BY pm.meta_id DESC
+            LIMIT 1
+        ) AS post_image
+    FROM tbl_posts p
+    LEFT JOIN tbl_users u
+        ON u.ID = p.user_id
+    LEFT JOIN (
+        SELECT post_id, MIN(category_id) AS category_id
+        FROM tbl_posts_category_link
+        GROUP BY post_id
+    ) pl ON pl.post_id = p.ID
+    LEFT JOIN tbl_posts_category pc
+        ON pc.category_id = pl.category_id
+`;
+
+const DEFAULT_BLOG_LIMIT = 24;
+const MAX_BLOG_LIMIT = 100;
+
+const clampBlogLimit = (value) => {
+    const parsed = parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_BLOG_LIMIT;
+    return Math.min(parsed, MAX_BLOG_LIMIT);
+};
+
 // GET /store/api/blogs
 const getBlogs = async (req, res) => {
     try {
-        const limit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+        const limit = clampBlogLimit(req.query.limit);
+        const categorySlug = req.query.category ? String(req.query.category).trim() : null;
         const limitClause = Number.isFinite(limit) ? 'LIMIT ?' : '';
-        const params = Number.isFinite(limit) ? [limit] : [];
-        const [rows] = await withRetry(() => db.query(`
-            SELECT post_slug, post_title, post_content, post_short_desc, post_date
-            FROM tbl_posts
-            WHERE post_type = 'post' AND post_status = 'publish'
-            ORDER BY post_date DESC
-            ${limitClause}
-        `, params));
-        const data = rows.map((row, idx) => normalizePost(row, idx));
+
+        let rows;
+        if (categorySlug) {
+            const params = [categorySlug, categorySlug, ...(Number.isFinite(limit) ? [limit] : [])];
+            [rows] = await withRetry(() => db.query(`
+                ${POST_WITH_CATEGORY_SQL}
+                WHERE p.post_type = 'post' AND p.post_status = 'publish'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM tbl_posts_category_link fl
+                      INNER JOIN tbl_posts_category fc ON fc.category_id = fl.category_id
+                      WHERE fl.post_id = p.ID
+                        AND (LOWER(fc.category_name) = LOWER(?)
+                          OR LOWER(REPLACE(REPLACE(REPLACE(fc.category_name, ' ', '-'), '&', ''), '--', '-')) = LOWER(?)
+                        )
+                  )
+                ORDER BY p.post_date DESC
+                ${limitClause}
+            `, params));
+        } else {
+            const params = Number.isFinite(limit) ? [limit] : [];
+            [rows] = await withRetry(() => db.query(`
+                ${POST_WITH_CATEGORY_SQL}
+                WHERE p.post_type = 'post' AND p.post_status = 'publish'
+                ORDER BY p.post_date DESC
+                ${limitClause}
+            `, params));
+        }
+
+        const data = rows.map((row) => normalizePost(row));
         res.json({ success: true, count: data.length, data });
     } catch (err) {
         console.error('getBlogs error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
+
+// GET /store/api/blog-categories
+const getBlogCategories = async (req, res) => {
+    try {
+        const [rows] = await withRetry(() => db.query(`
+            SELECT c.category_id, c.category_name,
+                   COUNT(DISTINCT p.ID) AS post_count
+            FROM tbl_posts_category c
+            LEFT JOIN tbl_posts_category_link l ON l.category_id = c.category_id
+            LEFT JOIN tbl_posts p ON p.ID = l.post_id
+                AND p.post_type = 'post' AND p.post_status = 'publish'
+            GROUP BY c.category_id, c.category_name
+            ORDER BY c.category_name ASC
+        `));
+        const data = rows.map((row) => ({
+            category_id:   row.category_id,
+            category_name: row.category_name,
+            category_slug: toSlug(row.category_name),
+            post_count:    Number(row.post_count) || 0,
+        }));
+        res.json({ success: true, count: data.length, data });
+    } catch (err) {
+        console.error('getBlogCategories error:', err);
         res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
@@ -760,13 +842,12 @@ const getBlogBySlug = async (req, res) => {
     const { slug } = req.params;
     try {
         const [[row]] = await withRetry(() => db.query(`
-            SELECT post_slug, post_title, post_content, post_short_desc, post_date
-            FROM tbl_posts
-            WHERE post_type = 'post' AND post_status = 'publish' AND post_slug = ?
+            ${POST_WITH_CATEGORY_SQL}
+            WHERE p.post_type = 'post' AND p.post_status = 'publish' AND p.post_slug = ?
             LIMIT 1
         `, [slug]));
         if (!row) return res.status(404).json({ success: false, message: 'Blog not found' });
-        res.json({ success: true, data: normalizePost(row, 0) });
+        res.json({ success: true, data: normalizePost(row) });
     } catch (err) {
         console.error('getBlogBySlug error:', err);
         res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
@@ -819,6 +900,7 @@ module.exports = {
     getAllAttributeGroups,
     getBlogs,
     getBlogBySlug,
+    getBlogCategories,
     getPages,
     getPageBySlug,
 };

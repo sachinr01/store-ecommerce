@@ -57,8 +57,13 @@ const UPLOADS_ORIGIN =
 
 export function getImageUrl(filePath: string | null | undefined): string {
   if (!filePath) return '/store/images/dummy.jpg';
-  // Already a full URL or absolute path - use as-is
-  if (filePath.startsWith('http') || filePath.startsWith('/')) return filePath;
+  // Already a full URL — use as-is
+  if (filePath.startsWith('http')) return filePath;
+  // Absolute path — use as-is
+  if (filePath.startsWith('/')) return filePath;
+  // media_path format: "uploads/products/file.jpg" — prepend /
+  if (filePath.startsWith('uploads/')) return `${UPLOADS_ORIGIN}/${filePath}`;
+  // _wp_attached_file format: "products/file.jpg" — prepend /uploads/
   return `${UPLOADS_ORIGIN}/uploads/${filePath}`;
 }
 
