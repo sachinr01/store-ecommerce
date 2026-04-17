@@ -98,9 +98,9 @@
           const div = document.createElement('div');
           div.style.cssText = 'position:relative;width:70px;height:70px;margin:3px;';
 
-          const urlName  = mediaTarget.urlInput  || 'gallery_image[]';
-          const titleName= mediaTarget.titleInput || 'gallery_image_titles[]';
-          const altName  = mediaTarget.altInput   || 'gallery_image_alts[]';
+          const urlName = mediaTarget.urlInput || 'gallery_image[]';
+          const titleName = mediaTarget.titleInput || 'gallery_image_titles[]';
+          const altName = mediaTarget.altInput || 'gallery_image_alts[]';
 
           // Append [] if not present
           const toArr = n => n.endsWith('[]') ? n : n + '[]';
@@ -124,9 +124,9 @@
 
     // ✅ Tabs
     function showMediaTab(tab) {
-      document.getElementById('mediaLibraryTab').style.display  = tab === 'library' ? 'block' : 'none';
-      document.getElementById('mediaUploadTab').style.display   = tab === 'upload'  ? 'block' : 'none';
-      document.getElementById('selectedMediaInfo').style.display   = tab === 'upload'  ? 'none' : 'block';
+      document.getElementById('mediaLibraryTab').style.display = tab === 'library' ? 'block' : 'none';
+      document.getElementById('mediaUploadTab').style.display = tab === 'upload' ? 'block' : 'none';
+      document.getElementById('selectedMediaInfo').style.display = tab === 'upload' ? 'none' : 'block';
     }
 
     // ✅ Upload media — auto-select after upload
@@ -179,5 +179,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
-</body>
-</html>
+
+  <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
+  </body>
+
+  </html>

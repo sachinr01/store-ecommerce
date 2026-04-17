@@ -60,7 +60,11 @@ const siteSettingsRoutes = require('./routes/siteSettingsRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const couponRoutes = require('./routes/couponRoutes');
+const blogCategoryRoutes = require('./routes/blogCategoryRoutes');
+const blogRoutes = require('./routes/blogRoutes');
 
+app.use('/store/admin', blogRoutes);
+app.use('/store/admin', blogCategoryRoutes);
 app.use('/store/admin', couponRoutes);
 app.use('/store/admin', categoryRoutes);
 app.use('/store/admin', mediaRoutes);
