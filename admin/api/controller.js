@@ -152,11 +152,9 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
             ) AS _sale_price,
             (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS thumbnail_id,
             (
-                SELECT mm.meta_value
+                SELECT m2.media_path
                 FROM tbl_productmeta pm
                 JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
-                                     AND mm.meta_key = '_wp_attached_file'
                 WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
                 ORDER BY pm.meta_id DESC
                 LIMIT 1
@@ -430,11 +428,9 @@ const getProduct = async (req, res) => {
                 p.product_date_added  AS date_added,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS thumbnail_id,
                 (
-                    SELECT mm.meta_value
+                    SELECT m2.media_path
                     FROM tbl_productmeta pm
                     JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                    LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
-                                         AND mm.meta_key = '_wp_attached_file'
                     WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
                     ORDER BY pm.meta_id DESC
                     LIMIT 1
@@ -481,11 +477,9 @@ const getProduct = async (req, res) => {
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_stock'            ORDER BY meta_id DESC LIMIT 1) AS stock_qty,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS thumbnail_id,
                 (
-                    SELECT mm.meta_value
+                    SELECT m2.media_path
                     FROM tbl_productmeta pm
                     JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-                    LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
-                                         AND mm.meta_key = '_wp_attached_file'
                     WHERE pm.product_id = v.ID AND pm.meta_key = '_thumbnail_id'
                     LIMIT 1
                 ) AS thumbnail_url,
@@ -501,10 +495,8 @@ const getProduct = async (req, res) => {
         const variationImages = {};
         if (variationIds.length) {
             const [varImgRows] = await withRetry(() => db.query(
-                `SELECT m.parent_id AS variation_id, mm.meta_value AS file_path
+                `SELECT m.parent_id AS variation_id, m.media_path AS file_path
                  FROM tbl_media m
-                 LEFT JOIN tbl_mediameta mm ON mm.media_id = m.media_id
-                                      AND mm.meta_key = '_wp_attached_file'
                  WHERE m.parent_id IN (${variationIds.map(() => '?').join(',')})
                  ORDER BY m.parent_id, m.media_id ASC`,
                 variationIds
@@ -567,11 +559,10 @@ const getProduct = async (req, res) => {
         // gallery_urls = all parent_id images EXCEPT the _thumbnail_id one
         // The featured image (thumbnail_url) is shown separately on the product page
         const [allMediaRows] = await withRetry(() => db.query(
-            `SELECT m.media_id, mm.meta_value AS file_path,
+            `SELECT m.media_id,
+                    m.media_path AS file_path,
                     CASE WHEN m.media_id = ? THEN 1 ELSE 0 END AS is_thumbnail
              FROM tbl_media m
-             LEFT JOIN tbl_mediameta mm ON mm.media_id = m.media_id
-                                  AND mm.meta_key = '_wp_attached_file'
              WHERE m.parent_id = ?
              ORDER BY is_thumbnail DESC, m.media_id ASC`,
             [product.thumbnail_id ? Number(product.thumbnail_id) : 0, id]
@@ -707,6 +698,151 @@ const getAllAttributeGroups = async (req, res) => {
     }
 };
 
+// GET /store/api/product-categories
+// Returns all categories with product_count via tbl_products_category_link (product_id column)
+const getProductCategories = async (req, res) => {
+    try {
+        const [rows] = await withRetry(() => db.query(
+            `SELECT
+                c.category_id,
+                c.parent_id,
+                c.category_slug,
+                c.category_name,
+                c.category_desc,
+                COUNT(DISTINCT l.product_id) AS product_count
+             FROM tbl_products_category c
+             LEFT JOIN tbl_products_category_link l ON l.category_id = c.category_id
+             GROUP BY c.category_id, c.parent_id, c.category_slug, c.category_name, c.category_desc
+             ORDER BY c.parent_id ASC, c.category_id ASC`
+        ));
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('getProductCategories error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /store/api/product-categories/:slug/children
+// Returns child categories of a given slug with product_count
+const getCategoryChildren = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const [[parent]] = await withRetry(() => db.query(
+            `SELECT category_id, parent_id, category_slug, category_name, category_desc
+             FROM tbl_products_category WHERE category_slug = ? LIMIT 1`,
+            [slug]
+        ));
+        if (!parent) return res.json({ success: true, parent: null, data: [] });
+
+        const [rows] = await withRetry(() => db.query(
+            `SELECT
+                c.category_id,
+                c.parent_id,
+                c.category_slug,
+                c.category_name,
+                c.category_desc,
+                COUNT(DISTINCT l.product_id) AS product_count
+             FROM tbl_products_category c
+             LEFT JOIN tbl_products_category_link l ON l.category_id = c.category_id
+             WHERE c.parent_id = ?
+             GROUP BY c.category_id, c.parent_id, c.category_slug, c.category_name, c.category_desc
+             ORDER BY c.category_id ASC`,
+            [parent.category_id]
+        ));
+        res.json({ success: true, parent, data: rows });
+    } catch (err) {
+        console.error('getCategoryChildren error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// GET /store/api/product-categories/:slug/products
+// Returns products linked via tbl_products_category_link.product_id → tbl_products.ID
+// Includes the category and its direct children
+const getCategoryProducts = async (req, res) => {
+    try {
+        const { slug } = req.params;
+
+        // Resolve category by slug
+        const [[cat]] = await withRetry(() => db.query(
+            `SELECT category_id, category_name, category_slug, parent_id, category_desc
+             FROM tbl_products_category WHERE category_slug = ? LIMIT 1`,
+            [slug]
+        ));
+        if (!cat) return res.status(404).json({ success: false, message: 'Category not found' });
+
+        // Collect this category + all direct children IDs
+        const [children] = await withRetry(() => db.query(
+            `SELECT category_id FROM tbl_products_category WHERE parent_id = ?`,
+            [cat.category_id]
+        ));
+        const catIds = [cat.category_id, ...children.map(c => c.category_id)];
+        const ph = catIds.map(() => '?').join(', ');
+
+        // Fetch published products linked via tbl_products_category_link.product_id
+        const [products] = await withRetry(() => db.query(
+            `SELECT DISTINCT
+                p.ID,
+                p.product_title  AS title,
+                p.product_url    AS slug,
+                p.product_short_desc AS short_description,
+                p.menu_order,
+                p.product_date_added AS date_added,
+                c.category_slug  AS category_slug,
+                c.category_name  AS category_name,
+                (
+                    SELECT m.media_path
+                    FROM tbl_productmeta pm
+                    JOIN tbl_media m ON m.media_id = CAST(pm.meta_value AS UNSIGNED)
+                    WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
+                    ORDER BY pm.meta_id DESC LIMIT 1
+                ) AS thumbnail_url,
+                (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_regular_price' ORDER BY pm.meta_id DESC LIMIT 1) AS _regular_price,
+                (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_sale_price'    ORDER BY pm.meta_id DESC LIMIT 1) AS _sale_price,
+                (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_sku'           ORDER BY pm.meta_id DESC LIMIT 1) AS sku,
+                (
+                    SELECT MIN(CAST(pm2.meta_value AS DECIMAL(10,2)))
+                    FROM tbl_products p2
+                    JOIN tbl_productmeta pm2 ON pm2.product_id = p2.ID AND pm2.meta_key = '_price' AND pm2.meta_value != ''
+                    WHERE p2.ID = p.ID OR (p2.parent_id = p.ID AND p2.product_type = 'product_variation')
+                ) AS price_min,
+                (
+                    SELECT MAX(CAST(pm2.meta_value AS DECIMAL(10,2)))
+                    FROM tbl_products p2
+                    JOIN tbl_productmeta pm2 ON pm2.product_id = p2.ID AND pm2.meta_key = '_price' AND pm2.meta_value != ''
+                    WHERE p2.ID = p.ID OR (p2.parent_id = p.ID AND p2.product_type = 'product_variation')
+                ) AS price_max,
+                (
+                    CASE
+                        WHEN EXISTS (SELECT 1 FROM tbl_products v WHERE v.parent_id = p.ID AND v.product_type = 'product_variation')
+                        THEN (
+                            CASE WHEN EXISTS (
+                                SELECT 1 FROM tbl_products v
+                                JOIN tbl_productmeta pm ON pm.product_id = v.ID AND pm.meta_key = '_stock_status'
+                                WHERE v.parent_id = p.ID AND v.product_type = 'product_variation' AND pm.meta_value = 'instock'
+                            ) THEN 'instock' ELSE 'outofstock' END
+                        )
+                        ELSE (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_stock_status' ORDER BY pm.meta_id DESC LIMIT 1)
+                    END
+                ) AS stock_status
+             FROM tbl_products p
+             JOIN tbl_products_category_link l ON l.product_id = p.ID
+             JOIN tbl_products_category c ON c.category_id = l.category_id
+             WHERE l.category_id IN (${ph})
+               AND p.product_type   = 'product'
+               AND p.product_status = 'publish'
+               AND (p.parent_id = 0 OR p.parent_id IS NULL)
+             ORDER BY p.menu_order ASC, p.product_date_added DESC`,
+            catIds
+        ));
+
+        res.json({ success: true, category: cat, count: products.length, data: products });
+    } catch (err) {
+        console.error('getCategoryProducts error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 // GET /store/api/products/slug/:slug
 const getProductBySlug = async (req, res) => {
     const { slug } = req.params;
@@ -738,11 +874,9 @@ const POST_WITH_CATEGORY_SQL = `
         pc.category_name        AS primary_category_name,
         pc.category_id          AS primary_category_id,
         (
-            SELECT mm.meta_value
+            SELECT m2.media_path
             FROM tbl_postmeta pm
             JOIN tbl_media m2 ON m2.media_id = CAST(pm.meta_value AS UNSIGNED)
-            LEFT JOIN tbl_mediameta mm ON mm.media_id = m2.media_id
-                AND mm.meta_key = '_wp_attached_file'
             WHERE pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id'
             ORDER BY pm.meta_id DESC
             LIMIT 1
@@ -898,6 +1032,9 @@ module.exports = {
     getColors,
     getAttributesByTaxonomy,
     getAllAttributeGroups,
+    getProductCategories,
+    getCategoryChildren,
+    getCategoryProducts,
     getBlogs,
     getBlogBySlug,
     getBlogCategories,

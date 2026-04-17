@@ -41,6 +41,12 @@ router.get('/attributes/colors',     ctrl.getColors);
 router.get('/attributes/all',        ctrl.getAllAttributeGroups);
 router.get('/attributes/:taxonomy',  ctrl.getAttributesByTaxonomy);
 
+// ── Product Categories ────────────────────────────────────────────────────────
+// NOTE: static sub-routes before dynamic :slug to avoid conflicts
+router.get('/product-categories',                  ctrl.getProductCategories);
+router.get('/product-categories/:slug/children',   ctrl.getCategoryChildren);
+router.get('/product-categories/:slug/products',   ctrl.getCategoryProducts);
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 router.post('/auth/register', auth.register);
 router.post('/auth/login',    auth.login);

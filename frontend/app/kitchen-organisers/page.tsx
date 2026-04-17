@@ -11,8 +11,8 @@ import { useWishlist } from '../lib/wishlistContext';
 import '../shop/shop.css';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
-const PAGE_SLUG    = 'glassware';
-const PAGE_LABEL   = 'Glassware';
+const PAGE_SLUG    = 'kitchenware';
+const PAGE_LABEL   = 'Kitchenware';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>
@@ -141,7 +141,7 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
 }
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
-export default function GlasswarePage() {
+export default function KitchenOrganisersPage() {
   const [categories,  setCategories]  = useState<ProductCategory[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading,     setLoading]     = useState(true);

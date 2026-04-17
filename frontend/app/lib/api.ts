@@ -28,6 +28,8 @@ export interface Product {
   occasion_slugs: string | null;
   feature_slugs: string | null;
   size_slugs: string | null;
+  category_slug?: string | null;
+  category_name?: string | null;
 }
 
 export interface Variation {
@@ -174,6 +176,18 @@ export const getColors      = ()        => apiFetch<ColorAttribute[]>('/attribut
 export const getAllAttributeGroups = () => apiFetch<AttributeGroup[]>('/attributes/all');
 export const getAttributeOptions = (taxonomy: string) =>
   apiFetch<AttributeOption[]>(`/attributes/${taxonomy}`);
+
+export interface ProductCategory {
+  category_id: number;
+  parent_id: number;
+  category_slug: string;
+  category_name: string;
+  category_desc: string;
+}
+
+export const getProductCategories = () => apiFetch<ProductCategory[]>('/product-categories');
+export const getCategoryChildren = (slug: string) => apiFetch<ProductCategory[]>(`/product-categories/${slug}/children`);
+export const getCategoryProducts = (slug: string) => apiFetch<Product[]>(`/product-categories/${slug}/products`);
 
 export const authLogin    = (username: string, password: string) =>
   apiPost<AuthUser>('/auth/login', { username, password });

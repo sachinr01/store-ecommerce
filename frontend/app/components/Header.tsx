@@ -126,15 +126,14 @@ export default function Header() {
       mega: {
         columns: [], featureGroupLabel: "Category",
         featured: [
-          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg", eyebrow: "Cups & Mugs", title: "Cups & Mugs", href: "/collection/cups-and-mugs" },
-          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller01-10.03.2026.jpg", eyebrow: "Home Decor", title: "Home Decor", href: "/collection/home-decor" },
-          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg", eyebrow: "Dining", title: "Dining", href: "/collection/dining" },
-          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg", eyebrow: "Kitchen", title: "Kitchen", href: "/collection/kitchen" },
+          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg", eyebrow: "DRINKWARE", title: "DRINKWARE", href: "#" },
+          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg", eyebrow: "Dining", title: "GLASSWARE", href: "#" },
+          { image: "https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg", eyebrow: "Kitchen", title: "KITCHEN ORGANISERS", href: "#" },
         ],
         contentColumns: 2,
       },
     },
-    { label: "KITCHEN ORGANISERS", href: "/shop" },
+    { label: "KITCHEN ORGANISERS", href: "/kitchen-organisers" },
     { label: "ABOUT US", href: "/about-us" },
     { label: "B2B CONNECT", href: "/b2b-connect" },
   ];

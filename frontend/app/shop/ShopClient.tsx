@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProducts, getAllAttributeGroups, getImageUrl, type Product, type AttributeGroup } from '../lib/api';
+import { getProducts, getAllAttributeGroups, getImageUrl, type Product, type AttributeGroup, getProductCategories, getCategoryProducts, type ProductCategory } from '../lib/api';
 import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
 import { getDiscountPercent } from '../lib/helpers/pricing';
 import { useWishlist } from '../lib/wishlistContext';
@@ -231,6 +231,7 @@ function FilterSection({
 function ShopInner({ heading, subheading }: { heading: string; subheading: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [attrGroups, setAttrGroups] = useState<AttributeGroup[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -238,6 +239,11 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const [openFilters, setOpenFilters] = useState<Record<string, boolean>>({ ...DEFAULT_OPEN_FILTERS });
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 9;
+
+  // Category filter
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // product IDs that belong to selected categories (from tbl_products_category_link)
+  const [categoryProductIds, setCategoryProductIds] = useState<Set<number> | null>(null);
 
   // Dynamic selected values: { taxonomy -> string[] }
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string[]>>({});
@@ -259,6 +265,10 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     getAllAttributeGroups().then(groups => {
       if (!active) return;
       setAttrGroups(groups);
+    }).catch(() => {});
+    getProductCategories().then(cats => {
+      if (!active) return;
+      setProductCategories(cats);
     }).catch(() => {});
     return () => { active = false; };
   }, []);
@@ -292,6 +302,22 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     setOpenFilters(prev => ({ ...prev, price: true }));
     appliedQueryRef.current = queryMax;
   }, [queryMax, absoluteMax, absoluteMin, loading]);
+
+  // When categories are selected, fetch their product IDs via tbl_products_category_link
+  useEffect(() => {
+    if (selectedCategories.length === 0) {
+      setCategoryProductIds(null);
+      return;
+    }
+    let active = true;
+    Promise.all(selectedCategories.map(slug => getCategoryProducts(slug).catch(() => [])))
+      .then(results => {
+        if (!active) return;
+        const ids = new Set(results.flat().map(p => p.ID));
+        setCategoryProductIds(ids);
+      });
+    return () => { active = false; };
+  }, [selectedCategories]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -362,6 +388,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
   const sorted = [...products]
     .filter(p => matchesSearch(p, searchTerm))
+    .filter(p => categoryProductIds === null || categoryProductIds.has(p.ID))
     .filter(p => {
       const lo = Number(p.price_min ?? 0);
       const hi = Number(p.price_max ?? p.price_min ?? 0);
@@ -383,11 +410,12 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
   const isPriceActive = sliderMin > absoluteMin || sliderMax < absoluteMax;
   const attrActiveCount = Object.values(selectedAttrs).reduce((n, arr) => n + arr.length, 0);
-  const totalActive = attrActiveCount + (isPriceActive ? 1 : 0);
+  const totalActive = attrActiveCount + (isPriceActive ? 1 : 0) + selectedCategories.length;
   const hasActive = totalActive > 0;
 
   const allClear = () => {
     setSelectedAttrs({});
+    setSelectedCategories([]);
     setSliderMin(absoluteMin);
     setSliderMax(absoluteMax);
     setPage(1);
@@ -429,6 +457,74 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
           onChangeMin={v => handlePriceChange(Math.min(v, sliderMax - 1), sliderMax)}
           onChangeMax={v => handlePriceChange(sliderMin, Math.max(v, sliderMin + 1))}
         />
+      </FilterSection>
+
+      {/* Category filter — below price */}
+      <FilterSection
+        idBase="category"
+        label={selectedCategories.length > 0 ? `Category (${selectedCategories.length})` : 'Category'}
+        isOpen={!!openFilters['category']}
+        onToggle={() => setOpenFilters(p => ({ ...p, category: !p.category }))}
+      >
+        <div className="nf-options-list">
+          {productCategories
+            .filter(c => c.parent_id === 0)
+            .map(parent => {
+              const children = productCategories.filter(c => c.parent_id === parent.category_id);
+              const isExpanded = !!openFilters[`cat_${parent.category_id}`];
+              const renderOption = (cat: typeof productCategories[0], isChild: boolean) => {
+                const checked = selectedCategories.includes(cat.category_slug);
+                return (
+                  <label key={cat.category_id}
+                    className={`nf-option${checked ? ' checked' : ''}`}
+                    style={isChild ? { paddingLeft: 20 } : undefined}>
+                    <span className="nf-checkbox" aria-hidden="true">
+                      {checked && (
+                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                          <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <input type="checkbox" className="nf-hidden-input" checked={checked}
+                      onChange={() => {
+                        setOpenFilters(p => ({ ...p, category: true }));
+                        setSelectedCategories(prev =>
+                          prev.includes(cat.category_slug)
+                            ? prev.filter(c => c !== cat.category_slug)
+                            : [...prev, cat.category_slug]
+                        );
+                      }}
+                      aria-label={cat.category_name} />
+                    <span className="nf-option-text" style={isChild ? { fontSize: 12, color: '#6b7280' } : undefined}>
+                      {cat.category_name}
+                    </span>
+                  </label>
+                );
+              };
+              return (
+                <div key={parent.category_id}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div style={{ flex: 1 }}>{renderOption(parent, false)}</div>
+                    {children.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenFilters(p => ({ ...p, [`cat_${parent.category_id}`]: !p[`cat_${parent.category_id}`] }))}
+                        aria-label={isExpanded ? 'Collapse subcategories' : 'Expand subcategories'}
+                        aria-expanded={isExpanded}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px 4px', color: '#9ca3af', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                          style={{ transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                          <polyline points="2,4 6,8 10,4"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {isExpanded && children.map(child => renderOption(child, true))}
+                </div>
+              );
+            })}
+        </div>
       </FilterSection>
 
       {/* Dynamic attribute filters — one section per taxonomy */}
@@ -611,6 +707,17 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
                   >x</button>
                 </span>
               )}
+              {selectedCategories.map(slug => {
+                const cat = productCategories.find(c => c.category_slug === slug);
+                return cat ? (
+                  <span key={slug} className="csp-chip">
+                    {cat.category_name}
+                    <button className="csp-chip-x"
+                      onClick={() => setSelectedCategories(prev => prev.filter(c => c !== slug))}
+                      aria-label={`Remove ${cat.category_name}`}>x</button>
+                  </span>
+                ) : null;
+              })}
               {Object.entries(selectedAttrs).flatMap(([taxonomy, values]) =>
                 values.map(val => (
                   <span key={`${taxonomy}-${val}`} className="csp-chip">

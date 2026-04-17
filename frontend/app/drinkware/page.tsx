@@ -1,37 +1,54 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { getCategoryChildren, getCategoryProducts, getImageUrl, type ProductCategory, type Product } from '../lib/api';
+import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
+import { getDiscountPercent } from '../lib/helpers/pricing';
+import { useWishlist } from '../lib/wishlistContext';
 import '../shop/shop.css';
 
-const ALL_PRODUCTS = [
-  { id:1,  name:'OFFYX Stainless Steel Coffee Mug with Lid Anti-Spill Silicone Ring For Travel & Office (301 ml)',    price:899,  oldPrice:1299, rating:4.6, reviews:876,  material:'Stainless Steel', style:'Minimalist', type:'Travel Mug',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/m/w/m/stainless-steel-coffee-mug-with-lid-anti-spill-silicone-ring-for-original-imahgngshhhphvev.jpeg?q=90' },
-  { id:2,  name:'Uniquetrader Insulated Coffee Mug with Lid Stainless Steel (300 ml, Pack of 2)',                     price:699,  oldPrice:999,  rating:4.4, reviews:432,  material:'Stainless Steel', style:'Modern',     type:'Travel Mug',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/p/i/insulated-coffee-mug-with-lid-300-2-uniquetrader-original-imahhhzmdgjh3tzh.jpeg?q=90' },
-  { id:3,  name:'YUMWARE Snoopy Brown Plastic Stainless Steel Coffee Mug (350 ml)',                                   price:499,  oldPrice:699,  rating:4.5, reviews:1203, material:'Stainless Steel', style:'Classic',    type:'Mug',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/h/7/1/snoopy-coffee-mug-with-sipper-lid-blue-300-2-culinary-crafts-original-imahky4g4x2pg89y.jpeg?q=90' },
-  { id:4,  name:'Human Hydro Prime Steel Tea Cup, Rust-Free & Reusable Stainless Steel Coffee Mug (240 ml)',          price:1099, oldPrice:null, rating:4.4, reviews:543,  material:'Stainless Steel', style:'Minimalist', type:'Cup',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/1/p/1/prime-steel-tea-cup-rust-free-reusable-240-0-1-human-hydro-original-imahgbfawffuwz6z.jpeg?q=90' },
-  { id:5,  name:'SUARD Happy Birthday Coffee Mug Ceramic (350 ml)',                                                   price:1599, oldPrice:null, rating:4.7, reviews:654,  material:'Ceramic',         style:'Classic',    type:'Mug',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/p/7/s/happy-birthday-coffee-mug-for-friend-wife-husband-brother-sister-original-imahh7ddpumuvfca.jpeg?q=90' },
-  { id:6,  name:'Madhut Deer Print Blue Nature Design Ceramic Coffee Mug (325 ml)',                                   price:549,  oldPrice:749,  rating:4.7, reviews:876,  material:'Ceramic',         style:'Floral',     type:'Mug',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/l/j/deer-print-ceramic-mug-set-blue-nature-design-coffee-mug-pack-of-original-imahjnsknpupghfv.jpeg?q=90' },
-  { id:7,  name:'Gharwithfashion Marble Pattern Ceramic Coffee Mug (380 ml)',                                         price:849,  oldPrice:1199, rating:4.3, reviews:432,  material:'Ceramic',         style:'Minimalist', type:'Cup',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/a/g/c/marble-pattern-ceramic-mug-380-ml-380-1-gharwithfashion-original-imahgszfzcdghjg3.jpeg?q=90' },
-  { id:8,  name:'Plast Boy LLP Penguin Wink Plastic Coffee Mug (450 ml)',                                             price:649,  oldPrice:null, rating:4.5, reviews:2103, material:'Plastic',         style:'Boho',       type:'Mug',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/q/b/penguin-mug-wink-450-0-1-plast-boy-llp-original-imahkd3rtzez5gqb.jpeg?q=90' },
-  { id:9,  name:'AVISTRA Happy Birthday Printed Cup Gifting Ceramic Coffee Mug (330 ml)',                             price:799,  oldPrice:1099, rating:4.6, reviews:543,  material:'Ceramic',         style:'Floral',     type:'Espresso Cup', image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/6/x/e/happy-birthday-printed-cup-gifting-cup-birthday-gifting-330-1-original-imahhry8pgpahunr.jpeg?q=90' },
-  { id:10, name:'GIVENTA Messi Football Legend Ceramic Coffee Mug (350 ml, Pack of 2)',                               price:999,  oldPrice:1399, rating:4.4, reviews:321,  material:'Ceramic',         style:'Modern',     type:'Travel Mug',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/s/d/m/messi-football-legend-ceramic-coffee-mug-high-quality-printed-original-imahkchhr8bqftrc.jpeg?q=90' },
-  { id:11, name:'The Sanaatan Store Birthday Gift Alphabet Ceramic Coffee Mug (320 ml)',                              price:1299, oldPrice:1799, rating:4.5, reviews:765,  material:'Ceramic',         style:'Minimalist', type:'Mug',          image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/mug/x/k/o/birthday-gift-a-alphabate-mug-gift-for-brother-sister-friend-320-original-imahh6xvfxpaabpf.jpeg?q=90' },
-  { id:12, name:'Borosil Stainless Steel Hydra Trek Vacuum Insulated Flask (500 ml)',                                 price:1199, oldPrice:1599, rating:4.5, reviews:389,  material:'Stainless Steel', style:'Modern',     type:'Travel Mug',   image:'https://rukminim1.flixcart.com/image/1280/1280/xif0q/bottle/r/z/s/500-hydra-trek-500-borosil-original-imah3yghfhgzghgz.jpeg?q=90' },
-];
+const PLACEHOLDER = '/store/images/dummy.jpg';
+const PAGE_SLUG    = 'drinkware';
+const PAGE_LABEL   = 'Drinkware';
 
-const CATEGORIES   = ['Cup', 'Espresso Cup', 'Mug', 'Travel Mug'];
-const MATERIALS    = ['Ceramic', 'Plastic', 'Stainless Steel'];
-const STYLES       = ['Boho', 'Classic', 'Floral', 'Minimalist', 'Modern'];
-const SORT_OPTIONS = [
-  { label: 'Featured',           value: 'featured'   },
-  { label: 'Price: Low to High', value: 'price-asc'  },
-  { label: 'Price: High to Low', value: 'price-desc' },
-  { label: 'Top Rated',          value: 'rating'     },
-];
-const MAX_PRICE = 2000;
+const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const normalizeList = (v: string | null | undefined) =>
+  (v ?? '').split(',').map(s => s.trim()).filter(Boolean);
 
+/* ── Dual Range Slider ─────────────────────────────────────────────────────── */
+function DualRangeSlider({ min, max, valueMin, valueMax, onChangeMin, onChangeMax }: {
+  min: number; max: number; valueMin: number; valueMax: number;
+  onChangeMin: (v: number) => void; onChangeMax: (v: number) => void;
+}) {
+  const range = max - min || 1;
+  const leftPct  = ((valueMin - min) / range) * 100;
+  const rightPct = ((valueMax - min) / range) * 100;
+  return (
+    <div className="drs-outer">
+      <div className="drs-values-row">
+        <span className="drs-val-bubble">{CURRENCY}{valueMin.toLocaleString()}</span>
+        <span className="drs-val-sep">-</span>
+        <span className="drs-val-bubble">{CURRENCY}{valueMax.toLocaleString()}</span>
+      </div>
+      <div className="drs-track-row">
+        <div className="drs-track">
+          <div className="drs-fill" style={{ left: `${leftPct}%`, width: `${rightPct - leftPct}%` }}/>
+        </div>
+        <input type="range" className="drs-input drs-min" min={min} max={max} value={valueMin}
+          aria-label="Minimum price"
+          onChange={e => onChangeMin(Math.min(Number(e.target.value), valueMax - 1))}/>
+        <input type="range" className="drs-input drs-max" min={min} max={max} value={valueMax}
+          aria-label="Maximum price"
+          onChange={e => onChangeMax(Math.max(Number(e.target.value), valueMin + 1))}/>
+      </div>
+    </div>
+  );
+}
+
+/* ── Filter Accordion ──────────────────────────────────────────────────────── */
 function FilterSection({ label, isOpen, onToggle, children }: {
   label: string; isOpen: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
@@ -53,60 +70,69 @@ function FilterSection({ label, isOpen, onToggle, children }: {
   );
 }
 
-function CheckOption({ label, checked, onChange, count }: {
-  label: string; checked: boolean; onChange: () => void; count: number;
-}) {
+function CheckOption({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
     <label className={`nf-option${checked ? ' checked' : ''}`}>
       <span className="nf-checkbox" aria-hidden="true">
-        {checked && (
-          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-            <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        )}
+        {checked && <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+          <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>}
       </span>
       <input type="checkbox" className="nf-hidden-input" checked={checked} onChange={onChange} aria-label={label}/>
       <span className="nf-option-text">{label}</span>
-      <span style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af' }}>({count})</span>
     </label>
   );
 }
 
-function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
-  const [hovered,    setHovered]    = useState(false);
-  const [wishlisted, setWishlisted] = useState(false);
-  const isOnSale = !!p.oldPrice;
-  const discount = p.oldPrice ? Math.round((1 - p.price / p.oldPrice) * 100) : null;
+/* ── Product Card ──────────────────────────────────────────────────────────── */
+function ProductCard({ product, idx }: { product: Product; idx: number }) {
+  const [hovered, setHovered] = useState(false);
+  const { hasItem, addItem, removeItem } = useWishlist();
+  const inWishlist = hasItem(product.ID);
+  const href = `/shop/product/${toSlug(product.slug || product.title)}`;
+  const priceMin = Number(product.price_min ?? 0);
+  const priceMax = Number(product.price_max ?? product.price_min ?? 0);
+  const showRange = priceMax > priceMin;
+  const salePrice    = product._sale_price    ? Number(product._sale_price)    : null;
+  const regularPrice = product._regular_price ? Number(product._regular_price) : null;
+  const displayPrice = salePrice ?? regularPrice ?? priceMin;
+  const isOnSale  = !showRange && salePrice !== null;
+  const priceStr  = showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice);
+  const discount  = showRange ? null : getDiscountPercent(salePrice, regularPrice);
 
   return (
     <div className="csp-card" style={{ animationDelay: `${Math.min(idx * 40, 400)}ms` }}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div className="csp-img-wrap">
-        <Link href="/shop" tabIndex={-1} aria-hidden="true">
-          <img src={p.image} alt={p.name} className={`csp-img${hovered ? ' zoomed' : ''}`}
-            loading={idx < 8 ? 'eager' : 'lazy'}/>
+        <Link href={href} tabIndex={-1} aria-hidden="true">
+          <img src={getImageUrl(product.thumbnail_url)} alt={product.title}
+            className={`csp-img${hovered ? ' zoomed' : ''}`}
+            loading={idx < 8 ? 'eager' : 'lazy'}
+            onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
         </Link>
         <div className="csp-badges">
           {isOnSale && <span className="csp-badge sale">Sale</span>}
+          {product.stock_status !== 'instock' && product.stock_status !== 'onbackorder' &&
+            <span className="csp-badge oos">Sold Out</span>}
         </div>
-        <button className={`csp-wishlist${wishlisted ? ' active' : ''}`}
-          aria-label={`${wishlisted ? 'Remove' : 'Add'} ${p.name} ${wishlisted ? 'from' : 'to'} wishlist`}
-          onClick={e => { e.preventDefault(); setWishlisted(w => !w); }}>
+        <button className={`csp-wishlist${inWishlist ? ' active' : ''}`}
+          aria-label={inWishlist ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
+          onClick={e => { e.preventDefault(); inWishlist ? removeItem(product.ID) : addItem({ id: product.ID, title: product.title, price: displayPrice, image: getImageUrl(product.thumbnail_url), inStock: product.stock_status === 'instock' || product.stock_status === 'onbackorder' }); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
-            fill={wishlisted ? '#e74c3c' : 'none'}
-            stroke={wishlisted ? '#e74c3c' : 'currentColor'} strokeWidth="1.8">
+            fill={inWishlist ? '#e74c3c' : 'none'} stroke={inWishlist ? '#e74c3c' : 'currentColor'} strokeWidth="1.8">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
         <div className={`csp-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
-          <Link href="/shop" className="csp-quick-view">Quick View</Link>
+          <Link href={href} className="csp-quick-view">Quick View</Link>
         </div>
       </div>
       <div className="csp-info">
-        <Link href="/shop" className="csp-name">{p.name}</Link>
+        <Link href={href} className="csp-name">{product.title}</Link>
         <div className="csp-price-row">
-          {isOnSale && p.oldPrice && <span className="csp-old-price">₹{p.oldPrice.toLocaleString()}</span>}
-          <span className={`csp-price${isOnSale ? ' sale' : ''}`}>₹{p.price.toLocaleString()}</span>
+          {!showRange && salePrice !== null && regularPrice !== null &&
+            <span className="csp-old-price">{formatPrice(regularPrice)}</span>}
+          <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
           {discount !== null && <span className="csp-save-badge">{discount}% off</span>}
         </div>
       </div>
@@ -114,32 +140,45 @@ function ProductCard({ p, idx }: { p: typeof ALL_PRODUCTS[0]; idx: number }) {
   );
 }
 
+/* ── Page ──────────────────────────────────────────────────────────────────── */
 export default function DrinkwarePage() {
-  const [sort,         setSort]         = useState('featured');
-  const [viewMode,     setViewMode]     = useState<'grid' | 'list'>('grid');
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
-  const [openFilters,  setOpenFilters]  = useState({ price: false, category: false, material: false, style: false });
-  const [selMaterials, setSelMaterials] = useState<string[]>([]);
-  const [selStyles,    setSelStyles]    = useState<string[]>([]);
-  const [selCategories, setSelCategories] = useState<string[]>([]);
-  const [priceMin,     setPriceMin]     = useState(0);
-  const [priceMax,     setPriceMax]     = useState(MAX_PRICE);
+  const [categories,  setCategories]  = useState<ProductCategory[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [viewMode,    setViewMode]    = useState<'grid'|'list'>('grid');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const toggle = (arr: string[], v: string) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+  // filters
+  const [selectedCats,   setSelectedCats]   = useState<string[]>([]);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedSizes,  setSelectedSizes]  = useState<string[]>([]);
+  const [sliderMin, setSliderMin] = useState(0);
+  const [sliderMax, setSliderMax] = useState(0);
+  const [absoluteMax, setAbsoluteMax] = useState(0);
 
-  const totalActive =
-    selMaterials.length + selStyles.length + selCategories.length +
-    (priceMin > 0 || priceMax < MAX_PRICE ? 1 : 0);
-
-  const clearAll = () => {
-    setSelMaterials([]); setSelStyles([]); setSelCategories([]);
-    setPriceMin(0); setPriceMax(MAX_PRICE);
-  };
+  // accordion open state
+  const [openFilters, setOpenFilters] = useState<Record<string, boolean>>({ category: true });
+  const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    Promise.all([
+      getCategoryChildren(PAGE_SLUG).catch(() => []),
+      getCategoryProducts(PAGE_SLUG).catch(() => []),
+    ]).then(([cats, prods]) => {
+      setCategories(cats);
+      setAllProducts(prods);
+      const max = prods.length
+        ? Math.max(...prods.map(p => Number(p.price_max ?? p.price_min ?? 0)))
+        : 0;
+      setAbsoluteMax(max);
+      setSliderMax(max);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
   }, []);
 
   useEffect(() => {
@@ -147,19 +186,45 @@ export default function DrinkwarePage() {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
-  const filtered = useMemo(() => {
-    let list = ALL_PRODUCTS.filter(p => {
-      if (selCategories.length && !selCategories.includes(p.type))     return false;
-      if (selMaterials.length  && !selMaterials.includes(p.material))  return false;
-      if (selStyles.length     && !selStyles.includes(p.style))        return false;
-      if (p.price < priceMin || p.price > priceMax)                    return false;
-      return true;
-    });
-    if (sort === 'price-asc')  list = [...list].sort((a, b) => a.price - b.price);
-    if (sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price);
-    if (sort === 'rating')     list = [...list].sort((a, b) => b.rating - a.rating);
-    return list;
-  }, [selMaterials, selStyles, selCategories, priceMin, priceMax, sort]);
+  const handlePriceChange = useCallback((min: number, max: number) => {
+    if (priceTimer.current) clearTimeout(priceTimer.current);
+    priceTimer.current = setTimeout(() => { setSliderMin(min); setSliderMax(max); }, 200);
+  }, []);
+
+  // derive available colors & sizes from loaded products
+  const availableColors = useMemo(() =>
+    [...new Set(allProducts.flatMap(p => normalizeList(p.color_slugs)))].sort(),
+    [allProducts]);
+  const availableSizes = useMemo(() =>
+    [...new Set(allProducts.flatMap(p => normalizeList(p.size_slugs)))].sort(),
+    [allProducts]);
+
+  const isPriceActive = sliderMin > 0 || sliderMax < absoluteMax;
+
+  const totalActive = selectedCats.length + selectedColors.length + selectedSizes.length + (isPriceActive ? 1 : 0);
+
+  const clearAll = () => {
+    setSelectedCats([]);
+    setSelectedColors([]);
+    setSelectedSizes([]);
+    setSliderMin(0);
+    setSliderMax(absoluteMax);
+  };
+
+  const toggleItem = (setter: React.Dispatch<React.SetStateAction<string[]>>, val: string) =>
+    setter(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+
+  const filtered = useMemo(() => allProducts.filter(p => {
+    if (selectedCats.length > 0 && !(p.category_slug && selectedCats.includes(p.category_slug))) return false;
+    if (selectedColors.length > 0 && !selectedColors.some(c => normalizeList(p.color_slugs).includes(c))) return false;
+    if (selectedSizes.length > 0  && !selectedSizes.some(s  => normalizeList(p.size_slugs).includes(s)))  return false;
+    if (isPriceActive) {
+      const lo = Number(p.price_min ?? 0);
+      const hi = Number(p.price_max ?? p.price_min ?? 0);
+      if (hi < sliderMin || lo > sliderMax) return false;
+    }
+    return true;
+  }), [allProducts, selectedCats, selectedColors, selectedSizes, sliderMin, sliderMax, isPriceActive]);
 
   const SidebarContent = (
     <>
@@ -168,49 +233,61 @@ export default function DrinkwarePage() {
         {totalActive > 0 && <button className="nf-clear-all" onClick={clearAll}>Clear all ({totalActive})</button>}
       </div>
 
-      {/* Category — same as Collections page */}
-      <FilterSection label={selCategories.length ? `Category (${selCategories.length})` : 'Category'}
-        isOpen={openFilters.category} onToggle={() => setOpenFilters(p => ({ ...p, category: !p.category }))}>
-        {CATEGORIES.map(c => (
-          <CheckOption key={c} label={c} checked={selCategories.includes(c)}
-            onChange={() => setSelCategories(toggle(selCategories, c))}
-            count={ALL_PRODUCTS.filter(p => p.type === c).length}/>
-        ))}
-      </FilterSection>
+      {/* Category */}
+      {categories.length > 0 && (
+        <FilterSection
+          label={selectedCats.length ? `Category (${selectedCats.length})` : 'Category'}
+          isOpen={!!openFilters.category}
+          onToggle={() => setOpenFilters(p => ({ ...p, category: !p.category }))}>
+          {categories.map(c => (
+            <CheckOption key={c.category_id} label={c.category_name}
+              checked={selectedCats.includes(c.category_slug)}
+              onChange={() => toggleItem(setSelectedCats, c.category_slug)}/>
+          ))}
+        </FilterSection>
+      )}
 
-      {/* Price */}
-      <FilterSection label={priceMin > 0 || priceMax < MAX_PRICE ? 'Price (Active)' : 'Price'}
-        isOpen={openFilters.price} onToggle={() => setOpenFilters(p => ({ ...p, price: !p.price }))}>
-        <div style={{ padding: '4px 0 8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-            <span>₹{priceMin.toLocaleString()}</span>
-            <span>₹{priceMax.toLocaleString()}</span>
-          </div>
-          <input type="range" min={0} max={MAX_PRICE} value={priceMax} aria-label="Maximum price"
-            style={{ width: '100%', accentColor: '#1a8a6e' }}
-            onChange={e => setPriceMax(Math.max(Number(e.target.value), priceMin + 1))}/>
-        </div>
-      </FilterSection>
+      {/* Price Range — only if products have prices */}
+      {absoluteMax > 0 && (
+        <FilterSection
+          label={isPriceActive ? 'Price Range (Active)' : 'Price Range'}
+          isOpen={!!openFilters.price}
+          onToggle={() => setOpenFilters(p => ({ ...p, price: !p.price }))}>
+          <DualRangeSlider
+            min={0} max={absoluteMax}
+            valueMin={sliderMin} valueMax={sliderMax}
+            onChangeMin={v => handlePriceChange(Math.min(v, sliderMax - 1), sliderMax)}
+            onChangeMax={v => handlePriceChange(sliderMin, Math.max(v, sliderMin + 1))}/>
+        </FilterSection>
+      )}
 
-      {/* Material */}
-      <FilterSection label={selMaterials.length ? `Material (${selMaterials.length})` : 'Material'}
-        isOpen={openFilters.material} onToggle={() => setOpenFilters(p => ({ ...p, material: !p.material }))}>
-        {MATERIALS.map(m => (
-          <CheckOption key={m} label={m} checked={selMaterials.includes(m)}
-            onChange={() => setSelMaterials(toggle(selMaterials, m))}
-            count={ALL_PRODUCTS.filter(p => p.material === m).length}/>
-        ))}
-      </FilterSection>
+      {/* Color — only if products have colors */}
+      {availableColors.length > 0 && (
+        <FilterSection
+          label={selectedColors.length ? `Color (${selectedColors.length})` : 'Color'}
+          isOpen={!!openFilters.color}
+          onToggle={() => setOpenFilters(p => ({ ...p, color: !p.color }))}>
+          {availableColors.map(c => (
+            <CheckOption key={c} label={c.charAt(0).toUpperCase() + c.slice(1)}
+              checked={selectedColors.includes(c)}
+              onChange={() => toggleItem(setSelectedColors, c)}/>
+          ))}
+        </FilterSection>
+      )}
 
-      {/* Style */}
-      <FilterSection label={selStyles.length ? `Style (${selStyles.length})` : 'Style'}
-        isOpen={openFilters.style} onToggle={() => setOpenFilters(p => ({ ...p, style: !p.style }))}>
-        {STYLES.map(s => (
-          <CheckOption key={s} label={s} checked={selStyles.includes(s)}
-            onChange={() => setSelStyles(toggle(selStyles, s))}
-            count={ALL_PRODUCTS.filter(p => p.style === s).length}/>
-        ))}
-      </FilterSection>
+      {/* Size — only if products have sizes */}
+      {availableSizes.length > 0 && (
+        <FilterSection
+          label={selectedSizes.length ? `Size (${selectedSizes.length})` : 'Size'}
+          isOpen={!!openFilters.size}
+          onToggle={() => setOpenFilters(p => ({ ...p, size: !p.size }))}>
+          {availableSizes.map(s => (
+            <CheckOption key={s} label={s.toUpperCase()}
+              checked={selectedSizes.includes(s)}
+              onChange={() => toggleItem(setSelectedSizes, s)}/>
+          ))}
+        </FilterSection>
+      )}
     </>
   );
 
@@ -220,14 +297,12 @@ export default function DrinkwarePage() {
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
         <Link href="/">Home</Link>
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Drinkware</span>
+        <span aria-current="page">{PAGE_LABEL}</span>
       </nav>
 
       <div className="csp-body">
-        {/* Desktop sidebar */}
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>
 
-        {/* Mobile overlay + drawer */}
         {sidebarOpen && <div className="csp-sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-hidden="true"/>}
         <div className={`csp-sidebar-drawer${sidebarOpen ? ' open' : ''}`}
           role="dialog" aria-modal="true" aria-label="Product filters" aria-hidden={!sidebarOpen}>
@@ -248,7 +323,6 @@ export default function DrinkwarePage() {
         </div>
 
         <main className="csp-main">
-          {/* Toolbar */}
           <div className="csp-toolbar">
             <div className="csp-toolbar-left">
               <button className="csp-filter-toggle" onClick={() => setSidebarOpen(true)}
@@ -259,13 +333,9 @@ export default function DrinkwarePage() {
                 Filters
                 {totalActive > 0 && <span className="csp-filter-badge">{totalActive}</span>}
               </button>
-              <span className="csp-count">{filtered.length} product{filtered.length !== 1 ? 's' : ''}</span>
+              {!loading && <span className="csp-count">{filtered.length} product{filtered.length !== 1 ? 's' : ''}</span>}
             </div>
             <div className="csp-toolbar-right">
-              <select value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort products"
-                style={{ height:34, padding:'0 10px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#374151', background:'#fff', cursor:'pointer' }}>
-                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
               <div className="csp-view-toggle" role="group" aria-label="View mode">
                 <button className={`csp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
                   onClick={() => setViewMode('grid')} aria-label="Grid view" aria-pressed={viewMode === 'grid'}>
@@ -285,50 +355,54 @@ export default function DrinkwarePage() {
             </div>
           </div>
 
-          {/* Active filter chips */}
           {totalActive > 0 && (
             <div className="csp-chips-bar" role="group" aria-label="Active filters">
               <button className="csp-chips-clear" onClick={clearAll}>Clear all</button>
-              {selCategories.map(c => (
-                <span key={c} className="csp-chip">{c}
-                  <button className="csp-chip-x" onClick={() => setSelCategories(toggle(selCategories, c))} aria-label={`Remove ${c}`}>x</button>
-                </span>
-              ))}
-              {selMaterials.map(m => (
-                <span key={m} className="csp-chip">{m}
-                  <button className="csp-chip-x" onClick={() => setSelMaterials(toggle(selMaterials, m))} aria-label={`Remove ${m}`}>x</button>
-                </span>
-              ))}
-              {selStyles.map(s => (
-                <span key={s} className="csp-chip">{s}
-                  <button className="csp-chip-x" onClick={() => setSelStyles(toggle(selStyles, s))} aria-label={`Remove ${s}`}>x</button>
-                </span>
-              ))}
-              {(priceMin > 0 || priceMax < MAX_PRICE) && (
-                <span className="csp-chip">₹{priceMin}–₹{priceMax}
-                  <button className="csp-chip-x" onClick={() => { setPriceMin(0); setPriceMax(MAX_PRICE); }} aria-label="Remove price filter">x</button>
+              {selectedCats.map(slug => {
+                const cat = categories.find(c => c.category_slug === slug);
+                return cat ? (
+                  <span key={slug} className="csp-chip">{cat.category_name}
+                    <button className="csp-chip-x" onClick={() => toggleItem(setSelectedCats, slug)} aria-label={`Remove ${cat.category_name}`}>x</button>
+                  </span>
+                ) : null;
+              })}
+              {isPriceActive && (
+                <span className="csp-chip">{CURRENCY}{sliderMin}–{CURRENCY}{sliderMax}
+                  <button className="csp-chip-x" onClick={() => { setSliderMin(0); setSliderMax(absoluteMax); }} aria-label="Remove price filter">x</button>
                 </span>
               )}
+              {selectedColors.map(c => (
+                <span key={c} className="csp-chip">{c.charAt(0).toUpperCase() + c.slice(1)}
+                  <button className="csp-chip-x" onClick={() => toggleItem(setSelectedColors, c)} aria-label={`Remove ${c}`}>x</button>
+                </span>
+              ))}
+              {selectedSizes.map(s => (
+                <span key={s} className="csp-chip">{s.toUpperCase()}
+                  <button className="csp-chip-x" onClick={() => toggleItem(setSelectedSizes, s)} aria-label={`Remove ${s}`}>x</button>
+                </span>
+              ))}
             </div>
           )}
 
-          {/* Grid / empty state */}
-          {filtered.length === 0 ? (
+          {loading && <div className="csp-state-wrap" role="status"><div className="csp-spinner"/><p className="csp-state-text">Loading...</p></div>}
+
+          {!loading && filtered.length === 0 && (
             <div className="csp-state-wrap">
               <svg width="52" height="52" fill="none" stroke="#ccc" strokeWidth="1.2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <p className="csp-state-text">No products match your filters</p>
-              <button className="csp-clear-btn" onClick={clearAll}>Clear all filters</button>
+              <p className="csp-state-text">No products found</p>
+              {totalActive > 0 && <button className="csp-clear-btn" onClick={clearAll}>Clear filters</button>}
             </div>
-          ) : (
-            <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label="Drinkware products">
-              {filtered.map((p, i) => <ProductCard key={p.id} p={p} idx={i}/>)}
+          )}
+
+          {!loading && filtered.length > 0 && (
+            <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label={`${PAGE_LABEL} products`}>
+              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i}/>)}
             </div>
           )}
         </main>
       </div>
-
       <Footer/>
     </>
   );
