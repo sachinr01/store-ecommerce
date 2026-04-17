@@ -5,6 +5,7 @@ const auth = require('./authController');
 const cart = require('./cartController');
 const orders = require('./orderController');
 const media = require('./mediaController');
+const coupon = require('./couponController');
 const { sessionMiddleware } = require('./session');
 const { guestCookieMiddleware } = require('./guestCookie');
 const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddleware');
@@ -53,6 +54,11 @@ router.post('/auth/login',    auth.login);
 router.post('/auth/logout',   auth.logout);
 router.get('/auth/me',        auth.me);
 router.put('/auth/profile',   requireLogin, auth.updateProfile);
+
+// ── Coupons ───────────────────────────────────────────────────────────────────
+router.get('/coupon/active',   coupon.active);
+router.post('/coupon/apply',   coupon.apply);
+router.post('/coupon/remove',  coupon.remove);
 
 // ── Cart ──────────────────────────────────────────────────────────────────────
 router.get('/cart',                   cart.getCart);

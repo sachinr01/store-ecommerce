@@ -7,16 +7,19 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   async rewrites() {
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api')
+      .replace(/\/+$/, '')
+      .replace(/\/store\/api$/, '');
+
     return [
       {
         source: '/store/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api'}/:path*`,
+        destination: `${apiBase}/store/api/:path*`,
         basePath: false,
       },
       {
-        // Proxy product images — browser hits /uploads/... → Express static on port 3000
         source: '/uploads/:path*',
-        destination: `${(process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api').replace('/store/api', '')}/uploads/:path*`,
+        destination: `${apiBase}/uploads/:path*`,
         basePath: false,
       },
     ];

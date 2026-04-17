@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
-import { getRecentOrderAddresses, type RecentOrderAddress } from '../lib/api';
+import { getRecentOrderAddresses, getActiveCoupon, applyCoupon, removeCoupon, type RecentOrderAddress, type AppliedCoupon } from '../lib/api';
 import { useAuth } from '../lib/authContext';
+import { formatPrice } from '../lib/price';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,12 @@ export default function CheckoutPage() {
   const [showLogin, setShowLogin] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+
+  // ─── Coupon state ────────────────────────────────────────────────────────────
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponMsg, setCouponMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [showPayment, setShowPayment] = useState(false);
   const [terms, setTerms] = useState(false);
@@ -106,7 +113,6 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [coupon, setCoupon] = useState('');
   const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -152,13 +158,52 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, [isLoggedIn]);
 
+  // ─── Load active coupon from session on mount ────────────────────────────────
+  useEffect(() => {
+    getActiveCoupon().then((c) => {
+      if (c) { setAppliedCoupon(c); setCouponInput(c.code); setShowCoupon(true); }
+    }).catch(() => {});
+  }, []);
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponMsg(null);
+    const data = await applyCoupon(couponInput.trim());
+    setCouponLoading(false);
+    if (data.success && data.data) {
+      setAppliedCoupon(data.data);
+      setCouponMsg({ text: `Coupon "${data.data.code}" applied!`, ok: true });
+    } else {
+      setAppliedCoupon(null);
+      setCouponMsg({ text: data.message || 'Invalid coupon.', ok: false });
+    }
+  };
+
+  const handleRemoveCoupon = async () => {
+    await removeCoupon();
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponMsg(null);
+  };
+
+  // ─── Discount calculation ────────────────────────────────────────────────────
+  const discount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === 'percent') return Math.round((total * appliedCoupon.amount) / 100);
+    if (appliedCoupon.type === 'fixed_cart') return Math.min(appliedCoupon.amount, total);
+    return 0;
+  }, [appliedCoupon, total]);
+
+  const orderTotal = Math.max(0, total - discount);
+
   // ─── Resolved addresses ─────────────────────────────────────────────────────
   const resolvedShipping = useMemo<AddressFields>(() => {
     if (selectedShippingKey) {
       const card = prevShippingCards.find((c) => c.key === selectedShippingKey);
       if (card) return { ...card.raw, email: contactEmail, phone: card.raw.phone || contactPhone };
     }
-    return { ...shipForm, email: contactEmail, phone: contactPhone };
+    return { ...shipForm, email: contactEmail, phone: shipForm.phone || contactPhone };
   }, [selectedShippingKey, prevShippingCards, shipForm, contactEmail, contactPhone]);
 
   const resolvedBilling = useMemo<AddressFields>(() => {
@@ -167,7 +212,7 @@ export default function CheckoutPage() {
       const card = prevBillingCards.find((c) => c.key === selectedBillingKey);
       if (card) return { ...card.raw, email: contactEmail, phone: card.raw.phone || contactPhone };
     }
-    return { ...billForm, email: contactEmail, phone: contactPhone };
+    return { ...billForm, email: contactEmail, phone: billForm.phone || contactPhone };
   }, [billingSameAsShipping, selectedBillingKey, prevBillingCards, billForm, resolvedShipping, contactEmail, contactPhone]);
 
   // ─── Validation ─────────────────────────────────────────────────────────────
@@ -195,6 +240,7 @@ export default function CheckoutPage() {
     } else {
       if (!shipForm.firstName.trim()) e.shipFirstName = 'Required';
       if (!shipForm.lastName.trim()) e.shipLastName = 'Required';
+      if (!shipForm.phone.trim()) e.shipPhone = 'Required';
       if (!shipForm.address1.trim()) e.shipAddress = 'Required';
       if (!shipForm.city.trim()) e.shipCity = 'Required';
       if (!shipForm.state.trim()) e.shipState = 'Required';
@@ -209,6 +255,7 @@ export default function CheckoutPage() {
       } else {
         if (!billForm.firstName.trim()) e.billFirstName = 'Required';
         if (!billForm.lastName.trim()) e.billLastName = 'Required';
+        if (!billForm.phone.trim()) e.billPhone = 'Required';
         if (!billForm.address1.trim()) e.billAddress = 'Required';
         if (!billForm.city.trim()) e.billCity = 'Required';
         if (!billForm.state.trim()) e.billState = 'Required';
@@ -273,9 +320,20 @@ export default function CheckoutPage() {
           notes,
         }),
       });
-
       const data = await res.json();
       if (!res.ok || !data.success) {
+        // Coupon was invalidated server-side — show error in coupon box, not near Place Order
+        if (data.coupon_error) {
+          setAppliedCoupon(null);
+          setCouponInput('');
+          setCouponMsg({ text: data.message, ok: false });
+          setShowCoupon(true);
+          setPlacing(false);
+          setTimeout(() => {
+            document.querySelector('.checkout-coupon-box')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 50);
+          return;
+        }
         throw new Error(data.message || 'Order placement failed.');
       }
 
@@ -416,10 +474,41 @@ export default function CheckoutPage() {
                   <div className="checkout-coupon-grid">
                     <div className="field last">
                       <label>Coupon Code</label>
-                      <input type="text" placeholder="Coupon Code" value={coupon} onChange={(e) => setCoupon(e.target.value)} />
+                      <input
+                        type="text"
+                        placeholder="Coupon Code"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value)}
+                        disabled={!!appliedCoupon}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon(); } }}
+                      />
                     </div>
-                    <a href="#" className="button small fill uppercase" style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>Apply Coupon</a>
+                    {appliedCoupon ? (
+                      <button
+                        type="button"
+                        className="button small uppercase"
+                        style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#e53935', color: '#fff', border: 'none' }}
+                        onClick={handleRemoveCoupon}
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button small fill uppercase"
+                        style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => void handleApplyCoupon()}
+                        disabled={couponLoading}
+                      >
+                        {couponLoading ? '...' : 'Apply'}
+                      </button>
+                    )}
                   </div>
+                  {couponMsg && (
+                    <p style={{ marginTop: 8, fontSize: 13, color: couponMsg.ok ? '#2e7d32' : '#c62828' }}>
+                      {couponMsg.text}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -523,9 +612,16 @@ export default function CheckoutPage() {
                             {errors.shipLastName && <span data-error style={errStyle}>{errors.shipLastName}</span>}
                           </div>
                         </div>
-                        <div className="field">
-                          <label>Company Name</label>
-                          <input type="text" placeholder="Company Name (optional)" value={shipForm.company} onChange={(e) => setShipForm((f) => ({ ...f, company: e.target.value }))} />
+                        <div className="checkout-inline-row">
+                          <div className="field">
+                            <label>Phone No.</label>
+                            <input type="tel" placeholder="Phone No. *" value={shipForm.phone} onChange={(e) => setShipForm((f) => ({ ...f, phone: e.target.value }))} aria-label="Shipping Phone" />
+                            {errors.shipPhone && <span data-error style={errStyle}>{errors.shipPhone}</span>}
+                          </div>
+                          <div className="field">
+                            <label>Company Name</label>
+                            <input type="text" placeholder="Company Name (optional)" value={shipForm.company} onChange={(e) => setShipForm((f) => ({ ...f, company: e.target.value }))} />
+                          </div>
                         </div>
                         <div className="field">
                           <label className="required">Address</label>
@@ -618,9 +714,16 @@ export default function CheckoutPage() {
                                 {errors.billLastName && <span data-error style={errStyle}>{errors.billLastName}</span>}
                               </div>
                             </div>
-                            <div className="field">
-                              <label>Company Name</label>
-                              <input type="text" placeholder="Company Name (optional)" value={billForm.company} onChange={(e) => setBillForm((f) => ({ ...f, company: e.target.value }))} />
+                            <div className="checkout-inline-row">
+                              <div className="field">
+                                <label>Phone No.</label>
+                                <input type="tel" placeholder="Phone No. *" value={billForm.phone} onChange={(e) => setBillForm((f) => ({ ...f, phone: e.target.value }))} aria-label="Billing Phone" />
+                                {errors.billPhone && <span data-error style={errStyle}>{errors.billPhone}</span>}
+                              </div>
+                              <div className="field">
+                                <label>Company Name</label>
+                                <input type="text" placeholder="Company Name (optional)" value={billForm.company} onChange={(e) => setBillForm((f) => ({ ...f, company: e.target.value }))} />
+                              </div>
                             </div>
                             <div className="field">
                               <label className="required">Address</label>
@@ -665,19 +768,21 @@ export default function CheckoutPage() {
                         <h4 className="checkout-summary-title">Order Summary</h4>
                         <div className="checkout-summary-row">
                           <span>Cart Subtotal</span>
-                          <strong>&#8377;{total.toFixed(2)}</strong>
+                          <strong>{formatPrice(total)}</strong>
                         </div>
-                        <div className="checkout-summary-row">
-                          <span>Discount</span>
-                          <strong>&#8377;0.00</strong>
-                        </div>
+                        {discount > 0 && (
+                          <div className="checkout-summary-row" style={{ color: '#2e7d32' }}>
+                            <span>Discount ({appliedCoupon?.code})</span>
+                            <strong>−{formatPrice(discount)}</strong>
+                          </div>
+                        )}
                         <div className="checkout-summary-row">
                           <span>Shipping &amp; Handling</span>
-                          <strong>&#8377;0.00</strong>
+                          <strong style={{ color: '#2e7d32' }}>Free</strong>
                         </div>
                         <div className="checkout-summary-total">
                           <span>Order Total</span>
-                          <span>&#8377;{total.toFixed(2)}</span>
+                          <span>{formatPrice(orderTotal)}</span>
                         </div>
                       </div>
 

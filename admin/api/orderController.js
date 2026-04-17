@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getSessionUser } = require('./session');
 const { getCartIdentity } = require('./cartController');
+const { validateAndLockCoupon, recordCouponUsage } = require('./couponController');
 
 const toStr = (val) => {
   if (val === undefined || val === null) return '';
@@ -400,6 +401,7 @@ const placeOrder = async (req, res) => {
   const paymentMethod = toStr(req.body.payment_method) || 'cod';
   const shippingCost  = toAmount(req.body.shipping_cost || 0);
   const orderNotes    = toStr(req.body.notes) || null;
+  const appliedCoupon = req.session?.appliedCoupon || null;
 
   const billingErrors = validateBilling(billing);
   if (Object.keys(billingErrors).length) {
@@ -442,7 +444,19 @@ const placeOrder = async (req, res) => {
     const subtotal = cartItems.reduce(
       (sum, item) => sum + toAmount(item.price) * Number(item.quantity || 0), 0
     );
-    const total    = subtotal + shippingCost;
+
+    // Re-validate coupon inside the transaction with FOR UPDATE locking
+    // This prevents race conditions (two users using the last coupon slot).
+    const productIds = cartItems.map((i) => Number(i.product_id)).filter(Boolean);
+    const couponCheck = await validateAndLockCoupon(conn, appliedCoupon, userId, subtotal, productIds);
+    if (!couponCheck.ok) {
+      await conn.rollback();
+      delete req.session.appliedCoupon;
+      return res.status(400).json({ success: false, coupon_error: true, message: couponCheck.message });
+    }
+    const discount = couponCheck.discount || 0;
+
+    const total    = Math.max(0, subtotal - discount) + shippingCost;
     const currency = process.env.ORDER_CURRENCY || process.env.CURRENCY || 'INR';
 
     // ── 3. Insert into tbl_orders ─────────────────────────────────────────────
@@ -472,6 +486,11 @@ const placeOrder = async (req, res) => {
       ['_session_id',     sessionId],
       ['_cookie_id',      cookieId || ''],
     ];
+
+    if (appliedCoupon) {
+      metaEntries.push(['_coupon_code',     appliedCoupon.coupon_code]);
+      metaEntries.push(['_coupon_discount', discount.toFixed(2)]);
+    }
 
     for (const [metaKey, metaValue] of metaEntries) {
       await conn.query(
@@ -587,7 +606,15 @@ const placeOrder = async (req, res) => {
       await conn.query('DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL', [value]);
     }
 
+    // ── 9. Record coupon usage ────────────────────────────────────────────────
+    if (appliedCoupon && couponCheck.ok) {
+      await recordCouponUsage(conn, appliedCoupon, orderId, userId);
+    }
+
     await conn.commit();
+
+    // Clear coupon from session after successful order
+    if (appliedCoupon) delete req.session.appliedCoupon;
 
     let emailSent = false;
     try {
@@ -689,6 +716,11 @@ const placeOrder = async (req, res) => {
                                 <td style="font-size:13px; opacity:0.8;">Subtotal</td>
                                 <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(subtotal)}</td>
                               </tr>
+                              ${discount > 0 ? `
+                              <tr>
+                                <td style="font-size:13px; opacity:0.8;">Discount (${escapeHtml(appliedCoupon.coupon_code)})</td>
+                                <td style="font-size:13px; text-align:right; opacity:0.8; color:#4caf50;">−₹${formatMoney(discount)}</td>
+                              </tr>` : ''}
                               <tr>
                                 <td style="font-size:13px; opacity:0.8;">Shipping</td>
                                 <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(shippingCost)}</td>
@@ -744,7 +776,7 @@ const placeOrder = async (req, res) => {
       console.error('Order email error:', emailErr);
     }
 
-    res.json({ success: true, data: { orderId, total: total.toFixed(2), emailSent } });
+    res.json({ success: true, data: { orderId, total: total.toFixed(2), discount: discount.toFixed(2), emailSent } });
 
   } catch (err) {
     await conn.rollback();
@@ -1211,8 +1243,4 @@ module.exports = {
   getProfileAddresses,
   updateProfileAddress,
 };
-
-
-
-
 

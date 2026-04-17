@@ -2,7 +2,11 @@
 // Client-side (browser): go through Next.js rewrite proxy to avoid CORS
 const API_BASE =
   typeof window === 'undefined'
-    ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api')
+    ? (() => {
+        const raw = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000/store/api').replace(/\/+$/, '');
+        // Normalise: ensure it ends with /store/api
+        return raw.endsWith('/store/api') ? raw : `${raw.replace(/\/store\/api$/, '')}/store/api`;
+      })()
     : '/store/api';
 
 export interface Product {
@@ -305,3 +309,22 @@ export const getProfileAddresses = () =>
 
 export const updateProfileAddress = (kind: 'billing' | 'shipping', body: ProfileAddressForm) =>
   apiPut<ProfileAddressesResponse>(`/address/profile/${kind}`, body);
+
+// ── Coupons ───────────────────────────────────────────────────────────────────
+export interface AppliedCoupon {
+  code: string;
+  type: 'percent' | 'fixed_cart' | string;
+  amount: number;
+}
+
+export const getActiveCoupon = async (): Promise<AppliedCoupon | null> => {
+  const res = await fetch(`${API_BASE}/coupon/active`, { credentials: 'include', cache: 'no-store' });
+  const json = await res.json();
+  return json.coupon ?? null;
+};
+
+export const applyCoupon = (coupon_code: string) =>
+  apiPost<AppliedCoupon>('/coupon/apply', { coupon_code });
+
+export const removeCoupon = () =>
+  apiPost<null>('/coupon/remove', {});

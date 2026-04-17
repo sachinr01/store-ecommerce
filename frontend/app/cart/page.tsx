@@ -1,18 +1,55 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
 import { formatPrice } from '../lib/price';
+import { applyCoupon, removeCoupon, type AppliedCoupon } from '../lib/api';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
 
 export default function CartPage() {
   const { items, removeItem, updateQty, total } = useCart();
 
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponMsg, setCouponMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+
+  const discount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === 'percent') return Math.round((total * appliedCoupon.amount) / 100);
+    if (appliedCoupon.type === 'fixed_cart') return Math.min(appliedCoupon.amount, total);
+    return 0;
+  }, [appliedCoupon, total]);
+
+  const orderTotal = Math.max(0, total - discount);
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponMsg(null);
+    const data = await applyCoupon(couponInput.trim());
+    setCouponLoading(false);
+    if (data.success && data.data) {
+      setAppliedCoupon(data.data);
+      setCouponMsg({ text: `Coupon "${data.data.code}" applied!`, ok: true });
+    } else {
+      setAppliedCoupon(null);
+      setCouponMsg({ text: data.message || 'Invalid coupon.', ok: false });
+    }
+  };
+
+  const handleRemoveCoupon = async () => {
+    await removeCoupon();
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponMsg(null);
+  };
+
   const shipping = 0;
-  const orderTotal = total + shipping;
   const toSlug = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -460,17 +497,51 @@ export default function CartPage() {
 
                     <p className="cart-coupon-label">Have a coupon?</p>
                     <div className="cart-coupon">
-                      <input type="text" placeholder="Coupon code" />
-                      <button className="button fill uppercase" style={{ minHeight: 46 }}>
-                        Apply
-                      </button>
+                      <input
+                        type="text"
+                        placeholder="Coupon code"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value)}
+                        disabled={!!appliedCoupon}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon(); } }}
+                      />
+                      {appliedCoupon ? (
+                        <button
+                          className="button fill uppercase"
+                          style={{ minHeight: 46, background: '#e53935', border: 'none', color: '#fff' }}
+                          onClick={handleRemoveCoupon}
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <button
+                          className="button fill uppercase"
+                          style={{ minHeight: 46 }}
+                          onClick={() => void handleApplyCoupon()}
+                          disabled={couponLoading}
+                        >
+                          {couponLoading ? '...' : 'Apply'}
+                        </button>
+                      )}
                     </div>
+                    {couponMsg && (
+                      <p style={{ marginTop: -12, marginBottom: 16, fontSize: 13, color: couponMsg.ok ? '#2e7d32' : '#c62828' }}>
+                        {couponMsg.text}
+                      </p>
+                    )}
 
                     <div className="cart-summary-table">
                       <div className="cart-summary-row">
                         <span>Cart Subtotal</span>
                         <span>{formatPrice(total)}</span>
                       </div>
+
+                      {discount > 0 && (
+                        <div className="cart-summary-row" style={{ color: '#2e7d32' }}>
+                          <span>Discount ({appliedCoupon?.code})</span>
+                          <span>−{formatPrice(discount)}</span>
+                        </div>
+                      )}
 
                       <div className="cart-summary-row">
                         <span>Shipping &amp; Handling</span>
