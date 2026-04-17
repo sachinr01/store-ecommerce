@@ -109,6 +109,8 @@ export interface AuthUser {
   username: string;
   email: string;
   displayName: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
   userType: number;
 }

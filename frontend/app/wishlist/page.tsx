@@ -15,7 +15,6 @@ const PLACEHOLDER = '/store/images/dummy.jpg';
 
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist();
-  const { addItem } = useCart();
   const [products, setProducts] = useState<Record<number, ProductDetail>>({});
   const [loading, setLoading] = useState(true);
   const toSlug = (text: string) =>
@@ -307,12 +306,6 @@ export default function WishlistPage() {
                                 <span className={`wl-stock ${inStock ? 'in' : 'out'}`}>
                                   {inStock ? 'In Stock' : 'Out of Stock'}
                                 </span>
-                              </td>
-                              <td data-label="Action">
-                                <button className="wl-add-btn"
-                                  onClick={() => addItem({ productId: item.id, title, price: Number(price), image: item.image, quantity: 1 })}>
-                                  Add to Cart
-                                </button>
                               </td>
                               <td>
                                 <button className="wl-remove-btn" aria-label={`Remove ${title}`}

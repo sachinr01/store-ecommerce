@@ -122,7 +122,7 @@ export default function Header() {
       },
     },
     {
-      label: "GLASSWARE", href: "/glassware",
+      label: "GLASSWARE", href: "/shop/glassware",
       mega: {
         columns: [], featureGroupLabel: "Category",
         featured: [
@@ -133,7 +133,7 @@ export default function Header() {
         contentColumns: 2,
       },
     },
-    { label: "KITCHEN ORGANISERS", href: "/kitchen-organisers" },
+    { label: "KITCHEN ORGANISERS", href: "/shop/kitchenware" },
     { label: "ABOUT US", href: "/about-us" },
     { label: "B2B CONNECT", href: "/b2b-connect" },
   ];

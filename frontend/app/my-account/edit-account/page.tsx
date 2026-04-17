@@ -11,8 +11,8 @@ export default function EditAccountPage() {
   const { user, isLoggedIn, isLoading, setUser, logout } = useAuth();
 
   const initialFields = useMemo(() => ({
-    firstName: '',
-    lastName: '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
     displayName: user?.displayName || user?.username || '',
     email: user?.email || '',
     currentPassword: '',

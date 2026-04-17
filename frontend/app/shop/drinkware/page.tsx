@@ -2,17 +2,17 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import { getCategoryChildren, getCategoryProducts, getImageUrl, type ProductCategory, type Product } from '../lib/api';
-import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
-import { getDiscountPercent } from '../lib/helpers/pricing';
-import { useWishlist } from '../lib/wishlistContext';
-import '../shop/shop.css';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { getCategoryChildren, getCategoryProducts, getImageUrl, type ProductCategory, type Product } from '../../lib/api';
+import { formatPrice, formatPriceRange, CURRENCY } from '../../lib/price';
+import { getDiscountPercent } from '../../lib/helpers/pricing';
+import { useWishlist } from '../../lib/wishlistContext';
+import '../shop.css';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
-const PAGE_SLUG    = 'kitchenware';
-const PAGE_LABEL   = 'Kitchenware';
+const PAGE_SLUG    = 'drinkware';
+const PAGE_LABEL   = 'Drinkware';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>
@@ -141,7 +141,7 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
 }
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
-export default function KitchenOrganisersPage() {
+export default function DrinkwarePage() {
   const [categories,  setCategories]  = useState<ProductCategory[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -297,8 +297,15 @@ export default function KitchenOrganisersPage() {
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
         <Link href="/">Home</Link>
         <span className="csp-bsep" aria-hidden="true">&gt;</span>
+        <Link href="/shop">Shop</Link>
+        <span className="csp-bsep" aria-hidden="true">&gt;</span>
         <span aria-current="page">{PAGE_LABEL}</span>
       </nav>
+
+      <div className="csp-cat-banner">
+        <h1 className="csp-cat-banner-title">{PAGE_LABEL}</h1>
+        <p className="csp-cat-banner-sub">Explore our {PAGE_LABEL} collection</p>
+      </div>
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

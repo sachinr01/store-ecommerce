@@ -317,16 +317,14 @@ export default function EditAddressPage() {
                       {loadingAddress && <p className="account-address-message">Loading your latest saved checkout addresses...</p>}
 
                       <section className="account-address-card">
-                        <h3 className="account-address-title">Billing Address</h3>
+                        <h3 className="account-address-title">Address</h3>
                         <Link href="/my-account/edit-address/billing" className="account-address-edit-link">
                           <span className="account-address-edit-icon">{'->'}</span>
-                          <span>Edit Billing address</span>
+                          <span>Edit address</span>
                         </Link>
 
                         {billingAddress ? (
                           <div className="account-address-lines">
-                            {billingAddress.name && <p>{billingAddress.name}</p>}
-                            {billingAddress.company && <p>{billingAddress.company}</p>}
                             {billingLines.map((line) => <p key={line}>{line}</p>)}
                           </div>
                         ) : (
