@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --cs-brand:        #1a8a6e;
   --cs-brand-light:  #e6f5f1;
   --cs-brand-mid:    #12705a;
@@ -42,6 +42,27 @@
 }
 .csp-breadcrumb a:hover { color: var(--cs-brand); }
 .csp-bsep { color: #d1d5db; }
+.csp-breadcrumb span[aria-current="page"] { color: var(--cs-text); font-weight: 600; }
+
+.csp-cat-banner {
+  text-align: center;
+  padding: 40px 48px 32px;
+  background: var(--cs-white);
+  border-bottom: 1px solid var(--cs-border);
+}
+.csp-cat-banner-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--cs-text);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.csp-cat-banner-sub {
+  font-size: 14px;
+  color: var(--cs-text-muted);
+  margin: 0;
+}
 
 .csp-page-header {
   text-align: center;

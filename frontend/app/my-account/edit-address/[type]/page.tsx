@@ -74,10 +74,10 @@ export default function EditAddressTypePage() {
   }, [isLoggedIn, type, user]);
 
   const accountHandle = user?.username ? `@${user.username}` : user?.email || '@account';
-  const title = useMemo(() => isBilling ? 'Edit Billing Address' : 'Edit Shipping Address', [isBilling]);
+  const title = useMemo(() => isBilling ? 'Edit Address' : 'Edit Shipping Address', [isBilling]);
   const description = useMemo(
     () => isBilling
-      ? 'Update the billing address details used for future checkout.'
+      ? 'Update the address details used for future checkout.'
       : 'Update the shipping address details used for future checkout.',
     [isBilling]
   );
@@ -413,24 +413,6 @@ export default function EditAddressTypePage() {
                         <p className="account-address-message">Loading saved address...</p>
                       ) : (
                         <form className="account-address-form" onSubmit={handleSubmit} noValidate>
-                          <div className="account-address-row">
-                            <div className="account-address-field">
-                              <label htmlFor="firstName">First Name</label>
-                              <input id="firstName" type="text" value={form.firstName} onChange={setField('firstName')} />
-                              {errors.firstName && <span className="account-address-field-error">{errors.firstName}</span>}
-                            </div>
-                            <div className="account-address-field">
-                              <label htmlFor="lastName">Last Name</label>
-                              <input id="lastName" type="text" value={form.lastName} onChange={setField('lastName')} />
-                              {errors.lastName && <span className="account-address-field-error">{errors.lastName}</span>}
-                            </div>
-                          </div>
-
-                          <div className="account-address-field">
-                            <label htmlFor="company">Company Name (optional)</label>
-                            <input id="company" type="text" value={form.company} onChange={setField('company')} />
-                          </div>
-
                           <div className="account-address-field">
                             <label htmlFor="address1">Address</label>
                             <input id="address1" type="text" value={form.address1} onChange={setField('address1')} />
@@ -463,7 +445,7 @@ export default function EditAddressTypePage() {
 
                           <div className="account-address-actions">
                             <button type="submit" className="button fill uppercase" disabled={saving}>
-                              {saving ? 'Saving...' : `Save ${isBilling ? 'Billing' : 'Shipping'} Address`}
+                              {saving ? 'Saving...' : `Save ${isBilling ? '' : 'Shipping '}Address`}
                             </button>
                             <Link href="/my-account/edit-address" className="account-address-cancel">
                               Cancel

@@ -224,13 +224,17 @@ const me = async (req, res) => {
   if (!user) {
     return res.json({
       success: true,
-      data: {
-        isLoggedIn: false,
-        role: 'guest',
-        sessionId: req.sessionId,
-      }
+      data: { isLoggedIn: false, role: 'guest', sessionId: req.sessionId }
     });
   }
+
+  // Fetch first_name and last_name from tbl_usermeta
+  const [metaRows] = await db.query(
+    `SELECT meta_key, meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key IN ('first_name','last_name')`,
+    [user.id]
+  );
+  const meta = {};
+  metaRows.forEach(r => { meta[r.meta_key] = r.meta_value; });
 
   res.json({
     success: true,
@@ -241,6 +245,8 @@ const me = async (req, res) => {
         username: user.username,
         email: user.email,
         displayName: user.name,
+        firstName: meta['first_name'] || '',
+        lastName: meta['last_name'] || '',
         role: user.userTypeSlug,
         userType: user.userType,
       }
