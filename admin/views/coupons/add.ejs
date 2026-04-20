@@ -249,9 +249,9 @@
                                     <% const selIn=isEdit && c.include_categories ?
                                       c.include_categories.split(',').map(s=> s.trim()) : []; %>
                                       <% categories.forEach(cat=> { %>
-                                        <option value="<%= cat.id %>" <%=selIn.includes(String(cat.id)) ? 'selected'
+                                        <option value="<%= cat.category_id %>" <%=selIn.includes(String(cat.category_id)) ? 'selected'
                                           : '' %>>
-                                          <%= cat.name %>
+                                          <%= cat.category_name %>
                                         </option>
                                         <% }) %>
                                           <% } %>
@@ -268,9 +268,9 @@
                                     <% const selEx=isEdit && c.exclude_categories ?
                                       c.exclude_categories.split(',').map(s=> s.trim()) : []; %>
                                       <% categories.forEach(cat=> { %>
-                                        <option value="<%= cat.id %>" <%=selEx.includes(String(cat.id)) ? 'selected'
+                                        <option value="<%= cat.category_id %>" <%=selEx.includes(String(cat.category_id)) ? 'selected'
                                           : '' %>>
-                                          <%= cat.name %>
+                                          <%= cat.category_name %>
                                         </option>
                                         <% }) %>
                                           <% } %>
