@@ -237,8 +237,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openFilters, setOpenFilters] = useState<Record<string, boolean>>({ ...DEFAULT_OPEN_FILTERS });
-  const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 9;
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -429,12 +427,8 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     updateCategoryUrl([]);
     setSliderMin(absoluteMin);
     setSliderMax(absoluteMax);
-    setPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
-  const paginated  = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-  const goToPage   = (p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
   // Build label maps per taxonomy for chips
   const labelMaps: Record<string, Map<string, string>> = {};
@@ -783,23 +777,10 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
           {!loading && !error && sorted.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label="Products">
-              {paginated.map((product, idx) => (
+              {sorted.map((product, idx) => (
                 <ShopProductCard key={product.ID} product={product} idx={idx} />
               ))}
             </div>
-          )}
-
-          {!loading && !error && sorted.length > 0 && totalPages > 1 && (
-            <nav className="csp-pagination" aria-label="Pagination">
-              <button className="csp-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}
-                aria-label="Previous page">&lt; Prev</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} className={`csp-page-btn${p === page ? ' active' : ''}`}
-                  onClick={() => goToPage(p)} aria-current={p === page ? 'page' : undefined}>{p}</button>
-              ))}
-              <button className="csp-page-btn next" onClick={() => goToPage(page + 1)} disabled={page === totalPages}
-                aria-label="Next page">Next &gt;</button>
-            </nav>
           )}
         </main>
       </div>

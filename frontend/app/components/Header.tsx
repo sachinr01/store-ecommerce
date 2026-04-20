@@ -133,7 +133,7 @@ export default function Header() {
         contentColumns: 2,
       },
     },
-    { label: "KITCHEN ORGANISERS", href: "/shop/kitchenware" },
+    { label: "KITCHEN ORGANISERS", href: "/shop/jars-and-containers" },
     { label: "ABOUT US", href: "/about-us" },
     { label: "B2B CONNECT", href: "/b2b-connect" },
   ];

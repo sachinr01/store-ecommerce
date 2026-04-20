@@ -417,11 +417,17 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
             <img src={allImages[mainImage]} alt={product.title} className="cpd-main-img"
               onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
 
-            {/* Image nav arrows (mobile) */}
-            <button className="cpd-img-arrow prev"
-              onClick={() => setMainImage(i => Math.max(0, i - 1))}>‹</button>
-            <button className="cpd-img-arrow next"
-              onClick={() => setMainImage(i => Math.min(allImages.length - 1, i + 1))}>›</button>
+            {/* Image nav arrows — mobile always (>1 img), desktop only when >5 imgs */}
+            {allImages.length > 1 && (
+              <>
+                <button className={`cpd-img-arrow prev${allImages.length > 5 ? ' desktop-visible' : ''}`}
+                  onClick={() => setMainImage(i => Math.max(0, i - 1))}
+                  aria-label="Previous image">‹</button>
+                <button className={`cpd-img-arrow next${allImages.length > 5 ? ' desktop-visible' : ''}`}
+                  onClick={() => setMainImage(i => Math.min(allImages.length - 1, i + 1))}
+                  aria-label="Next image">›</button>
+              </>
+            )}
 
             {/* Sale badge */}
             {displaySalePrice && <span className="cpd-sale-badge">Sale</span>}
@@ -435,13 +441,16 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
               </svg>
             </button>
 
-            {/* Dot indicators */}
-            <div className="cpd-img-dots">
-              {allImages.map((_, i) => (
-                <button key={i} onClick={() => setMainImage(i)}
-                  className={`cpd-dot${mainImage === i ? ' active' : ''}`} />
-              ))}
-            </div>
+            {/* Dot indicators — only when multiple images */}
+            {allImages.length > 1 && (
+              <div className={`cpd-img-dots${allImages.length > 5 ? ' desktop-visible' : ''}`}>
+                {allImages.map((_, i) => (
+                  <button key={i} onClick={() => setMainImage(i)}
+                    className={`cpd-dot${mainImage === i ? ' active' : ''}`}
+                    aria-label={`View image ${i + 1}`} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -794,6 +803,9 @@ const baseCss = `
 }
 .cpd-img-arrow.prev { left: 10px; }
 .cpd-img-arrow.next { right: 10px; }
+/* Show on desktop when product has >5 images (thumbnails can't cover all) */
+.cpd-img-arrow.desktop-visible { display: flex; }
+.cpd-img-dots.desktop-visible { display: flex; }
 
 .cpd-sale-badge {
   position: absolute; top: 14px; left: 14px; z-index: 10;
@@ -1407,7 +1419,7 @@ const baseCss = `
   /* Main image: cap height so it doesn't dominate the viewport */
   .cpd-main-img-wrap { max-height:420px; }
 
-  .cpd-img-arrow { display:flex; }
+  .cpd-img-arrow { display:flex; width:40px; height:40px; }
   .cpd-img-dots { display:flex; }
   .cpd-breadcrumb, .cpd-tabs-section { padding-left:20px; padding-right:20px; }
 

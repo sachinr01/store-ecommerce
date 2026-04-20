@@ -33,8 +33,6 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
       style={{ animationDelay: `${idx * 60}ms` }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onTouchStart={() => setHovered(true)}
-      onTouchEnd={() => setTimeout(() => setHovered(false), 600)}
     >
       <div className="na-img-wrap">
         <Link href={href} tabIndex={-1} aria-hidden="true">
@@ -153,7 +151,7 @@ const STYLES = (
     .na-view-all-btn:hover { background: #111; color: #fff; }
     @media (max-width: 1024px) { .na-grid { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 768px) { .na-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; } .na-outer { padding: 40px 16px; } .na-section-title { font-size: 18px; } }
-    @media (max-width: 480px) { .na-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .na-price { font-size: 13.5px; } .na-overlay { transform: translateY(0) !important; background: rgba(255,255,255,.9); padding: 8px; } .na-wishlist { opacity: 1; } .na-card:hover { transform: none; box-shadow: none; } .na-quick-view { height: 30px; line-height: 30px; font-size: 11px; } }
+    @media (max-width: 480px) { .na-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; } .na-price { font-size: 13.5px; } .na-overlay { display: none; } .na-wishlist { opacity: 1; } .na-card:hover { transform: none; box-shadow: none; } }
   `}</style>
 );
 

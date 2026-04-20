@@ -11,8 +11,8 @@ import { useWishlist } from '../../lib/wishlistContext';
 import '../shop.css';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
-const PAGE_SLUG    = 'kitchenware';
-const PAGE_LABEL   = 'Kitchenware';
+const PAGE_SLUG    = 'jars-and-containers';
+const PAGE_LABEL   = 'Jars & Containers';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>

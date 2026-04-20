@@ -832,6 +832,8 @@
   align-items: baseline;
   gap: 6px;
   margin-top: 3px;
+  flex-wrap: wrap;
+  row-gap: 2px;
 }
 .csp-old-price {
   font-family: var(--font-body);
@@ -851,6 +853,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--cs-sale);
+  white-space: nowrap;
 }
 
 .csp-state-wrap {
@@ -966,17 +969,22 @@
 }
 @media (max-width: 600px) {
   .csp-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .csp-img-wrap { aspect-ratio: 3/4; }
   .csp-page-title { font-size: 26px; }
   .csp-sort-label { display: none; }
   .csp-cat-strip { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 16px; scrollbar-width: none; }
   .csp-cat-strip::-webkit-scrollbar { display: none; }
+  .csp-info { padding: 10px 10px 12px; }
+  .csp-name { font-size: 12.5px; }
+  .csp-price { font-size: 13.5px; }
+  .csp-old-price { font-size: 11px; }
+  .csp-save-badge { font-size: 11px; }
 }
 @media (max-width: 380px) {
   .csp-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 }
 @media (hover: none) {
-  .csp-overlay { transform: translateY(0) !important; background: rgba(255,255,255,.9); padding: 8px; }
+  .csp-overlay { display: none; }
   .csp-wishlist { opacity: 1; }
   .csp-card:hover { transform: none; box-shadow: none; }
-  .csp-quick-view { height: 30px; line-height: 30px; font-size: 11px; }
 }
