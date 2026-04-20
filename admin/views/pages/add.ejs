@@ -1,6 +1,6 @@
 <%- include('../partials/head') %>
 
-  <% var b=locals.blog || null; var isEdit=locals.isEdit; %>
+  <% var b=locals.page || null; var isEdit=locals.isEdit; %>
 
     <%- include('../partials/navbar') %>
       <%- include('../partials/sidebar') %>
@@ -11,13 +11,13 @@
             <div class="row">
               <div class="col-7 align-self-center">
                 <h4 class="page-title">
-                  <%= isEdit ? 'Edit Blog' : 'Add Blog' %>
+                  <%= isEdit ? 'Edit Page' : 'Add Page' %>
                 </h4>
                 <div class="d-flex align-items-center">
                   <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
                       <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-                      <li class="breadcrumb-item"><a href="/store/admin/blogs">Blogs</a></li>
+                      <li class="breadcrumb-item"><a href="/store/admin/pages">Pages</a></li>
                       <li class="breadcrumb-item active">
                         <%= isEdit ? 'Edit' : 'Add' %>
                       </li>
@@ -26,9 +26,9 @@
                 </div>
               </div>
               <div class="col-5 align-self-center text-end">
-                <a href="/store/admin/blogs" class="btn btn-secondary rounded-pill px-4">
+                <a href="/store/admin/pages" class="btn btn-secondary rounded-pill px-4">
                   <div class="d-flex align-items-center">
-                    <i data-feather="arrow-left" class="feather-sm me-1"></i> Back to Blogs
+                    <i data-feather="arrow-left" class="feather-sm me-1"></i> Back to Pages
                   </div>
                 </a>
               </div>
@@ -45,7 +45,7 @@
               </div>
               <% } %>
 
-                <form action="<%= isEdit ? '/store/admin/blogs/update/' + b.ID : '/store/admin/blogs/store' %>"
+                <form action="<%= isEdit ? '/store/admin/pages/update/' + b.ID : '/store/admin/pages/store' %>"
                   method="POST">
 
                   <div class="row">
@@ -55,18 +55,18 @@
 
                       <div class="card mb-3">
                         <div class="card-body">
-                          <h4 class="card-title mb-3 pb-3 border-bottom">Blog Content</h4>
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Page Content</h4>
 
                           <div class="mb-3">
-                            <label class="form-label fw-semibold">Blog Title <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Page Title <span class="text-danger">*</span></label>
                             <input type="text" name="post_title" class="form-control form-control-lg"
-                              placeholder="Enter blog title..." value="<%= isEdit ? b.post_title : '' %>" required />
+                              placeholder="Enter page title..." value="<%= isEdit ? b.post_title : '' %>" required />
                           </div>
 
                           <div class="mb-3">
-                            <label class="form-label fw-semibold">Blog URL (Slug)</label>
+                            <label class="form-label fw-semibold">Page URL (Slug)</label>
                             <div class="input-group">
-                              <span class="input-group-text text-muted">/store/blog/</span>
+                              <span class="input-group-text text-muted">/store/page/</span>
                               <input type="text" name="post_slug" id="postSlug" class="form-control"
                                 placeholder="auto-generated-slug" value="<%= isEdit ? b.post_slug : '' %>" />
                             </div>
@@ -76,7 +76,7 @@
                           <div class="mb-3">
                             <label class="form-label fw-semibold">Short Description</label>
                             <textarea name="post_short_desc" id="post_short_desc" class="form-control" rows="3"
-                              placeholder="Brief blog description..."><%= isEdit ? (b.post_short_desc || '') : '' %></textarea>
+                              placeholder="Brief page description..."><%= isEdit ? (b.post_short_desc || '') : '' %></textarea>
                           </div>
 
                           <div class="mb-3">
@@ -110,19 +110,19 @@
 
                           <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary rounded-pill">
-                              <%= isEdit ? 'Update Blog' : 'Publish Blog' %>
+                              <%= isEdit ? 'Update Page' : 'Publish Page' %>
                             </button>
-                            <a href="/store/admin/blogs" class="btn btn-outline-secondary rounded-pill">
+                            <a href="/store/admin/pages" class="btn btn-outline-secondary rounded-pill">
                               Cancel
                             </a>
                           </div>
                         </div>
                       </div>
 
-                      <!-- blog IMAGE CARD -->
+                      <!-- page IMAGE CARD -->
                       <div class="card mb-3">
                         <div class="card-body">
-                          <h4 class="card-title mb-3 pb-3 border-bottom">Blog Image</h4>
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Page Image</h4>
 
                           <div class="mb-3">
                             <div class="border rounded p-3 text-center" id="blogImagePreview"
@@ -139,7 +139,7 @@
                                   <div>
                                     <i data-feather="image" style="width:48px;height:48px;"
                                       class="text-muted mb-2 d-block mx-auto"></i>
-                                    <p class="text-muted small mb-0">Click to select blog image</p>
+                                    <p class="text-muted small mb-0">Click to select page image</p>
                                   </div>
                                   <% } %>
                             </div>
@@ -147,60 +147,25 @@
                             <% if (isEdit && b.thumbnail && b.thumbnailId) { %>
 
                               <button type="button" id="removeBlogImagebtn" class="btn btn-link btn-sm text-danger p-0">
-                                <i data-feather="trash-2" class="feather-sm me-1"></i> Remove blog image
+                                <i data-feather="trash-2" class="feather-sm me-1"></i> Remove page image
                               </button>
 
                               <% } %>
 
-                                <input type="hidden" id="blog_image" name="blog_image" value="<%= blog.thumbnail %>">
+                                <input type="hidden" id="blog_image" name="blog_image" value="<%= page.thumbnail %>">
 
                                 <input type="hidden" id="blog_image_title" name="blog_image_title"
-                                  value="<%= blog.title || '' %>">
+                                  value="<%= page.title || '' %>">
 
                                 <input type="hidden" id="blog_image_alt" name="blog_image_alt"
-                                  value="<%= blog.alt || '' %>">
+                                  value="<%= page.alt || '' %>">
                           </div>
 
 
                         </div>
                       </div>
 
-                      <!-- CATEGORIES CARD -->
-                      <div class="card mb-3">
-                        <div class="card-body">
-                          <h4 class="card-title mb-3 pb-3 border-bottom">Blog Categories</h4>
-
-                          <div style="max-height:300px; overflow-y:auto;">
-                            <ul class="list-unstyled mb-0">
-
-                              <% function renderCategories(categories, parent=0) { %>
-                                <% categories.filter(c=> c.parent_id == parent).forEach(cat => { %>
-
-                                  <li class="mb-2">
-                                    <label class="form-check">
-                                      <input type="checkbox" name="categories[]" value="<%= cat.category_id %>"
-                                        class="form-check-input" <%=selectedCategoryIds &&
-                                        selectedCategoryIds.includes(cat.category_id) ? 'checked' : '' %>>
-                                      <span class="form-check-label">
-                                        <%= cat.category_name %>
-                                      </span>
-                                    </label>
-
-                                    <ul class="ms-3 list-unstyled">
-                                      <% renderCategories(categories, cat.category_id); %>
-                                    </ul>
-
-                                  </li>
-
-                                  <% }) %>
-                                    <% } %>
-
-                                      <%= renderCategories(allCategories) %>
-
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
+                     
 
                       <!-- POST SETTINGS CARD -->
                       <div class="card mb-3">
@@ -210,7 +175,7 @@
                           <div class="mb-3">
                             <label class="form-label fw-semibold">Post Type</label>
                             <select name="post_type" class="form-select">
-                              <option value="post" selected>Post
+                              <option value="page" selected>Page
                               </option>
                             </select>
                           </div>
