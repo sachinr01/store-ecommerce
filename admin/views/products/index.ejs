@@ -52,24 +52,7 @@
                     <div class="col-12">
                       <div class="card">
                         <div class="card-body">
-                          <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                            <h4 class="card-title mb-0">All Products</h4>
-                            <div class="d-flex gap-2">
-                              <!-- Filter by Status -->
-                              <select class="form-select form-select-sm" id="statusFilter" style="width:150px;">
-                                <option value="">All Status</option>
-                                <option value="publish">Published</option>
-                                <option value="draft">Draft</option>
-                                <option value="trash">Trash</option>
-                              </select>
-                              <!-- Filter by Type -->
-                              <select class="form-select form-select-sm" id="typeFilter" style="width:160px;">
-                                <option value="">All Types</option>
-                                <option value="product">Simple Product</option>
-                                <option value="product_variation">Variable Product</option>
-                              </select>
-                            </div>
-                          </div>
+                          
 
                           <div class="table-responsive">
                             <table id="productsTable" class="table table-hover table-striped align-middle">
@@ -194,31 +177,7 @@
                             </table>
                           </div>
 
-                          <!-- Pagination -->
-                          <% if (typeof totalPages !=='undefined' && totalPages> 1) { %>
-                            <div class="d-flex justify-content-between align-items-center mt-3">
-                              <p class="text-muted mb-0">Showing <%= (currentPage - 1) * limit + 1 %> to <%=
-                                    Math.min(currentPage * limit, totalProducts) %> of <%= totalProducts %> products</p>
-                              <nav>
-                                <ul class="pagination pagination-sm mb-0">
-                                  <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                                    <a class="page-link" href="?page=<%= currentPage - 1 %>">Previous</a>
-                                  </li>
-                                  <% for(let i=1; i <=totalPages; i++) { %>
-                                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                                      <a class="page-link" href="?page=<%= i %>">
-                                        <%= i %>
-                                      </a>
-                                    </li>
-                                    <% } %>
-                                      <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                                        <a class="page-link" href="?page=<%= currentPage + 1 %>">Next</a>
-                                      </li>
-                                </ul>
-                              </nav>
-                            </div>
-                            <% } %>
-
+                        
                         </div>
                       </div>
                     </div>
@@ -299,11 +258,14 @@
       
 <script>
   $(document).ready(function() {
+     if ($.fn.DataTable.isDataTable('#productsTable')) {
+    $('#productsTable').DataTable().clear().destroy();
+  }
     $('#productsTable').DataTable({
       "responsive": true,
       "autoWidth": false,
       "order": [[0, "desc"]],
-      "pageLength": 25,
+      "pageLength": 10,
       "columnDefs": [
         { "orderable": false, "targets": 6 }
       ],
