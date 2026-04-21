@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -18,12 +18,7 @@ export default function CartPage() {
   const [couponMsg, setCouponMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
 
-  const discount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.type === 'percent') return Math.round((total * appliedCoupon.amount) / 100);
-    if (appliedCoupon.type === 'fixed_cart') return Math.min(appliedCoupon.amount, total);
-    return 0;
-  }, [appliedCoupon, total]);
+  const discount = appliedCoupon?.discount ?? 0;
 
   const orderTotal = Math.max(0, total - discount);
 

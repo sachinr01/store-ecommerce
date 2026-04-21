@@ -188,12 +188,10 @@ export default function CheckoutPage() {
   };
 
   // ─── Discount calculation ────────────────────────────────────────────────────
-  const discount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.type === 'percent') return Math.round((total * appliedCoupon.amount) / 100);
-    if (appliedCoupon.type === 'fixed_cart') return Math.min(appliedCoupon.amount, total);
-    return 0;
-  }, [appliedCoupon, total]);
+  // When include_categories is set, the server returns an eligibleSubtotal
+  // (sum of matching items only). We calculate the discount on that base so
+  // the Order Summary shows the correct partial discount amount.
+  const discount = appliedCoupon?.discount ?? 0;
 
   const orderTotal = Math.max(0, total - discount);
 

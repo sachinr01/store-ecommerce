@@ -313,8 +313,11 @@ export const updateProfileAddress = (kind: 'billing' | 'shipping', body: Profile
 // ── Coupons ───────────────────────────────────────────────────────────────────
 export interface AppliedCoupon {
   code: string;
-  type: 'percent' | 'fixed_cart' | string;
+  type: 'percent' | 'fixed_cart';
   amount: number;
+  discount: number;
+  /** Subtotal of only the category-eligible items. Undefined = full cart is eligible. */
+  eligibleSubtotal?: number;
 }
 
 export const getActiveCoupon = async (): Promise<AppliedCoupon | null> => {

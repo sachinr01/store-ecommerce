@@ -464,7 +464,7 @@ const placeOrder = async (req, res) => {
     // Re-validate coupon inside the transaction with FOR UPDATE locking
     // This prevents race conditions (two users using the last coupon slot).
     const productIds = cartItems.map((i) => Number(i.product_id)).filter(Boolean);
-    const couponCheck = await validateAndLockCoupon(conn, appliedCoupon, userId, subtotal, productIds);
+    const couponCheck = await validateAndLockCoupon(conn, appliedCoupon, userId, subtotal, productIds, cartItems);
     if (!couponCheck.ok) {
       await conn.rollback();
       delete req.sessionData.appliedCoupon;
