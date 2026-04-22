@@ -14,7 +14,7 @@ interface ProductCardProps {
 }
 
 const iconActions = [
-  { icon: "fa-search", title: "Quick View", href: "#" },
+  { icon: "fa-search", title: "View Product", href: "#" },
   { icon: "fa-shopping-cart", title: "Add to Cart", href: "#" },
   { icon: "fa-heart", title: "Wishlist", href: "#" },
   { icon: "fa-share-alt", title: "Share", href: "#" },

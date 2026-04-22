@@ -105,7 +105,7 @@ export default function Header() {
 
   const navLinks: Array<{ label: string; href: string; mega?: MegaMenu }> = [
     {
-      label: "DRINKWARE", href: "/shop",
+      label: "DRINKWARE", href: "/shop/drinkware",
       mega: {
         columns: [
           { heading: "Highlights", links: [{ label: "New Arrivals", href: "/shop" }, { label: "Best Sellers", href: "/shop" }] },

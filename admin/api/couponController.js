@@ -38,7 +38,7 @@ async function readCartItems(req, conn) {
 async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, cartItems) {
   // Guard: never allow a coupon to be applied to an empty cart
   if (!productIds || productIds.length === 0) {
-    return { ok: false, status: 400, message: 'Your cart is empty.' };
+    return { ok: false, status: 400, message: 'Add items to your cart before applying a coupon.' };
   }
 
   const query = conn.query.bind(conn);
@@ -53,7 +53,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       [coupon.coupon_id]
     );
     if (usageRow.total_used >= coupon.usage_limit_per_coupon) {
-      return { ok: false, status: 400, message: 'This coupon has reached its usage limit.' };
+      return { ok: false, status: 400, message: 'Sorry, this coupon has been fully claimed and is no longer available.' };
     }
   }
 
@@ -67,9 +67,36 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       [coupon.coupon_id, userId]
     );
     if (userUsage.user_used >= coupon.usage_limit_per_user) {
-      return { ok: false, status: 400, message: 'You have already used this coupon the maximum number of times.' };
+      return { ok: false, status: 400, message: "You've already used this coupon the maximum number of times allowed per customer." };
     }
   }
+
+  // ── 3. usage_limit_per_products ──────────────────────────────────────────────────────
+  // Limits how many total product units across ALL orders can ever be discounted
+  // by this coupon. Once that unit count is hit, the coupon is exhausted.
+  //
+  // Example: limit = 5 means only 5 units (across all customers, all orders)
+  // will ever get a discount from this coupon.
+  if (coupon.usage_limit_per_products > 0) {
+    const [[productUsage]] = await query(
+      `SELECT COALESCE(SUM(CAST(oim.meta_value AS UNSIGNED)), 0) AS total_units
+       FROM tbl_coupons_usage cu
+       JOIN tbl_order_items oi
+         ON oi.order_id = cu.order_id AND oi.order_item_type = 'line_item'
+       JOIN tbl_order_itemmeta oim
+         ON oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'
+       WHERE cu.coupon_id = ? AND cu.order_id > 0`,
+      [coupon.coupon_id]
+    );
+    if (Number(productUsage.total_units) >= coupon.usage_limit_per_products) {
+      return {
+        ok: false,
+        status: 400,
+        message: `This coupon has already been used on the maximum allowed number of product units (${coupon.usage_limit_per_products}). It is no longer available.`,
+      };
+    }
+  }
+
 
   // ── 3 & 4. minimum_spend / maximum_spend ─────────────────────────────────
 
@@ -102,7 +129,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       return {
         ok: false,
         status: 400,
-        message: 'This coupon is not valid for the products in your cart.',
+        message: 'This coupon only applies to specific products that are not in your cart. Add the required products to use this coupon.',
       };
     }
   }
@@ -124,7 +151,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       return {
         ok: false,
         status: 400,
-        message: 'Unable to verify coupon eligibility. Please refresh and try again.',
+        message: 'We could not verify your cart. Please refresh the page and try again.',
       };
     }
 
@@ -160,7 +187,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       return {
         ok: false,
         status: 400,
-        message: 'This coupon is not valid for the products in your cart.',
+        message: 'None of the items in your cart are eligible for this coupon. It only applies to specific products or categories not currently in your cart.',
       };
     }
 
@@ -175,23 +202,31 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
     return {
       ok: false,
       status: 400,
-      message: `A minimum eligible spend of ₹${minSpend.toFixed(2)} is required to use this coupon.`,
+      message: `Your eligible items total ₹${eligibleSubtotal.toFixed(2)}, but this coupon requires a minimum eligible spend of ₹${minSpend.toFixed(2)}. Add more eligible products to your cart to use this coupon.`,
     };
   }
   if (maxSpend > 0 && eligibleSubtotal > maxSpend) {
     return {
       ok: false,
       status: 400,
-      message: `This coupon is only valid for eligible spend up to ₹${maxSpend.toFixed(2)}.`,
+      message: `Your eligible items total ₹${eligibleSubtotal.toFixed(2)}, which exceeds the ₹${maxSpend.toFixed(2)} maximum for this coupon. Remove some eligible items to bring the total within the limit.`,
     };
   }
 
-  return { ok: true, eligibleSubtotal };
+  return { ok: true, eligibleSubtotal, eligibleProductIds: hasAnyProductRule ? (productIds.filter((pid) => {
+    if (includeProducts.length > 0 && includeProducts.includes(pid)) return true;
+    if (excludeProducts.length > 0 && excludeProducts.includes(pid)) return false;
+    const cats = productCatMap[pid] || [];
+    if (excludeCategories.length > 0 && cats.some((cid) => excludeCategories.includes(cid))) return false;
+    if (includeCategories.length > 0) return cats.some((cid) => includeCategories.includes(cid));
+    if (includeProducts.length > 0) return false;
+    return true;
+  })) : productIds };
 }
 
 
-function calculateDiscount(coupon, cartTotal, eligibleSubtotal) {
-  const base   = (eligibleSubtotal !== undefined && eligibleSubtotal !== null)
+function calculateDiscount(coupon, cartTotal, eligibleSubtotal, cartItems, eligibleProductIds) {
+  const base = (eligibleSubtotal !== undefined && eligibleSubtotal !== null)
     ? eligibleSubtotal
     : cartTotal;
   const amount = Number(coupon.coupon_amount) || 0;
@@ -203,9 +238,17 @@ function calculateDiscount(coupon, cartTotal, eligibleSubtotal) {
     return Math.min(amount, base);
   }
   if (coupon.coupon_type === 'fixed_product') {
-    // fixed_product: flat amount off each eligible product unit —
-    // but never discount more than the eligible subtotal itself.
-    return Math.min(amount, base);
+    // Deduct flat amount per eligible unit, capped at the eligible subtotal
+    let totalUnits = 0;
+    if (cartItems && eligibleProductIds && eligibleProductIds.length > 0) {
+      for (const item of cartItems) {
+        if (eligibleProductIds.includes(Number(item.product_id))) {
+          totalUnits += Number(item.quantity || 0);
+        }
+      }
+    }
+    const perUnitDiscount = totalUnits > 0 ? amount * totalUnits : amount;
+    return Math.min(perUnitDiscount, base);
   }
   return 0;
 }
@@ -265,7 +308,7 @@ const active = async (req, res) => {
       }
 
       eligibleSubtotal = result.eligibleSubtotal;
-      discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal);
+      discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal, cartItems, result.eligibleProductIds);
     } catch (_) {
       // Cart unreadable due to a DB error — safest to strip the coupon and
       // return null rather than risk showing a wrong discount to the user.
@@ -286,7 +329,7 @@ const active = async (req, res) => {
     });
   } catch (err) {
     console.error('coupon/active error:', err);
-    return res.status(500).json({ success: false, message: 'Server error. Please try again.' });
+    return res.status(500).json({ success: false, message: 'Something went wrong on our end. Please try again in a moment.' });
   }
 };
 
@@ -294,7 +337,7 @@ const active = async (req, res) => {
 const apply = async (req, res) => {
   const rawCode = String(req.body.coupon_code || '').trim();
   if (!rawCode) {
-    return res.status(400).json({ success: false, message: 'Coupon code is required.' });
+    return res.status(400).json({ success: false, message: 'Please enter a coupon code.' });
   }
 
   try {
@@ -309,7 +352,7 @@ const apply = async (req, res) => {
     );
 
     if (!coupon) {
-      return res.status(404).json({ success: false, message: 'Invalid or expired coupon code.' });
+      return res.status(404).json({ success: false, message: "That coupon code doesn't exist or has expired. Please check the code and try again." });
     }
 
     const userId = req.sessionData?.user?.id || 0;
@@ -331,7 +374,7 @@ const apply = async (req, res) => {
     }
 
     const eligibleSubtotal = result.eligibleSubtotal !== undefined ? result.eligibleSubtotal : cartTotal;
-    const discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal);
+    const discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal, cartItems, result.eligibleProductIds);
 
     req.sessionData.appliedCoupon = {
       coupon_id:     coupon.coupon_id,
@@ -343,7 +386,7 @@ const apply = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Coupon applied successfully!',
+      message: `Coupon "${coupon.coupon_code}" applied! You're saving ₹${discount.toFixed(2)} on this order.`,
       data: {
         code:            coupon.coupon_code,
         type:            coupon.coupon_type,
@@ -354,7 +397,7 @@ const apply = async (req, res) => {
     });
   } catch (err) {
     console.error('coupon/apply error:', err);
-    return res.status(500).json({ success: false, message: 'Server error. Please try again.' });
+    return res.status(500).json({ success: false, message: 'Something went wrong on our end. Please try again in a moment.' });
   }
 };
 
@@ -384,15 +427,15 @@ async function validateAndLockCoupon(conn, sessionCoupon, userId, cartTotal, pro
   );
 
   if (!coupon) {
-    return { ok: false, status: 400, message: 'The applied coupon is no longer valid.' };
+    return { ok: false, status: 400, message: 'The coupon you applied is no longer valid (it may have expired or been removed). Please try a different coupon.' };
   }
 
   const result = await validateCouponRules(coupon, userId, cartTotal, productIds, conn, cartItems);
   if (!result.ok) return result;
 
   const eligibleSubtotal = result.eligibleSubtotal !== undefined ? result.eligibleSubtotal : cartTotal;
-  const discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal);
-  return { ok: true, discount, coupon, eligibleSubtotal };
+  const discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal, cartItems, result.eligibleProductIds);
+  return { ok: true, discount, coupon, eligibleSubtotal, eligibleProductIds: result.eligibleProductIds };
 }
 
 /**

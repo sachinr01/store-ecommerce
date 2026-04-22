@@ -9,7 +9,7 @@ export default function TrustBar() {
       ),
       title: 'Easy returns',
       desc: 'Return within 15 days of order delivery.',
-      link: { label: 'See T&Cs', href: '/terms-conditions' },
+      link: { label: 'See T&Cs', href: 'terms-conditions' },
     },
     {
       icon: (
@@ -53,7 +53,6 @@ export default function TrustBar() {
         .tb-wrap {
           background: #fff;
           border-top: 1px solid #efefef;
-          border-bottom: 1px solid #efefef;
         }
         .tb-tagline {
           text-align: center;
@@ -90,15 +89,7 @@ export default function TrustBar() {
         }
         .tb-item:last-child::after { display: none; }
         .tb-stripe-bar {
-          height: 32px;
-          background-image: repeating-linear-gradient(
-            -45deg,
-            #f0f0f0,
-            #f0f0f0 4px,
-            #fff 4px,
-            #fff 10px
-          );
-          border-top: 1px solid #efefef;
+          display: none;
         }
         .tb-icon { flex-shrink: 0; }
         .tb-text h4 {

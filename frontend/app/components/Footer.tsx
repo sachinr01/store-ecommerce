@@ -5,77 +5,53 @@ export default function Footer() {
   return (
     <footer className="okab-footer">
       <TrustBar />
+
+      {/* footer-top: About Us | Need Help | Company | Contact Us */}
       <div className="footer-top">
         <div className="footer-grid">
           <div>
-            <h4>NEED HELP</h4>
+            <h4>About Us</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">FAQs</a></li>
-              <li><Link href="/orders" className="link-faded">Track Order</Link></li>
-              <li><a href="#." className="link-faded">Store Locator</a></li>
-              <li><a href="#." className="link-faded">Return &amp; Exchange</a></li>
-              <li><a href="#." className="link-faded">Site Map</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>ABOUT US</h4>
-            <ul className="footer-nav-list" role="list">
+              <li><a href="#" className="link-faded">B2B Connect</a></li>
               <li><Link href="/about-us" className="link-faded">Our Story</Link></li>
-              <li><Link href="/contact-us" className="link-faded">Contact Us</Link></li>
-              <li><Link href="/shipping-policy" className="link-faded">Shipping Policy</Link></li>
-              <li><Link href="/refund_returns" className="link-faded">Refund &amp; Returns</Link></li>
-              <li><Link href="/terms-conditions" className="link-faded">Terms &amp; Conditions</Link></li>
+              <li><a href="#" className="link-faded">FAQs</a></li>
             </ul>
           </div>
           <div>
-            <h4>COMPANY</h4>
+            <h4>Need Help</h4>
             <ul className="footer-nav-list" role="list">
+              <li><Link href="/contact-us" className="link-faded">Contact Us</Link></li>
+              <li><Link href="/orders" className="link-faded">Track Order</Link></li>
+              <li><a href="#" className="link-faded">Site Map</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Company</h4>
+            <ul className="footer-nav-list" role="list">
+              <li><Link href="/refund_returns" className="link-faded">Return &amp; Exchange</Link></li>
               <li><Link href="/privacy-policy" className="link-faded">Privacy Policy</Link></li>
               <li><Link href="/terms-conditions" className="link-faded">Terms Of Use</Link></li>
-              <li><Link href="/contact-us" className="link-faded">Contact Us</Link></li>
-              <li><Link href="/refund_returns" className="link-faded">Refund &amp; Returns</Link></li>
             </ul>
           </div>
           <div>
-            <h4>POPULAR CATEGORIES</h4>
+            <h4>Contact Us</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="/store/collection/cups-and-mugs" className="link-faded">Cups & Mugs</a></li>
-              <li><a href="/store/collection/home-decor" className="link-faded">Home Decor</a></li>
-              <li><a href="/store/collection/dining" className="link-faded">Dining</a></li>
-              <li><a href="/store/collection/kitchen" className="link-faded">Kitchen</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>GET IN TOUCH</h4>
-            <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Whatsapp: 91 0000000000</a></li>
-              <li><a href="#." className="link-faded">Mon-Sat 10AM - 6PM IST</a></li>
-              <li><a href="#." className="link-faded">Email: Info@test.com</a></li>
-              <li>
-                <a href="#." className="link-faded">Instagram</a>
-                <span className="link-sep"> / </span>
-                <a href="#." className="link-faded">Facebook</a>
-              </li>
+              <li><a href="#" className="link-faded">Whatsapp: 91 0000000000</a></li>
+              <li><a href="#" className="link-faded">Mon-Sat 10AM - 6PM IST</a></li>
+              <li><a href="#" className="link-faded">Email: Info@test.com</a></li>
+              <li><a href="#" className="link-faded">Instagram</a></li>
+              <li><a href="#" className="link-faded">Facebook</a></li>
             </ul>
           </div>
         </div>
         <div className="footer-middle" />
       </div>
 
+      {/* footer-bottom: Shop by Price | Shop by Categories | Popular Products | Latest Products */}
       <div className="footer-bottom">
         <div className="footer-grid">
           <div>
-            <h4>GIFTING</h4>
-            <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Festive Gifting</a></li>
-              <li><a href="#." className="link-faded">E-Gift Cards</a></li>
-              <li><a href="#." className="link-faded">Corporate Gifting</a></li>
-              <li><a href="#." className="link-faded">Birthday Gifts</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4>SHOP BY PRICE</h4>
+            <h4>Shop by Price</h4>
             <ul className="footer-nav-list" role="list">
               <li><Link href="/shop?max=1000" className="link-faded">Gift Under 1000</Link></li>
               <li><Link href="/shop?max=2000" className="link-faded">Gift Under 2000</Link></li>
@@ -83,132 +59,127 @@ export default function Footer() {
               <li><Link href="/shop?max=5000" className="link-faded">Gift Under 5000</Link></li>
             </ul>
           </div>
-
           <div>
-            <h4>DINING ACCESSORIES</h4>
+            <h4>Shop by Categories</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Crockery Set</a></li>
-              <li><a href="#." className="link-faded">Tableware</a></li>
-              <li><a href="#." className="link-faded">Jars Online</a></li>
-              <li><a href="#." className="link-faded">Buy Bakeware Items</a></li>
+              <li><a href="/store/shop/glassware" className="link-faded">GLASSWARE</a></li>
+              <li><a href="/store/shop/drinkware" className="link-faded">DRINKWARE</a></li>
+              <li><a href="/store/shop/jars-and-containers" className="link-faded">JARS AND CONTAINERS</a></li>
             </ul>
           </div>
-
           <div>
-            <h4>HOME DECOR ITEMS</h4>
+            <h4>Popular Products</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Table Wall Decor</a></li>
-              <li><a href="#." className="link-faded">Planters and Pots</a></li>
-              <li><a href="#." className="link-faded">Buy Carpets Online</a></li>
-              <li><a href="#." className="link-faded">Candles</a></li>
+              <li><a href="#" className="link-faded">Product 1 here</a></li>
+              <li><a href="#" className="link-faded">Product 2 here</a></li>
+              <li><a href="#" className="link-faded">Product 3 here</a></li>
+              <li><a href="#" className="link-faded">Product 4 here</a></li>
             </ul>
           </div>
-
           <div>
-            <h4>FURNITURE &amp; FURNISHING</h4>
+            <h4>Latest Products</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#." className="link-faded">Sofa</a></li>
-              <li><a href="#." className="link-faded">Pouffe</a></li>
-              <li><a href="#." className="link-faded">Breakfast Table</a></li>
-              <li><a href="#." className="link-faded">Bedding</a></li>
+              <li><a href="#" className="link-faded">Product 1 here</a></li>
+              <li><a href="#" className="link-faded">Product 2 here</a></li>
+              <li><a href="#" className="link-faded">Product 3 here</a></li>
+              <li><a href="#" className="link-faded">Product 4 here</a></li>
             </ul>
           </div>
         </div>
       </div>
 
+      {/* footer-bottom2: Popular Search */}
       <div className="footer-bottom2">
-        <h4>POPULAR SEARCH</h4>
+        <h4>Popular Search</h4>
         <p className="popular_search--p">
-          Gifts Under 1000 | Gifts for WomenLow Price Gift Items | Laptop Backpack for Women | Laptop Handbags for Women | Laptop Backpack | Laptop Cover | Small Handbags for Women| Handbags for Women | Office Handbags for Womens | Luggage Trolley Bags | Travel Bag for Women | Women's Clutch Wallet | Ladies Clutch Wallet | Stainless Steel Watch | Stainless Steel Watch Strap | Metal Strap Watches | Passport Holder | Passport Holder for Women | Crockery Set | Dining Table Accessories | Table Decoration Items | Home Decor Items | Home Decor Products | Home Decor | Wall Decor Items | Wrist Watches for Women | Smart Watch for Women | Ladies Smart Watch | Traveling Bags
+          Gifts Under 1000 | Gifts for Women | Low Price Gift Items | Laptop Backpack for Women | Laptop Handbags for Women | Laptop Backpack | Laptop Cover | Small Handbags for Women | Handbags for Women | Office Handbags for Womens | Luggage Trolley Bags | Travel Bag for Women | Women&apos;s Clutch Wallet | Ladies Clutch Wallet | Stainless Steel Watch | Stainless Steel Watch Strap | Metal Strap Watches | Passport Holder | Passport Holder for Women | Crockery Set | Dining Table Accessories | Table Decoration Items | Home Decor Items | Home Decor Products | Home Decor | Wall Decor Items | Wrist Watches for Women | Smart Watch for Women | Ladies Smart Watch | Traveling Bags
         </p>
       </div>
 
       <style>{`
         .okab-footer {
-          width: 100%;
-          font-family: var(--font-body);
-          color: #111;
-          margin: 0;
-          padding: 0;
-          background: #8fb8a8;
+          border-top: 5px solid #ffcc00;
         }
-        .okab-footer h4 {
-          font-size: 14px;
+        .footer-top {
+          background: #c4a298;
+          padding: 40px 5% 0px;
+        }
+        .footer-middle {
+          height: 0px;
+        }
+        .footer-bottom {
+          background: #c4a298;
+          padding: 40px 5% 0px;
+        }
+        .footer-bottom2 {
+          background: #c4a298;
+          padding: 40px 5% 40px;
+        }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 40px;
+          align-items: start;
+        }
+        .footer-grid h4,
+        .footer-bottom2 h4 {
+          font-size: 17px;
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           margin: 0 0 14px 0;
-        }
-        .footer-top {
-          background: #8fb8a8 url("https://www.chumbak.com/cdn/shop/files/14_footer_d0d56a2f-2df7-41c0-a78b-25436a2cdabc.jpg?v=1695893379") no-repeat bottom center / 100% auto;
-          padding: 48px 120px 240px;
-        }
-        .footer-bottom {
-          background: #8fb8a8 url("https://www.chumbak.com/cdn/shop/files/gb.jpg?v=1712319238") no-repeat top center / 100% auto;
-          padding: 24px 120px 32px;
-        }
-        .footer-bottom2 {
-          background: #8fb8a8;
-          padding: 0 120px 36px;
-        }
-        .footer-grid {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 28px;
+          color: #884531;
         }
         .footer-nav-list {
-          list-style: none;
           padding: 0;
           margin: 0;
+          list-style: none;
+          text-align: left;
         }
         .footer-nav-list li {
-          margin: 0 0 8px 0;
-          font-size: 14px;
-          font-weight: 500;
-          color: #222;
+          margin-bottom: 8px !important;
+          list-style: none !important;
+          font-size: 15px !important;
+          line-height: 1.5 !important;
+          text-align: left !important;
         }
-        .link-faded {
-          color: #222;
-          text-decoration: none;
+        .footer-nav-list li a {
+          font-size: 15px !important;
+          color: #5f3022 !important;
+          text-decoration: none !important;
+          letter-spacing: 0.5px !important;
+          line-height: 1.5 !important;
+          display: block !important;
+          padding: 0 !important;
         }
-        .link-faded:hover {
-          text-decoration: underline;
-          opacity: 0.8;
+        .footer-nav-list li a:hover {
+          text-decoration: underline !important;
         }
-        .link-sep { color: #222; }
+        .footer-grid p {
+          color: #fff;
+        }
         .popular_search--p {
-          font-size: 13px;
-          font-weight: 500;
-          color: #222;
-          line-height: 1.9;
-          margin: 0;
-        }
-
-        @media (max-width: 1200px) {
-          .footer-top,
-          .footer-bottom,
-          .footer-bottom2 { padding-left: 64px; padding-right: 64px; }
-          .footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-          .footer-top { padding-bottom: 200px; }
+          color: #000 !important;
+          text-decoration: none;
+          font-size: 14px !important;
+          letter-spacing: 0.3px !important;
+          line-height: 1.8 !important;
+          font-weight: 400 !important;
+          display: block;
+          word-break: normal;
+          overflow-wrap: break-word;
         }
         @media (max-width: 900px) {
-          .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .footer-top { padding-bottom: 180px; }
-        }
-        @media (max-width: 540px) {
-          .footer-grid { grid-template-columns: 1fr; }
-          .footer-top {
-            background-image: url("https://www.chumbak.com/cdn/shop/files/14--FOOTER-new.jpg?v=1696327172");
-            padding: 24px 20px 160px;
-            background-size: 100% auto;
+          .footer-grid {
+            grid-template-columns: repeat(2, 1fr);
           }
-          .footer-bottom,
-          .footer-bottom2 { padding-left: 20px; padding-right: 20px; }
+        }
+        @media (max-width: 480px) {
+          .footer-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </footer>
   );
 }
-
-
-
