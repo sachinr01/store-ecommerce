@@ -668,6 +668,59 @@
                     <!-- RIGHT COLUMN -->
                     <div class="col-lg-4">
 
+                      <!-- SEO CARD -->
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">SEO Settings</h4>
+
+                          <!-- Meta Title -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Meta Title</label>
+                            <input type="text" name="meta_title" class="form-control"
+                              placeholder="SEO title for search engines"
+                              value="<%= isEdit ? (p.meta_title || '') : '' %>" />
+                            <small class="text-muted">Recommended: 50–60 characters</small>
+                          </div>
+
+                          <!-- Meta Description -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Meta Description</label>
+                            <textarea name="meta_description" class="form-control" rows="3"
+                              placeholder="Short SEO description for search engines"><%= isEdit ? (p.meta_description || '') : '' %></textarea>
+                            <small class="text-muted">Recommended: 150–160 characters</small>
+                          </div>
+
+                          <!-- Canonical URL -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Canonical URL</label>
+                            <input type="text" name="canonical_tag" class="form-control"
+                              placeholder="https://example.com/blog-url"
+                              value="<%= isEdit ? (p.canonical_tag || '') : '' %>" />
+                          </div>
+
+                          <!-- Index -->
+                          <div class="mb-0">
+                            <label class="form-label fw-semibold d-block">Index</label>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="radio" name="meta_index" id="indexYes" value="yes"
+                                <%=!isEdit || p.meta_index==='yes' || !p.meta_index ? 'checked' : '' %>>
+                              <label class="form-check-label" for="indexYes">
+                                Yes
+                              </label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="radio" name="meta_index" id="indexNo" value="no"
+                                <%=isEdit && p.meta_index==='no' ? 'checked' : '' %>>
+                              <label class="form-check-label" for="indexNo">
+                                No
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       <div class="card mb-3">
                         <div class="card-body">
                           <h4 class="card-title mb-3 pb-3 border-bottom">Publish</h4>
@@ -788,45 +841,46 @@
                       </div>
 
                       <!-- PRODUCT CATEGORY CARD -->
-                    <div class="card mb-3">
-                      <div class="card-body">
-                        <h4 class="card-title mb-3 pb-3 border-bottom">Product Categories</h4>
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">Product Categories</h4>
 
-                        <div style="max-height:250px; overflow-y:auto;">
-                          <ul class="list-unstyled mb-0">
-                            <% function renderCategories(categories, parent = 0) { %>
-                              <% categories.filter(c => c.parent_id == parent).forEach(cat => { %>
-                                
-                                <li class="mb-1">
-                                  <label class="form-check">
-                                    <input 
-                                      type="checkbox" 
-                                      class="form-check-input" 
-                                      name="categories[]" 
-                                      value="<%= cat.category_id %>"
-                                      <%= (isEdit && product.categories?.includes(cat.category_id)) ? 'checked' : '' %>
-                                    >
-                                    <span class="form-check-label"><%= cat.category_name %></span>
-                                  </label>
+                          <div style="max-height:250px; overflow-y:auto;">
+                            <ul class="list-unstyled mb-0">
+                              <% function renderCategories(categories, parent=0) { %>
+                                <% categories.filter(c=> c.parent_id == parent).forEach(cat => { %>
 
-                                  <!-- CHILDREN -->
-                                  <ul class="list-unstyled ms-4">
-                                    <%= renderCategories(categories, cat.category_id) %>
-                                  </ul>
-                                </li>
+                                  <li class="mb-1">
+                                    <label class="form-check">
+                                      <input type="checkbox" class="form-check-input" name="categories[]"
+                                        value="<%= cat.category_id %>" <%=(isEdit &&
+                                        product.categories?.includes(cat.category_id)) ? 'checked' : '' %>
+                                      >
+                                      <span class="form-check-label">
+                                        <%= cat.category_name %>
+                                      </span>
+                                    </label>
 
-                              <% }) %>
-                            <% } %>
+                                    <!-- CHILDREN -->
+                                    <ul class="list-unstyled ms-4">
+                                      <%= renderCategories(categories, cat.category_id) %>
+                                    </ul>
+                                  </li>
 
-                            <%= renderCategories(allCategories) %>
-                          </ul>
+                                  <% }) %>
+                                    <% } %>
+
+                                      <%= renderCategories(allCategories) %>
+                            </ul>
+                          </div>
+
+                          <a href="/store/admin/products/categories" class="text-primary small mt-2 d-inline-block">+
+                            Add new category</a>
                         </div>
-
-                        <a href="/store/admin/products/categories" class="text-primary small mt-2 d-inline-block">+ Add new category</a>
                       </div>
-                    </div>
 
                     </div><!-- /col-lg-4 -->
+                    
                   </div><!-- /row -->
                 </form>
           </div>
@@ -843,334 +897,334 @@
         </style>
 
         <%- include('../partials/scripts') %>
-        <script>
-          ClassicEditor.create(document.querySelector('#product_short_desc')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#productContent')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_features')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_material')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_collection')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_included')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_care')).catch(e => console.error(e));
-          ClassicEditor.create(document.querySelector('#product_more_info')).catch(e => console.error(e));
+          <script>
+            ClassicEditor.create(document.querySelector('#product_short_desc')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#productContent')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_features')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_material')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_collection')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_included')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_care')).catch(e => console.error(e));
+            ClassicEditor.create(document.querySelector('#product_more_info')).catch(e => console.error(e));
 
-          document.addEventListener("click", function (e) {
-            if (e.target.closest("#removeFeaturedImagebtn")) {
+            document.addEventListener("click", function (e) {
+              if (e.target.closest("#removeFeaturedImagebtn")) {
 
-              // 🔥 Clear preview
-              const preview = document.getElementById("featuredImagePreview");
-              preview.innerHTML = `
+                // 🔥 Clear preview
+                const preview = document.getElementById("featuredImagePreview");
+                preview.innerHTML = `
       <div>
         <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-2 d-block mx-auto"></i>
         <p class="text-muted small mb-0">Click to select featured image</p>
       </div>
     `;
 
-              // 🔥 Clear inputs
-              document.getElementById("featured_image").value = "";
-              document.getElementById("featured_image_title").value = "";
-              document.getElementById("featured_image_alt").value = "";
+                // 🔥 Clear inputs
+                document.getElementById("featured_image").value = "";
+                document.getElementById("featured_image_title").value = "";
+                document.getElementById("featured_image_alt").value = "";
 
-              // 🔥 Hide remove button
-              e.target.closest("button").style.display = "none";
+                // 🔥 Hide remove button
+                e.target.closest("button").style.display = "none";
 
-              // re-render feather icon
-              if (window.feather) feather.replace();
-            }
-          });
+                // re-render feather icon
+                if (window.feather) feather.replace();
+              }
+            });
 
 
-          document.addEventListener("click", function (e) {
-            const btn = e.target.closest(".removeVarFeaturedImagebtn");
-            if (!btn) return;
+            document.addEventListener("click", function (e) {
+              const btn = e.target.closest(".removeVarFeaturedImagebtn");
+              if (!btn) return;
 
-            const vid = btn.getAttribute("data-id");
+              const vid = btn.getAttribute("data-id");
 
-            // 🔥 Clear preview
-            const preview = document.getElementById("varImagePreview_" + vid);
-            preview.innerHTML = `
+              // 🔥 Clear preview
+              const preview = document.getElementById("varImagePreview_" + vid);
+              preview.innerHTML = `
     <i data-feather="image" class="text-muted"></i>
     <p class="text-muted small mb-0 mt-1">Click to select</p>
   `;
 
-            // 🔥 Clear inputs
-            document.getElementById("var_featured_image_" + vid).value = "";
-            document.getElementById("var_featured_image_title_" + vid).value = "";
-            document.getElementById("var_featured_image_alt_" + vid).value = "";
+              // 🔥 Clear inputs
+              document.getElementById("var_featured_image_" + vid).value = "";
+              document.getElementById("var_featured_image_title_" + vid).value = "";
+              document.getElementById("var_featured_image_alt_" + vid).value = "";
 
-            // 🔥 Hide button
-            btn.style.display = "none";
+              // 🔥 Hide button
+              btn.style.display = "none";
 
-            if (window.feather) feather.replace();
-          });
-
-          (function () {
-            onProductTypeChange(document.getElementById('productType').value);
-          })();
-
-          function onProductTypeChange(type) {
-            var isVariable = (type === 'product_variation');
-            document.getElementById('variationsTabItem').style.display = isVariable ? 'block' : 'none';
-            document.querySelectorAll('.variation-only-toggle').forEach(function (el) {
-              el.style.display = isVariable ? 'flex' : 'none';
+              if (window.feather) feather.replace();
             });
-            if (!isVariable) {
-              document.querySelectorAll('.variation-toggle').forEach(function (cb) { cb.checked = false; });
-            }
-          }
 
-          document.querySelector('[name="product_title"]').addEventListener('input', function () {
-            var urlField = document.getElementById('productUrl');
-            if (!urlField.dataset.manual) {
-              urlField.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-            }
-          });
+            (function () {
+              onProductTypeChange(document.getElementById('productType').value);
+            })();
 
-          document.getElementById('productUrl').addEventListener('input', function () {
-            this.dataset.manual = '1';
-          });
-
-          function openAttrDropdown(tid) {
-            var dd = document.getElementById('attrDropdown_' + tid);
-            dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-            if (dd.style.display === 'block') document.getElementById('attrSearch_' + tid).focus();
-          }
-
-          document.addEventListener('click', function (e) {
-            if (!e.target.closest('[id^="attrDropdown_"]') && !e.target.closest('[id^="tagBox_"]')) {
-              document.querySelectorAll('[id^="attrDropdown_"]').forEach(function (dd) { dd.style.display = 'none'; });
-            }
-          });
-
-          function toggleAttrTag(tid, attrId, attrName, attrSlug) {
-            var cb = document.getElementById('cb_' + tid + '_' + attrId);
-            if (cb.checked) removeAttrTag(tid, attrId, attrName);
-            else addAttrTag(tid, attrId, attrName, attrSlug);
-          }
-
-          function addAttrTag(tid, attrId, attrName, attrSlug) {
-            var cb = document.getElementById('cb_' + tid + '_' + attrId);
-            if (!cb || cb.checked) return;
-            cb.checked = true;
-            var tag = document.createElement('span');
-            tag.className = 'attr-tag d-inline-flex align-items-center gap-1 px-2 py-1 rounded';
-            tag.id = 'tag_' + tid + '_' + attrId;
-            tag.style.cssText = 'background:#e8f0fe;border:1px solid #884531;font-size:13px;';
-            tag.innerHTML = attrName +
-              '<button type="button" class="btn-close p-0 ms-1" style="font-size:9px;"' +
-              ' onclick="event.stopPropagation();removeAttrTag(\'' + tid + '\',\'' + attrId + '\',\'' + attrName + '\')"></button>';
-            var box = document.getElementById('tagBox_' + tid);
-            var firstCb = box.querySelector('input.d-none');
-            box.insertBefore(tag, firstCb);
-            var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
-            if (chk) chk.textContent = '✓';
-            syncHiddenValues(tid);
-          }
-
-          function removeAttrTag(tid, attrId, attrName) {
-            var cb = document.getElementById('cb_' + tid + '_' + attrId);
-            if (cb) cb.checked = false;
-            var tag = document.getElementById('tag_' + tid + '_' + attrId);
-            if (tag) tag.remove();
-            var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
-            if (chk) chk.textContent = '';
-            syncHiddenValues(tid);
-          }
-
-          function syncHiddenValues(tid) {
-            var checked = document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked');
-            document.getElementById('attrVals_' + tid).value =
-              Array.from(checked).map(function (c) { return c.value; }).join(',');
-            updateVariationsBadge();
-            autoRegenerateVariations();
-          }
-
-          function selectAllAttr(tid) {
-            document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]').forEach(function (cb) {
-              if (!cb.checked) addAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName, cb.dataset.attrSlug);
-            });
-          }
-
-          function clearAllAttr(tid) {
-            document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked').forEach(function (cb) {
-              removeAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName);
-            });
-          }
-
-          function filterAttrList(tid, query) {
-            var q = query.toLowerCase();
-            document.querySelectorAll('#attrList_' + tid + ' li').forEach(function (li) {
-              li.style.display = li.dataset.name.includes(q) ? '' : 'none';
-            });
-          }
-
-          function onVariationToggle() {
-            var hasChecked = !!document.querySelector('.variation-toggle:checked');
-            var isVariable = document.getElementById('productType').value === 'product_variation';
-            document.getElementById('variationsTabItem').style.display = (hasChecked && isVariable) ? 'block' : 'none';
-            autoRegenerateVariations();
-            updateVariationsBadge();
-          }
-
-          function toggleVariation(header) {
-            var body = header.nextElementSibling;
-            var chevron = header.querySelector('.variation-chevron');
-            var opening = body.style.display === 'none';
-            body.style.display = opening ? 'block' : 'none';
-            chevron.style.transform = opening ? 'rotate(90deg)' : 'rotate(0deg)';
-          }
-
-          function toggleAllVariations(open) {
-            document.querySelectorAll('.variation-body').forEach(function (b) { b.style.display = open ? 'block' : 'none'; });
-            document.querySelectorAll('.variation-chevron').forEach(function (c) { c.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)'; });
-          }
-
-          function updateVariationCombo(sel) {
-            var item = sel.closest('.variation-item');
-            var comboInp = item.querySelector('[name="var_attr_combo[]"]');
-            var idsInp = item.querySelector('[name="var_attr_ids[]"]');
-            var labelEl = item.querySelector('.variation-label');
-            var comboParts = [], idParts = [], labelParts = [];
-            item.querySelectorAll('.var-attr-select').forEach(function (s) {
-              if (!s.value) return;
-              comboParts.push(s.dataset.comboKey + ':' + s.value);
-              var opt = s.querySelector('option[value="' + s.value + '"]');
-              if (opt) { idParts.push(opt.dataset.attrId); labelParts.push(opt.textContent.trim()); }
-            });
-            comboInp.value = comboParts.join(',');
-            idsInp.value = idParts.join(',');
-            if (labelEl) labelEl.textContent = labelParts.join(' / ') || 'Variation';
-          }
-
-          function cartesian(groups) {
-            if (!groups.length) return [[]];
-            var first = groups[0], rest = groups.slice(1);
-            return first.values.reduce(function (acc, val) {
-              return acc.concat(cartesian(rest).map(function (combo) {
-                return [Object.assign({ taxonomy: first.taxonomy, label: first.label }, val)].concat(combo);
-              }));
-            }, []);
-          }
-
-          function updateVariationsBadge() {
-            var badge = document.querySelector('#variationsTabItem .badge');
-            var count = document.querySelectorAll('#variationsList .variation-item').length;
-            if (badge) {
-              badge.textContent = count;
-              badge.style.display = count > 0 ? '' : 'none';
-            }
-          }
-
-          function autoRegenerateVariations() {
-            if (document.getElementById('productType').value !== 'product_variation') return;
-            var toggles = document.querySelectorAll('.variation-toggle:checked');
-            if (!toggles.length) return;
-
-            var groups = [];
-            toggles.forEach(function (toggle) {
-              var block = toggle.closest('.attribute-block');
-              var taxonomy = block.dataset.taxonomy;
-              var label = block.dataset.label;
-              var selected = block.querySelectorAll('.attr-value-cb:checked');
-              if (!selected.length) return;
-              groups.push({
-                taxonomy: taxonomy,
-                label: label,
-                values: Array.from(selected).map(function (cb) {
-                  return {
-                    attrId: cb.dataset.attrId,
-                    attrName: cb.dataset.attrName,
-                    attrSlug: cb.dataset.attrSlug || cb.dataset.attrName.toLowerCase().replace(/\s+/g, '-')
-                  };
-                })
+            function onProductTypeChange(type) {
+              var isVariable = (type === 'product_variation');
+              document.getElementById('variationsTabItem').style.display = isVariable ? 'block' : 'none';
+              document.querySelectorAll('.variation-only-toggle').forEach(function (el) {
+                el.style.display = isVariable ? 'flex' : 'none';
               });
+              if (!isVariable) {
+                document.querySelectorAll('.variation-toggle').forEach(function (cb) { cb.checked = false; });
+              }
+            }
+
+            document.querySelector('[name="product_title"]').addEventListener('input', function () {
+              var urlField = document.getElementById('productUrl');
+              if (!urlField.dataset.manual) {
+                urlField.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              }
             });
 
-            if (!groups.length) return;
+            document.getElementById('productUrl').addEventListener('input', function () {
+              this.dataset.manual = '1';
+            });
 
-            var combos = cartesian(groups);
-            var list = document.getElementById('variationsList');
-            var ph = document.getElementById('varPlaceholder');
-            if (ph) ph.remove();
-            list.innerHTML = '';
+            function openAttrDropdown(tid) {
+              var dd = document.getElementById('attrDropdown_' + tid);
+              dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+              if (dd.style.display === 'block') document.getElementById('attrSearch_' + tid).focus();
+            }
 
-            combos.forEach(function (combo, i) {
-              var comboStr = combo.map(function (c) { return 'pa_' + c.taxonomy + ':' + c.attrSlug; }).join(',');
-              var attrIdsStr = combo.map(function (c) { return c.attrId; }).join(',');
-              var labelText = combo.map(function (c) { return c.attrName; }).join(' / ');
+            document.addEventListener('click', function (e) {
+              if (!e.target.closest('[id^="attrDropdown_"]') && !e.target.closest('[id^="tagBox_"]')) {
+                document.querySelectorAll('[id^="attrDropdown_"]').forEach(function (dd) { dd.style.display = 'none'; });
+              }
+            });
 
-              var selectsHTML = '';
-              combo.forEach(function (c, ci) {
-                var g = groups[ci];
-                selectsHTML += '<div style="min-width:160px;">' +
-                  '<label class="form-label small fw-semibold mb-1">' + g.label + '</label>' +
-                  '<select class="form-select form-select-sm var-attr-select" data-combo-key="pa_' + c.taxonomy + '" onchange="updateVariationCombo(this)">' +
-                  '<option value="">— Any —</option>' +
-                  g.values.map(function (v) {
-                    return '<option value="' + v.attrSlug + '" data-attr-id="' + v.attrId + '"' +
-                      (v.attrSlug === c.attrSlug ? ' selected' : '') + '>' + v.attrName + '</option>';
-                  }).join('') +
-                  '</select></div>';
+            function toggleAttrTag(tid, attrId, attrName, attrSlug) {
+              var cb = document.getElementById('cb_' + tid + '_' + attrId);
+              if (cb.checked) removeAttrTag(tid, attrId, attrName);
+              else addAttrTag(tid, attrId, attrName, attrSlug);
+            }
+
+            function addAttrTag(tid, attrId, attrName, attrSlug) {
+              var cb = document.getElementById('cb_' + tid + '_' + attrId);
+              if (!cb || cb.checked) return;
+              cb.checked = true;
+              var tag = document.createElement('span');
+              tag.className = 'attr-tag d-inline-flex align-items-center gap-1 px-2 py-1 rounded';
+              tag.id = 'tag_' + tid + '_' + attrId;
+              tag.style.cssText = 'background:#e8f0fe;border:1px solid #884531;font-size:13px;';
+              tag.innerHTML = attrName +
+                '<button type="button" class="btn-close p-0 ms-1" style="font-size:9px;"' +
+                ' onclick="event.stopPropagation();removeAttrTag(\'' + tid + '\',\'' + attrId + '\',\'' + attrName + '\')"></button>';
+              var box = document.getElementById('tagBox_' + tid);
+              var firstCb = box.querySelector('input.d-none');
+              box.insertBefore(tag, firstCb);
+              var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
+              if (chk) chk.textContent = '✓';
+              syncHiddenValues(tid);
+            }
+
+            function removeAttrTag(tid, attrId, attrName) {
+              var cb = document.getElementById('cb_' + tid + '_' + attrId);
+              if (cb) cb.checked = false;
+              var tag = document.getElementById('tag_' + tid + '_' + attrId);
+              if (tag) tag.remove();
+              var chk = document.getElementById('listCheck_' + tid + '_' + attrId);
+              if (chk) chk.textContent = '';
+              syncHiddenValues(tid);
+            }
+
+            function syncHiddenValues(tid) {
+              var checked = document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked');
+              document.getElementById('attrVals_' + tid).value =
+                Array.from(checked).map(function (c) { return c.value; }).join(',');
+              updateVariationsBadge();
+              autoRegenerateVariations();
+            }
+
+            function selectAllAttr(tid) {
+              document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]').forEach(function (cb) {
+                if (!cb.checked) addAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName, cb.dataset.attrSlug);
+              });
+            }
+
+            function clearAllAttr(tid) {
+              document.querySelectorAll('.attr-value-cb[data-type-id="' + tid + '"]:checked').forEach(function (cb) {
+                removeAttrTag(tid, cb.dataset.attrId, cb.dataset.attrName);
+              });
+            }
+
+            function filterAttrList(tid, query) {
+              var q = query.toLowerCase();
+              document.querySelectorAll('#attrList_' + tid + ' li').forEach(function (li) {
+                li.style.display = li.dataset.name.includes(q) ? '' : 'none';
+              });
+            }
+
+            function onVariationToggle() {
+              var hasChecked = !!document.querySelector('.variation-toggle:checked');
+              var isVariable = document.getElementById('productType').value === 'product_variation';
+              document.getElementById('variationsTabItem').style.display = (hasChecked && isVariable) ? 'block' : 'none';
+              autoRegenerateVariations();
+              updateVariationsBadge();
+            }
+
+            function toggleVariation(header) {
+              var body = header.nextElementSibling;
+              var chevron = header.querySelector('.variation-chevron');
+              var opening = body.style.display === 'none';
+              body.style.display = opening ? 'block' : 'none';
+              chevron.style.transform = opening ? 'rotate(90deg)' : 'rotate(0deg)';
+            }
+
+            function toggleAllVariations(open) {
+              document.querySelectorAll('.variation-body').forEach(function (b) { b.style.display = open ? 'block' : 'none'; });
+              document.querySelectorAll('.variation-chevron').forEach(function (c) { c.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)'; });
+            }
+
+            function updateVariationCombo(sel) {
+              var item = sel.closest('.variation-item');
+              var comboInp = item.querySelector('[name="var_attr_combo[]"]');
+              var idsInp = item.querySelector('[name="var_attr_ids[]"]');
+              var labelEl = item.querySelector('.variation-label');
+              var comboParts = [], idParts = [], labelParts = [];
+              item.querySelectorAll('.var-attr-select').forEach(function (s) {
+                if (!s.value) return;
+                comboParts.push(s.dataset.comboKey + ':' + s.value);
+                var opt = s.querySelector('option[value="' + s.value + '"]');
+                if (opt) { idParts.push(opt.dataset.attrId); labelParts.push(opt.textContent.trim()); }
+              });
+              comboInp.value = comboParts.join(',');
+              idsInp.value = idParts.join(',');
+              if (labelEl) labelEl.textContent = labelParts.join(' / ') || 'Variation';
+            }
+
+            function cartesian(groups) {
+              if (!groups.length) return [[]];
+              var first = groups[0], rest = groups.slice(1);
+              return first.values.reduce(function (acc, val) {
+                return acc.concat(cartesian(rest).map(function (combo) {
+                  return [Object.assign({ taxonomy: first.taxonomy, label: first.label }, val)].concat(combo);
+                }));
+              }, []);
+            }
+
+            function updateVariationsBadge() {
+              var badge = document.querySelector('#variationsTabItem .badge');
+              var count = document.querySelectorAll('#variationsList .variation-item').length;
+              if (badge) {
+                badge.textContent = count;
+                badge.style.display = count > 0 ? '' : 'none';
+              }
+            }
+
+            function autoRegenerateVariations() {
+              if (document.getElementById('productType').value !== 'product_variation') return;
+              var toggles = document.querySelectorAll('.variation-toggle:checked');
+              if (!toggles.length) return;
+
+              var groups = [];
+              toggles.forEach(function (toggle) {
+                var block = toggle.closest('.attribute-block');
+                var taxonomy = block.dataset.taxonomy;
+                var label = block.dataset.label;
+                var selected = block.querySelectorAll('.attr-value-cb:checked');
+                if (!selected.length) return;
+                groups.push({
+                  taxonomy: taxonomy,
+                  label: label,
+                  values: Array.from(selected).map(function (cb) {
+                    return {
+                      attrId: cb.dataset.attrId,
+                      attrName: cb.dataset.attrName,
+                      attrSlug: cb.dataset.attrSlug || cb.dataset.attrName.toLowerCase().replace(/\s+/g, '-')
+                    };
+                  })
+                });
               });
 
-              var div = document.createElement('div');
-              div.className = 'variation-item border rounded mb-2';
-              div.innerHTML =
-                '<div class="variation-header d-flex justify-content-between align-items-center px-3 py-2 bg-light rounded-top" style="cursor:pointer;" onclick="toggleVariation(this)">' +
-                '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-                '<i data-feather="chevron-right" class="feather-sm variation-chevron text-muted" style="transition:transform 0.2s;"></i>' +
-                '<strong class="small text-primary variation-label">' + labelText + '</strong>' +
-                '</div>' +
-                '<button type="button" class="btn btn-sm btn-outline-danger" style="padding:2px 8px;" onclick="event.stopPropagation();this.closest(\'.variation-item\').remove();updateVariationsBadge();">' +
-                '<i data-feather="x" class="feather-sm"></i></button>' +
-                '</div>' +
-                '<div class="variation-body p-3 border-top" style="display:block;">' +
-                '<input type="hidden" name="var_attr_combo[]" value="' + comboStr + '" />' +
-                '<input type="hidden" name="var_attr_ids[]" value="' + attrIdsStr + '" />' +
-                '<div class="d-flex flex-wrap gap-3 align-items-end mb-3 pb-3 border-bottom">' + selectsHTML + '</div>' +
-                '<div class="row g-0">' +
-                '<div class="col-md-6 p-3 border-end">' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">SKU</label>' +
-                '<input type="text" name="var_sku[]" class="form-control form-control-sm" placeholder="Variation SKU" /></div>' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">Regular Price (₹)</label>' +
-                '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
-                '<input type="number" name="var_regular_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">Sale Price (₹)</label>' +
-                '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
-                '<input type="number" name="var_sale_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">Stock Status</label>' +
-                '<select name="var_stock_status[]" class="form-select form-select-sm">' +
-                '<option value="instock">In Stock</option><option value="outofstock">Out of Stock</option><option value="onbackorder">Backorder</option>' +
-                '</select></div>' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">Stock Qty</label>' +
-                '<input type="number" name="var_stock[]" class="form-control form-control-sm" placeholder="0" min="0" /></div>' +
-                '</div>' +
-                '<div class="col-md-6 p-3">' +
-                '<div class="mb-3"><label class="form-label small fw-semibold">Description</label>' +
-                '<textarea name="var_description[]" class="form-control form-control-sm" rows="3" placeholder="Optional..."></textarea></div>' +
-                // Variation Image
-                '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Image</label>' +
-                '<div id="varImagePreview_new_' + i + '" class="border rounded p-2 text-center mb-2" style="min-height:90px;cursor:pointer;"' +
-                ' onclick="openMedia({urlInput:\'var_featured_image_new_' + i + '\',titleInput:\'var_image_title_new_' + i + '\',altInput:\'var_image_alt_new_' + i + '\',preview:\'varImagePreview_new_' + i + '\',multiple:false})">' +
-                '<i data-feather="image" class="text-muted"></i><p class="text-muted small mb-0 mt-1">Click to select</p></div>' +
-                '<input type="hidden" name="var_featured_image_new_' + i + '"   id="var_featured_image_new_' + i + '">' +
-                '<input type="hidden" name="var_featured_image_title_new_' + i + '" id="var_featured_image_title_new_' + i + '">' +
-                '<input type="hidden" name="var_featured_image_alt_new_' + i + '"   id="var_featured_image_alt_new_' + i + '"></div>' +
-                // Variation Gallery
-                '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Gallery</label>' +
-                '<div class="border rounded p-2"><div class="d-flex flex-wrap gap-2" id="varGalleryExtra_new_' + i + '">' +
-                '<div class="border rounded d-flex align-items-center justify-content-center bg-light" style="width:70px;height:70px;cursor:pointer;"' +
-                ' onclick="openMedia({urlInput:\'var_gallery_image_new_' + i + '\',titleInput:\'var_gallery_image_titles_new_' + i + '\',altInput:\'var_gallery_image_alts_new_' + i + '\',container:\'varGalleryExtra_new_' + i + '\',multiple:true})">' +
-                '<i data-feather="plus" class="text-muted" style="width:16px;height:16px;"></i></div>' +
-                '</div></div></div>' +
-                '</div></div></div>';
-              list.appendChild(div);
-            });
+              if (!groups.length) return;
+
+              var combos = cartesian(groups);
+              var list = document.getElementById('variationsList');
+              var ph = document.getElementById('varPlaceholder');
+              if (ph) ph.remove();
+              list.innerHTML = '';
+
+              combos.forEach(function (combo, i) {
+                var comboStr = combo.map(function (c) { return 'pa_' + c.taxonomy + ':' + c.attrSlug; }).join(',');
+                var attrIdsStr = combo.map(function (c) { return c.attrId; }).join(',');
+                var labelText = combo.map(function (c) { return c.attrName; }).join(' / ');
+
+                var selectsHTML = '';
+                combo.forEach(function (c, ci) {
+                  var g = groups[ci];
+                  selectsHTML += '<div style="min-width:160px;">' +
+                    '<label class="form-label small fw-semibold mb-1">' + g.label + '</label>' +
+                    '<select class="form-select form-select-sm var-attr-select" data-combo-key="pa_' + c.taxonomy + '" onchange="updateVariationCombo(this)">' +
+                    '<option value="">— Any —</option>' +
+                    g.values.map(function (v) {
+                      return '<option value="' + v.attrSlug + '" data-attr-id="' + v.attrId + '"' +
+                        (v.attrSlug === c.attrSlug ? ' selected' : '') + '>' + v.attrName + '</option>';
+                    }).join('') +
+                    '</select></div>';
+                });
+
+                var div = document.createElement('div');
+                div.className = 'variation-item border rounded mb-2';
+                div.innerHTML =
+                  '<div class="variation-header d-flex justify-content-between align-items-center px-3 py-2 bg-light rounded-top" style="cursor:pointer;" onclick="toggleVariation(this)">' +
+                  '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                  '<i data-feather="chevron-right" class="feather-sm variation-chevron text-muted" style="transition:transform 0.2s;"></i>' +
+                  '<strong class="small text-primary variation-label">' + labelText + '</strong>' +
+                  '</div>' +
+                  '<button type="button" class="btn btn-sm btn-outline-danger" style="padding:2px 8px;" onclick="event.stopPropagation();this.closest(\'.variation-item\').remove();updateVariationsBadge();">' +
+                  '<i data-feather="x" class="feather-sm"></i></button>' +
+                  '</div>' +
+                  '<div class="variation-body p-3 border-top" style="display:block;">' +
+                  '<input type="hidden" name="var_attr_combo[]" value="' + comboStr + '" />' +
+                  '<input type="hidden" name="var_attr_ids[]" value="' + attrIdsStr + '" />' +
+                  '<div class="d-flex flex-wrap gap-3 align-items-end mb-3 pb-3 border-bottom">' + selectsHTML + '</div>' +
+                  '<div class="row g-0">' +
+                  '<div class="col-md-6 p-3 border-end">' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">SKU</label>' +
+                  '<input type="text" name="var_sku[]" class="form-control form-control-sm" placeholder="Variation SKU" /></div>' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">Regular Price (₹)</label>' +
+                  '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
+                  '<input type="number" name="var_regular_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">Sale Price (₹)</label>' +
+                  '<div class="input-group input-group-sm"><span class="input-group-text">₹</span>' +
+                  '<input type="number" name="var_sale_price[]" class="form-control" placeholder="0.00" step="0.01" /></div></div>' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">Stock Status</label>' +
+                  '<select name="var_stock_status[]" class="form-select form-select-sm">' +
+                  '<option value="instock">In Stock</option><option value="outofstock">Out of Stock</option><option value="onbackorder">Backorder</option>' +
+                  '</select></div>' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">Stock Qty</label>' +
+                  '<input type="number" name="var_stock[]" class="form-control form-control-sm" placeholder="0" min="0" /></div>' +
+                  '</div>' +
+                  '<div class="col-md-6 p-3">' +
+                  '<div class="mb-3"><label class="form-label small fw-semibold">Description</label>' +
+                  '<textarea name="var_description[]" class="form-control form-control-sm" rows="3" placeholder="Optional..."></textarea></div>' +
+                  // Variation Image
+                  '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Image</label>' +
+                  '<div id="varImagePreview_new_' + i + '" class="border rounded p-2 text-center mb-2" style="min-height:90px;cursor:pointer;"' +
+                  ' onclick="openMedia({urlInput:\'var_featured_image_new_' + i + '\',titleInput:\'var_image_title_new_' + i + '\',altInput:\'var_image_alt_new_' + i + '\',preview:\'varImagePreview_new_' + i + '\',multiple:false})">' +
+                  '<i data-feather="image" class="text-muted"></i><p class="text-muted small mb-0 mt-1">Click to select</p></div>' +
+                  '<input type="hidden" name="var_featured_image_new_' + i + '"   id="var_featured_image_new_' + i + '">' +
+                  '<input type="hidden" name="var_featured_image_title_new_' + i + '" id="var_featured_image_title_new_' + i + '">' +
+                  '<input type="hidden" name="var_featured_image_alt_new_' + i + '"   id="var_featured_image_alt_new_' + i + '"></div>' +
+                  // Variation Gallery
+                  '<div class="mb-3"><label class="form-label small fw-semibold d-block">Variation Gallery</label>' +
+                  '<div class="border rounded p-2"><div class="d-flex flex-wrap gap-2" id="varGalleryExtra_new_' + i + '">' +
+                  '<div class="border rounded d-flex align-items-center justify-content-center bg-light" style="width:70px;height:70px;cursor:pointer;"' +
+                  ' onclick="openMedia({urlInput:\'var_gallery_image_new_' + i + '\',titleInput:\'var_gallery_image_titles_new_' + i + '\',altInput:\'var_gallery_image_alts_new_' + i + '\',container:\'varGalleryExtra_new_' + i + '\',multiple:true})">' +
+                  '<i data-feather="plus" class="text-muted" style="width:16px;height:16px;"></i></div>' +
+                  '</div></div></div>' +
+                  '</div></div></div>';
+                list.appendChild(div);
+              });
+
+              feather.replace();
+              updateVariationsBadge();
+            }
 
             feather.replace();
-            updateVariationsBadge();
-          }
+          </script>
 
-          feather.replace();
-        </script>
-
-        <%- include('../partials/footer') %>
+          <%- include('../partials/footer') %>

@@ -7,7 +7,8 @@ exports.index = async (req, res) => {
   let params = [];
 
   if (status) {
-    query = "SELECT * FROM tbl_coupons WHERE coupon_status = ? ORDER BY coupon_id DESC";
+    query =
+      "SELECT * FROM tbl_coupons WHERE coupon_status = ? ORDER BY coupon_id DESC";
     params = [status];
   }
 
@@ -18,13 +19,17 @@ exports.index = async (req, res) => {
     coupons,
     statusFilter: status || null,
     admin: req.session.admin,
+    success: req.query.success || null,
+    error: req.query.error || null,
   });
 };
 
 // ── GET ADD FORM
 exports.create = async (req, res) => {
-  const [categories] = await db.query("SELECT category_id, category_name FROM tbl_products_category ORDER BY category_name ASC");
-    const [products] = await db.query(`
+  const [categories] = await db.query(
+    "SELECT category_id, category_name FROM tbl_products_category ORDER BY category_name ASC",
+  );
+  const [products] = await db.query(`
   SELECT ID, product_title 
   FROM tbl_products 
   WHERE product_type = 'product' 
@@ -43,12 +48,22 @@ exports.create = async (req, res) => {
 // ── POST STORE
 exports.store = async (req, res) => {
   const {
-    coupon_code, coupon_name, coupon_details, coupon_status,
-    coupon_type, coupon_amount, coupon_expiry_date,
-    minimum_spend, maximum_spend,
-    include_products, exclude_products,
-    include_categories, exclude_categories,
-    usage_limit_per_coupon, usage_limit_per_user, usage_limit_per_products,
+    coupon_code,
+    coupon_name,
+    coupon_details,
+    coupon_status,
+    coupon_type,
+    coupon_amount,
+    coupon_expiry_date,
+    minimum_spend,
+    maximum_spend,
+    include_products,
+    exclude_products,
+    include_categories,
+    exclude_categories,
+    usage_limit_per_coupon,
+    usage_limit_per_user,
+    usage_limit_per_products,
   } = req.body;
 
   if (!coupon_code) {
@@ -83,25 +98,38 @@ exports.store = async (req, res) => {
       parseInt(usage_limit_per_products) || 0,
       parseFloat(minimum_spend) || 0,
       parseFloat(maximum_spend) || 0,
-      Array.isArray(include_products) ? include_products.join(",") : (include_products || ""),
-      Array.isArray(exclude_products) ? exclude_products.join(",") : (exclude_products || ""),
-      Array.isArray(include_categories) ? include_categories.join(",") : (include_categories || ""),
-      Array.isArray(exclude_categories) ? exclude_categories.join(",") : (exclude_categories || ""),
-    ]
+      Array.isArray(include_products)
+        ? include_products.join(",")
+        : include_products || "",
+      Array.isArray(exclude_products)
+        ? exclude_products.join(",")
+        : exclude_products || "",
+      Array.isArray(include_categories)
+        ? include_categories.join(",")
+        : include_categories || "",
+      Array.isArray(exclude_categories)
+        ? exclude_categories.join(",")
+        : exclude_categories || "",
+    ],
   );
 
-  res.redirect("/store/admin/coupons");
+  res.redirect("/store/admin/coupons?success=Coupon added successfully");
 };
 
 // ── GET EDIT FORM
 exports.edit = async (req, res) => {
   const { id } = req.params;
-  const [[coupon]] = await db.query("SELECT * FROM tbl_coupons WHERE coupon_id = ?", [id]);
+  const [[coupon]] = await db.query(
+    "SELECT * FROM tbl_coupons WHERE coupon_id = ?",
+    [id],
+  );
 
   if (!coupon) return res.redirect("/store/admin/coupons");
 
-  const [categories] = await db.query("SELECT category_id, category_name FROM tbl_products_category ORDER BY category_name ASC");
- const [products] = await db.query(`
+  const [categories] = await db.query(
+    "SELECT category_id, category_name FROM tbl_products_category ORDER BY category_name ASC",
+  );
+  const [products] = await db.query(`
   SELECT ID, product_title 
   FROM tbl_products 
   WHERE product_type = 'product' 
@@ -121,12 +149,22 @@ exports.edit = async (req, res) => {
 exports.update = async (req, res) => {
   const { id } = req.params;
   const {
-    coupon_code, coupon_name, coupon_details, coupon_status,
-    coupon_type, coupon_amount, coupon_expiry_date,
-    minimum_spend, maximum_spend,
-    include_products, exclude_products,
-    include_categories, exclude_categories,
-    usage_limit_per_coupon, usage_limit_per_user, usage_limit_per_products,
+    coupon_code,
+    coupon_name,
+    coupon_details,
+    coupon_status,
+    coupon_type,
+    coupon_amount,
+    coupon_expiry_date,
+    minimum_spend,
+    maximum_spend,
+    include_products,
+    exclude_products,
+    include_categories,
+    exclude_categories,
+    usage_limit_per_coupon,
+    usage_limit_per_user,
+    usage_limit_per_products,
   } = req.body;
 
   await db.query(
@@ -162,15 +200,23 @@ exports.update = async (req, res) => {
       parseInt(usage_limit_per_products) || 0,
       parseFloat(minimum_spend) || 0,
       parseFloat(maximum_spend) || 0,
-      Array.isArray(include_products) ? include_products.join(",") : (include_products || ""),
-      Array.isArray(exclude_products) ? exclude_products.join(",") : (exclude_products || ""),
-      Array.isArray(include_categories) ? include_categories.join(",") : (include_categories || ""),
-      Array.isArray(exclude_categories) ? exclude_categories.join(",") : (exclude_categories || ""),
+      Array.isArray(include_products)
+        ? include_products.join(",")
+        : include_products || "",
+      Array.isArray(exclude_products)
+        ? exclude_products.join(",")
+        : exclude_products || "",
+      Array.isArray(include_categories)
+        ? include_categories.join(",")
+        : include_categories || "",
+      Array.isArray(exclude_categories)
+        ? exclude_categories.join(",")
+        : exclude_categories || "",
       id,
-    ]
+    ],
   );
 
-  res.redirect("/store/admin/coupons");
+  res.redirect("/store/admin/coupons?success=Coupon updated successfully");
 };
 
 // ── GET DELETE

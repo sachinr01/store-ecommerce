@@ -1,5 +1,14 @@
 const db = require("../config/db");
 
+const savePostMeta = async (postId, key, value) => {
+  await db.query(
+    `INSERT INTO tbl_postmeta (post_id, meta_key, meta_value)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+    [postId, key, value || ""],
+  );
+};
+
 // ─── LIST BLOGS ─────────────────────────────
 exports.index = async (req, res) => {
   try {
@@ -13,6 +22,8 @@ exports.index = async (req, res) => {
       title: "Blogs",
       blogs: rows,
       currentRoute: "/store/admin/blogs",
+      success: req.query.success || null,
+      error: req.query.error || null,
     });
   } catch (err) {
     console.error(err);
@@ -67,6 +78,18 @@ exports.showForm = async (req, res) => {
         [id],
       );
       selectedCategoryIds = categoryLinks.map((link) => link.category_id);
+
+      // ✅ FETCH SEO META
+      const [metaRows] = await db.query(
+        `SELECT meta_key, meta_value
+          FROM tbl_postmeta
+          WHERE post_id = ?`,
+        [id],
+      );
+
+      metaRows.forEach((m) => {
+        blog[m.meta_key] = m.meta_value;
+      });
     }
 
     res.render("blogs/add", {
@@ -115,6 +138,12 @@ exports.store = async (req, res) => {
     );
 
     const blogId = result[0].insertId;
+    // SEO META SAVE
+    await savePostMeta(blogId, "meta_title", b.meta_title);
+    await savePostMeta(blogId, "meta_description", b.meta_description);
+    await savePostMeta(blogId, "canonical_tag", b.canonical_tag);
+    await savePostMeta(blogId, "meta_index", b.meta_index || "yes");
+
     const categories = [].concat(b.categories || []);
 
     for (let catId of categories) {
@@ -199,6 +228,12 @@ exports.update = async (req, res) => {
         id,
       ],
     );
+
+    // SEO META UPDATE
+    await savePostMeta(id, "meta_title", b.meta_title);
+    await savePostMeta(id, "meta_description", b.meta_description);
+    await savePostMeta(id, "canonical_tag", b.canonical_tag);
+    await savePostMeta(id, "meta_index", b.meta_index || "yes");
 
     await db.query(`DELETE FROM tbl_posts_category_link WHERE post_id = ?`, [
       id,
@@ -295,6 +330,8 @@ exports.delete = async (req, res) => {
 
     // 🔴 DELETE POST
     await db.query("DELETE FROM tbl_posts WHERE ID=?", [id]);
+    // DELETE POST META
+    await db.query(`DELETE FROM tbl_postmeta WHERE post_id = ?`, [id]);
 
     res.redirect("/store/admin/blogs?success=Blog deleted successfully");
   } catch (err) {

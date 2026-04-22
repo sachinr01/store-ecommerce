@@ -24,6 +24,37 @@
   </div>
 </div>
 
+<!-- Toast Container -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index:9999;">
+
+  <% if (locals.success) { %>
+    <div class="toast align-items-center text-bg-success border-0 show auto-toast" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i data-feather="check-circle" class="feather-sm me-1"></i>
+          <%= locals.success %>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto"
+          data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (locals.error) { %>
+    <div class="toast align-items-center text-bg-danger border-0 show auto-toast" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i data-feather="alert-circle" class="feather-sm me-1"></i>
+          <%= locals.error %>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto"
+          data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <% } %>
+
+</div>
+
 <script src="<%= basePath %>/js/jquery.min.js"></script>
 <script src="<%= basePath %>/js/bootstrap.bundle.min.js"></script>
 <script src="<%= basePath %>/js/app.min.js"></script>
@@ -103,4 +134,20 @@
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
   });
 });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+
+    document.querySelectorAll('.auto-toast').forEach(function (toastEl) {
+      const toast = new bootstrap.Toast(toastEl, {
+        delay: 4000
+      });
+
+      toast.show();
+    });
+
+    if (window.feather) {
+      feather.replace();
+    }
+  });
 </script>

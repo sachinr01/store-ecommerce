@@ -139,8 +139,9 @@
                             <div class="col-md-6">
                               <div class="mb-3">
                                 <label class="form-label fw-semibold">Coupon Expiry Date</label>
-                                <input type="date" name="coupon_expiry_date" class="form-control"
-                                  value="<%= isEdit && c.coupon_expiry_date ? c.coupon_expiry_date.toString().slice(0,10) : '' %>" />
+                                <input type="date" name="coupon_expiry_date" class="form-control" value="<%= isEdit && c.coupon_expiry_date
+                                  ? new Date(c.coupon_expiry_date).toISOString().split('T')[0]
+                                  : '' %>" />
                                 <div class="form-text">Leave blank for no expiry.</div>
                               </div>
                             </div>
@@ -327,16 +328,7 @@
                                 <div class="form-text">How many items the coupon can be applied to in the cart.</div>
                               </div>
                             </div>
-                            <% if (isEdit) { %>
-                              <div class="col-md-6">
-                                <div class="mb-0">
-                                  <label class="form-label fw-semibold text-muted">Current Usage Count</label>
-                                  <div class="form-control bg-light text-muted">
-                                    <%= c.coupon_count || 0 %> times used
-                                  </div>
-                                </div>
-                              </div>
-                              <% } %>
+
                           </div>
 
                         </div>
@@ -436,6 +428,16 @@
                                       <% } %>
                               </span>
                             </div>
+                            <% if (isEdit) { %>
+                              <div class="col-md-6">
+                                <div class="mb-0">
+                                  <label class="form-label fw-semibold text-muted">Current Usage Count</label>
+                                  <div class="form-control bg-light text-muted">
+                                    <%= c.coupon_count || 0 %> times used
+                                  </div>
+                                </div>
+                              </div>
+                              <% } %>
                           </div>
                         </div>
                       </div>

@@ -88,6 +88,59 @@
                         </div>
                       </div>
 
+                       <!-- SEO CARD -->
+                      <div class="card mb-3">
+                        <div class="card-body">
+                          <h4 class="card-title mb-3 pb-3 border-bottom">SEO Settings</h4>
+
+                          <!-- Meta Title -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Meta Title</label>
+                            <input type="text" name="meta_title" class="form-control"
+                              placeholder="SEO title for search engines"
+                              value="<%= isEdit ? (b.meta_title || '') : '' %>" />
+                            <small class="text-muted">Recommended: 50–60 characters</small>
+                          </div>
+
+                          <!-- Meta Description -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Meta Description</label>
+                            <textarea name="meta_description" class="form-control" rows="3"
+                              placeholder="Short SEO description for search engines"><%= isEdit ? (b.meta_description || '') : '' %></textarea>
+                            <small class="text-muted">Recommended: 150–160 characters</small>
+                          </div>
+
+                          <!-- Canonical URL -->
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">Canonical URL</label>
+                            <input type="text" name="canonical_tag" class="form-control"
+                              placeholder="https://example.com/blog-url"
+                              value="<%= isEdit ? (b.canonical_tag || '') : '' %>" />
+                          </div>
+
+                          <!-- Index -->
+                          <div class="mb-0">
+                            <label class="form-label fw-semibold d-block">Index</label>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="radio" name="meta_index" id="indexYes" value="yes"
+                                <%=!isEdit || b.meta_index==='yes' || !b.meta_index ? 'checked' : '' %>>
+                              <label class="form-check-label" for="indexYes">
+                                Yes
+                              </label>
+                            </div>
+
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input" type="radio" name="meta_index" id="indexNo" value="no"
+                                <%=isEdit && b.meta_index==='no' ? 'checked' : '' %>>
+                              <label class="form-check-label" for="indexNo">
+                                No
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                     </div><!-- /col-lg-8 -->
 
                     <!-- RIGHT COLUMN -->
@@ -207,13 +260,7 @@
                         <div class="card-body">
                           <h4 class="card-title mb-3 pb-3 border-bottom">Post Settings</h4>
 
-                          <div class="mb-3">
-                            <label class="form-label fw-semibold">Post Type</label>
-                            <select name="post_type" class="form-select">
-                              <option value="post" selected>Post
-                              </option>
-                            </select>
-                          </div>
+                          <input type="hidden" name="post_type" value="post">
 
                           <div class="mb-3">
                             <label class="form-label fw-semibold">Menu Order</label>
@@ -300,5 +347,5 @@
             });
           </script>
 
-          
-        <%- include('../partials/footer') %>
+
+          <%- include('../partials/footer') %>

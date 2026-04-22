@@ -255,6 +255,10 @@ const showEditProduct = async (req, res) => {
     product.product_included = mainMeta["_product_included"] || "";
     product.product_care = mainMeta["_product_care"] || "";
     product.product_more_info = mainMeta["_product_more_info"] || "";
+    product.meta_title = mainMeta["meta_title"] || "";
+    product.meta_description = mainMeta["meta_description"] || "";
+    product.canonical_tag = mainMeta["canonical_tag"] || "";
+    product.meta_index = mainMeta["meta_index"] || "";
 
     // ── Main product thumbnail ──────────────────────────────
     // Read media_path directly from tbl_media(no _wp_attached_file in mediameta)
@@ -584,6 +588,11 @@ const storeProduct = async (req, res) => {
       "_product_more_info",
       body.product_more_info || "",
     );
+    await insertMeta(productId, "meta_title", body.meta_title || "");
+    await insertMeta(productId, "meta_description", body.meta_description || "");
+    await insertMeta(productId, "canonical_tag", body.canonical_tag || "");
+    await insertMeta(productId, "meta_index", body.meta_index || "");
+
 
     // ═══════════════════════════════════════════════════════
     // STEP 3: MAIN FEATURED IMAGE
@@ -1049,6 +1058,10 @@ const updateProduct = async (req, res) => {
     await updateMeta(id, "_product_included", body.product_included || "");
     await updateMeta(id, "_product_care", body.product_care || "");
     await updateMeta(id, "_product_more_info", body.product_more_info || "");
+    await updateMeta(id, "meta_title", body.meta_title || body.sku);
+    await updateMeta(id, "meta_description", body.meta_description || "");
+    await updateMeta(id, "canonical_tag", body.canonical_tag || "");
+    await updateMeta(id, "meta_index", body.meta_index || "");
 
     // ─────────────────────────────────────────
     // ✅ DELETE OLD MEDIA (FIXED - ALWAYS RUN)
@@ -1522,7 +1535,6 @@ const updateProduct = async (req, res) => {
     }
 
     await conn.commit();
-    console.log("✅ UPDATE PRODUCT SUCCESS — id:", id);
     res.redirect("/store/admin/products?success=Product updated successfully");
   } catch (err) {
     await conn.rollback();

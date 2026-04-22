@@ -2,15 +2,17 @@ const db = require("../config/db");
 
 // GET ALL CATEGORIES
 exports.index = async (req, res) => {
-  // primari key is category_id  
+  // primari key is category_id
   const [rows] = await db.query(
-    "SELECT * FROM tbl_products_category ORDER BY category_id  DESC"
+    "SELECT * FROM tbl_products_category ORDER BY category_id  DESC",
   );
 
   res.render("category/index", {
     title: "Categories",
     categories: rows,
     admin: req.session.admin,
+    success: req.query.success || null,
+    error: req.query.error || null,
   });
 };
 
@@ -28,10 +30,12 @@ exports.store = async (req, res) => {
   await db.query(
     `INSERT INTO tbl_products_category (category_name, category_slug, parent_id, category_desc)
      VALUES (?, ?, ?, ?)`,
-    [category_name, finalSlug, parent_id || 0, category_desc || ""]
+    [category_name, finalSlug, parent_id || 0, category_desc || ""],
   );
 
- res.redirect("/store/admin/products/categories?success=Category added successfully");
+  res.redirect(
+    "/store/admin/products/categories?success=Category added successfully",
+  );
 };
 
 // UPDATE CATEGORY
@@ -50,10 +54,12 @@ exports.update = async (req, res) => {
     `UPDATE tbl_products_category 
      SET category_name=?, category_slug=?, parent_id=?, category_desc=? 
      WHERE category_id=?`,
-    [category_name, finalSlug, parent_id || 0, category_desc || "", id]
+    [category_name, finalSlug, parent_id || 0, category_desc || "", id],
   );
 
-   res.redirect("/store/admin/products/categories?success=Category updated successfully");
+  res.redirect(
+    "/store/admin/products/categories?success=Category updated successfully",
+  );
 };
 
 // DELETE CATEGORY
@@ -62,5 +68,7 @@ exports.delete = async (req, res) => {
 
   await db.query("DELETE FROM tbl_products_category WHERE category_id=?", [id]);
 
-  res.redirect("/store/admin/products/categories?success=Category deleted successfully");
+  res.redirect(
+    "/store/admin/products/categories?success=Category deleted successfully",
+  );
 };
