@@ -65,7 +65,7 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
           </svg>
         </button>
         <div className={`na-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
-          <Link href={href} className="na-quick-view">Quick View</Link>
+          <Link href={href} className="na-quick-view">View Product</Link>
         </div>
       </div>
       <div className="na-info">
