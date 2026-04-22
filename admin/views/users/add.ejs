@@ -442,7 +442,15 @@
           </div>
         </div>
 
+        <%- include('../partials/scripts') %>
+        
         <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            var checkbox = document.getElementById('sameAsBilling');
+            if (checkbox) {
+              toggleShipping(checkbox.checked);
+            }
+          });
           // ── Sync email → user_login (hidden) ─────────────────────────────────────────
           function syncEmailToLogin(email) {
             // user_login = email (full email as username)
@@ -465,15 +473,37 @@
             var copyFields = document.getElementById('shippingCopyFields');
 
             if (sameAsBilling) {
-              // Hide the editable fields, show hidden copy fields
+              // Hide editable fields
               fields.style.display = 'none';
               copyFields.style.display = '';
-              // Copy billing values into hidden shipping fields
+
+              // Disable visible inputs (VERY IMPORTANT)
+              fields.querySelectorAll('input, select, textarea').forEach(el => {
+                el.disabled = true;
+              });
+
+              // Enable hidden inputs
+              copyFields.querySelectorAll('input').forEach(el => {
+                el.disabled = false;
+              });
+
+              // Copy values
               copyBillingToShipping();
+
             } else {
-              // Show editable fields, hide hidden copy fields
+              // Show editable fields
               fields.style.display = '';
               copyFields.style.display = 'none';
+
+              // Enable visible inputs
+              fields.querySelectorAll('input, select, textarea').forEach(el => {
+                el.disabled = false;
+              });
+
+              // Disable hidden inputs (VERY IMPORTANT)
+              copyFields.querySelectorAll('input').forEach(el => {
+                el.disabled = true;
+              });
             }
           }
 

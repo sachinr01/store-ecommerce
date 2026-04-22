@@ -842,6 +842,7 @@
           }
         </style>
 
+        <%- include('../partials/scripts') %>
         <script>
           ClassicEditor.create(document.querySelector('#product_short_desc')).catch(e => console.error(e));
           ClassicEditor.create(document.querySelector('#productContent')).catch(e => console.error(e));

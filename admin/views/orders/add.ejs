@@ -514,419 +514,420 @@
         </div>
       </div>
 
-      <script>
-        var orderItems = [];
-        var itemCounter = 0;
+      <%- include('../partials/scripts') %>
+        <script>
+          var orderItems = [];
+          var itemCounter = 0;
 
-        // ═══════════════════════════════════════════════════════
-        // CUSTOMER SEARCH
-        // ═══════════════════════════════════════════════════════
-        var searchInput = document.getElementById('customerSearchInput');
-        var dropdown = document.getElementById('customerDropdown');
-        var noResultEl = document.getElementById('customerNoResult');
-        var allOptions = Array.from(document.querySelectorAll('.customer-option'));
+          // ═══════════════════════════════════════════════════════
+          // CUSTOMER SEARCH
+          // ═══════════════════════════════════════════════════════
+          var searchInput = document.getElementById('customerSearchInput');
+          var dropdown = document.getElementById('customerDropdown');
+          var noResultEl = document.getElementById('customerNoResult');
+          var allOptions = Array.from(document.querySelectorAll('.customer-option'));
 
-        // Show top 10 on focus
-        searchInput.addEventListener('focus', function () {
-          showTopCustomers();
-          dropdown.style.display = 'block';
-        });
-
-        // Filter on type
-        searchInput.addEventListener('input', function () {
-          var q = this.value.trim().toLowerCase();
-
-          if (!q) {
+          // Show top 10 on focus
+          searchInput.addEventListener('focus', function () {
             showTopCustomers();
             dropdown.style.display = 'block';
-            return;
-          }
-
-          var hasMatch = false;
-          allOptions.forEach(function (row) {
-            var name = (row.dataset.name || '').toLowerCase();
-            var email = (row.dataset.email || '').toLowerCase();
-            var match = name.includes(q) || email.includes(q);
-            row.style.display = match ? '' : 'none';
-            if (match) hasMatch = true;
           });
 
-          if (hasMatch) {
-            noResultEl.style.display = 'none';
-          } else {
-            noResultEl.style.display = 'flex';
-            noResultEl.style.removeProperty('display'); // remove inline none
-            noResultEl.style.display = 'flex';
-          }
-          dropdown.style.display = 'block';
-        });
+          // Filter on type
+          searchInput.addEventListener('input', function () {
+            var q = this.value.trim().toLowerCase();
 
-        // Show first 10, hide rest
-        function showTopCustomers() {
-          noResultEl.style.display = 'none';
-          var shown = 0;
-          allOptions.forEach(function (row) {
-            if (shown < 10) {
-              row.style.display = '';
-              shown++;
-            } else {
-              row.style.display = 'none';
+            if (!q) {
+              showTopCustomers();
+              dropdown.style.display = 'block';
+              return;
             }
-          });
-        }
 
-        // Close on outside click
-        document.addEventListener('click', function (e) {
-          if (!e.target.closest('#customerSearchInput') &&
-            !e.target.closest('#customerDropdown') &&
-            !e.target.closest('#clearCustomerBtn')) {
-            dropdown.style.display = 'none';
-          }
-        });
-
-
-
-        function selectCustomer(row) {
-          var id = row.dataset.id;
-          var name = row.dataset.name;
-          var email = row.dataset.email;
-
-          // Set hidden customer_id
-          document.getElementById('selectedCustomerId').value = id;
-
-          // Show badge, hide search
-          document.getElementById('customerSearchInput').value = '';
-          document.getElementById('customerDropdown').style.display = 'none';
-          document.getElementById('selectedCustomerBadge').style.display = 'flex';
-          document.getElementById('customerAvatar').textContent = name.charAt(0).toUpperCase();
-          document.getElementById('customerBadgeName').textContent = name;
-          document.getElementById('customerBadgeEmail').textContent = email || 'Guest';
-          document.getElementById('clearCustomerBtn').style.display = 'inline-flex';
-
-          // Fill billing fields
-          document.getElementById('billingFirstName').value = row.dataset.first || '';
-          document.getElementById('billingLastName').value = row.dataset.last || '';
-          document.getElementById('billingEmail').value = row.dataset.email || '';
-          document.getElementById('billingPhone').value = row.dataset.bphone || row.dataset.phone || '';
-          document.getElementById('billingAddr1').value = row.dataset.addr1 || '';
-          document.getElementById('billingAddr2').value = row.dataset.addr2 || '';
-          document.getElementById('billingCity').value = row.dataset.city || '';
-          document.getElementById('billingState').value = row.dataset.state || '';
-          document.getElementById('billingPostcode').value = row.dataset.postcode || '';
-          document.getElementById('billingCountry').value = row.dataset.country || 'India';
-
-          // Fill shipping fields (from customer shipping meta, fallback to billing)
-          document.getElementById('shippingFirstName').value = row.dataset.first || '';
-          document.getElementById('shippingLastName').value = row.dataset.last || '';
-          document.getElementById('shippingPhone').value = row.dataset.sphone || row.dataset.bphone || '';
-          document.getElementById('shippingAddr1').value = row.dataset.saddr1 || row.dataset.addr1 || '';
-          document.getElementById('shippingAddr2').value = row.dataset.saddr2 || row.dataset.addr2 || '';
-          document.getElementById('shippingCity').value = row.dataset.scity || row.dataset.city || '';
-          document.getElementById('shippingState').value = row.dataset.sstate || row.dataset.state || '';
-          document.getElementById('shippingPostcode').value = row.dataset.spostcode || row.dataset.postcode || '';
-          document.getElementById('shippingCountry').value = row.dataset.scountry || row.dataset.country || 'India';
-        }
-
-        function clearCustomer() {
-          document.getElementById('selectedCustomerId').value = '0';
-          document.getElementById('selectedCustomerBadge').style.display = 'none';
-          document.getElementById('clearCustomerBtn').style.display = 'none';
-          document.getElementById('customerSearchInput').value = '';
-          clearBillingShipping();
-        }
-
-        function clearBillingShipping() {
-          ['billingFirstName', 'billingLastName', 'billingEmail', 'billingPhone',
-            'billingAddr1', 'billingAddr2', 'billingCity', 'billingState', 'billingPostcode'].forEach(function (id) {
-              var el = document.getElementById(id);
-              if (el) el.value = '';
+            var hasMatch = false;
+            allOptions.forEach(function (row) {
+              var name = (row.dataset.name || '').toLowerCase();
+              var email = (row.dataset.email || '').toLowerCase();
+              var match = name.includes(q) || email.includes(q);
+              row.style.display = match ? '' : 'none';
+              if (match) hasMatch = true;
             });
-          document.getElementById('billingCountry').value = 'India';
 
-          ['shippingFirstName', 'shippingLastName', 'shippingPhone',
-            'shippingAddr1', 'shippingAddr2', 'shippingCity', 'shippingState', 'shippingPostcode'].forEach(function (id) {
-              var el = document.getElementById(id);
-              if (el) el.value = '';
-            });
-          document.getElementById('shippingCountry').value = 'India';
-        }
-
-        // Close dropdown on outside click
-        document.addEventListener('click', function (e) {
-          if (!e.target.closest('#customerSearchInput') && !e.target.closest('#customerDropdown')) {
-            document.getElementById('customerDropdown').style.display = 'none';
-          }
-        });
-
-        // ═══════════════════════════════════════════════════════
-        // SHIPPING TOGGLE
-        // ═══════════════════════════════════════════════════════
-        function toggleShipping(sameAsBilling) {
-          document.getElementById('shippingCard').style.display = sameAsBilling ? 'none' : 'block';
-        }
-
-        // ═══════════════════════════════════════════════════════
-        // PAYMENT METHOD
-        // ═══════════════════════════════════════════════════════
-        function updatePaymentTitle(sel) {
-          var opt = sel.options[sel.selectedIndex];
-          document.getElementById('paymentMethodTitle').value = opt.dataset.title || opt.text;
-        }
-
-        // ═══════════════════════════════════════════════════════
-        // PRODUCT MODAL
-        // ═══════════════════════════════════════════════════════
-        var productModal = null;
-
-        function showAddProductModal() {
-          document.getElementById('productSearch').value = '';
-          document.getElementById('addItemForm').style.display = 'none';
-          document.getElementById('variationSection').style.display = 'none';
-          document.getElementById('selectedProductId').value = '';
-          document.getElementById('selectedVariationId').value = '0';
-          document.getElementById('selectedProductName').value = '';
-          document.querySelectorAll('.product-row').forEach(function (r) {
-            r.style.background = '';
-            r.style.border = '1px solid #dee2e6';
+            if (hasMatch) {
+              noResultEl.style.display = 'none';
+            } else {
+              noResultEl.style.display = 'flex';
+              noResultEl.style.removeProperty('display'); // remove inline none
+              noResultEl.style.display = 'flex';
+            }
+            dropdown.style.display = 'block';
           });
-          filterProducts('');
-          feather.replace();
 
-          if (!productModal) {
-            productModal = new bootstrap.Modal(document.getElementById('addProductModal'), {
-              backdrop: true,
-              keyboard: true
-            });
-          }
-          productModal.show();
-        }
-
-        function filterProducts(q) {
-          q = q.toLowerCase();
-          document.querySelectorAll('.product-row').forEach(function (row) {
-            row.style.display = row.dataset.name.includes(q) ? '' : 'none';
-          });
-        }
-
-        function selectProduct(row) {
-          document.querySelectorAll('.product-row').forEach(function (r) {
-            r.style.background = '';
-            r.style.border = '1px solid #dee2e6';
-          });
-          row.style.background = '#e8f0fe';
-          row.style.border = '1px solid #884531';
-
-          var productId = row.dataset.id;
-          var productTitle = row.dataset.title;
-          var productPrice = row.dataset.price;
-          var productType = row.dataset.type;
-
-          document.getElementById('selectedProductId').value = productId;
-          document.getElementById('selectedVariationId').value = '0';
-
-          fetch('/store/admin/api/product-variations/' + productId)
-            .then(function (r) { return r.json(); })
-            .then(function (variations) {
-              if (variations && variations.length > 0) {
-                var sel = document.getElementById('variationSelect');
-                sel.innerHTML = '<option value="">— Select variation —</option>';
-                variations.forEach(function (v) {
-                  sel.innerHTML += '<option value="' + v.ID + '" data-price="' + (v.price || v.regular_price || 0) + '">' +
-                    v.label + ' — ₹' + parseFloat(v.price || v.regular_price || 0).toFixed(2) + '</option>';
-                });
-                document.getElementById('variationSection').style.display = 'block';
-                document.getElementById('addItemForm').style.display = 'none';
-                feather.replace();
+          // Show first 10, hide rest
+          function showTopCustomers() {
+            noResultEl.style.display = 'none';
+            var shown = 0;
+            allOptions.forEach(function (row) {
+              if (shown < 10) {
+                row.style.display = '';
+                shown++;
               } else {
-                document.getElementById('variationSection').style.display = 'none';
-                showAddItemForm(productTitle, parseFloat(productPrice || 0), productId, 0);
+                row.style.display = 'none';
               }
             });
-        }
-
-        function onVariationChange(sel) {
-          if (!sel.value) {
-            document.getElementById('addItemForm').style.display = 'none';
-            return;
-          }
-          var opt = sel.options[sel.selectedIndex];
-          var price = parseFloat(opt.dataset.price || 0);
-          var selected = document.querySelector('.product-row[style*="border: 1px solid rgb(41, 98, 255)"]');
-          var title = selected ? selected.dataset.title : 'Product';
-          var varLabel = opt.text.split(' — ')[0];
-
-          document.getElementById('selectedVariationId').value = sel.value;
-          showAddItemForm(title + ' - ' + varLabel, price,
-            document.getElementById('selectedProductId').value, sel.value);
-        }
-
-        function showAddItemForm(name, price, productId, variationId) {
-          document.getElementById('selectedProductName').value = name;
-          document.getElementById('selectedProductPrice').value = price.toFixed(2);
-          document.getElementById('selectedProductQty').value = 1;
-          document.getElementById('addItemForm').style.display = 'block';
-          updateModalTotal();
-          feather.replace();
-        }
-
-        function updateModalTotal() {
-          var price = parseFloat(document.getElementById('selectedProductPrice').value || 0);
-          var qty = parseInt(document.getElementById('selectedProductQty').value || 1);
-          document.getElementById('modalLineTotal').textContent = '₹' + (price * qty).toFixed(2);
-        }
-
-        function addItemToOrder() {
-          var name = document.getElementById('selectedProductName').value;
-          var price = parseFloat(document.getElementById('selectedProductPrice').value || 0);
-          var qty = parseInt(document.getElementById('selectedProductQty').value || 1);
-          var productId = document.getElementById('selectedProductId').value;
-          var variationId = document.getElementById('selectedVariationId').value || '0';
-
-          if (!name || !productId) {
-            alert('Please select a product first.');
-            return;
           }
 
-          // Add to list
-          orderItems.push({
-            idx: itemCounter++,
-            name: name,
-            price: price,
-            qty: qty,
-            productId: productId,
-            variationId: variationId,
-            lineTotal: (price * qty).toFixed(2)
-          });
-          renderItems();
-
-          // Show success flash inside modal
-          var flash = document.getElementById('addedFlash');
-          if (flash) {
-            flash.textContent = '✓ "' + name + '" added!';
-            flash.style.display = 'block';
-            setTimeout(function () { flash.style.display = 'none'; }, 2000);
-          }
-
-          // Reset selection for next product — modal stays open
-          document.getElementById('addItemForm').style.display = 'none';
-          document.getElementById('variationSection').style.display = 'none';
-          document.getElementById('selectedProductId').value = '';
-          document.getElementById('selectedVariationId').value = '0';
-          document.getElementById('selectedProductName').value = '';
-          document.getElementById('productSearch').value = '';
-          document.querySelectorAll('.product-row').forEach(function (r) {
-            r.style.background = '';
-            r.style.border = '1px solid #dee2e6';
-          });
-          filterProducts('');
-        }
-
-        function renderItems() {
-          var container = document.getElementById('orderItemsList');
-          var totals = document.getElementById('totalsSection');
-
-          if (orderItems.length === 0) {
-            container.innerHTML =
-              '<div class="text-center py-4 text-muted">' +
-              '<i data-feather="package" style="width:32px;height:32px;" class="d-block mx-auto mb-2"></i>' +
-              'No items added yet. Click "Add Product" to start.' +
-              '</div>';
-            totals.style.display = 'none';
-            feather.replace();
-            return;
-          }
-
-          totals.style.display = 'block';
-
-          var html = '';
-          orderItems.forEach(function (item) {
-            html +=
-              '<div class="d-flex align-items-center gap-3 py-2 border-bottom" id="orderItem_' + item.idx + '">' +
-              '<div class="flex-grow-1">' +
-              '<div class="fw-semibold small">' + escapeHtml(item.name) + '</div>' +
-              '<div class="d-flex align-items-center gap-2 mt-1">' +
-              '<small class="text-muted">Unit: ₹' + parseFloat(item.price).toFixed(2) + '</small>' +
-              '<span class="text-muted">×</span>' +
-              '<input type="number" class="form-control form-control-sm" min="1" value="' + item.qty + '"' +
-              ' style="width:65px;" onchange="updateItemQty(' + item.idx + ', this.value)" />' +
-              '</div>' +
-              '<input type="hidden" name="item_product_id[]"   value="' + item.productId + '" />' +
-              '<input type="hidden" name="item_variation_id[]" value="' + item.variationId + '" />' +
-              '<input type="hidden" name="item_name[]"         value="' + escapeHtml(item.name) + '" />' +
-              '<input type="hidden" name="item_price[]"        id="price_' + item.idx + '" value="' + item.price + '" />' +
-              '<input type="hidden" name="item_qty[]"          id="qty_' + item.idx + '" value="' + item.qty + '" />' +
-              '</div>' +
-              '<div class="text-end flex-shrink-0">' +
-              '<div class="fw-semibold small" id="lineTotal_' + item.idx + '">₹' + item.lineTotal + '</div>' +
-              '<button type="button" class="btn btn-sm btn-outline-danger rounded-pill mt-1"' +
-              ' onclick="removeItem(' + item.idx + ')" style="padding:1px 8px;font-size:11px;">Remove</button>' +
-              '</div>' +
-              '</div>';
-          });
-
-          container.innerHTML = html;
-          recalcTotal();
-        }
-
-        // Uses item.idx (stable ID) not array index
-        function removeItem(idx) {
-          orderItems = orderItems.filter(function (item) { return item.idx !== idx; });
-          renderItems();
-        }
-
-        // Update qty live
-        function updateItemQty(idx, newQty) {
-          newQty = parseInt(newQty) || 1;
-          if (newQty < 1) newQty = 1;
-
-          orderItems = orderItems.map(function (item) {
-            if (item.idx === idx) {
-              item.qty = newQty;
-              item.lineTotal = (parseFloat(item.price) * newQty).toFixed(2);
-              // Update hidden inputs
-              var qtyEl = document.getElementById('qty_' + idx);
-              var totalEl = document.getElementById('lineTotal_' + idx);
-              if (qtyEl) qtyEl.value = newQty;
-              if (totalEl) totalEl.textContent = '₹' + item.lineTotal;
+          // Close on outside click
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest('#customerSearchInput') &&
+              !e.target.closest('#customerDropdown') &&
+              !e.target.closest('#clearCustomerBtn')) {
+              dropdown.style.display = 'none';
             }
-            return item;
           });
-          recalcTotal();
-        }
 
-        // Escape HTML to prevent XSS in product names
-        function escapeHtml(str) {
-          return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-        }
 
-        function recalcTotal() {
-          var subtotal = orderItems.reduce(function (sum, item) {
-            return sum + (parseFloat(item.price) * item.qty);
-          }, 0);
-          var shipping = parseFloat(document.getElementById('shippingCost').value || 0);
-          var discount = parseFloat(document.getElementById('discountTotal').value || 0);
-          var total = subtotal + shipping - discount;
-          document.getElementById('subtotalDisplay').textContent = '₹' + subtotal.toFixed(2);
-          document.getElementById('totalDisplay').textContent = '₹' + Math.max(0, total).toFixed(2);
-        }
 
-        function validateOrder() {
-          if (orderItems.length === 0) {
-            alert('Please add at least one product to the order.');
-            return false;
+          function selectCustomer(row) {
+            var id = row.dataset.id;
+            var name = row.dataset.name;
+            var email = row.dataset.email;
+
+            // Set hidden customer_id
+            document.getElementById('selectedCustomerId').value = id;
+
+            // Show badge, hide search
+            document.getElementById('customerSearchInput').value = '';
+            document.getElementById('customerDropdown').style.display = 'none';
+            document.getElementById('selectedCustomerBadge').style.display = 'flex';
+            document.getElementById('customerAvatar').textContent = name.charAt(0).toUpperCase();
+            document.getElementById('customerBadgeName').textContent = name;
+            document.getElementById('customerBadgeEmail').textContent = email || 'Guest';
+            document.getElementById('clearCustomerBtn').style.display = 'inline-flex';
+
+            // Fill billing fields
+            document.getElementById('billingFirstName').value = row.dataset.first || '';
+            document.getElementById('billingLastName').value = row.dataset.last || '';
+            document.getElementById('billingEmail').value = row.dataset.email || '';
+            document.getElementById('billingPhone').value = row.dataset.bphone || row.dataset.phone || '';
+            document.getElementById('billingAddr1').value = row.dataset.addr1 || '';
+            document.getElementById('billingAddr2').value = row.dataset.addr2 || '';
+            document.getElementById('billingCity').value = row.dataset.city || '';
+            document.getElementById('billingState').value = row.dataset.state || '';
+            document.getElementById('billingPostcode').value = row.dataset.postcode || '';
+            document.getElementById('billingCountry').value = row.dataset.country || 'India';
+
+            // Fill shipping fields (from customer shipping meta, fallback to billing)
+            document.getElementById('shippingFirstName').value = row.dataset.first || '';
+            document.getElementById('shippingLastName').value = row.dataset.last || '';
+            document.getElementById('shippingPhone').value = row.dataset.sphone || row.dataset.bphone || '';
+            document.getElementById('shippingAddr1').value = row.dataset.saddr1 || row.dataset.addr1 || '';
+            document.getElementById('shippingAddr2').value = row.dataset.saddr2 || row.dataset.addr2 || '';
+            document.getElementById('shippingCity').value = row.dataset.scity || row.dataset.city || '';
+            document.getElementById('shippingState').value = row.dataset.sstate || row.dataset.state || '';
+            document.getElementById('shippingPostcode').value = row.dataset.spostcode || row.dataset.postcode || '';
+            document.getElementById('shippingCountry').value = row.dataset.scountry || row.dataset.country || 'India';
           }
-          if (!document.getElementById('billingEmail').value) {
-            alert('Please enter a billing email address.');
-            return false;
+
+          function clearCustomer() {
+            document.getElementById('selectedCustomerId').value = '0';
+            document.getElementById('selectedCustomerBadge').style.display = 'none';
+            document.getElementById('clearCustomerBtn').style.display = 'none';
+            document.getElementById('customerSearchInput').value = '';
+            clearBillingShipping();
           }
-          return true;
-        }
 
-        feather.replace();
-      </script>
+          function clearBillingShipping() {
+            ['billingFirstName', 'billingLastName', 'billingEmail', 'billingPhone',
+              'billingAddr1', 'billingAddr2', 'billingCity', 'billingState', 'billingPostcode'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
+              });
+            document.getElementById('billingCountry').value = 'India';
 
-      <%- include('../partials/footer') %>
+            ['shippingFirstName', 'shippingLastName', 'shippingPhone',
+              'shippingAddr1', 'shippingAddr2', 'shippingCity', 'shippingState', 'shippingPostcode'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
+              });
+            document.getElementById('shippingCountry').value = 'India';
+          }
+
+          // Close dropdown on outside click
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest('#customerSearchInput') && !e.target.closest('#customerDropdown')) {
+              document.getElementById('customerDropdown').style.display = 'none';
+            }
+          });
+
+          // ═══════════════════════════════════════════════════════
+          // SHIPPING TOGGLE
+          // ═══════════════════════════════════════════════════════
+          function toggleShipping(sameAsBilling) {
+            document.getElementById('shippingCard').style.display = sameAsBilling ? 'none' : 'block';
+          }
+
+          // ═══════════════════════════════════════════════════════
+          // PAYMENT METHOD
+          // ═══════════════════════════════════════════════════════
+          function updatePaymentTitle(sel) {
+            var opt = sel.options[sel.selectedIndex];
+            document.getElementById('paymentMethodTitle').value = opt.dataset.title || opt.text;
+          }
+
+          // ═══════════════════════════════════════════════════════
+          // PRODUCT MODAL
+          // ═══════════════════════════════════════════════════════
+          var productModal = null;
+
+          function showAddProductModal() {
+            document.getElementById('productSearch').value = '';
+            document.getElementById('addItemForm').style.display = 'none';
+            document.getElementById('variationSection').style.display = 'none';
+            document.getElementById('selectedProductId').value = '';
+            document.getElementById('selectedVariationId').value = '0';
+            document.getElementById('selectedProductName').value = '';
+            document.querySelectorAll('.product-row').forEach(function (r) {
+              r.style.background = '';
+              r.style.border = '1px solid #dee2e6';
+            });
+            filterProducts('');
+            feather.replace();
+
+            if (!productModal) {
+              productModal = new bootstrap.Modal(document.getElementById('addProductModal'), {
+                backdrop: true,
+                keyboard: true
+              });
+            }
+            productModal.show();
+          }
+
+          function filterProducts(q) {
+            q = q.toLowerCase();
+            document.querySelectorAll('.product-row').forEach(function (row) {
+              row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+            });
+          }
+
+          function selectProduct(row) {
+            document.querySelectorAll('.product-row').forEach(function (r) {
+              r.style.background = '';
+              r.style.border = '1px solid #dee2e6';
+            });
+            row.style.background = '#e8f0fe';
+            row.style.border = '1px solid #884531';
+
+            var productId = row.dataset.id;
+            var productTitle = row.dataset.title;
+            var productPrice = row.dataset.price;
+            var productType = row.dataset.type;
+
+            document.getElementById('selectedProductId').value = productId;
+            document.getElementById('selectedVariationId').value = '0';
+
+            fetch('/store/admin/api/product-variations/' + productId)
+              .then(function (r) { return r.json(); })
+              .then(function (variations) {
+                if (variations && variations.length > 0) {
+                  var sel = document.getElementById('variationSelect');
+                  sel.innerHTML = '<option value="">— Select variation —</option>';
+                  variations.forEach(function (v) {
+                    sel.innerHTML += '<option value="' + v.ID + '" data-price="' + (v.price || v.regular_price || 0) + '">' +
+                      v.label + ' — ₹' + parseFloat(v.price || v.regular_price || 0).toFixed(2) + '</option>';
+                  });
+                  document.getElementById('variationSection').style.display = 'block';
+                  document.getElementById('addItemForm').style.display = 'none';
+                  feather.replace();
+                } else {
+                  document.getElementById('variationSection').style.display = 'none';
+                  showAddItemForm(productTitle, parseFloat(productPrice || 0), productId, 0);
+                }
+              });
+          }
+
+          function onVariationChange(sel) {
+            if (!sel.value) {
+              document.getElementById('addItemForm').style.display = 'none';
+              return;
+            }
+            var opt = sel.options[sel.selectedIndex];
+            var price = parseFloat(opt.dataset.price || 0);
+            var selected = document.querySelector('.product-row[style*="border: 1px solid rgb(41, 98, 255)"]');
+            var title = selected ? selected.dataset.title : 'Product';
+            var varLabel = opt.text.split(' — ')[0];
+
+            document.getElementById('selectedVariationId').value = sel.value;
+            showAddItemForm(title + ' - ' + varLabel, price,
+              document.getElementById('selectedProductId').value, sel.value);
+          }
+
+          function showAddItemForm(name, price, productId, variationId) {
+            document.getElementById('selectedProductName').value = name;
+            document.getElementById('selectedProductPrice').value = price.toFixed(2);
+            document.getElementById('selectedProductQty').value = 1;
+            document.getElementById('addItemForm').style.display = 'block';
+            updateModalTotal();
+            feather.replace();
+          }
+
+          function updateModalTotal() {
+            var price = parseFloat(document.getElementById('selectedProductPrice').value || 0);
+            var qty = parseInt(document.getElementById('selectedProductQty').value || 1);
+            document.getElementById('modalLineTotal').textContent = '₹' + (price * qty).toFixed(2);
+          }
+
+          function addItemToOrder() {
+            var name = document.getElementById('selectedProductName').value;
+            var price = parseFloat(document.getElementById('selectedProductPrice').value || 0);
+            var qty = parseInt(document.getElementById('selectedProductQty').value || 1);
+            var productId = document.getElementById('selectedProductId').value;
+            var variationId = document.getElementById('selectedVariationId').value || '0';
+
+            if (!name || !productId) {
+              alert('Please select a product first.');
+              return;
+            }
+
+            // Add to list
+            orderItems.push({
+              idx: itemCounter++,
+              name: name,
+              price: price,
+              qty: qty,
+              productId: productId,
+              variationId: variationId,
+              lineTotal: (price * qty).toFixed(2)
+            });
+            renderItems();
+
+            // Show success flash inside modal
+            var flash = document.getElementById('addedFlash');
+            if (flash) {
+              flash.textContent = '✓ "' + name + '" added!';
+              flash.style.display = 'block';
+              setTimeout(function () { flash.style.display = 'none'; }, 2000);
+            }
+
+            // Reset selection for next product — modal stays open
+            document.getElementById('addItemForm').style.display = 'none';
+            document.getElementById('variationSection').style.display = 'none';
+            document.getElementById('selectedProductId').value = '';
+            document.getElementById('selectedVariationId').value = '0';
+            document.getElementById('selectedProductName').value = '';
+            document.getElementById('productSearch').value = '';
+            document.querySelectorAll('.product-row').forEach(function (r) {
+              r.style.background = '';
+              r.style.border = '1px solid #dee2e6';
+            });
+            filterProducts('');
+          }
+
+          function renderItems() {
+            var container = document.getElementById('orderItemsList');
+            var totals = document.getElementById('totalsSection');
+
+            if (orderItems.length === 0) {
+              container.innerHTML =
+                '<div class="text-center py-4 text-muted">' +
+                '<i data-feather="package" style="width:32px;height:32px;" class="d-block mx-auto mb-2"></i>' +
+                'No items added yet. Click "Add Product" to start.' +
+                '</div>';
+              totals.style.display = 'none';
+              feather.replace();
+              return;
+            }
+
+            totals.style.display = 'block';
+
+            var html = '';
+            orderItems.forEach(function (item) {
+              html +=
+                '<div class="d-flex align-items-center gap-3 py-2 border-bottom" id="orderItem_' + item.idx + '">' +
+                '<div class="flex-grow-1">' +
+                '<div class="fw-semibold small">' + escapeHtml(item.name) + '</div>' +
+                '<div class="d-flex align-items-center gap-2 mt-1">' +
+                '<small class="text-muted">Unit: ₹' + parseFloat(item.price).toFixed(2) + '</small>' +
+                '<span class="text-muted">×</span>' +
+                '<input type="number" class="form-control form-control-sm" min="1" value="' + item.qty + '"' +
+                ' style="width:65px;" onchange="updateItemQty(' + item.idx + ', this.value)" />' +
+                '</div>' +
+                '<input type="hidden" name="item_product_id[]"   value="' + item.productId + '" />' +
+                '<input type="hidden" name="item_variation_id[]" value="' + item.variationId + '" />' +
+                '<input type="hidden" name="item_name[]"         value="' + escapeHtml(item.name) + '" />' +
+                '<input type="hidden" name="item_price[]"        id="price_' + item.idx + '" value="' + item.price + '" />' +
+                '<input type="hidden" name="item_qty[]"          id="qty_' + item.idx + '" value="' + item.qty + '" />' +
+                '</div>' +
+                '<div class="text-end flex-shrink-0">' +
+                '<div class="fw-semibold small" id="lineTotal_' + item.idx + '">₹' + item.lineTotal + '</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger rounded-pill mt-1"' +
+                ' onclick="removeItem(' + item.idx + ')" style="padding:1px 8px;font-size:11px;">Remove</button>' +
+                '</div>' +
+                '</div>';
+            });
+
+            container.innerHTML = html;
+            recalcTotal();
+          }
+
+          // Uses item.idx (stable ID) not array index
+          function removeItem(idx) {
+            orderItems = orderItems.filter(function (item) { return item.idx !== idx; });
+            renderItems();
+          }
+
+          // Update qty live
+          function updateItemQty(idx, newQty) {
+            newQty = parseInt(newQty) || 1;
+            if (newQty < 1) newQty = 1;
+
+            orderItems = orderItems.map(function (item) {
+              if (item.idx === idx) {
+                item.qty = newQty;
+                item.lineTotal = (parseFloat(item.price) * newQty).toFixed(2);
+                // Update hidden inputs
+                var qtyEl = document.getElementById('qty_' + idx);
+                var totalEl = document.getElementById('lineTotal_' + idx);
+                if (qtyEl) qtyEl.value = newQty;
+                if (totalEl) totalEl.textContent = '₹' + item.lineTotal;
+              }
+              return item;
+            });
+            recalcTotal();
+          }
+
+          // Escape HTML to prevent XSS in product names
+          function escapeHtml(str) {
+            return String(str)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;');
+          }
+
+          function recalcTotal() {
+            var subtotal = orderItems.reduce(function (sum, item) {
+              return sum + (parseFloat(item.price) * item.qty);
+            }, 0);
+            var shipping = parseFloat(document.getElementById('shippingCost').value || 0);
+            var discount = parseFloat(document.getElementById('discountTotal').value || 0);
+            var total = subtotal + shipping - discount;
+            document.getElementById('subtotalDisplay').textContent = '₹' + subtotal.toFixed(2);
+            document.getElementById('totalDisplay').textContent = '₹' + Math.max(0, total).toFixed(2);
+          }
+
+          function validateOrder() {
+            if (orderItems.length === 0) {
+              alert('Please add at least one product to the order.');
+              return false;
+            }
+            if (!document.getElementById('billingEmail').value) {
+              alert('Please enter a billing email address.');
+              return false;
+            }
+            return true;
+          }
+
+          feather.replace();
+        </script>
+
+        <%- include('../partials/footer') %>

@@ -52,7 +52,7 @@
                     <div class="col-12">
                       <div class="card">
                         <div class="card-body">
-                          
+
 
                           <div class="table-responsive">
                             <table id="productsTable" class="table table-hover table-striped align-middle">
@@ -154,8 +154,10 @@
                                             <i data-feather="edit-2" class="feather-sm"></i>
                                           </a>
                                           <button class="btn btn-sm btn-light-danger text-danger delete-btn"
-                                            data-id="<%= product.ID %>" data-name="<%= product.product_title %>"
-                                            title="Delete">
+                                            data-id="<%= product.ID %>" 
+                                            data-name="<%= product.product_title %>"
+                                            data-url="/store/admin/products/delete/"
+                                            data-title="Delete Product" >
                                             <i data-feather="trash-2" class="feather-sm"></i>
                                           </button>
                                         </div>
@@ -177,112 +179,82 @@
                             </table>
                           </div>
 
-                        
+
                         </div>
                       </div>
                     </div>
                   </div>
         </div>
 
-        <%- include('../partials/footer') %>
       </div>
       </div>
 
-      <!-- Delete Confirmation Modal -->
-      <div class="modal fade" id="deleteModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Delete Product</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <div class="text-center py-3">
-                <i data-feather="alert-triangle" style="width:48px;height:48px;" class="text-danger mb-3"></i>
-                <p>Are you sure you want to delete <strong id="deleteProductName"></strong>?</p>
-                <p class="text-muted small">This action cannot be undone.</p>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-              <form id="deleteForm" method="POST" style="display:inline;">
-                <input type="hidden" name="_method" value="DELETE" />
-                <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
+    
 
-      <script>
-        // Delete button
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-          btn.addEventListener('click', function () {
-            const id = this.dataset.id;
-            const name = this.dataset.name;
-            document.getElementById('deleteProductName').textContent = name;
-            document.getElementById('deleteForm').action = '/store/admin/products/delete/' + id;
-            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+      <%- include('../partials/scripts') %>
+        <script>
+         
+
+          // Select all checkbox
+          document.getElementById('selectAll').addEventListener('change', function () {
+            document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = this.checked);
           });
-        });
 
-        // Select all checkbox
-        document.getElementById('selectAll').addEventListener('change', function () {
-          document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = this.checked);
-        });
+          // Status filter
+          document.getElementById('statusFilter').addEventListener('change', function () {
+            const params = new URLSearchParams(window.location.search);
+            if (this.value) params.set('status', this.value); else params.delete('status');
+            params.delete('page');
+            window.location.search = params.toString();
+          });
 
-        // Status filter
-        document.getElementById('statusFilter').addEventListener('change', function () {
-          const params = new URLSearchParams(window.location.search);
-          if (this.value) params.set('status', this.value); else params.delete('status');
-          params.delete('page');
-          window.location.search = params.toString();
-        });
+          // Type filter
+          document.getElementById('typeFilter').addEventListener('change', function () {
+            const params = new URLSearchParams(window.location.search);
+            if (this.value) params.set('type', this.value); else params.delete('type');
+            params.delete('page');
+            window.location.search = params.toString();
+          });
 
-        // Type filter
-        document.getElementById('typeFilter').addEventListener('change', function () {
-          const params = new URLSearchParams(window.location.search);
-          if (this.value) params.set('type', this.value); else params.delete('type');
-          params.delete('page');
-          window.location.search = params.toString();
-        });
+          // Set filter values from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('status')) document.getElementById('statusFilter').value = urlParams.get('status');
+          if (urlParams.get('type')) document.getElementById('typeFilter').value = urlParams.get('type');
+        </script>
 
-        // Set filter values from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('status')) document.getElementById('statusFilter').value = urlParams.get('status');
-        if (urlParams.get('type')) document.getElementById('typeFilter').value = urlParams.get('type');
-      </script>
+        <%- include('../partials/footer') %>
 
-      <%- include('../partials/footer') %>
 
-      
-<script>
-  $(document).ready(function() {
-     if ($.fn.DataTable.isDataTable('#productsTable')) {
-    $('#productsTable').DataTable().clear().destroy();
-  }
-    $('#productsTable').DataTable({
-      "responsive": true,
-      "autoWidth": false,
-      "order": [[0, "desc"]],
-      "pageLength": 10,
-      "columnDefs": [
-        { "orderable": false, "targets": 6 }
-      ],
-      "language": {
-        "emptyTable": "No products found",
-        "info": "Showing _START_ to _END_ of _TOTAL_ products",
-        "infoEmpty": "Showing 0 to 0 of 0 Products",
-        "search": "Search products:",
-        "paginate": {
-          "first": "First",
-          "last": "Last",
-          "next": "Next",
-          "previous": "Previous"
-        }
-      }
-    });
-  });
+          <script>
+            $(document).ready(function () {
+              if ($.fn.DataTable.isDataTable('#productsTable')) {
+                $('#productsTable').DataTable().clear().destroy();
+              }
+              $('#productsTable').DataTable({
+                "responsive": true,
+                "autoWidth": false,
+                "order": [[0, "desc"]],
+                "pageLength": 10,
+                "columnDefs": [
+                  { "orderable": false, "targets": 6 }
+                ],
+                "language": {
+                  "emptyTable": "No products found",
+                  "info": "Showing _START_ to _END_ of _TOTAL_ products",
+                  "infoEmpty": "Showing 0 to 0 of 0 Products",
+                  "search": "Search products:",
+                  "paginate": {
+                    "first": "First",
+                    "last": "Last",
+                    "next": "Next",
+                    "previous": "Previous"
+                  }
+                }
+              });
+            });
 
-  feather.replace();
-</script>
+            feather.replace();
+          </script>
+
+
+          <%- include('../partials/footer') %>

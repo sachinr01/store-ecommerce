@@ -1,0 +1,106 @@
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Delete Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center py-3">
+          <i data-feather="alert-triangle" style="width:48px;height:48px;" class="text-danger mb-3"></i>
+          <p>Are you sure you want to delete <strong id="deleteProductName"></strong>?</p>
+          <p class="text-muted small">This action cannot be undone.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+        <form id="deleteForm" method="POST" style="display:inline;">
+          <input type="hidden" name="_method" value="DELETE" />
+          <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="<%= basePath %>/js/jquery.min.js"></script>
+<script src="<%= basePath %>/js/bootstrap.bundle.min.js"></script>
+<script src="<%= basePath %>/js/app.min.js"></script>
+<script src="<%= basePath %>/js/app.init.js"></script>
+<script src="<%= basePath %>/js/app-style-switcher.js"></script>
+<script src="<%= basePath %>/js/waves.js"></script>
+<script src="<%= basePath %>/js/sidebarmenu.js"></script>
+<script src="<%= basePath %>/js/feather.min.js"></script>
+<script src="<%= basePath %>/js/custom.min.js"></script>
+<script src="<%= basePath %>/js/dashboard1.js"></script>
+<script src="<%= basePath %>/js/perfect-scrollbar.jquery.js"></script>
+<script src="<%= basePath %>/js/jquery.sparkline.min.js"></script>
+<script src="<%= basePath %>/js/apexcharts.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+
+
+<script>
+ document.querySelectorAll('.delete-btn').forEach(btn => {
+  btn.addEventListener('click', function () {
+    const id = this.dataset.id;
+    const name = this.dataset.name;
+    const url = this.dataset.url;
+    const title = this.dataset.title;
+
+    // Set modal title
+    document.querySelector('#deleteModal .modal-title').textContent = title;
+
+    // Set name
+    document.getElementById('deleteProductName').textContent = name;
+
+    let actionUrl = '';
+    let formMethod = 'POST';
+
+    // ✅ Handle different modules
+    if (url.includes('/orders/')) {
+      // Orders: /orders/:id/delete
+      actionUrl = url + id + '/delete';
+      formMethod = 'POST';
+
+    } else if (url.includes('/coupons/delete/')) {
+      // Coupons: GET route
+      actionUrl = url + id;
+      formMethod = 'GET';
+    } else if (url.includes('/pages/delete/')) {
+      // Pages: GET route
+      actionUrl = url + id;
+      formMethod = 'GET';
+    } else if (url.includes('/blogs/delete/')) {
+      // Blogs: GET route
+      actionUrl = url + id;
+      formMethod = 'GET';
+    } else if (url.includes('/blogs/category/delete/')) {
+      // Blogs: GET route
+      actionUrl = url + id;
+      formMethod = 'GET';
+
+    } else {
+      // Default: /module/delete/:id
+      actionUrl = url + id;
+      formMethod = 'POST';
+    }
+
+    const form = document.getElementById('deleteForm');
+    form.action = actionUrl;
+    form.method = formMethod;
+
+    // Show modal
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+  });
+});
+</script>

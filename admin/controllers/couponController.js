@@ -177,5 +177,5 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   const { id } = req.params;
   await db.query("DELETE FROM tbl_coupons WHERE coupon_id = ?", [id]);
-  res.redirect("/store/admin/coupons");
+  res.redirect("/store/admin/coupons?success=Coupon deleted successfully");
 };

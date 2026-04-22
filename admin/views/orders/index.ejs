@@ -1,187 +1,197 @@
 <%- include('../partials/head') %>
-<%- include('../partials/navbar') %>
-<%- include('../partials/sidebar') %>
+  <%- include('../partials/navbar') %>
+    <%- include('../partials/sidebar') %>
 
-<div class="page-wrapper">
+      <div class="page-wrapper">
 
-  <div class="page-breadcrumb">
-    <div class="row">
-      <div class="col-7 align-self-center">
-        <h4 class="page-title">Orders <span class="badge bg-primary rounded-pill ms-1"><%= total %></span></h4>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-            <li class="breadcrumb-item active">Orders</li>
-          </ol>
-        </nav>
-      </div>
-      <div class="col-5 align-self-center text-end">
-  <a href="/store/admin/orders/add" class="btn btn-primary rounded-pill px-4">
-    <div class="d-flex align-items-center gap-1">
-      <i data-feather="plus" class="feather-sm"></i> Add Order
-    </div>
-  </a>
-</div>
-    </div>
-  </div>
-
-  <div class="container-fluid">
-
-    <% if (success) { %>
-    <div class="alert alert-success alert-dismissible fade show">
-      <i data-feather="check-circle" class="feather-sm me-1"></i> <%= success %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
-    <% if (error) { %>
-    <div class="alert alert-danger alert-dismissible fade show">
-      <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
-
-    <!-- Status filter tabs -->
-    <div class="card mb-3">
-      <div class="card-body py-2">
-        <div class="d-flex gap-2 flex-wrap align-items-center">
-          <a href="/store/admin/orders"
-            class="btn btn-sm rounded-pill <%= !status ? 'btn-primary' : 'btn-outline-secondary' %>">
-            All
-          </a>
-          <% Object.entries(statusBadge).forEach(function(entry) { %>
-          <a href="/store/admin/orders?status=<%= entry[0] %>"
-            class="btn btn-sm rounded-pill <%= status === entry[0] ? entry[1].class + ' text-white' : 'btn-outline-secondary' %>">
-            <%= entry[1].label %>
-          </a>
-          <% }) %>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-body">
-
-        <!-- Search -->
-        <form method="GET" action="/store/admin/orders" class="d-flex gap-2 mb-3">
-          <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
-          <input type="text" name="search" class="form-control form-control-sm"
-            placeholder="Search order name or title..." value="<%= search %>" style="max-width:280px;" />
-          <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-            <i data-feather="search" style="width:14px;height:14px;"></i> Search
-          </button>
-          <% if (search) { %>
-          <a href="/store/admin/orders<%= status ? '?status=' + status : '' %>"
-            class="btn btn-sm btn-outline-secondary rounded-pill px-3">Clear</a>
-          <% } %>
-        </form>
-
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Order</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% if (orders.length === 0) { %>
-              <tr>
-                <td colspan="8" class="text-center text-muted py-5">
-                  <i data-feather="inbox" style="width:40px;height:40px;" class="d-block mx-auto mb-2 text-muted"></i>
-                  No orders found
-                </td>
-              </tr>
-              <% } %>
-              <% orders.forEach(function(o) { %>
-              <% var sb = statusBadge[o.order_status] || { label: o.order_status, class: 'bg-secondary' }; %>
-              <tr>
-                <td>
-                  <a href="/store/admin/orders/<%= o.order_id %>" class="fw-semibold text-decoration-none">
-                    #<%= o.order_id %>
-                  </a>
-                  <div><small class="text-muted"><%= o.order_name %></small></div>
-                </td>
-                <td>
-                  <div class="fw-semibold small"><%= (o.billing_first_name || '') + ' ' + (o.billing_last_name || '') %></div>
-                  <small class="text-muted"><%= o.billing_email || '' %></small>
-                </td>
-                <td>
-                  <small class="text-muted"><%= o.order_title %></small>
-                </td>
-                <td>
-                  <span class="fw-semibold">
-                    ₹<%= parseFloat(o.order_total || 0).toFixed(2) %>
-                  </span>
-                </td>
-                <td><small><%= o.payment_method || '-' %></small></td>
-                <td>
-                  <span class="badge rounded-pill <%= sb.class %>"><%= sb.label %></span>
-                </td>
-                <td>
-                  <small class="text-muted">
-                    <%= o.order_date ? new Date(o.order_date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : '-' %>
-                  </small>
-                </td>
-                <td>
-                  <div class="d-flex gap-1">
-                    <a href="/store/admin/orders/<%= o.order_id %>"
-                      class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1"
-                      title="View Order">
-                      <i data-feather="eye" style="width:13px;height:13px;"></i>
-                    </a>
-                    <form action="/store/admin/orders/<%= o.order_id %>/delete" method="POST"
-                      onsubmit="return confirm('Delete order #<%= o.order_id %>?')">
-                      <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1"
-                        title="Delete Order">
-                        <i data-feather="trash-2" style="width:13px;height:13px;"></i>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
+        <div class="page-breadcrumb">
+          <div class="row">
+            <div class="col-7 align-self-center">
+              <h4 class="page-title">Orders <span class="badge bg-primary rounded-pill ms-1">
+                  <%= total %>
+                </span></h4>
+              <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                  <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                  <li class="breadcrumb-item active">Orders</li>
+                </ol>
+              </nav>
+            </div>
+            <div class="col-5 align-self-center text-end">
+              <a href="/store/admin/orders/add" class="btn btn-primary rounded-pill px-4">
+                <div class="d-flex align-items-center gap-1">
+                  <i data-feather="plus" class="feather-sm"></i> Add Order
+                </div>
+              </a>
+            </div>
+          </div>
         </div>
 
-        <!-- Pagination -->
-        <% if (totalPages > 1) { %>
-        <nav class="mt-3">
-          <ul class="pagination pagination-sm justify-content-end mb-0">
-            <li class="page-item <%= page <= 1 ? 'disabled' : '' %>">
-              <a class="page-link rounded-start"
-                href="/store/admin/orders?page=<%= page-1 %><%= status ? '&status='+status : '' %><%= search ? '&search='+search : '' %>">
-                ‹ Prev
-              </a>
-            </li>
-            <% for (var p = Math.max(1, page-2); p <= Math.min(totalPages, page+2); p++) { %>
-            <li class="page-item <%= p === page ? 'active' : '' %>">
-              <a class="page-link"
-                href="/store/admin/orders?page=<%= p %><%= status ? '&status='+status : '' %><%= search ? '&search='+search : '' %>">
-                <%= p %>
-              </a>
-            </li>
+        <div class="container-fluid">
+
+          <% if (success) { %>
+            <div class="alert alert-success alert-dismissible fade show">
+              <i data-feather="check-circle" class="feather-sm me-1"></i>
+              <%= success %>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
             <% } %>
-            <li class="page-item <%= page >= totalPages ? 'disabled' : '' %>">
-              <a class="page-link rounded-end"
-                href="/store/admin/orders?page=<%= page+1 %><%= status ? '&status='+status : '' %><%= search ? '&search='+search : '' %>">
-                Next ›
-              </a>
-            </li>
-          </ul>
-        </nav>
-        <% } %>
+              <% if (error) { %>
+                <div class="alert alert-danger alert-dismissible fade show">
+                  <i data-feather="alert-circle" class="feather-sm me-1"></i>
+                  <%= error %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <% } %>
 
+                  <!-- Status filter tabs -->
+                  <div class="card mb-3">
+                    <div class="card-body py-2">
+                      <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <a href="/store/admin/orders"
+                          class="btn btn-sm rounded-pill <%= !status ? 'btn-primary' : 'btn-outline-secondary' %>">
+                          All
+                        </a>
+                        <% Object.entries(statusBadge).forEach(function(entry) { %>
+                          <a href="/store/admin/orders?status=<%= entry[0] %>"
+                            class="btn btn-sm rounded-pill <%= status === entry[0] ? entry[1].class + ' text-white' : 'btn-outline-secondary' %>">
+                            <%= entry[1].label %>
+                          </a>
+                          <% }) %>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card">
+                    <div class="card-body">
+
+
+
+                      <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="ordersTable">
+                          <thead class="table-light">
+                            <tr>
+                              <th>Order</th>
+                              <th>Customer</th>
+                              <th>Items</th>
+                              <th>Total</th>
+                              <th>Payment</th>
+                              <th>Status</th>
+                              <th>Date</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <% if (orders.length===0) { %>
+                              <tr>
+                                <td colspan="8" class="text-center text-muted py-5">
+                                  <i data-feather="inbox" style="width:40px;height:40px;"
+                                    class="d-block mx-auto mb-2 text-muted"></i>
+                                  No orders found
+                                </td>
+                              </tr>
+                              <% } %>
+                                <% orders.forEach(function(o) { %>
+                                  <% var sb=statusBadge[o.order_status] || { label: o.order_status,
+                                    class: 'bg-secondary' }; %>
+                                    <tr>
+                                      <td>
+                                        <a href="/store/admin/orders/<%= o.order_id %>"
+                                          class="fw-semibold text-decoration-none">
+                                          #<%= o.order_id %>
+                                        </a>
+                                        <div><small class="text-muted">
+                                            <%= o.order_name %>
+                                          </small></div>
+                                      </td>
+                                      <td>
+                                        <div class="fw-semibold small">
+                                          <%= (o.billing_first_name || '' ) + ' ' + (o.billing_last_name || '' ) %>
+                                        </div>
+                                        <small class="text-muted">
+                                          <%= o.billing_email || '' %>
+                                        </small>
+                                      </td>
+                                      <td>
+                                        <small class="text-muted">
+                                          <%= o.order_title %>
+                                        </small>
+                                      </td>
+                                      <td>
+                                        <span class="fw-semibold">
+                                          ₹<%= parseFloat(o.order_total || 0).toFixed(2) %>
+                                        </span>
+                                      </td>
+                                      <td><small>
+                                          <%= o.payment_method || '-' %>
+                                        </small></td>
+                                      <td>
+                                        <span class="badge rounded-pill <%= sb.class %>">
+                                          <%= sb.label %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <small class="text-muted">
+                                          <%= o.order_date ? new Date(o.order_date).toLocaleDateString('en-IN', {
+                                            day:'2-digit', month:'short', year:'numeric' }) : '-' %>
+                                        </small>
+                                      </td>
+                                      <td>
+                                        <div class="d-flex gap-1">
+                                          <a href="/store/admin/orders/<%= o.order_id %>"
+                                            class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1"
+                                            title="View Order">
+                                            <i data-feather="eye" style="width:13px;height:13px;"></i>
+                                          </a>
+                                          <button
+                                            class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 delete-btn"
+                                            data-id="<%= o.order_id %>" data-name="Order #<%= o.order_id %>"
+                                            data-url="/store/admin/orders/" data-title="Delete Order"
+                                            title="Delete Order">
+
+                                            <i data-feather="trash-2" style="width:13px;height:13px;"></i>
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                    <% }) %>
+                          </tbody>
+                        </table>
+                      </div>
+
+
+
+                    </div>
+                  </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<script>feather.replace();</script>
-<%- include('../partials/footer') %>
+      <%- include('../partials/scripts') %>
+        <script>
+          $(document).ready(function () {
+            $('#ordersTable').DataTable({
+              "responsive": true,
+              "autoWidth": false,
+              "order": [[0, "desc"]],
+              "pageLength": 10,
+              "columnDefs": [
+                { "orderable": false, "targets": 6 }
+              ],
+              "language": {
+                "emptyTable": "No orders found",
+                "info": "Showing _START_ to _END_ of _TOTAL_ orders",
+                "infoEmpty": "Showing 0 to 0 of 0 orders",
+                "search": "Search orders:",
+                "paginate": {
+                  "first": "First",
+                  "last": "Last",
+                  "next": "Next",
+                  "previous": "Previous"
+                }
+              }
+            });
+          });
+
+          feather.replace();
+        </script>
+        <%- include('../partials/footer') %>

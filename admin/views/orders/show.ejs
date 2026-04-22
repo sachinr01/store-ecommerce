@@ -1,198 +1,233 @@
 <%- include('../partials/head') %>
-<%- include('../partials/navbar') %>
-<%- include('../partials/sidebar') %>
+  <%- include('../partials/navbar') %>
+    <%- include('../partials/sidebar') %>
 
-<%
-  var sb = statusBadge[order.order_status] || { label: order.order_status, class: 'bg-secondary' };
-  var orderDate = order.order_date ? new Date(order.order_date) : null;
-%>
+      <% var sb=statusBadge[order.order_status] || { label: order.order_status, class: 'bg-secondary' }; var
+        orderDate=order.order_date ? new Date(order.order_date) : null; %>
 
-<div class="page-wrapper">
+        <div class="page-wrapper">
 
-  <div class="page-breadcrumb">
-    <div class="row">
-      <div class="col-7 align-self-center">
-        <h4 class="page-title">
-          Order #<%= order.order_id %>
-          <span class="badge rounded-pill ms-2 <%= sb.class %>" style="font-size:13px;"><%= sb.label %></span>
-        </h4>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-            <li class="breadcrumb-item"><a href="/store/admin/orders">Orders</a></li>
-            <li class="breadcrumb-item active">#<%= order.order_id %></li>
-          </ol>
-        </nav>
-      </div>
-      <div class="col-5 align-self-center text-end">
-        <a href="/store/admin/orders" class="btn btn-secondary rounded-pill px-4">
-          <div class="d-flex align-items-center gap-1">
-            <i data-feather="arrow-left" class="feather-sm"></i> Back to Orders
-          </div>
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <div class="container-fluid">
-
-    <% if (success) { %>
-    <div class="alert alert-success alert-dismissible fade show">
-      <i data-feather="check-circle" class="feather-sm me-1"></i> <%= success %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
-    <% if (error) { %>
-    <div class="alert alert-danger alert-dismissible fade show">
-      <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
-
-    <div class="row">
-
-      <!-- ══ LEFT COLUMN ══ -->
-      <div class="col-lg-8">
-
-        <!-- Order Items -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3 pb-3 border-bottom d-flex align-items-center justify-content-between">
-              <span><i data-feather="shopping-bag" class="feather-sm me-2"></i>Order Items</span>
-              <small class="text-muted fw-normal"><%= order.line_items.length %> item(s)</small>
-            </h5>
-
-            <% order.line_items.forEach(function(item) { %>
-            <div class="d-flex gap-3 py-3 border-bottom">
-              <!-- Thumbnail -->
-              <div class="flex-shrink-0">
-                <% if (item.thumbnail) { %>
-                <img src="<%= item.thumbnail %>" class="rounded border"
-                  style="width:60px;height:60px;object-fit:cover;" />
-                <% } else { %>
-                <div class="rounded border bg-light d-flex align-items-center justify-content-center"
-                  style="width:60px;height:60px;">
-                  <i data-feather="image" class="text-muted" style="width:20px;height:20px;"></i>
-                </div>
-                <% } %>
+          <div class="page-breadcrumb">
+            <div class="row">
+              <div class="col-7 align-self-center">
+                <h4 class="page-title">
+                  Order #<%= order.order_id %>
+                    <span class="badge rounded-pill ms-2 <%= sb.class %>" style="font-size:13px;">
+                      <%= sb.label %>
+                    </span>
+                </h4>
+                <nav aria-label="breadcrumb">
+                  <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                    <li class="breadcrumb-item"><a href="/store/admin/orders">Orders</a></li>
+                    <li class="breadcrumb-item active">#<%= order.order_id %>
+                    </li>
+                  </ol>
+                </nav>
               </div>
+              <div class="col-5 align-self-center text-end">
+                <a href="/store/admin/orders" class="btn btn-secondary rounded-pill px-4">
+                  <div class="d-flex align-items-center gap-1">
+                    <i data-feather="arrow-left" class="feather-sm"></i> Back to Orders
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
 
-              <!-- Item details -->
-              <div class="flex-grow-1">
-                <div class="fw-semibold"><%= item.order_item_name %></div>
-                <% if (item.attributes && item.attributes.length > 0) { %>
-                <div class="small text-muted mt-1">
-                  <% item.attributes.forEach(function(attr) { %>
-                  <span class="badge bg-light text-dark border me-1"><%= attr %></span>
-                  <% }) %>
-                </div>
-                <% } %>
-                <div class="small text-muted mt-1">
-                  SKU: <%= item.meta['_product_id'] || '-' %>
-                  <% if (item.meta['_variation_id'] && item.meta['_variation_id'] !== '0') { %>
-                  | Var: #<%= item.meta['_variation_id'] %>
+          <div class="container-fluid">
+
+            <% if (success) { %>
+              <div class="alert alert-success alert-dismissible fade show">
+                <i data-feather="check-circle" class="feather-sm me-1"></i>
+                <%= success %>
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+              <% } %>
+                <% if (error) { %>
+                  <div class="alert alert-danger alert-dismissible fade show">
+                    <i data-feather="alert-circle" class="feather-sm me-1"></i>
+                    <%= error %>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                  </div>
                   <% } %>
-                </div>
-              </div>
 
-              <!-- Qty & Price -->
-              <div class="text-end flex-shrink-0">
-                <div class="fw-semibold">
-                  ₹<%= parseFloat(item.meta['_line_total'] || 0).toFixed(2) %>
-                </div>
-                <div class="small text-muted">
-                  Qty: <%= item.meta['_qty'] || 1 %>
-                </div>
-                <% if (item.meta['_line_subtotal'] && item.meta['_line_subtotal'] !== item.meta['_line_total']) { %>
-                <div class="small text-muted text-decoration-line-through">
-                  ₹<%= parseFloat(item.meta['_line_subtotal']).toFixed(2) %>
-                </div>
-                <% } %>
-              </div>
-            </div>
-            <% }) %>
+                    <div class="row">
 
-            <!-- Shipping items -->
-            <% order.shipping_items.forEach(function(item) { %>
-            <div class="d-flex justify-content-between py-2 text-muted small">
-              <span><i data-feather="truck" style="width:13px;height:13px;" class="me-1"></i>
-                <%= item.order_item_name %></span>
-              <span>₹<%= parseFloat(item.meta['cost'] || 0).toFixed(2) %></span>
-            </div>
-            <% }) %>
+                      <!-- ══ LEFT COLUMN ══ -->
+                      <div class="col-lg-8">
 
-            <!-- Order Totals -->
-            <div class="mt-3 pt-2">
-              <% if (order.order_discount && parseFloat(order.order_discount) > 0) { %>
-              <div class="d-flex justify-content-between small mb-1">
-                <span class="text-muted">Discount</span>
-                <span class="text-success">−₹<%= parseFloat(order.order_discount).toFixed(2) %></span>
-              </div>
-              <% } %>
-              <div class="d-flex justify-content-between small mb-1">
-                <span class="text-muted">Shipping</span>
-                <span>₹<%= parseFloat(order.order_shipping || 0).toFixed(2) %></span>
-              </div>
-              <% if (parseFloat(order.order_tax || 0) > 0) { %>
-              <div class="d-flex justify-content-between small mb-1">
-                <span class="text-muted">Tax</span>
-                <span>₹<%= parseFloat(order.order_tax).toFixed(2) %></span>
-              </div>
-              <% } %>
-              <div class="d-flex justify-content-between fw-bold mt-2 pt-2 border-top">
-                <span>Total</span>
-                <span class="fs-5">₹<%= parseFloat(order.order_total || 0).toFixed(2) %></span>
-              </div>
-              <div class="small text-muted text-end mt-1">
-                via <%= order.payment_method || 'N/A' %>
-              </div>
-            </div>
+                        <!-- Order Items -->
+                        <div class="card mb-3">
+                          <div class="card-body">
+                            <h5
+                              class="card-title mb-3 pb-3 border-bottom d-flex align-items-center justify-content-between">
+                              <span><i data-feather="shopping-bag" class="feather-sm me-2"></i>Order Items</span>
+                              <small class="text-muted fw-normal">
+                                <%= order.line_items.length %> item(s)
+                              </small>
+                            </h5>
 
-          </div>
-        </div>
+                            <% order.line_items.forEach(function(item) { %>
+                              <div class="d-flex gap-3 py-3 border-bottom">
+                                <!-- Thumbnail -->
+                                <div class="flex-shrink-0">
+                                  <% if (item.thumbnail) { %>
+                                    <img src="<%= item.thumbnail %>" class="rounded border"
+                                      style="width:60px;height:60px;object-fit:cover;" />
+                                    <% } else { %>
+                                      <div
+                                        class="rounded border bg-light d-flex align-items-center justify-content-center"
+                                        style="width:60px;height:60px;">
+                                        <i data-feather="image" class="text-muted" style="width:20px;height:20px;"></i>
+                                      </div>
+                                      <% } %>
+                                </div>
 
-        
+                                <!-- Item details -->
+                                <div class="flex-grow-1">
+                                  <div class="fw-semibold">
+                                    <%= item.order_item_name %>
+                                  </div>
+                                  <% if (item.attributes && item.attributes.length> 0) { %>
+                                    <div class="small text-muted mt-1">
+                                      <% item.attributes.forEach(function(attr) { %>
+                                        <span class="badge bg-light text-dark border me-1">
+                                          <%= attr %>
+                                        </span>
+                                        <% }) %>
+                                    </div>
+                                    <% } %>
+                                      <div class="small text-muted mt-1">
+                                        SKU: <%= item.meta['_product_id'] || '-' %>
+                                          <% if (item.meta['_variation_id'] && item.meta['_variation_id'] !=='0' ) { %>
+                                            | Var: #<%= item.meta['_variation_id'] %>
+                                              <% } %>
+                                      </div>
+                                </div>
 
-        <!-- Customer -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3 pb-2 border-bottom">
-              <i data-feather="user" class="feather-sm me-2"></i>Customer
-            </h5>
-            <% if (customer) { %>
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                style="width:36px;height:36px;font-size:14px;font-weight:700;flex-shrink:0;">
-                <%= customer.display_name.charAt(0).toUpperCase() %>
-              </div>
-              <div>
-                <div class="fw-semibold small"><%= customer.display_name %></div>
-                <small class="text-muted"><%= customer.user_email %></small>
-              </div>
-            </div>
-            <% } else { %>
-            <p class="text-muted small mb-2">Guest Customer</p>
-            <% } %>
-            <div class="small">
-              <div><strong>Name:</strong> <%= order.billing_first_name %> <%= order.billing_last_name %></div>
-              <div><strong>Email:</strong> <%= order.billing_email || '-' %></div>
-              <div><strong>Phone:</strong> <%= order.billing_phone || '-' %></div>
-            </div>
-          </div>
-        </div>
+                                <!-- Qty & Price -->
+                                <div class="text-end flex-shrink-0">
+                                  <div class="fw-semibold">
+                                    ₹<%= parseFloat(item.meta['_line_total'] || 0).toFixed(2) %>
+                                  </div>
+                                  <div class="small text-muted">
+                                    Qty: <%= item.meta['_qty'] || 1 %>
+                                  </div>
+                                  <% if (item.meta['_line_subtotal'] && item.meta['_line_subtotal']
+                                    !==item.meta['_line_total']) { %>
+                                    <div class="small text-muted text-decoration-line-through">
+                                      ₹<%= parseFloat(item.meta['_line_subtotal']).toFixed(2) %>
+                                    </div>
+                                    <% } %>
+                                </div>
+                              </div>
+                              <% }) %>
 
-        <!-- Billing Address -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3 pb-2 border-bottom">
-              <i data-feather="map-pin" class="feather-sm me-2"></i>Billing Address
-            </h5>
-            <address class="small mb-0">
-              <strong><%= order.billing_first_name %> <%= order.billing_last_name %></strong><br>
-              <% if (order.billing_address_1) { %><%= order.billing_address_1 %><br><% } %>
-              <% if (order.billing_address_2) { %><%= order.billing_address_2 %><br><% } %>
-              <% if (order.billing_city || order.billing_state) { %>
-              <%= [order.billing_city, order.billing_state, order.billing_postcode].filter(Boolean).join(', ') %><br>
+                                <!-- Shipping items -->
+                                <% order.shipping_items.forEach(function(item) { %>
+                                  <div class="d-flex justify-content-between py-2 text-muted small">
+                                    <span><i data-feather="truck" style="width:13px;height:13px;" class="me-1"></i>
+                                      <%= item.order_item_name %>
+                                    </span>
+                                    <span>₹<%= parseFloat(item.meta['cost'] || 0).toFixed(2) %></span>
+                                  </div>
+                                  <% }) %>
+
+                                    <!-- Order Totals -->
+                                    <div class="mt-3 pt-2">
+                                      <% if (order.order_discount && parseFloat(order.order_discount)> 0) { %>
+                                        <div class="d-flex justify-content-between small mb-1">
+                                          <span class="text-muted">Discount</span>
+                                          <span class="text-success">−₹<%= parseFloat(order.order_discount).toFixed(2)
+                                              %></span>
+                                        </div>
+                                        <% } %>
+                                          <div class="d-flex justify-content-between small mb-1">
+                                            <span class="text-muted">Shipping</span>
+                                            <span>₹<%= parseFloat(order.order_shipping || 0).toFixed(2) %></span>
+                                          </div>
+                                          <% if (parseFloat(order.order_tax || 0)> 0) { %>
+                                            <div class="d-flex justify-content-between small mb-1">
+                                              <span class="text-muted">Tax</span>
+                                              <span>₹<%= parseFloat(order.order_tax).toFixed(2) %></span>
+                                            </div>
+                                            <% } %>
+                                              <div class="d-flex justify-content-between fw-bold mt-2 pt-2 border-top">
+                                                <span>Total</span>
+                                                <span class="fs-5">₹<%= parseFloat(order.order_total || 0).toFixed(2) %>
+                                                    </span>
+                                              </div>
+                                              <div class="small text-muted text-end mt-1">
+                                                via <%= order.payment_method || 'N/A' %>
+                                              </div>
+                                    </div>
+
+                          </div>
+                        </div>
+
+
+
+                        <!-- Customer -->
+                        <div class="card mb-3">
+                          <div class="card-body">
+                            <h5 class="card-title mb-3 pb-2 border-bottom">
+                              <i data-feather="user" class="feather-sm me-2"></i>Customer
+                            </h5>
+                            <% if (customer) { %>
+                              <div class="d-flex align-items-center gap-2 mb-2">
+                                <div
+                                  class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                  style="width:36px;height:36px;font-size:14px;font-weight:700;flex-shrink:0;">
+                                  <%= customer.display_name.charAt(0).toUpperCase() %>
+                                </div>
+                                <div>
+                                  <div class="fw-semibold small">
+                                    <%= customer.display_name %>
+                                  </div>
+                                  <small class="text-muted">
+                                    <%= customer.user_email %>
+                                  </small>
+                                </div>
+                              </div>
+                              <% } else { %>
+                                <p class="text-muted small mb-2">Guest Customer</p>
+                                <% } %>
+                                  <div class="small">
+                                    <div><strong>Name:</strong>
+                                      <%= order.billing_first_name %>
+                                        <%= order.billing_last_name %>
+                                    </div>
+                                    <div><strong>Email:</strong>
+                                      <%= order.billing_email || '-' %>
+                                    </div>
+                                    <div><strong>Phone:</strong>
+                                      <%= order.billing_phone || '-' %>
+                                    </div>
+                                  </div>
+                          </div>
+                        </div>
+
+                        <!-- Billing Address -->
+                        <div class="card mb-3">
+                          <div class="card-body">
+                            <h5 class="card-title mb-3 pb-2 border-bottom">
+                              <i data-feather="map-pin" class="feather-sm me-2"></i>Billing Address
+                            </h5>
+                            <address class="small mb-0">
+                              <strong>
+                                <%= order.billing_first_name %>
+                                  <%= order.billing_last_name %>
+                              </strong><br>
+                              <% if (order.billing_address_1) { %>
+                                <%= order.billing_address_1 %><br>
+                                  <% } %>
+                                    <% if (order.billing_address_2) { %>
+                                      <%= order.billing_address_2 %><br>
+                                        <% } %>
+                                          <% if (order.billing_city || order.billing_state) { %>
+                                            <%= [order.billing_city, order.billing_state,
+                                              order.billing_postcode].filter(Boolean).join(', ') %><br>
               <% } %>
               <%= order.billing_country || '' %>
             </address>
@@ -210,7 +245,7 @@
               <% if (order.shipping_address_1) { %><%= order.shipping_address_1 %><br><% } %>
               <% if (order.shipping_address_2) { %><%= order.shipping_address_2 %><br><% } %>
               <% if (order.shipping_city || order.shipping_state) { %>
-              <%= [order.shipping_city, order.shipping_state, order.shipping_postcode].filter(Boolean).join(', ') %><br>
+              <%= [order.shipping_city, order.shipping_state, order.shipping_postcode].filter(Boolean).join(' , ') %><br>
               <% } %>
               <%= order.shipping_country || '' %>
             </address>
@@ -240,81 +275,87 @@
             <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
               <div>
                 <div class="fw-semibold small">#<%= r.order_id %> — <%= r.order_title %></div>
-                <small class="text-muted"><%= r.order_date ? new Date(r.order_date).toLocaleDateString('en-IN') : '' %></small>
+                <small class="text-muted"><%= r.order_date ? new Date(r.order_date).toLocaleDateString(' en-IN') : ''
+                                              %></small>
+                          </div>
+                          <span class="badge bg-danger rounded-pill">Refunded</span>
+                        </div>
+                        <% }) %>
+                      </div>
+                    </div>
+                    <% } %>
+
+          </div><!-- /col-lg-8 -->
+
+          <!-- ══ RIGHT COLUMN ══ -->
+          <div class="col-lg-4">
+
+            <!-- Order Info -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title mb-3 pb-2 border-bottom">
+                  <i data-feather="info" class="feather-sm me-2"></i>Order Details
+                </h5>
+                <table class="table table-sm table-borderless mb-0">
+                  <tr>
+                    <td class="text-muted small">Order ID</td>
+                    <td class="small fw-semibold">#<%= order.order_id %>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-muted small">Order Key</td>
+                    <td class="small"><code style="font-size:10px;"><%= order.order_key %></code></td>
+                  </tr>
+                  <tr>
+                    <td class="text-muted small">Date</td>
+                    <td class="small">
+                      <%= orderDate ? orderDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short',
+                        year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-' %>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-muted small">Type</td>
+                    <td class="small">
+                      <%= order.order_type %>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-muted small">Payment</td>
+                    <td class="small">
+                      <%= order.payment_method || '-' %>
+                    </td>
+                  </tr>
+                </table>
               </div>
-              <span class="badge bg-danger rounded-pill">Refunded</span>
             </div>
-            <% }) %>
-          </div>
-        </div>
-        <% } %>
 
-      </div><!-- /col-lg-8 -->
-
-      <!-- ══ RIGHT COLUMN ══ -->
-      <div class="col-lg-4">
-
-        <!-- Order Info -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3 pb-2 border-bottom">
-              <i data-feather="info" class="feather-sm me-2"></i>Order Details
-            </h5>
-            <table class="table table-sm table-borderless mb-0">
-              <tr>
-                <td class="text-muted small">Order ID</td>
-                <td class="small fw-semibold">#<%= order.order_id %></td>
-              </tr>
-              <tr>
-                <td class="text-muted small">Order Key</td>
-                <td class="small"><code style="font-size:10px;"><%= order.order_key %></code></td>
-              </tr>
-              <tr>
-                <td class="text-muted small">Date</td>
-                <td class="small">
-                  <%= orderDate ? orderDate.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '-' %>
-                </td>
-              </tr>
-              <tr>
-                <td class="text-muted small">Type</td>
-                <td class="small"><%= order.order_type %></td>
-              </tr>
-              <tr>
-                <td class="text-muted small">Payment</td>
-                <td class="small"><%= order.payment_method || '-' %></td>
-              </tr>
-            </table>
-          </div>
-        </div>
-
-        <!-- Update Status -->
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title mb-3 pb-2 border-bottom">
-              <i data-feather="sliders" class="feather-sm me-2"></i>Order Status
-            </h5>
-            <form action="/store/admin/orders/<%= order.order_id %>/status" method="POST">
-              <div class="mb-3">
-                <select name="status" class="form-select">
-                  <% statuses.forEach(function(s) { %>
-                  <option value="<%= s.value %>"
-                    <%= order.order_status === s.value ? 'selected' : '' %>>
-                    <%= s.label %>
-                  </option>
-                  <% }) %>
-                </select>
+            <!-- Update Status -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title mb-3 pb-2 border-bottom">
+                  <i data-feather="sliders" class="feather-sm me-2"></i>Order Status
+                </h5>
+                <form action="/store/admin/orders/<%= order.order_id %>/status" method="POST">
+                  <div class="mb-3">
+                    <select name="status" class="form-select">
+                      <% statuses.forEach(function(s) { %>
+                        <option value="<%= s.value %>" <%=order.order_status===s.value ? 'selected' : '' %>>
+                          <%= s.label %>
+                        </option>
+                        <% }) %>
+                    </select>
+                  </div>
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-primary rounded-pill">
+                      <i data-feather="save" class="feather-sm me-1"></i> Update Status
+                    </button>
+                  </div>
+                </form>
               </div>
-              <div class="d-grid">
-                <button type="submit" class="btn btn-primary rounded-pill">
-                  <i data-feather="save" class="feather-sm me-1"></i> Update Status
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
 
-        <!-- Delete Order -->
-        <!-- <div class="card mb-3 border-danger">
+            <!-- Delete Order -->
+            <!-- <div class="card mb-3 border-danger">
           <div class="card-body">
             <h5 class="card-title text-danger mb-2">
               <i data-feather="trash-2" class="feather-sm me-2"></i>Delete Order
@@ -331,10 +372,11 @@
           </div>
         </div> -->
 
-      </div><!-- /col-lg-4 -->
-    </div><!-- /row -->
-  </div>
-</div>
+          </div><!-- /col-lg-4 -->
+        </div><!-- /row -->
+        </div>
+        </div>
 
-<script>feather.replace();</script>
-<%- include('../partials/footer') %>
+        <%- include('../partials/scripts') %>
+          <script>feather.replace();</script>
+          <%- include('../partials/footer') %>

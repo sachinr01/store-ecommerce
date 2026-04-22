@@ -1,715 +1,814 @@
 <%- include('../partials/head') %>
-<%- include('../partials/navbar') %>
-<%- include('../partials/sidebar') %>
+  <%- include('../partials/navbar') %>
+    <%- include('../partials/sidebar') %>
 
-<% var o = locals.opts || {}; %>
-<% var activeTab = locals.tab || 'general'; %>
+      <% var o=locals.opts || {}; %>
+        <% var activeTab=locals.tab || 'general' ; %>
 
-<div class="page-wrapper">
+          <div class="page-wrapper">
 
-  <div class="page-breadcrumb">
-    <div class="row">
-      <div class="col-7 align-self-center">
-        <h4 class="page-title">Site Settings</h4>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-            <li class="breadcrumb-item active">Site Settings</li>
-          </ol>
-        </nav>
-      </div>
-    </div>
-  </div>
+            <div class="page-breadcrumb">
+              <div class="row">
+                <div class="col-7 align-self-center">
+                  <h4 class="page-title">Site Settings</h4>
+                  <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                      <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                      <li class="breadcrumb-item active">Site Settings</li>
+                    </ol>
+                  </nav>
+                </div>
+              </div>
+            </div>
 
-  <div class="container-fluid">
+            <div class="container-fluid">
 
-    <% if (locals.success) { %>
-    <div class="alert alert-success alert-dismissible fade show">
-      <i data-feather="check-circle" class="feather-sm me-1"></i> <%= locals.success %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
-    <% if (locals.error) { %>
-    <div class="alert alert-danger alert-dismissible fade show">
-      <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= locals.error %>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <% } %>
+              <% if (locals.success) { %>
+                <div class="alert alert-success alert-dismissible fade show">
+                  <i data-feather="check-circle" class="feather-sm me-1"></i>
+                  <%= locals.success %>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <% } %>
+                  <% if (locals.error) { %>
+                    <div class="alert alert-danger alert-dismissible fade show">
+                      <i data-feather="alert-circle" class="feather-sm me-1"></i>
+                      <%= locals.error %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    <% } %>
 
-    <!-- Tab Navigation -->
-    <div class="card mb-0 border-bottom-0" style="border-radius:8px 8px 0 0;">
-      <div class="card-body py-0 px-3">
-        <ul class="nav nav-tabs border-bottom-0">
-          <% var tabs = [
-            { id: 'general',  icon: 'settings',     label: 'General'  },
-            { id: 'products', icon: 'box',           label: 'Products' },
-            { id: 'tax',      icon: 'percent',       label: 'Tax'      },
-            { id: 'shipping', icon: 'truck',         label: 'Shipping' },
-            { id: 'payments', icon: 'credit-card',   label: 'Payments' },
-            { id: 'emails',   icon: 'mail',          label: 'Emails'   },
-            { id: 'other',    icon: 'more-horizontal',label: 'Other'   },
-          ]; %>
-          <% tabs.forEach(function(t) { %>
-          <li class="nav-item">
-            <a class="nav-link py-3 <%= activeTab === t.id ? 'active' : '' %>"
-              href="/store/admin/site-settings?tab=<%= t.id %>">
-              <i data-feather="<%= t.icon %>" style="width:14px;height:14px;" class="me-1"></i>
-              <%= t.label %>
-            </a>
-          </li>
-          <% }) %>
-        </ul>
-      </div>
-    </div>
+                      <!-- Tab Navigation -->
+                      <div class="card mb-0 border-bottom-0" style="border-radius:8px 8px 0 0;">
+                        <div class="card-body py-0 px-3">
+                          <ul class="nav nav-tabs border-bottom-0">
+                            <% var tabs=[ { id: 'general' , icon: 'settings' , label: 'General' }, { id: 'products' ,
+                              icon: 'box' , label: 'Products' }, { id: 'tax' , icon: 'percent' , label: 'Tax' }, {
+                              id: 'shipping' , icon: 'truck' , label: 'Shipping' }, { id: 'payments' ,
+                              icon: 'credit-card' , label: 'Payments' }, { id: 'emails' , icon: 'mail' , label: 'Emails'
+                              }, { id: 'other' , icon: 'more-horizontal' ,label: 'Other' }, ]; %>
+                              <% tabs.forEach(function(t) { %>
+                                <li class="nav-item">
+                                  <a class="nav-link py-3 <%= activeTab === t.id ? 'active' : '' %>"
+                                    href="/store/admin/site-settings?tab=<%= t.id %>">
+                                    <i data-feather="<%= t.icon %>" style="width:14px;height:14px;" class="me-1"></i>
+                                    <%= t.label %>
+                                  </a>
+                                </li>
+                                <% }) %>
+                          </ul>
+                        </div>
+                      </div>
 
-    <form action="/store/admin/site-settings?tab=<%= activeTab %>" method="POST">
-    <div class="card" style="border-radius:0 0 8px 8px;">
-      <div class="card-body">
+                      <form action="/store/admin/site-settings?tab=<%= activeTab %>" method="POST">
+                        <div class="card" style="border-radius:0 0 8px 8px;">
+                          <div class="card-body">
 
-        <!-- ══════════════════════════════════════
+                            <!-- ══════════════════════════════════════
              GENERAL TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'general') { %>
+                            <% if (activeTab==='general' ) { %>
 
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Store Address</h5>
-          <p class="text-muted small mb-3">This is where your business is located. Tax rates and shipping rates will use this address.</p>
+                              <div class="settings-section mb-4">
+                                <h5 class="settings-heading">Store Address</h5>
+                                <p class="text-muted small mb-3">This is where your business is located. Tax rates and
+                                  shipping rates will use this address.</p>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Store Address 1</label>
-              <small class="text-muted d-block">The street address for your business location.</small>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_address_1" class="form-control"
-                placeholder="House number and street name"
-                value="<%= o.store_address_1 || '' %>" />
-            </div>
-          </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">Store Address 1</label>
+                                    <small class="text-muted d-block">The street address for your business
+                                      location.</small>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_address_1" class="form-control"
+                                      placeholder="House number and street name"
+                                      value="<%= o.store_address_1 || '' %>" />
+                                  </div>
+                                </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Store Address 2</label>
-              <small class="text-muted d-block">An optional additional field for your business location.</small>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_address_2" class="form-control"
-                placeholder="Apartment, suite, unit, etc. (optional)"
-                value="<%= o.store_address_2 || '' %>" />
-            </div>
-          </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">Store Address 2</label>
+                                    <small class="text-muted d-block">An optional additional field for your business
+                                      location.</small>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_address_2" class="form-control"
+                                      placeholder="Apartment, suite, unit, etc. (optional)"
+                                      value="<%= o.store_address_2 || '' %>" />
+                                  </div>
+                                </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">City</label>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_city" class="form-control"
-                value="<%= o.store_city || '' %>" />
-            </div>
-          </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">City</label>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_city" class="form-control"
+                                      value="<%= o.store_city || '' %>" />
+                                  </div>
+                                </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">State / Province</label>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_state" class="form-control"
-                value="<%= o.store_state || '' %>" />
-            </div>
-          </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">State / Province</label>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_state" class="form-control"
+                                      value="<%= o.store_state || '' %>" />
+                                  </div>
+                                </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Country</label>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_country" class="form-control"
-                value="<%= o.store_country || 'India' %>" />
-            </div>
-          </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">Country</label>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_country" class="form-control"
+                                      value="<%= o.store_country || 'India' %>" />
+                                  </div>
+                                </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Postcode / ZIP</label>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="store_postcode" class="form-control"
-                value="<%= o.store_postcode || '' %>" />
-            </div>
-          </div>
-        </div>
+                                <div class="settings-row">
+                                  <div class="settings-label">
+                                    <label class="form-label fw-semibold mb-0">Postcode / ZIP</label>
+                                  </div>
+                                  <div class="settings-field">
+                                    <input type="text" name="store_postcode" class="form-control"
+                                      value="<%= o.store_postcode || '' %>" />
+                                  </div>
+                                </div>
+                              </div>
 
-        <% } %>
+                              <% } %>
 
-        <!-- ══════════════════════════════════════
+                                <!-- ══════════════════════════════════════
              PRODUCTS TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'products') { %>
+                                <% if (activeTab==='products' ) { %>
 
-        <!-- Placeholder Image -->
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Product Images</h5>
+                                  <!-- Placeholder Image -->
+                                  <div class="settings-section mb-4">
+                                    <h5 class="settings-heading">Product Images</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Placeholder image</label>
-              <small class="text-muted d-block">URL of the image to show when no product image is set.</small>
-            </div>
-            <div class="settings-field">
-              <div class="mb-3">
-                <div class="border rounded p-3 text-center" id="mainImagePreview"
-                    style="min-height:150px;cursor:pointer;"
-                    onclick="document.getElementById('PlaceholderImage').click()">
-                    <% if (o.placeholder_image) { %>
-                    <img src="<%= o.placeholder_image %>" class="img-fluid rounded" style="max-height:150px;" />
-                    <% } else { %>
-                        <div>
-                        <i data-feather="image" style="width:48px;height:48px;"
-                            class="text-muted mb-2 d-block mx-auto"></i>
-                        <p class="text-muted small mb-0">Click to upload Placeholder image</p>
-                        </div>
-                    <% } %>
-                </div>
-                <input type="file" name="placeholder_image" id="PlaceholderImage" class="d-none" accept="image/*"
-                    onchange="previewMainImage(this)" />
-            </div>
-          </div>
-        </div>
+                                    <div class="settings-row">
+                                      <div class="settings-label">
+                                        <label class="form-label fw-semibold mb-0">Placeholder image</label>
+                                        <small class="text-muted d-block">URL of the image to show when no product image
+                                          is set.</small>
+                                      </div>
+                                      <div class="settings-field">
+                                        <div class="mb-3">
+                                          <div class="border rounded p-3 text-center" id="mainImagePreview"
+                                            style="min-height:150px;cursor:pointer;"
+                                            onclick="document.getElementById('PlaceholderImage').click()">
+                                            <% if (o.placeholder_image) { %>
+                                              <img src="<%= o.placeholder_image %>" class="img-fluid rounded"
+                                                style="max-height:150px;" />
+                                              <% } else { %>
+                                                <div>
+                                                  <i data-feather="image" style="width:48px;height:48px;"
+                                                    class="text-muted mb-2 d-block mx-auto"></i>
+                                                  <p class="text-muted small mb-0">Click to upload Placeholder image</p>
+                                                </div>
+                                                <% } %>
+                                          </div>
+                                          <input type="file" name="placeholder_image" id="PlaceholderImage"
+                                            class="d-none" accept="image/*" onchange="previewMainImage(this)" />
+                                        </div>
+                                      </div>
+                                    </div>
 
-        <!-- Reviews -->
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Reviews</h5>
+                                    <!-- Reviews -->
+                                    <div class="settings-section mb-4">
+                                      <h5 class="settings-heading">Reviews</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Enable reviews</label>
-              <small class="text-muted d-block">Enable product reviews on the product page.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="enable_reviews"
-                  id="enableReviews" value="yes"
-                  <%= o.enable_reviews === 'yes' ? 'checked' : '' %> />
-                <label class="form-check-label" for="enableReviews">Yes</label>
-              </div>
-            </div>
-          </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Enable reviews</label>
+                                          <small class="text-muted d-block">Enable product reviews on the product
+                                            page.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="enable_reviews"
+                                              id="enableReviews" value="yes" <%=o.enable_reviews==='yes' ? 'checked'
+                                              : '' %> />
+                                            <label class="form-check-label" for="enableReviews">Yes</label>
+                                          </div>
+                                        </div>
+                                      </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Product ratings</label>
-              <small class="text-muted d-block">Enable star ratings on reviews.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="enable_ratings"
-                  id="enableRatings" value="yes"
-                  <%= o.enable_ratings === 'yes' ? 'checked' : '' %> />
-                <label class="form-check-label" for="enableRatings">Yes</label>
-              </div>
-            </div>
-          </div>
-        </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Product ratings</label>
+                                          <small class="text-muted d-block">Enable star ratings on reviews.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="enable_ratings"
+                                              id="enableRatings" value="yes" <%=o.enable_ratings==='yes' ? 'checked'
+                                              : '' %> />
+                                            <label class="form-check-label" for="enableRatings">Yes</label>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
 
-        <!-- Inventory Notifications -->
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Inventory Notifications</h5>
+                                    <!-- Inventory Notifications -->
+                                    <div class="settings-section mb-4">
+                                      <h5 class="settings-heading">Inventory Notifications</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Enable low stock notifications</label>
-              <small class="text-muted d-block">Send email when stock reaches the low stock threshold.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="notify_low_stock"
-                  id="notifyLowStock" value="yes"
-                  <%= o.notify_low_stock === 'yes' ? 'checked' : '' %> />
-                <label class="form-check-label" for="notifyLowStock">Yes</label>
-              </div>
-            </div>
-          </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Enable low stock
+                                            notifications</label>
+                                          <small class="text-muted d-block">Send email when stock reaches the low stock
+                                            threshold.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="notify_low_stock"
+                                              id="notifyLowStock" value="yes" <%=o.notify_low_stock==='yes' ? 'checked'
+                                              : '' %> />
+                                            <label class="form-check-label" for="notifyLowStock">Yes</label>
+                                          </div>
+                                        </div>
+                                      </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Low stock threshold</label>
-              <small class="text-muted d-block">When product stock reaches this amount you will be notified via email.</small>
-            </div>
-            <div class="settings-field">
-              <input type="number" name="low_stock_threshold" class="form-control"
-                min="0" style="max-width:120px;"
-                value="<%= o.low_stock_threshold || '2' %>" />
-            </div>
-          </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Low stock threshold</label>
+                                          <small class="text-muted d-block">When product stock reaches this amount you
+                                            will be notified via email.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <input type="number" name="low_stock_threshold" class="form-control" min="0"
+                                            style="max-width:120px;" value="<%= o.low_stock_threshold || '2' %>" />
+                                        </div>
+                                      </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Enable out of stock notifications</label>
-              <small class="text-muted d-block">Send email when a product goes out of stock.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="notify_no_stock"
-                  id="notifyNoStock" value="yes"
-                  <%= o.notify_no_stock === 'yes' ? 'checked' : '' %> />
-                <label class="form-check-label" for="notifyNoStock">Yes</label>
-              </div>
-            </div>
-          </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Enable out of stock
+                                            notifications</label>
+                                          <small class="text-muted d-block">Send email when a product goes out of
+                                            stock.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="notify_no_stock"
+                                              id="notifyNoStock" value="yes" <%=o.notify_no_stock==='yes' ? 'checked'
+                                              : '' %> />
+                                            <label class="form-check-label" for="notifyNoStock">Yes</label>
+                                          </div>
+                                        </div>
+                                      </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Out of stock threshold</label>
-              <small class="text-muted d-block">When product stock reaches this amount the product is marked out of stock.</small>
-            </div>
-            <div class="settings-field">
-              <input type="number" name="no_stock_threshold" class="form-control"
-                min="0" style="max-width:120px;"
-                value="<%= o.no_stock_threshold || '0' %>" />
-            </div>
-          </div>
-        </div>
+                                      <div class="settings-row">
+                                        <div class="settings-label">
+                                          <label class="form-label fw-semibold mb-0">Out of stock threshold</label>
+                                          <small class="text-muted d-block">When product stock reaches this amount the
+                                            product is marked out of stock.</small>
+                                        </div>
+                                        <div class="settings-field">
+                                          <input type="number" name="no_stock_threshold" class="form-control" min="0"
+                                            style="max-width:120px;" value="<%= o.no_stock_threshold || '0' %>" />
+                                        </div>
+                                      </div>
+                                    </div>
 
-        <% } %>
+                                    <% } %>
 
-        <!-- ══════════════════════════════════════
+                                      <!-- ══════════════════════════════════════
              TAX TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'tax') { %>
+                                      <% if (activeTab==='tax' ) { %>
 
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Tax Options</h5>
+                                        <div class="settings-section mb-4">
+                                          <h5 class="settings-heading">Tax Options</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Enable taxes</label>
-              <small class="text-muted d-block">Enable tax rates and calculations.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="enable_taxes"
-                  id="enableTaxes" value="yes"
-                  <%= o.enable_taxes === 'yes' ? 'checked' : '' %>
-                  onchange="toggleTaxFields(this.checked)" />
-                <label class="form-check-label" for="enableTaxes">Yes</label>
-              </div>
-            </div>
-          </div>
+                                          <div class="settings-row">
+                                            <div class="settings-label">
+                                              <label class="form-label fw-semibold mb-0">Enable taxes</label>
+                                              <small class="text-muted d-block">Enable tax rates and
+                                                calculations.</small>
+                                            </div>
+                                            <div class="settings-field">
+                                              <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="enable_taxes"
+                                                  id="enableTaxes" value="yes" <%=o.enable_taxes==='yes' ? 'checked'
+                                                  : '' %>
+                                                onchange="toggleTaxFields(this.checked)" />
+                                                <label class="form-check-label" for="enableTaxes">Yes</label>
+                                              </div>
+                                            </div>
+                                          </div>
 
-          <div id="taxFields" style="<%= o.enable_taxes === 'yes' ? '' : 'display:none;' %>">
+                                          <div id="taxFields"
+                                            style="<%= o.enable_taxes === 'yes' ? '' : 'display:none;' %>">
 
-            <div class="settings-row">
-              <div class="settings-label">
-                <label class="form-label fw-semibold mb-0">Tax Rate (%)</label>
-                <small class="text-muted d-block">Standard tax rate applied to products.</small>
-              </div>
-              <div class="settings-field">
-                <div class="input-group" style="max-width:180px;">
-                  <input type="number" name="tax_rate" class="form-control"
-                    min="0" max="100" step="0.01"
-                    value="<%= o.tax_rate || '0' %>" />
-                  <span class="input-group-text">%</span>
-                </div>
-              </div>
-            </div>
+                                            <div class="settings-row">
+                                              <div class="settings-label">
+                                                <label class="form-label fw-semibold mb-0">Tax Rate (%)</label>
+                                                <small class="text-muted d-block">Standard tax rate applied to
+                                                  products.</small>
+                                              </div>
+                                              <div class="settings-field">
+                                                <div class="input-group" style="max-width:180px;">
+                                                  <input type="number" name="tax_rate" class="form-control" min="0"
+                                                    max="100" step="0.01" value="<%= o.tax_rate || '0' %>" />
+                                                  <span class="input-group-text">%</span>
+                                                </div>
+                                              </div>
+                                            </div>
 
-            <div class="settings-row">
-              <div class="settings-label">
-                <label class="form-label fw-semibold mb-0">Prices entered with tax</label>
-                <small class="text-muted d-block">This option is important as it will affect how you input prices.</small>
-              </div>
-              <div class="settings-field">
-                <div class="form-check mb-2">
-                  <input class="form-check-input" type="radio" name="prices_include_tax"
-                    id="pricesIncludeTaxYes" value="yes"
-                    <%= o.prices_include_tax === 'yes' ? 'checked' : '' %> />
-                  <label class="form-check-label" for="pricesIncludeTaxYes">
-                    Yes, I will enter prices inclusive of tax
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="prices_include_tax"
-                    id="pricesIncludeTaxNo" value="no"
-                    <%= o.prices_include_tax !== 'yes' ? 'checked' : '' %> />
-                  <label class="form-check-label" for="pricesIncludeTaxNo">
-                    No, I will enter prices exclusive of tax
-                  </label>
-                </div>
-              </div>
-            </div>
+                                            <div class="settings-row">
+                                              <div class="settings-label">
+                                                <label class="form-label fw-semibold mb-0">Prices entered with
+                                                  tax</label>
+                                                <small class="text-muted d-block">This option is important as it will
+                                                  affect how you input prices.</small>
+                                              </div>
+                                              <div class="settings-field">
+                                                <div class="form-check mb-2">
+                                                  <input class="form-check-input" type="radio" name="prices_include_tax"
+                                                    id="pricesIncludeTaxYes" value="yes" <%=o.prices_include_tax==='yes'
+                                                    ? 'checked' : '' %> />
+                                                  <label class="form-check-label" for="pricesIncludeTaxYes">
+                                                    Yes, I will enter prices inclusive of tax
+                                                  </label>
+                                                </div>
+                                                <div class="form-check">
+                                                  <input class="form-check-input" type="radio" name="prices_include_tax"
+                                                    id="pricesIncludeTaxNo" value="no" <%=o.prices_include_tax !=='yes'
+                                                    ? 'checked' : '' %> />
+                                                  <label class="form-check-label" for="pricesIncludeTaxNo">
+                                                    No, I will enter prices exclusive of tax
+                                                  </label>
+                                                </div>
+                                              </div>
+                                            </div>
 
 
-          </div>
-        </div>
+                                          </div>
+                                        </div>
 
-        <% } %>
+                                        <% } %>
 
-        <!-- ══════════════════════════════════════
+                                          <!-- ══════════════════════════════════════
              SHIPPING TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'shipping') { %>
+                                          <% if (activeTab==='shipping' ) { %>
 
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Shipping Options</h5>
+                                            <div class="settings-section mb-4">
+                                              <h5 class="settings-heading">Shipping Options</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Shipping location(s)</label>
-              <small class="text-muted d-block">Choose which states you want to ship to.</small>
-            </div>
-            <div class="settings-field">
-              <select name="ship_to_countries" class="form-select" style="max-width:320px;">
-                <option value="all"      <%= o.ship_to_countries === 'all'      || !o.ship_to_countries ? 'selected' : '' %>>Ship to all countries you sell to</option>
-                <option value="all_except" <%= o.ship_to_countries === 'all_except' ? 'selected' : '' %>>Ship to all countries, except for…</option>
-                <option value="specific" <%= o.ship_to_countries === 'specific' ? 'selected' : '' %>>Ship to specific countries only</option>
-                <option value="disabled" <%= o.ship_to_countries === 'disabled' ? 'selected' : '' %>>Disable shipping & shipping calculations</option>
-              </select>
-            </div>
-          </div>
+                                              <div class="settings-row">
+                                                <div class="settings-label">
+                                                  <label class="form-label fw-semibold mb-0">Shipping
+                                                    location(s)</label>
+                                                  <small class="text-muted d-block">Choose which states you want to ship
+                                                    to.</small>
+                                                </div>
+                                                <div class="settings-field">
+                                                  <select name="ship_to_countries" class="form-select"
+                                                    style="max-width:320px;">
+                                                    <option value="all" <%=o.ship_to_countries==='all' ||
+                                                      !o.ship_to_countries ? 'selected' : '' %>>Ship to all countries
+                                                      you sell to</option>
+                                                    <option value="all_except" <%=o.ship_to_countries==='all_except'
+                                                      ? 'selected' : '' %>>Ship to all countries, except for…</option>
+                                                    <option value="specific" <%=o.ship_to_countries==='specific'
+                                                      ? 'selected' : '' %>>Ship to specific countries only</option>
+                                                    <option value="disabled" <%=o.ship_to_countries==='disabled'
+                                                      ? 'selected' : '' %>>Disable shipping & shipping calculations
+                                                    </option>
+                                                  </select>
+                                                </div>
+                                              </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Shipping states</label>
-              <small class="text-muted d-block">List of states you ship to (comma separated).</small>
-            </div>
-            <div class="settings-field">
-              <textarea name="shipping_states" class="form-control" rows="3"
-                placeholder="Maharashtra, Delhi, Karnataka, ..."
-                style="max-width:400px;"><%= o.shipping_states || '' %></textarea>
-            </div>
-          </div>
+                                              <div class="settings-row">
+                                                <div class="settings-label">
+                                                  <label class="form-label fw-semibold mb-0">Shipping states</label>
+                                                  <small class="text-muted d-block">List of states you ship to (comma
+                                                    separated).</small>
+                                                </div>
+                                                <div class="settings-field">
+                                                  <textarea name="shipping_states" class="form-control" rows="3"
+                                                    placeholder="Maharashtra, Delhi, Karnataka, ..."
+                                                    style="max-width:400px;"><%= o.shipping_states || '' %></textarea>
+                                                </div>
+                                              </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">Enable the shipping calculator on the cart page</label>
-              <small class="text-muted d-block">Let customers estimate their shipping before checkout.</small>
-            </div>
-            <div class="settings-field">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" name="enable_shipping_calc"
-                  id="enableShippingCalc" value="yes"
-                  <%= o.enable_shipping_calc === 'yes' ? 'checked' : '' %> />
-                <label class="form-check-label" for="enableShippingCalc">Yes</label>
-              </div>
-            </div>
-          </div>
-        </div>
+                                              <div class="settings-row">
+                                                <div class="settings-label">
+                                                  <label class="form-label fw-semibold mb-0">Enable the shipping
+                                                    calculator on the cart page</label>
+                                                  <small class="text-muted d-block">Let customers estimate their
+                                                    shipping before checkout.</small>
+                                                </div>
+                                                <div class="settings-field">
+                                                  <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox"
+                                                      name="enable_shipping_calc" id="enableShippingCalc" value="yes"
+                                                      <%=o.enable_shipping_calc==='yes' ? 'checked' : '' %> />
+                                                    <label class="form-check-label" for="enableShippingCalc">Yes</label>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
 
-        <% } %>
+                                            <% } %>
 
-        <!-- ══════════════════════════════════════
+                                              <!-- ══════════════════════════════════════
              PAYMENTS TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'payments') { %>
+                                              <% if (activeTab==='payments' ) { %>
 
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Payment Methods</h5>
-          <p class="text-muted small mb-4">Installed payment methods are listed below and can be sorted to control their display order on the frontend.</p>
+                                                <div class="settings-section mb-4">
+                                                  <h5 class="settings-heading">Payment Methods</h5>
+                                                  <p class="text-muted small mb-4">Installed payment methods are listed
+                                                    below and can be sorted to control their display order on the
+                                                    frontend.</p>
 
-          <% var paymentMethods = [
-            { id: 'cod',      name: 'Cash on Delivery', desc: 'Have your customers pay with cash upon delivery.', icon: 'dollar-sign' },
-            { id: 'bacs',     name: 'Direct Bank Transfer', desc: 'Take payments via bank transfer.', icon: 'repeat' },
-            { id: 'cheque',   name: 'Check Payments', desc: 'Take payments via checks.', icon: 'file-text' },
-            { id: 'razorpay', name: 'Razorpay', desc: 'Accept cards, UPI, netbanking and wallets via Razorpay.', icon: 'zap' },
-            { id: 'paypal',   name: 'PayPal Standard', desc: 'Accept payments via PayPal.', icon: 'globe' },
-          ]; %>
+                                                  <% var paymentMethods=[ { id: 'cod' , name: 'Cash on Delivery' ,
+                                                    desc: 'Have your customers pay with cash upon delivery.' ,
+                                                    icon: 'dollar-sign' }, { id: 'bacs' , name: 'Direct Bank Transfer' ,
+                                                    desc: 'Take payments via bank transfer.' , icon: 'repeat' }, {
+                                                    id: 'cheque' , name: 'Check Payments' ,
+                                                    desc: 'Take payments via checks.' , icon: 'file-text' }, {
+                                                    id: 'razorpay' , name: 'Razorpay' ,
+                                                    desc: 'Accept cards, UPI, netbanking and wallets via Razorpay.' ,
+                                                    icon: 'zap' }, { id: 'paypal' , name: 'PayPal Standard' ,
+                                                    desc: 'Accept payments via PayPal.' , icon: 'globe' }, ]; %>
 
-          <div class="border rounded overflow-hidden">
-            <% paymentMethods.forEach(function(pm, pmIdx) { %>
-            <% var pmEnabled = o['payment_' + pm.id + '_enabled'] === 'yes'; %>
-            <div class="p-3 <%= pmIdx < paymentMethods.length - 1 ? 'border-bottom' : '' %>">
-              <div class="d-flex align-items-center gap-3">
+                                                    <div class="border rounded overflow-hidden">
+                                                      <% paymentMethods.forEach(function(pm, pmIdx) { %>
+                                                        <% var pmEnabled=o['payment_' + pm.id + '_enabled' ]==='yes' ;
+                                                          %>
+                                                          <div
+                                                            class="p-3 <%= pmIdx < paymentMethods.length - 1 ? 'border-bottom' : '' %>">
+                                                            <div class="d-flex align-items-center gap-3">
 
-                <!-- Icon -->
-                <div class="rounded border bg-light d-flex align-items-center justify-content-center flex-shrink-0"
-                  style="width:44px;height:44px;">
-                  <i data-feather="<%= pm.icon %>" style="width:20px;height:20px;" class="text-primary"></i>
-                </div>
+                                                              <!-- Icon -->
+                                                              <div
+                                                                class="rounded border bg-light d-flex align-items-center justify-content-center flex-shrink-0"
+                                                                style="width:44px;height:44px;">
+                                                                <i data-feather="<%= pm.icon %>"
+                                                                  style="width:20px;height:20px;"
+                                                                  class="text-primary"></i>
+                                                              </div>
 
-                <!-- Name + desc -->
-                <div class="flex-grow-1">
-                  <div class="fw-semibold"><%= pm.name %></div>
-                  <small class="text-muted"><%= pm.desc %></small>
-                </div>
+                                                              <!-- Name + desc -->
+                                                              <div class="flex-grow-1">
+                                                                <div class="fw-semibold">
+                                                                  <%= pm.name %>
+                                                                </div>
+                                                                <small class="text-muted">
+                                                                  <%= pm.desc %>
+                                                                </small>
+                                                              </div>
 
-                <!-- Status badge -->
-                <span class="badge rounded-pill <%= pmEnabled ? 'bg-success' : 'bg-secondary' %>"
-                  style="font-size:11px;">
-                  <%= pmEnabled ? 'Enabled' : 'Disabled' %>
-                </span>
+                                                              <!-- Status badge -->
+                                                              <span
+                                                                class="badge rounded-pill <%= pmEnabled ? 'bg-success' : 'bg-secondary' %>"
+                                                                style="font-size:11px;">
+                                                                <%= pmEnabled ? 'Enabled' : 'Disabled' %>
+                                                              </span>
 
-                <!-- Toggle -->
-                <div class="form-check form-switch mb-0">
-                  <input class="form-check-input" type="checkbox"
-                    name="payment_<%= pm.id %>_enabled" value="yes"
-                    id="pm_<%= pm.id %>"
-                    <%= pmEnabled ? 'checked' : '' %>
-                    onchange="this.closest('.p-3').querySelector('.badge').textContent = this.checked ? 'Enabled' : 'Disabled'; this.closest('.p-3').querySelector('.badge').className = 'badge rounded-pill ' + (this.checked ? 'bg-success' : 'bg-secondary');" />
-                </div>
-              </div>
+                                                              <!-- Toggle -->
+                                                              <div class="form-check form-switch mb-0">
+                                                                <input class="form-check-input" type="checkbox"
+                                                                  name="payment_<%= pm.id %>_enabled" value="yes"
+                                                                  id="pm_<%= pm.id %>" <%=pmEnabled ? 'checked' : '' %>
+                                                                onchange="this.closest('.p-3').querySelector('.badge').textContent
+                                                                = this.checked ? 'Enabled' : 'Disabled';
+                                                                this.closest('.p-3').querySelector('.badge').className =
+                                                                'badge rounded-pill ' + (this.checked ? 'bg-success' :
+                                                                'bg-secondary');" />
+                                                              </div>
+                                                            </div>
 
-              <!-- Payment details (shown when enabled) -->
-              <% if (pm.id === 'cod') { %>
-              <div class="mt-3 pt-3 border-top row g-2">
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Title (shown to customer)</label>
-                  <input type="text" name="payment_cod_title" class="form-control form-control-sm"
-                    value="<%= o.payment_cod_title || 'Cash on delivery' %>" />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Description</label>
-                  <input type="text" name="payment_cod_description" class="form-control form-control-sm"
-                    placeholder="Pay with cash upon delivery."
-                    value="<%= o.payment_cod_description || '' %>" />
-                </div>
-              </div>
-              <% } else if (pm.id === 'bacs') { %>
-              <div class="mt-3 pt-3 border-top row g-2">
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Account Name</label>
-                  <input type="text" name="payment_bacs_account_name" class="form-control form-control-sm"
-                    value="<%= o.payment_bacs_account_name || '' %>" />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Account Number</label>
-                  <input type="text" name="payment_bacs_account_number" class="form-control form-control-sm"
-                    value="<%= o.payment_bacs_account_number || '' %>" />
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label small fw-semibold">Bank Name</label>
-                  <input type="text" name="payment_bacs_bank_name" class="form-control form-control-sm"
-                    value="<%= o.payment_bacs_bank_name || '' %>" />
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label small fw-semibold">IFSC Code</label>
-                  <input type="text" name="payment_bacs_ifsc" class="form-control form-control-sm"
-                    value="<%= o.payment_bacs_ifsc || '' %>" />
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label small fw-semibold">UPI ID</label>
-                  <input type="text" name="payment_bacs_upi" class="form-control form-control-sm"
-                    placeholder="yourname@upi"
-                    value="<%= o.payment_bacs_upi || '' %>" />
-                </div>
-              </div>
-              <% } else if (pm.id === 'razorpay') { %>
-              <div class="mt-3 pt-3 border-top row g-2">
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Key ID</label>
-                  <input type="text" name="razorpay_key_id" class="form-control form-control-sm"
-                    placeholder="rzp_live_XXXXXXXXX"
-                    value="<%= o.razorpay_key_id || '' %>" />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label small fw-semibold">Key Secret</label>
-                  <input type="password" name="razorpay_key_secret" class="form-control form-control-sm"
-                    placeholder="••••••••••••••••"
-                    value="<%= o.razorpay_key_secret || '' %>" />
-                </div>
-              </div>
-              <% } %>
+                                                            <!-- Payment details (shown when enabled) -->
+                                                            <% if (pm.id==='cod' ) { %>
+                                                              <div class="mt-3 pt-3 border-top row g-2">
+                                                                <div class="col-md-6">
+                                                                  <label class="form-label small fw-semibold">Title
+                                                                    (shown to customer)</label>
+                                                                  <input type="text" name="payment_cod_title"
+                                                                    class="form-control form-control-sm"
+                                                                    value="<%= o.payment_cod_title || 'Cash on delivery' %>" />
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                  <label
+                                                                    class="form-label small fw-semibold">Description</label>
+                                                                  <input type="text" name="payment_cod_description"
+                                                                    class="form-control form-control-sm"
+                                                                    placeholder="Pay with cash upon delivery."
+                                                                    value="<%= o.payment_cod_description || '' %>" />
+                                                                </div>
+                                                              </div>
+                                                              <% } else if (pm.id==='bacs' ) { %>
+                                                                <div class="mt-3 pt-3 border-top row g-2">
+                                                                  <div class="col-md-6">
+                                                                    <label class="form-label small fw-semibold">Account
+                                                                      Name</label>
+                                                                    <input type="text" name="payment_bacs_account_name"
+                                                                      class="form-control form-control-sm"
+                                                                      value="<%= o.payment_bacs_account_name || '' %>" />
+                                                                  </div>
+                                                                  <div class="col-md-6">
+                                                                    <label class="form-label small fw-semibold">Account
+                                                                      Number</label>
+                                                                    <input type="text"
+                                                                      name="payment_bacs_account_number"
+                                                                      class="form-control form-control-sm"
+                                                                      value="<%= o.payment_bacs_account_number || '' %>" />
+                                                                  </div>
+                                                                  <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">Bank
+                                                                      Name</label>
+                                                                    <input type="text" name="payment_bacs_bank_name"
+                                                                      class="form-control form-control-sm"
+                                                                      value="<%= o.payment_bacs_bank_name || '' %>" />
+                                                                  </div>
+                                                                  <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">IFSC
+                                                                      Code</label>
+                                                                    <input type="text" name="payment_bacs_ifsc"
+                                                                      class="form-control form-control-sm"
+                                                                      value="<%= o.payment_bacs_ifsc || '' %>" />
+                                                                  </div>
+                                                                  <div class="col-md-4">
+                                                                    <label class="form-label small fw-semibold">UPI
+                                                                      ID</label>
+                                                                    <input type="text" name="payment_bacs_upi"
+                                                                      class="form-control form-control-sm"
+                                                                      placeholder="yourname@upi"
+                                                                      value="<%= o.payment_bacs_upi || '' %>" />
+                                                                  </div>
+                                                                </div>
+                                                                <% } else if (pm.id==='razorpay' ) { %>
+                                                                  <div class="mt-3 pt-3 border-top row g-2">
+                                                                    <div class="col-md-6">
+                                                                      <label class="form-label small fw-semibold">Key
+                                                                        ID</label>
+                                                                      <input type="text" name="razorpay_key_id"
+                                                                        class="form-control form-control-sm"
+                                                                        placeholder="rzp_live_XXXXXXXXX"
+                                                                        value="<%= o.razorpay_key_id || '' %>" />
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                      <label class="form-label small fw-semibold">Key
+                                                                        Secret</label>
+                                                                      <input type="password" name="razorpay_key_secret"
+                                                                        class="form-control form-control-sm"
+                                                                        placeholder="••••••••••••••••"
+                                                                        value="<%= o.razorpay_key_secret || '' %>" />
+                                                                    </div>
+                                                                  </div>
+                                                                  <% } %>
 
-            </div>
-            <% }) %>
-          </div>
-        </div>
+                                                          </div>
+                                                          <% }) %>
+                                                    </div>
+                                                </div>
 
-        <% } %>
+                                                <% } %>
 
-        <!-- ══════════════════════════════════════
+                                                  <!-- ══════════════════════════════════════
              EMAILS TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'emails') { %>
+                                                  <% if (activeTab==='emails' ) { %>
 
-        <!-- Sender -->
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Email Sender Options</h5>
+                                                    <!-- Sender -->
+                                                    <div class="settings-section mb-4">
+                                                      <h5 class="settings-heading">Email Sender Options</h5>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">"From" Name</label>
-              <small class="text-muted d-block">How the sender name appears in outgoing emails.</small>
-            </div>
-            <div class="settings-field">
-              <input type="text" name="email_from_name" class="form-control"
-                placeholder="Your Store Name"
-                value="<%= o.email_from_name || '' %>" />
-            </div>
-          </div>
+                                                      <div class="settings-row">
+                                                        <div class="settings-label">
+                                                          <label class="form-label fw-semibold mb-0">"From" Name</label>
+                                                          <small class="text-muted d-block">How the sender name appears
+                                                            in outgoing emails.</small>
+                                                        </div>
+                                                        <div class="settings-field">
+                                                          <input type="text" name="email_from_name" class="form-control"
+                                                            placeholder="Your Store Name"
+                                                            value="<%= o.email_from_name || '' %>" />
+                                                        </div>
+                                                      </div>
 
-          <div class="settings-row">
-            <div class="settings-label">
-              <label class="form-label fw-semibold mb-0">"From" Address</label>
-              <small class="text-muted d-block">How the sender email appears in outgoing emails.</small>
-            </div>
-            <div class="settings-field">
-              <input type="email" name="email_from_address" class="form-control"
-                placeholder="no-reply@yourstore.com"
-                value="<%= o.email_from_address || '' %>" />
-            </div>
-          </div>
-        </div>
+                                                      <div class="settings-row">
+                                                        <div class="settings-label">
+                                                          <label class="form-label fw-semibold mb-0">"From"
+                                                            Address</label>
+                                                          <small class="text-muted d-block">How the sender email appears
+                                                            in outgoing emails.</small>
+                                                        </div>
+                                                        <div class="settings-field">
+                                                          <input type="email" name="email_from_address"
+                                                            class="form-control" placeholder="no-reply@yourstore.com"
+                                                            value="<%= o.email_from_address || '' %>" />
+                                                        </div>
+                                                      </div>
+                                                    </div>
 
-        <!-- Email Notifications -->
-        <div class="settings-section mb-4">
-          <h5 class="settings-heading">Email Notifications</h5>
-          <p class="text-muted small mb-3">Email notifications sent from your store are listed below. Click on an email to configure it.</p>
+                                                    <!-- Email Notifications -->
+                                                    <div class="settings-section mb-4">
+                                                      <h5 class="settings-heading">Email Notifications</h5>
+                                                      <p class="text-muted small mb-3">Email notifications sent from
+                                                        your store are listed below. Click on an email to configure it.
+                                                      </p>
 
-          <% var emailTypes = [
-            { id: 'new_order',        name: 'New Order',        recipient: 'admin',    desc: 'Sent to you when a new order is received.'             },
-            { id: 'completed_order',  name: 'Completed Order',  recipient: 'customer', desc: 'Sent to the customer when the order is marked complete.' },
-            { id: 'cancelled_order',  name: 'Cancelled Order',  recipient: 'admin',    desc: 'Sent to you when an order is cancelled by the customer.' },
-            { id: 'processing_order', name: 'Processing Order', recipient: 'customer', desc: 'Sent to the customer when payment is received.'         },
-            { id: 'on_hold_order',    name: 'On-Hold Order',    recipient: 'customer', desc: 'Sent to the customer when the order is on hold.'        },
-            { id: 'refunded_order',   name: 'Refunded Order',   recipient: 'customer', desc: 'Sent to the customer when the order is refunded.'       },
-          ]; %>
+                                                      <% var emailTypes=[ { id: 'new_order' , name: 'New Order' ,
+                                                        recipient: 'admin' ,
+                                                        desc: 'Sent to you when a new order is received.' }, {
+                                                        id: 'completed_order' , name: 'Completed Order' ,
+                                                        recipient: 'customer' ,
+                                                        desc: 'Sent to the customer when the order is marked complete.'
+                                                        }, { id: 'cancelled_order' , name: 'Cancelled Order' ,
+                                                        recipient: 'admin' ,
+                                                        desc: 'Sent to you when an order is cancelled by the customer.'
+                                                        }, { id: 'processing_order' , name: 'Processing Order' ,
+                                                        recipient: 'customer' ,
+                                                        desc: 'Sent to the customer when payment is received.' }, {
+                                                        id: 'on_hold_order' , name: 'On-Hold Order' ,
+                                                        recipient: 'customer' ,
+                                                        desc: 'Sent to the customer when the order is on hold.' }, {
+                                                        id: 'refunded_order' , name: 'Refunded Order' ,
+                                                        recipient: 'customer' ,
+                                                        desc: 'Sent to the customer when the order is refunded.' }, ];
+                                                        %>
 
-          <div class="table-responsive">
-            <table class="table align-middle border rounded overflow-hidden">
-              <thead class="table-light">
-                <tr>
-                  <th>Email</th>
-                  <th>Description</th>
-                  <th>Recipient</th>
-                  <th>Recipient Email</th>
-                  <th class="text-center">Enabled</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% emailTypes.forEach(function(et) { %>
-                <% var etEnabled = o['email_' + et.id + '_enabled'] !== 'no'; %>
-                <tr>
-                  <td class="fw-semibold small"><%= et.name %></td>
-                  <td><small class="text-muted"><%= et.desc %></small></td>
-                  <td>
-                    <span class="badge rounded-pill <%= et.recipient === 'admin' ? 'bg-warning text-dark' : 'bg-info text-dark' %>">
-                      <%= et.recipient %>
-                    </span>
-                  </td>
-                  <td>
-                    <input type="email" name="email_<%= et.id %>_recipient"
-                      class="form-control form-control-sm"
-                      placeholder="<%= et.recipient === 'admin' ? 'admin@store.com' : 'customer email' %>"
-                      value="<%= o['email_' + et.id + '_recipient'] || '' %>"
-                      style="max-width:200px;" />
-                  </td>
-                  <td class="text-center">
-                    <div class="form-check form-switch d-flex justify-content-center mb-0">
-                      <input class="form-check-input" type="checkbox"
-                        name="email_<%= et.id %>_enabled" value="yes"
-                        <%= etEnabled ? 'checked' : '' %> />
-                    </div>
-                  </td>
-                </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-        </div>
+                                                        <div class="table-responsive">
+                                                          <table
+                                                            class="table align-middle border rounded overflow-hidden">
+                                                            <thead class="table-light">
+                                                              <tr>
+                                                                <th>Email</th>
+                                                                <th>Description</th>
+                                                                <th>Recipient</th>
+                                                                <th>Recipient Email</th>
+                                                                <th class="text-center">Enabled</th>
+                                                              </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                              <% emailTypes.forEach(function(et) { %>
+                                                                <% var etEnabled=o['email_' + et.id + '_enabled' ]
+                                                                  !=='no' ; %>
+                                                                  <tr>
+                                                                    <td class="fw-semibold small">
+                                                                      <%= et.name %>
+                                                                    </td>
+                                                                    <td><small class="text-muted">
+                                                                        <%= et.desc %>
+                                                                      </small></td>
+                                                                    <td>
+                                                                      <span
+                                                                        class="badge rounded-pill <%= et.recipient === 'admin' ? 'bg-warning text-dark' : 'bg-info text-dark' %>">
+                                                                        <%= et.recipient %>
+                                                                      </span>
+                                                                    </td>
+                                                                    <td>
+                                                                      <input type="email"
+                                                                        name="email_<%= et.id %>_recipient"
+                                                                        class="form-control form-control-sm"
+                                                                        placeholder="<%= et.recipient === 'admin' ? 'admin@store.com' : 'customer email' %>"
+                                                                        value="<%= o['email_' + et.id + '_recipient'] || '' %>"
+                                                                        style="max-width:200px;" />
+                                                                    </td>
+                                                                    <td class="text-center">
+                                                                      <div
+                                                                        class="form-check form-switch d-flex justify-content-center mb-0">
+                                                                        <input class="form-check-input" type="checkbox"
+                                                                          name="email_<%= et.id %>_enabled" value="yes"
+                                                                          <%=etEnabled ? 'checked' : '' %> />
+                                                                      </div>
+                                                                    </td>
+                                                                  </tr>
+                                                                  <% }) %>
+                                                            </tbody>
+                                                          </table>
+                                                        </div>
+                                                    </div>
 
-        <% } %>
+                                                    <% } %>
 
-        <!-- ══════════════════════════════════════
+                                                      <!-- ══════════════════════════════════════
              OTHER TAB
         ══════════════════════════════════════ -->
-        <% if (activeTab === 'other') { %>
+                                                      <% if (activeTab==='other' ) { %>
 
-     
 
-        <% } %>
 
-      </div><!-- /card-body -->
-    </div><!-- /card -->
+                                                        <% } %>
 
-    <!-- Save Bar -->
-    <div class="card mt-3">
-      <div class="card-body py-3">
-        <div class="d-flex gap-2 align-items-center">
-          <button type="submit" class="btn btn-primary rounded-pill px-4">
-            <i data-feather="save" style="width:15px;height:15px;" class="me-1"></i>
-            Save Changes
-          </button>
-          <a href="/store/admin/site-settings?tab=<%= activeTab %>"
-            class="btn btn-outline-secondary rounded-pill px-4">
-            Cancel
-          </a>
-        </div>
-      </div>
-    </div>
+                                  </div><!-- /card-body -->
+                          </div><!-- /card -->
 
-    </form>
-  </div>
-</div>
+                          <!-- Save Bar -->
+                          <div class="card mt-3">
+                            <div class="card-body py-3">
+                              <div class="d-flex gap-2 align-items-center">
+                                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                                  <i data-feather="save" style="width:15px;height:15px;" class="me-1"></i>
+                                  Save Changes
+                                </button>
+                                <a href="/store/admin/site-settings?tab=<%= activeTab %>"
+                                  class="btn btn-outline-secondary rounded-pill px-4">
+                                  Cancel
+                                </a>
+                              </div>
+                            </div>
+                          </div>
 
-<style>
-/* Tab styles */
-.nav-tabs .nav-link {
-  color: #555;
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 14px;
-}
-.nav-tabs .nav-link.active {
-  color: #2962ff;
-  border-bottom: 3px solid #2962ff;
-  background: transparent;
-  font-weight: 600;
-}
-.nav-tabs .nav-link:hover {
-  color: #2962ff;
-  background: transparent;
-}
+                      </form>
+            </div>
+          </div>
 
-/* Settings row — label left, field right */
-.settings-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  padding: 14px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.settings-row:last-child {
-  border-bottom: none;
-}
-.settings-label {
-  width: 340px;
-  flex-shrink: 0;
-}
-.settings-field {
-  flex: 1;
-}
-.settings-heading {
-  font-size: 15px;
-  font-weight: 700;
-  color: #2962ff;
-  margin-bottom: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e8f0fe;
-  margin-bottom: 4px;
-}
+          <style>
+            /* Tab styles */
+            .nav-tabs .nav-link {
+              color: #555;
+              border: none;
+              border-bottom: 3px solid transparent;
+              font-size: 14px;
+            }
 
-@media (max-width: 767px) {
-  .settings-row { flex-direction: column; gap: 8px; }
-  .settings-label { width: 100%; }
-}
-</style>
+            .nav-tabs .nav-link.active {
+              color: #2962ff;
+              border-bottom: 3px solid #2962ff;
+              background: transparent;
+              font-weight: 600;
+            }
 
-<script>
-function toggleTaxFields(enabled) {
-  document.getElementById('taxFields').style.display = enabled ? '' : 'none';
-}
-feather.replace();
+            .nav-tabs .nav-link:hover {
+              color: #2962ff;
+              background: transparent;
+            }
 
-function previewMainImage(input) {
-            if (!input.files[0]) return;
-            var reader = new FileReader();
-            reader.onload = function (e) {
-              document.getElementById('mainImagePreview').innerHTML =
-                '<img src="' + e.target.result + '" class="img-fluid rounded" style="max-height:150px;" />';
-            };
-            reader.readAsDataURL(input.files[0]);
-          }
-</script>
+            /* Settings row — label left, field right */
+            .settings-row {
+              display: flex;
+              align-items: flex-start;
+              gap: 24px;
+              padding: 14px 0;
+              border-bottom: 1px solid #f0f0f0;
+            }
 
-<%- include('../partials/footer') %>
+            .settings-row:last-child {
+              border-bottom: none;
+            }
+
+            .settings-label {
+              width: 340px;
+              flex-shrink: 0;
+            }
+
+            .settings-field {
+              flex: 1;
+            }
+
+            .settings-heading {
+              font-size: 15px;
+              font-weight: 700;
+              color: #2962ff;
+              margin-bottom: 0;
+              padding-bottom: 10px;
+              border-bottom: 1px solid #e8f0fe;
+              margin-bottom: 4px;
+            }
+
+            @media (max-width: 767px) {
+              .settings-row {
+                flex-direction: column;
+                gap: 8px;
+              }
+
+              .settings-label {
+                width: 100%;
+              }
+            }
+          </style>
+
+          <%- include('../partials/scripts') %>
+            <script>
+              function toggleTaxFields(enabled) {
+                document.getElementById('taxFields').style.display = enabled ? '' : 'none';
+              }
+              feather.replace();
+
+              function previewMainImage(input) {
+                if (!input.files[0]) return;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                  document.getElementById('mainImagePreview').innerHTML =
+                    '<img src="' + e.target.result + '" class="img-fluid rounded" style="max-height:150px;" />';
+                };
+                reader.readAsDataURL(input.files[0]);
+              }
+            </script>
+
+            <%- include('../partials/footer') %>

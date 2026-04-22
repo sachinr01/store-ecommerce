@@ -124,7 +124,7 @@ const storeUser = async (req, res) => {
         body.user_url || "",
         body.user_status !== undefined ? body.user_status : 0,
         body.display_name || body.user_login,
-      ],  
+      ],
     );
     const userId = result.insertId;
 
@@ -213,20 +213,20 @@ const updateUser = async (req, res) => {
       // Update without touching password
       await db.query(
         `UPDATE tbl_users SET
-           user_email    = ?,
-           display_name  = ?,
-           user_nicename = ?,
-           user_url      = ?,
-           user_type     = ?,
-           user_status   = ?
-         WHERE ID = ?`,
+     user_email    = ?,
+     display_name  = ?,
+     user_nicename = ?,
+     user_url      = ?,
+     user_type     = ?,
+     user_status   = ?
+   WHERE ID = ?`,
         [
-          body.user_email,
-          body.display_name,
+          body.user_email || "",
+          body.display_name || body.user_login || body.user_email || "",
           body.user_nicename || body.user_login || body.user_email || "",
           body.user_url || "",
-          body.user_type || 1,
-          body.user_status !== undefined ? body.user_status : 0,
+          parseInt(body.user_type) || 1,
+          body.user_status !== undefined ? parseInt(body.user_status) : 0,
           id,
         ],
       );

@@ -1,244 +1,282 @@
 <%- include('../partials/head') %>
 
-<%- include('../partials/navbar') %>
-<%- include('../partials/sidebar') %>
+  <%- include('../partials/navbar') %>
+    <%- include('../partials/sidebar') %>
 
-<div class="page-wrapper">
+      <div class="page-wrapper">
 
-  <!-- Breadcrumb -->
-  <div class="page-breadcrumb">
-    <div class="row">
-      <div class="col-7 align-self-center">
-        <h4 class="page-title">Coupons</h4>
-        <div class="d-flex align-items-center">
-          <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-              <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-              <li class="breadcrumb-item active">Coupons</li>
-            </ol>
-          </nav>
-        </div>
-      </div>
-      <div class="col-5 align-self-center text-end">
-        <a href="/store/admin/coupons/add" class="btn btn-primary rounded-pill px-4">
-          <div class="d-flex align-items-center gap-1">
-            <i data-feather="plus-circle" class="feather-sm"></i>
-            Add New Coupon
-          </div>
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <div class="container-fluid">
-
-    <% if (locals.success) { %>
-      <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2">
-        <i data-feather="check-circle" class="feather-sm flex-shrink-0"></i>
-        <%= locals.success %>
-        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-      </div>
-    <% } %>
-    <% if (locals.errors) { %>
-      <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2">
-        <i data-feather="alert-circle" class="feather-sm flex-shrink-0"></i>
-        <%= locals.errors %>
-        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-      </div>
-    <% } %>
-
-    <div class="card">
-      <div class="card-body">
-
-        <!-- Toolbar -->
-        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <h4 class="card-title mb-0">Coupons</h4>
-            <!-- Status filter pills -->
-            <div class="d-flex align-items-center gap-1">
-              <a href="/store/admin/coupons" class="btn btn-sm <%= !locals.statusFilter ? 'btn-dark' : 'btn-outline-secondary' %> rounded-pill px-3">
-                All <span class="badge bg-secondary ms-1"><%= coupons.length %></span>
-              </a>
-              <a href="/store/admin/coupons?status=publish" class="btn btn-sm <%= locals.statusFilter === 'publish' ? 'btn-success' : 'btn-outline-secondary' %> rounded-pill px-3">
-                Published
-              </a>
-              <a href="/store/admin/coupons?status=draft" class="btn btn-sm <%= locals.statusFilter === 'draft' ? 'btn-warning' : 'btn-outline-secondary' %> rounded-pill px-3">
-                Draft
-              </a>
-              <a href="/store/admin/coupons?status=expired" class="btn btn-sm <%= locals.statusFilter === 'expired' ? 'btn-danger' : 'btn-outline-secondary' %> rounded-pill px-3">
-                Expired
+        <!-- Breadcrumb -->
+        <div class="page-breadcrumb">
+          <div class="row">
+            <div class="col-7 align-self-center">
+              <h4 class="page-title">Coupons</h4>
+              <div class="d-flex align-items-center">
+                <nav aria-label="breadcrumb">
+                  <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                    <li class="breadcrumb-item active">Coupons</li>
+                  </ol>
+                </nav>
+              </div>
+            </div>
+            <div class="col-5 align-self-center text-end">
+              <a href="/store/admin/coupons/add" class="btn btn-primary rounded-pill px-4">
+                <div class="d-flex align-items-center gap-1">
+                  <i data-feather="plus-circle" class="feather-sm"></i>
+                  Add New Coupon
+                </div>
               </a>
             </div>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <div class="input-group input-group-sm">
-              <span class="input-group-text bg-transparent">
-                <i data-feather="search" class="feather-sm text-muted"></i>
-              </span>
-              <input type="text" id="couponSearch" class="form-control" placeholder="Search coupons..." oninput="filterCoupons()" />
+        </div>
+
+        <div class="container-fluid">
+
+          <% if (locals.success) { %>
+            <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2">
+              <i data-feather="check-circle" class="feather-sm flex-shrink-0"></i>
+              <%= locals.success %>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
             </div>
-            <span class="badge bg-light text-dark border fw-normal" id="couponCountLabel">
-              <%= coupons.length %> items
-            </span>
-          </div>
-        </div>
+            <% } %>
+              <% if (locals.errors) { %>
+                <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2">
+                  <i data-feather="alert-circle" class="feather-sm flex-shrink-0"></i>
+                  <%= locals.errors %>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                </div>
+                <% } %>
 
-        <% if (coupons.length === 0) { %>
-          <div class="text-center py-5 text-muted">
-            <i data-feather="tag" class="d-block mx-auto mb-3 opacity-25" style="width:48px;height:48px;"></i>
-            <p class="fw-semibold mb-1">No coupons found</p>
-            <small>Create your first coupon using the button above.</small>
-          </div>
-        <% } else { %>
+                  <div class="card">
+                    <div class="card-body">
 
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0" id="couponTable">
-            <thead class="table-light">
-              <tr>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Code</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Coupon Type</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Amount</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Description</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Usage / Limit</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Expiry Date</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Status</th>
-                <th class="text-uppercase text-muted fw-semibold small" style="font-size:.72rem; letter-spacing:.05em;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% coupons.forEach(coupon => {
-                const now = new Date();
-                const expiry = coupon.coupon_expiry_date ? new Date(coupon.coupon_expiry_date) : null;
-                const isExpired = expiry && expiry < now;
-                const typeLabels = { percent: 'Percentage discount', fixed_cart: 'Fixed cart discount', fixed_product: 'Fixed product discount' };
-              %>
-                <tr>
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
-                           style="width:34px;height:34px;">
-                        <i data-feather="tag" class="text-success" style="width:14px;height:14px;"></i>
-                      </div>
-                      <div>
-                        <a href="/store/admin/coupons/edit/<%= coupon.coupon_id %>" class="fw-semibold text-dark text-decoration-none">
-                          <%= coupon.coupon_code.toUpperCase() %>
-                        </a>
-                        <% if (coupon.coupon_status === 'draft') { %>
-                          <span class="badge bg-warning text-dark ms-1 small">Draft</span>
-                        <% } %>
-                        <% if (isExpired) { %>
-                          <span class="badge bg-danger ms-1 small">Expired</span>
-                        <% } %>
-                        <% if (coupon.coupon_name) { %>
-                          <div class="text-muted small"><%= coupon.coupon_name %></div>
-                        <% } %>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="text-muted small">
-                      <%= typeLabels[coupon.coupon_type] || coupon.coupon_type %>
-                    </span>
-                  </td>
-                  <td>
-                    <span class="fw-semibold">
-                      <% if (coupon.coupon_type === 'percent') { %>
-                        <%= coupon.coupon_amount %>%
-                      <% } else { %>
-                        ₹<%= coupon.coupon_amount %>
-                      <% } %>
-                    </span>
-                  </td>
-                  <td>
-                    <span class="text-muted small text-truncate d-inline-block" style="max-width:150px;">
-                      <%= coupon.coupon_details || '—' %>
-                    </span>
-                  </td>
-                  <td>
-                    <span class="small">
-                      <%= coupon.coupon_count %> /
-                      <% if (!coupon.usage_limit_per_coupon) { %>
-                        <span class="text-muted">∞</span>
-                      <% } else { %>
-                        <%= coupon.usage_limit_per_coupon %>
-                      <% } %>
-                    </span>
-                  </td>
-                  <td>
-                    <span class="small <%= isExpired ? 'text-danger fw-semibold' : 'text-muted' %>">
-                      <% if (coupon.coupon_expiry_date) { %>
-                        <%= new Date(coupon.coupon_expiry_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %>
-                      <% } else { %>
-                        —
-                      <% } %>
-                    </span>
-                  </td>
-                  <td>
-                    <% if (coupon.coupon_status === 'publish') { %>
-                      <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2">Published</span>
-                    <% } else if (coupon.coupon_status === 'draft') { %>
-                      <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2">Draft</span>
-                    <% } else if (coupon.coupon_status === 'expired') { %>
-                      <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2">Expired</span>
-                    <% } else { %>
-                      <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2"><%= coupon.coupon_status %></span>
-                    <% } %>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center gap-1">
-                      <a href="/store/admin/coupons/edit/<%= coupon.coupon_id %>"
-                         class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                        <div class="d-flex align-items-center gap-1">
-                          <i data-feather="edit-2" class="feather-sm"></i> Edit
+                      <!-- Toolbar -->
+                      <div
+                        class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                          <h4 class="card-title mb-0">Coupons</h4>
+                          <!-- Status filter pills -->
+                          <div class="d-flex align-items-center gap-1">
+                            <a href="/store/admin/coupons"
+                              class="btn btn-sm <%= !locals.statusFilter ? 'btn-dark' : 'btn-outline-secondary' %> rounded-pill px-3">
+                              All <span class="badge bg-secondary ms-1">
+                                <%= coupons.length %>
+                              </span>
+                            </a>
+                            <a href="/store/admin/coupons?status=publish"
+                              class="btn btn-sm <%= locals.statusFilter === 'publish' ? 'btn-success' : 'btn-outline-secondary' %> rounded-pill px-3">
+                              Published
+                            </a>
+                            <a href="/store/admin/coupons?status=draft"
+                              class="btn btn-sm <%= locals.statusFilter === 'draft' ? 'btn-warning' : 'btn-outline-secondary' %> rounded-pill px-3">
+                              Draft
+                            </a>
+                            <a href="/store/admin/coupons?status=expired"
+                              class="btn btn-sm <%= locals.statusFilter === 'expired' ? 'btn-danger' : 'btn-outline-secondary' %> rounded-pill px-3">
+                              Expired
+                            </a>
+                          </div>
                         </div>
-                      </a>
-                      <a href="/store/admin/coupons/delete/<%= coupon.coupon_id %>"
-                         class="btn btn-sm btn-outline-danger rounded-pill px-3"
-                         onclick="return confirm('Delete coupon \'<%= coupon.coupon_code %>\'? This cannot be undone.')">
-                        <div class="d-flex align-items-center gap-1">
-                          <i data-feather="trash-2" class="feather-sm"></i> Delete
+
+                      </div>
+
+                      <% if (coupons.length===0) { %>
+                        <div class="text-center py-5 text-muted">
+                          <i data-feather="tag" class="d-block mx-auto mb-3 opacity-25"
+                            style="width:48px;height:48px;"></i>
+                          <p class="fw-semibold mb-1">No coupons found</p>
+                          <small>Create your first coupon using the button above.</small>
                         </div>
-                      </a>
+                        <% } else { %>
+
+                          <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="couponTable">
+                              <thead class="table-light">
+                                <tr>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Code</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Coupon Type</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Amount</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Description</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Usage / Limit</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Expiry Date</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Status</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="font-size:.72rem; letter-spacing:.05em;">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <% coupons.forEach(coupon=> {
+                                  const now = new Date();
+                                  const expiry = coupon.coupon_expiry_date ? new Date(coupon.coupon_expiry_date) : null;
+                                  const isExpired = expiry && expiry < now; const typeLabels={
+                                    percent: 'Percentage discount' , fixed_cart: 'Fixed cart discount' ,
+                                    fixed_product: 'Fixed product discount' }; %>
+                                    <tr>
+                                      <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                          <div
+                                            class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0"
+                                            style="width:34px;height:34px;">
+                                            <i data-feather="tag" class="text-success"
+                                              style="width:14px;height:14px;"></i>
+                                          </div>
+                                          <div>
+                                            <a href="/store/admin/coupons/edit/<%= coupon.coupon_id %>"
+                                              class="fw-semibold text-dark text-decoration-none">
+                                              <%= coupon.coupon_code.toUpperCase() %>
+                                            </a>
+                                            <% if (coupon.coupon_status==='draft' ) { %>
+                                              <span class="badge bg-warning text-dark ms-1 small">Draft</span>
+                                              <% } %>
+                                                <% if (isExpired) { %>
+                                                  <span class="badge bg-danger ms-1 small">Expired</span>
+                                                  <% } %>
+                                                    <% if (coupon.coupon_name) { %>
+                                                      <div class="text-muted small">
+                                                        <%= coupon.coupon_name %>
+                                                      </div>
+                                                      <% } %>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td>
+                                        <span class="text-muted small">
+                                          <%= typeLabels[coupon.coupon_type] || coupon.coupon_type %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <span class="fw-semibold">
+                                          <% if (coupon.coupon_type==='percent' ) { %>
+                                            <%= coupon.coupon_amount %>%
+                                              <% } else { %>
+                                                ₹<%= coupon.coupon_amount %>
+                                                  <% } %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <span class="text-muted small text-truncate d-inline-block"
+                                          style="max-width:150px;">
+                                          <%= coupon.coupon_details || '—' %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <span class="small">
+                                          <%= coupon.coupon_count %> /
+                                            <% if (!coupon.usage_limit_per_coupon) { %>
+                                              <span class="text-muted">∞</span>
+                                              <% } else { %>
+                                                <%= coupon.usage_limit_per_coupon %>
+                                                  <% } %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <span class="small <%= isExpired ? 'text-danger fw-semibold' : 'text-muted' %>">
+                                          <% if (coupon.coupon_expiry_date) { %>
+                                            <%= new Date(coupon.coupon_expiry_date).toLocaleDateString('en-IN', {
+                                              day:'numeric', month:'short', year:'numeric' }) %>
+                                              <% } else { %>
+                                                —
+                                                <% } %>
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <% if (coupon.coupon_status==='publish' ) { %>
+                                          <span
+                                            class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2">Published</span>
+                                          <% } else if (coupon.coupon_status==='draft' ) { %>
+                                            <span
+                                              class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2">Draft</span>
+                                            <% } else if (coupon.coupon_status==='expired' ) { %>
+                                              <span
+                                                class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2">Expired</span>
+                                              <% } else { %>
+                                                <span
+                                                  class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2">
+                                                  <%= coupon.coupon_status %>
+                                                </span>
+                                                <% } %>
+                                      </td>
+                                      <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                          <a href="/store/admin/coupons/edit/<%= coupon.coupon_id %>"
+                                            class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            <div class="d-flex align-items-center gap-1">
+                                              <i data-feather="edit-2" class="feather-sm"></i> Edit
+                                            </div>
+                                          </a>
+                                          <button class="btn btn-sm btn-outline-danger rounded-pill px-3 delete-btn"
+                                            data-id="<%= coupon.coupon_id %>"
+                                            data-name="Coupon '<%= coupon.coupon_code %>'"
+                                            data-url="/store/admin/coupons/delete/" data-title="Delete Coupon">
+
+                                            <div class="d-flex align-items-center gap-1">
+                                              <i data-feather="trash-2" class="feather-sm"></i> Delete
+                                            </div>
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                    <% }) %>
+                              </tbody>
+                            </table>
+                          </div>
+
+
+
+                          <% } %>
                     </div>
-                  </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
+                  </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-          <small class="text-muted" id="couponFooterCount">
-            Showing <%= coupons.length %> of <%= coupons.length %> coupons
-          </small>
-          <small class="text-muted d-flex align-items-center gap-1">
-            <i data-feather="info" class="feather-sm"></i>
-            Click a coupon code to edit
-          </small>
         </div>
-
-        <% } %>
       </div>
-    </div>
 
-  </div>
-</div>
+      <%- include('../partials/scripts') %>
 
-<script>
-  function filterCoupons() {
-    var q    = document.getElementById('couponSearch').value.toLowerCase();
-    var rows = document.querySelectorAll('#couponTable tbody tr');
-    var count = 0;
-    rows.forEach(function (row) {
-      var match = row.textContent.toLowerCase().includes(q);
-      row.style.display = match ? '' : 'none';
-      if (match) count++;
-    });
-    document.getElementById('couponCountLabel').textContent = count + ' items';
-    var fc = document.getElementById('couponFooterCount');
-    if (fc) fc.textContent = 'Showing ' + count + ' of ' + rows.length + ' coupons';
-  }
-  feather.replace();
-</script>
+        <script>
+          function filterCoupons() {
+            var q = document.getElementById('couponSearch').value.toLowerCase();
+            var rows = document.querySelectorAll('#couponTable tbody tr');
+            var count = 0;
+            rows.forEach(function (row) {
+              var match = row.textContent.toLowerCase().includes(q);
+              row.style.display = match ? '' : 'none';
+              if (match) count++;
+            });
+            document.getElementById('couponCountLabel').textContent = count + ' items';
+            var fc = document.getElementById('couponFooterCount');
+            if (fc) fc.textContent = 'Showing ' + count + ' of ' + rows.length + ' coupons';
+          }
+          $(document).ready(function () {
+            $('#couponTable').DataTable({
+              "responsive": true,
+              "autoWidth": false,
+              "order": [[0, "desc"]],
+              "pageLength": 10,
+              "columnDefs": [
+                { "orderable": false, "targets": 6 }
+              ],
+              "language": {
+                "emptyTable": "No coupons found",
+                "info": "Showing _START_ to _END_ of _TOTAL_ coupons",
+                "infoEmpty": "Showing 0 to 0 of 0 coupons",
+                "search": "Search coupons:",
+                "paginate": {
+                  "first": "First",
+                  "last": "Last",
+                  "next": "Next",
+                  "previous": "Previous"
+                }
+              }
+            });
+          });
+          feather.replace();
+        </script>
 
-<%- include('../partials/footer') %>
+        <%- include('../partials/footer') %>

@@ -31,7 +31,7 @@ exports.store = async (req, res) => {
     [category_name, finalSlug, parent_id || 0, category_desc || ""]
   );
 
- res.redirect("/store/admin/products/categories");
+ res.redirect("/store/admin/products/categories?success=Category added successfully");
 };
 
 // UPDATE CATEGORY
@@ -53,7 +53,7 @@ exports.update = async (req, res) => {
     [category_name, finalSlug, parent_id || 0, category_desc || "", id]
   );
 
-   res.redirect("/store/admin/products/categories");
+   res.redirect("/store/admin/products/categories?success=Category updated successfully");
 };
 
 // DELETE CATEGORY
@@ -62,5 +62,5 @@ exports.delete = async (req, res) => {
 
   await db.query("DELETE FROM tbl_products_category WHERE category_id=?", [id]);
 
-  res.redirect("/store/admin/products/categories");
+  res.redirect("/store/admin/products/categories?success=Category deleted successfully");
 };

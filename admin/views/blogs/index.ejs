@@ -1,139 +1,151 @@
 <%- include('../partials/head') %>
 
-<%- include('../partials/navbar') %>
-<%- include('../partials/sidebar') %>
+  <%- include('../partials/navbar') %>
+    <%- include('../partials/sidebar') %>
 
-<div class="page-wrapper">
+      <div class="page-wrapper">
 
-  <div class="page-breadcrumb">
-    <div class="row">
-      <div class="col-7 align-self-center">
-        <h4 class="page-title">
-          Blogs
-        </h4>
-        <div class="d-flex align-items-center">
-          <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-              <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
-              <li class="breadcrumb-item active">Blogs</li>
-            </ol>
-          </nav>
-        </div>
-      </div>
-      <div class="col-5 align-self-center text-end">
-        <a href="/store/admin/blogs/add" class="btn btn-primary rounded-pill px-4">
-          <div class="d-flex align-items-center">
-            <i data-feather="plus" class="feather-sm me-1"></i> Add Blog
+        <div class="page-breadcrumb">
+          <div class="row">
+            <div class="col-7 align-self-center">
+              <h4 class="page-title">
+                Blogs
+              </h4>
+              <div class="d-flex align-items-center">
+                <nav aria-label="breadcrumb">
+                  <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/store/admin/dashboard">Home</a></li>
+                    <li class="breadcrumb-item active">Blogs</li>
+                  </ol>
+                </nav>
+              </div>
+            </div>
+            <div class="col-5 align-self-center text-end">
+              <a href="/store/admin/blogs/add" class="btn btn-primary rounded-pill px-4">
+                <div class="d-flex align-items-center">
+                  <i data-feather="plus" class="feather-sm me-1"></i> Add Blog
+                </div>
+              </a>
+            </div>
           </div>
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <div class="container-fluid">
-
-    <div class="card">
-      <div class="card-body">
-
-        <div class="table-responsive">
-          <table id="blogsTable" class="table table-hover">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Published Date</th>
-                <th>Order</th>
-                <th width="150">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% if (blogs && blogs.length) { %>
-                <% blogs.forEach(p => { %>
-                  <tr>
-                    <td><span class="badge bg-light text-dark"><%= p.ID %></span></td>
-                    <td><strong><%= p.post_title %></strong></td>
-                    <td>
-                      <span class="badge bg-info">
-                        <%= p.post_type === 'page' ? 'Page' : 'Post' %>
-                      </span>
-                    </td>
-                    <td>
-                      <span class="badge bg-<%= p.post_status === 'publish' ? 'success' : 'warning' %>">
-                        <%= p.post_status === 'publish' ? 'Published' : 'Draft' %>
-                      </span>
-                    </td>
-                    <td>
-                      <small class="text-muted">
-                        <%= new Date(p.post_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
-                      </small>
-                    </td>
-                    <td><%= p.menu_order || 0 %></td>
-                    <td>
-                      <div class="d-flex gap-1">
-                        <a href="/store/admin/blogs/edit/<%= p.ID %>" class="btn btn-sm btn-warning" title="Edit">
-                          <i data-feather="edit-2" class="feather-sm"></i>
-                        </a>
-                        <a href="/store/admin/blogs/delete/<%= p.ID %>"
-                          onclick="return confirm('Are you sure you want to delete this blog?')"
-                          class="btn btn-sm btn-danger" title="Delete">
-                          <i data-feather="trash-2" class="feather-sm"></i>
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                <% }) %>
-              <% } else { %>
-                <tr>
-                  <td colspan="7" class="text-center py-5">
-                    <div>
-                      <i data-feather="inbox" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
-                      <p class="text-muted">No blogs found</p>
-                      <a href="/store/admin/blogs/add" class="btn btn-sm btn-primary">
-                        Create First Blog
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              <% } %>
-            </tbody>
-          </table>
         </div>
 
+        <div class="container-fluid">
+
+          <div class="card">
+            <div class="card-body">
+
+              <div class="table-responsive">
+                <table id="blogsTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Title</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Published Date</th>
+                      <th>Order</th>
+                      <th width="150">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% if (blogs && blogs.length) { %>
+                      <% blogs.forEach(p=> { %>
+                        <tr>
+                          <td><span class="badge bg-light text-dark">
+                              <%= p.ID %>
+                            </span></td>
+                          <td><strong>
+                              <%= p.post_title %>
+                            </strong></td>
+                          <td>
+                            <span class="badge bg-info">
+                              <%= p.post_type==='page' ? 'Page' : 'Post' %>
+                            </span>
+                          </td>
+                          <td>
+                            <span class="badge bg-<%= p.post_status === 'publish' ? 'success' : 'warning' %>">
+                              <%= p.post_status==='publish' ? 'Published' : 'Draft' %>
+                            </span>
+                          </td>
+                          <td>
+                            <small class="text-muted">
+                              <%= new Date(p.post_date).toLocaleDateString('en-US', { year: 'numeric' , month: 'short' ,
+                                day: 'numeric' }) %>
+                            </small>
+                          </td>
+                          <td>
+                            <%= p.menu_order || 0 %>
+                          </td>
+                          <td>
+                            <div class="d-flex gap-1">
+                              <a href="/store/admin/blogs/edit/<%= p.ID %>" class="btn btn-sm btn-warning" title="Edit">
+                                <i data-feather="edit-2" class="feather-sm"></i>
+                              </a>
+                              <button class="btn btn-sm btn-danger delete-btn" data-id="<%= p.ID %>"
+                                data-name="<%= p.post_title %>" data-url="/store/admin/blogs/delete/"
+                                data-title="Delete Blog" title="Delete">
+
+                                <i data-feather="trash-2" class="feather-sm"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        <% }) %>
+                          <% } else { %>
+                            <tr>
+                              <td colspan="7" class="text-center py-5">
+                                <div>
+                                  <i data-feather="inbox" style="width:48px;height:48px;"
+                                    class="text-muted mb-3 d-block mx-auto"></i>
+                                  <p class="text-muted">No blogs found</p>
+                                  <a href="/store/admin/blogs/add" class="btn btn-sm btn-primary">
+                                    Create First Blog
+                                  </a>
+                                </div>
+                              </td>
+                            </tr>
+                            <% } %>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
       </div>
-    </div>
 
-  </div>
-</div>
-
-<%- include('../partials/footer') %>
+      <%- include('../partials/scripts') %>
 
 
-<script>
-  $(document).ready(function() {
-    $('#blogsTable').DataTable({
-      "responsive": true,
-      "autoWidth": false,
-      "order": [[0, "desc"]],
-      "pageLength": 25,
-      "columnDefs": [
-        { "orderable": false, "targets": 6 }
-      ],
-      "language": {
-        "emptyTable": "No blogs found",
-        "info": "Showing _START_ to _END_ of _TOTAL_ blogs",
-        "infoEmpty": "Showing 0 to 0 of 0 blogs",
-        "search": "Search blogs:",
-        "paginate": {
-          "first": "First",
-          "last": "Last",
-          "next": "Next",
-          "previous": "Previous"
-        }
-      }
-    });
-  });
+        <script>
+          $(document).ready(function () {
+            $('#blogsTable').DataTable({
+              "responsive": true,
+              "autoWidth": false,
+              "order": [[0, "desc"]],
+              "pageLength": 25,
+              "columnDefs": [
+                { "orderable": false, "targets": 6 }
+              ],
+              "language": {
+                "emptyTable": "No blogs found",
+                "info": "Showing _START_ to _END_ of _TOTAL_ blogs",
+                "infoEmpty": "Showing 0 to 0 of 0 blogs",
+                "search": "Search blogs:",
+                "paginate": {
+                  "first": "First",
+                  "last": "Last",
+                  "next": "Next",
+                  "previous": "Previous"
+                }
+              }
+            });
+          });
 
-  feather.replace();
-</script>
+          feather.replace();
+        </script>
+
+
+        <%- include('../partials/footer') %>

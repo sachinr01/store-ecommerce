@@ -249,8 +249,8 @@
                                     <% const selIn=isEdit && c.include_categories ?
                                       c.include_categories.split(',').map(s=> s.trim()) : []; %>
                                       <% categories.forEach(cat=> { %>
-                                        <option value="<%= cat.category_id %>" <%=selIn.includes(String(cat.category_id)) ? 'selected'
-                                          : '' %>>
+                                        <option value="<%= cat.category_id %>"
+                                          <%=selIn.includes(String(cat.category_id)) ? 'selected' : '' %>>
                                           <%= cat.category_name %>
                                         </option>
                                         <% }) %>
@@ -268,8 +268,8 @@
                                     <% const selEx=isEdit && c.exclude_categories ?
                                       c.exclude_categories.split(',').map(s=> s.trim()) : []; %>
                                       <% categories.forEach(cat=> { %>
-                                        <option value="<%= cat.category_id %>" <%=selEx.includes(String(cat.category_id)) ? 'selected'
-                                          : '' %>>
+                                        <option value="<%= cat.category_id %>"
+                                          <%=selEx.includes(String(cat.category_id)) ? 'selected' : '' %>>
                                           <%= cat.category_name %>
                                         </option>
                                         <% }) %>
@@ -465,7 +465,7 @@
           </div>
         </div>
 
-        <%- include('../partials/footer') %>
+        <%- include('../partials/scripts') %>
           <script>
             $(document).ready(function () {
               $('.include_products_select2').select2({
@@ -523,3 +523,6 @@
 
             feather.replace();
           </script>
+
+
+          <%- include('../partials/footer') %>

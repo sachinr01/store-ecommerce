@@ -162,7 +162,7 @@ exports.store = async (req, res) => {
       );
     }
 
-    res.redirect("/store/admin/blogs");
+    res.redirect("/store/admin/blogs?success=Blog added successfully");
   } catch (err) {
     console.error(err);
     res.send(err.message);
@@ -261,7 +261,7 @@ exports.update = async (req, res) => {
       );
     }
 
-    res.redirect("/store/admin/blogs");
+    res.redirect("/store/admin/blogs?success=Blog updated successfully");
   } catch (err) {
     console.error(err);
     res.send(err.message);
@@ -296,7 +296,7 @@ exports.delete = async (req, res) => {
     // 🔴 DELETE POST
     await db.query("DELETE FROM tbl_posts WHERE ID=?", [id]);
 
-    res.redirect("/store/admin/blogs");
+    res.redirect("/store/admin/blogs?success=Blog deleted successfully");
   } catch (err) {
     console.error(err);
     res.send(err.message);
