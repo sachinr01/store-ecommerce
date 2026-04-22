@@ -9,7 +9,7 @@ export default function TrustBar() {
       ),
       title: 'Easy returns',
       desc: 'Return within 15 days of order delivery.',
-      link: { label: 'See T&Cs', href: '/terms-conditions' },
+      link: { label: 'See T&Cs', href: 'terms-conditions' },
     },
     {
       icon: (

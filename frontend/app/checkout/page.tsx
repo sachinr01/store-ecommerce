@@ -158,12 +158,22 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, [isLoggedIn]);
 
-  // ─── Load active coupon from session on mount ────────────────────────────────
+  // ─── Load active coupon — re-runs whenever cart items change ─────────────────
+  // This ensures the discount shown is always live: if the user removes a product
+  // that was the only eligible item for the coupon, the discount clears instantly
+  // instead of staying stale until Place Order fails server-side.
   useEffect(() => {
     getActiveCoupon().then((c) => {
-      if (c) { setAppliedCoupon(c); setCouponInput(c.code); setShowCoupon(true); }
+      if (c) {
+        setAppliedCoupon(c);
+        setCouponInput(c.code);
+        setShowCoupon(true);
+      } else {
+        // Server said coupon is no longer valid for the current cart — clear it
+        setAppliedCoupon(null);
+      }
     }).catch(() => {});
-  }, []);
+  }, [items]); // <-- re-run on every cart change
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
