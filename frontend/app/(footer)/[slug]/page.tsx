@@ -22,7 +22,7 @@ export async function generateMetadata({
   const shouldIndex     = (page.seo_meta_index || 'yes').toLowerCase() !== 'no';
 
   return {
-    title: metaTitle,
+    title: { absolute: metaTitle },
     description: metaDescription,
     robots: {
       index:  shouldIndex,

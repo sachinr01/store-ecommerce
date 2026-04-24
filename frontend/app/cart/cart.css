@@ -327,3 +327,81 @@
     gap: 4px;
   }
 }
+
+.cart-breadcrumb {
+  padding: 13px 48px;
+  font-size: 13px;
+  color: #888;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid #ececec;
+  background: #fff;
+  flex-wrap: wrap;
+}
+
+.cart-breadcrumb a {
+  color: #888;
+  text-decoration: none;
+}
+
+.cart-breadcrumb-separator {
+  color: #ccc;
+}
+
+.cart-breadcrumb-current {
+  color: #1c1c1c;
+  font-weight: 500;
+}
+
+.cart-empty p {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+.cart-item-title-wrap {
+  min-width: 0;
+}
+
+.cart-coupon-remove-btn {
+  min-height: 46px;
+  background: #e53935;
+  border: none;
+  color: #fff;
+}
+
+.cart-coupon-apply-btn {
+  min-height: 46px;
+}
+
+.cart-coupon-msg {
+  margin-top: -12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.cart-coupon-msg.success {
+  color: #2e7d32;
+}
+
+.cart-coupon-msg.error {
+  color: #c62828;
+}
+
+.cart-summary-row.discount {
+  color: #2e7d32;
+}
+
+.cart-summary-shipping {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.cart-checkout-wrap {
+  margin-top: 22px;
+}
+
+.cart-checkout-link {
+  display: block;
+  text-align: center;
+}

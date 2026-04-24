@@ -52,12 +52,12 @@ export default function CartPage() {
     <>
       <Header />
       <div className="dima-main cart-page">
-        <nav style={{ padding:'13px 48px', fontSize:13, color:'#888', display:'flex', gap:6, alignItems:'center', borderBottom:'1px solid #ececec', background:'#fff', flexWrap:'wrap' as const }}>
-          <Link href="/" style={{ color:'#888', textDecoration:'none' }}>Home</Link>
-          <span style={{ color:'#ccc' }}>›</span>
-          <Link href="/shop" style={{ color:'#888', textDecoration:'none' }}>Shop</Link>
-          <span style={{ color:'#ccc' }}>›</span>
-          <span style={{ color:'#1c1c1c', fontWeight:500 }}>Cart</span>
+        <nav className="cart-breadcrumb">
+          <Link href="/">Home</Link>
+          <span className="cart-breadcrumb-separator">›</span>
+          <Link href="/shop">Shop</Link>
+          <span className="cart-breadcrumb-separator">›</span>
+          <span className="cart-breadcrumb-current">Cart</span>
         </nav>
 
         <section className="section">
@@ -65,7 +65,7 @@ export default function CartPage() {
             <div className="container">
               {items.length === 0 ? (
                 <div className="cart-empty">
-                  <p style={{ fontSize: 18, marginBottom: 20 }}>Your cart is empty.</p>
+                  <p>Your cart is empty.</p>
                   <Link href="/shop" className="button fill uppercase">Continue Shopping</Link>
                 </div>
               ) : (
@@ -82,7 +82,7 @@ export default function CartPage() {
 
                           <div className="cart-item-main">
                             <div className="cart-item-top">
-                              <div style={{ minWidth: 0 }}>
+                              <div className="cart-item-title-wrap">
                                 <Link href={`/shop/product/${toSlug(item.title)}`} className="cart-item-title">
                                   {item.title}
                                 </Link>
@@ -170,16 +170,14 @@ export default function CartPage() {
                       />
                       {appliedCoupon ? (
                         <button
-                          className="button fill uppercase"
-                          style={{ minHeight: 46, background: '#e53935', border: 'none', color: '#fff' }}
+                          className="button fill uppercase cart-coupon-remove-btn"
                           onClick={handleRemoveCoupon}
                         >
                           Remove
                         </button>
                       ) : (
                         <button
-                          className="button fill uppercase"
-                          style={{ minHeight: 46 }}
+                          className="button fill uppercase cart-coupon-apply-btn"
                           onClick={() => void handleApplyCoupon()}
                           disabled={couponLoading}
                         >
@@ -188,7 +186,7 @@ export default function CartPage() {
                       )}
                     </div>
                     {couponMsg && (
-                      <p style={{ marginTop: -12, marginBottom: 16, fontSize: 13, color: couponMsg.ok ? '#2e7d32' : '#c62828' }}>
+                      <p className={`cart-coupon-msg ${couponMsg.ok ? 'success' : 'error'}`}>
                         {couponMsg.text}
                       </p>
                     )}
@@ -200,7 +198,7 @@ export default function CartPage() {
                       </div>
 
                       {discount > 0 && (
-                        <div className="cart-summary-row" style={{ color: '#2e7d32' }}>
+                        <div className="cart-summary-row discount">
                           <span>Discount ({appliedCoupon?.code})</span>
                           <span>−{formatPrice(discount)}</span>
                         </div>
@@ -208,7 +206,7 @@ export default function CartPage() {
 
                       <div className="cart-summary-row">
                         <span>Shipping &amp; Handling</span>
-                        <span style={{ color: '#2e7d32', fontWeight: 600 }}>Free Shipping</span>
+                        <span className="cart-summary-shipping">Free Shipping</span>
                       </div>
 
                       <div className="cart-summary-row total">
@@ -217,8 +215,8 @@ export default function CartPage() {
                       </div>
                     </div>
 
-                    <div style={{ marginTop: 22 }}>
-                      <Link href="/checkout" className="button fill uppercase" style={{ display: 'block', textAlign: 'center' }}>
+                    <div className="cart-checkout-wrap">
+                      <Link href="/checkout" className="button fill uppercase cart-checkout-link">
                         Proceed to Checkout
                       </Link>
                     </div>

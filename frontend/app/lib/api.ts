@@ -96,8 +96,12 @@ export interface ProductDetail extends Product {
   product_care: string | null;
   product_included: string | null;
   product_more_info: string | null;
-  seo_title: string | null;
-  seo_description: string | null;
+  // SEO fields — dynamically stored in tbl_productmeta by admin
+  // ORDER BY meta_id DESC ensures the latest saved value is always returned
+  seo_meta_title:       string | null;
+  seo_meta_description: string | null;
+  seo_canonical_tag:    string | null;
+  seo_meta_index:       string | null; // 'yes' | 'no'  (default: 'yes')
   avg_rating: number | null;
   review_count: number | null;
   gallery_urls: GalleryImage[];

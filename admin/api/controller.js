@@ -467,8 +467,12 @@ const getProduct = async (req, res) => {
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_care' ORDER BY meta_id DESC LIMIT 1) AS product_care,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_included' ORDER BY meta_id DESC LIMIT 1) AS product_included,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_more_info' ORDER BY meta_id DESC LIMIT 1) AS product_more_info,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_title' ORDER BY meta_id DESC LIMIT 1) AS seo_title,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_metadesc' ORDER BY meta_id DESC LIMIT 1) AS seo_description,
+                -- SEO fields — set by admin in Product SEO Settings, stored in tbl_productmeta
+                -- ORDER BY meta_id DESC LIMIT 1 always returns the LATEST saved value
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_title'       ORDER BY meta_id DESC LIMIT 1) AS seo_meta_title,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_description' ORDER BY meta_id DESC LIMIT 1) AS seo_meta_description,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'canonical_tag'    ORDER BY meta_id DESC LIMIT 1) AS seo_canonical_tag,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_index'       ORDER BY meta_id DESC LIMIT 1) AS seo_meta_index,
                 (SELECT CAST(meta_value AS DECIMAL(3,2)) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_average_rating' ORDER BY meta_id DESC LIMIT 1) AS avg_rating,
                 (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' ORDER BY meta_id DESC LIMIT 1) AS review_count
             FROM tbl_products p

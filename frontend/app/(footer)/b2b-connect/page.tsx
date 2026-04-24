@@ -15,7 +15,7 @@ export default function B2BConnectPage() {
             <nav className="static-breadcrumb">
               <Link href="/">Home</Link>
               <span>{'>'}</span>
-              <span style={{ color: '#555' }}>B2B Connect</span>
+              <span className="static-breadcrumb-current">B2B Connect</span>
             </nav>
 
             <h1 className="static-title">B2B Connect</h1>
