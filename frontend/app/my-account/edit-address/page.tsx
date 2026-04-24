@@ -6,6 +6,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { getProfileAddresses, type ProfileAddressForm } from '../../lib/api';
 import { useAuth } from '../../lib/authContext';
+import './edit-address.css';
 
 type AddressBlock = {
   name: string;
@@ -74,210 +75,17 @@ export default function EditAddressPage() {
   const shippingLines = useMemo(() => shippingAddress?.lines ?? [], [shippingAddress]);
   return (
     <>
-      <style>{`
-        .account-address-page {
-          padding-bottom: 48px;
-        }
-
-        .account-address-shell {
-          overflow: hidden;
-          background: #fff;
-        }
-
-        .account-address-layout {
-          display: grid;
-          grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-          align-items: start;
-        }
-
-        .account-address-sidebar {
-          min-height: 100%;
-          padding: 60px 42px 48px;
-          background: #fff;
-        }
-
-        .account-address-sidebar-inner {
-          position: sticky;
-          top: 104px;
-        }
-
-        .account-address-avatar {
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          background: #8fb8a8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-
-        .account-address-hello {
-          margin: 28px 0 10px;
-          color: #000;
-          font-size: 27px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .account-address-handle {
-          margin: 0;
-          color: #42556d;
-          font-size: 18px;
-          line-height: 1.5;
-        }
-
-        .account-address-nav {
-          display: grid;
-          gap: 8px;
-          margin-top: 66px;
-        }
-
-        .account-address-link,
-        .account-address-button {
-          display: block;
-          padding: 2px 0;
-          border: 0;
-          background: transparent;
-          color: #121212;
-          text-decoration: none;
-          text-align: left;
-          font-size: 17px;
-          line-height: 1.45;
-          cursor: pointer;
-        }
-
-        .account-address-link:hover,
-        .account-address-button:hover,
-        .account-address-link.active {
-          color: #111;
-        }
-
-        .account-address-main {
-          min-width: 0;
-          padding: 44px 56px 48px 36px;
-          background: #fff;
-        }
-
-        .account-address-top {
-          margin-bottom: 42px;
-        }
-
-        .account-address-copy {
-          margin: 0;
-          color: #33465c;
-          font-size: 18px;
-          line-height: 1.75;
-          max-width: 760px;
-        }
-
-        .account-address-card {
-          min-width: 0;
-        }
-
-        .account-address-title {
-          margin: 0 0 10px;
-          color: #0c0c0c;
-          font-size: 31px;
-          line-height: 1.1;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .account-address-edit-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 28px;
-          color: #111;
-          text-decoration: none;
-          font-size: 16px;
-          line-height: 1.5;
-        }
-
-        .account-address-edit-link:hover {
-          color: #14544f;
-        }
-
-        .account-address-edit-icon {
-          font-size: 14px;
-          line-height: 1;
-        }
-
-        .account-address-lines {
-          color: #4a5a70;
-          font-size: 17px;
-          line-height: 1.8;
-        }
-
-        .account-address-lines p {
-          margin: 0;
-        }
-
-        .account-address-empty {
-          color: #717171;
-          font-size: 16px;
-          line-height: 1.8;
-        }
-
-        .account-address-message {
-          margin: 0 0 22px;
-          padding: 14px 16px;
-          border: 1px solid #ece8df;
-          background: #fff;
-          color: #5f6977;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-
-        @media (max-width: 991px) {
-          .account-address-layout {
-            grid-template-columns: 1fr;
-          }
-
-          .account-address-sidebar {
-            padding-bottom: 28px;
-          }
-
-          .account-address-sidebar-inner {
-            position: static;
-          }
-
-        }
-
-        @media (max-width: 767px) {
-          .account-address-sidebar,
-          .account-address-main {
-            padding: 18px;
-          }
-
-          .account-address-title {
-            font-size: 24px;
-          }
-
-          .account-address-copy,
-          .account-address-lines {
-            font-size: 15px;
-          }
-        }
-      `}</style>
-
       <Header />
       <div className="dima-main account-address-page">
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
               {isLoading ? (
-                <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
+              <p className="account-address-loading">Loading...</p>
               ) : !isLoggedIn || !user ? (
-                <div style={{ background: '#fff', border: '1px solid #ece8df', padding: 24 }}>
-                  <p style={{ margin: 0, color: '#555', fontSize: 15, lineHeight: 1.7 }}>
-                    Please log in to view your addresses.
-                  </p>
-                  <div style={{ marginTop: 16 }}>
+                <div className="account-address-login-box">
+                  <p className="account-address-login-text">Please log in to view your addresses.</p>
+                  <div className="account-address-login-action">
                     <Link href="/my-account" className="button fill uppercase">Go To My Account</Link>
                   </div>
                 </div>

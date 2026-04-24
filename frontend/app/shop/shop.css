@@ -712,6 +712,12 @@
 }
 .csp-grid.list-mode .csp-overlay { display: none; }
 .csp-grid.list-mode .csp-info { justify-content: center; }
+.csp-list-desc {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
 
 .csp-card {
   background: var(--cs-white);

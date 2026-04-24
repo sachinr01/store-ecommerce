@@ -1,0 +1,225 @@
+.account-address-page {
+  padding-bottom: 48px;
+}
+
+.account-address-shell {
+  overflow: hidden;
+  background: #fff;
+}
+
+.account-address-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.account-address-sidebar {
+  min-height: 100%;
+  padding: 60px 42px 48px;
+  background: #fff;
+}
+
+.account-address-sidebar-inner {
+  position: sticky;
+  top: 104px;
+}
+
+.account-address-avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: #8fb8a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.account-address-hello {
+  margin: 28px 0 10px;
+  color: #000;
+  font-size: 27px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-address-handle {
+  margin: 0;
+  color: #42556d;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.account-address-nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 66px;
+}
+
+.account-address-link,
+.account-address-button {
+  display: block;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: #121212;
+  text-decoration: none;
+  text-align: left;
+  font-size: 17px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.account-address-link:hover,
+.account-address-button:hover,
+.account-address-link.active {
+  color: #111;
+}
+
+.account-address-main {
+  min-width: 0;
+  padding: 44px 56px 48px 36px;
+  background: #fff;
+}
+
+.account-address-top {
+  margin-bottom: 28px;
+}
+
+.account-address-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #14544f;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.account-address-copy {
+  margin: 0;
+  color: #33465c;
+  font-size: 18px;
+  line-height: 1.75;
+  max-width: 760px;
+}
+
+.account-address-title {
+  margin: 0 0 12px;
+  color: #0c0c0c;
+  font-size: 31px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.account-address-form {
+  border: 1px solid #ece8df;
+  padding: 24px;
+}
+
+.account-address-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.account-address-field {
+  margin-bottom: 16px;
+}
+
+.account-address-field label {
+  display: block;
+  margin-bottom: 8px;
+  color: #202020;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-address-field input,
+.account-address-field select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #d8d2c8;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #111;
+  background: #fff;
+}
+
+.account-address-field-error {
+  display: block;
+  margin-top: 6px;
+  color: #c62828;
+  font-size: 12px;
+}
+
+.account-address-message {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid #ece8df;
+  background: #fff;
+  color: #5f6977;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.account-address-message.error { color: #c62828; }
+.account-address-message.success { color: #166534; }
+
+.account-address-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.account-address-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #d8d2c8;
+  color: #111;
+  text-decoration: none;
+}
+
+.account-address-login-box {
+  background: #fff;
+  border: 1px solid #ece8df;
+  padding: 24px;
+}
+
+.account-address-login-text {
+  margin: 0;
+  color: #555;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.account-address-login-action { margin-top: 16px; }
+
+.account-address-loading {
+  padding: 24px 0;
+  color: #888;
+  font-size: 14px;
+}
+
+@media (max-width: 991px) {
+  .account-address-layout { grid-template-columns: 1fr; }
+  .account-address-sidebar { padding-bottom: 28px; }
+  .account-address-sidebar-inner { position: static; }
+}
+
+@media (max-width: 767px) {
+  .account-address-sidebar,
+  .account-address-main,
+  .account-address-form { padding: 18px; }
+  .account-address-title { font-size: 24px; }
+  .account-address-copy { font-size: 15px; }
+  .account-address-row,
+  .account-address-actions { grid-template-columns: 1fr; display: grid; }
+}

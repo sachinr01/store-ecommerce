@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import { authLogin, authRegister } from '../lib/api';
 import { useCart } from '../lib/cartContext';
 import { useAuth } from '../lib/authContext';
+import './my-account.css';
 
 export default function MyAccountPage() {
   const { user, isLoggedIn, isLoading, setUser, logout } = useAuth();
@@ -98,181 +99,14 @@ export default function MyAccountPage() {
 
   return (
     <>
-      <style>{`
-        .account-page {
-          padding-bottom: 48px;
-        }
-
-        .account-auth-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 28px;
-        }
-
-        .account-auth-card,
-        .account-shell {
-          background: #fff;
-        }
-
-        .account-auth-card {
-          border: 1px solid #ece8df;
-          padding: 26px 24px;
-        }
-
-        .account-shell {
-          overflow: hidden;
-        }
-
-        .account-layout {
-          display: grid;
-          grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-          align-items: start;
-          min-height: 560px;
-        }
-
-        .account-sidebar {
-          min-height: 100%;
-          padding: 60px 42px 48px;
-          background: #fff;
-        }
-
-        .account-sidebar-inner {
-          position: sticky;
-          top: 104px;
-        }
-
-        .account-avatar {
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          background: #8fb8a8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-
-        .account-hello {
-          margin: 28px 0 10px;
-          color: #000;
-          font-size: 27px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .account-handle {
-          margin: 0;
-          color: #42556d;
-          font-size: 18px;
-          line-height: 1.5;
-        }
-
-        .account-nav {
-          display: grid;
-          gap: 8px;
-          margin-top: 66px;
-        }
-
-        .account-nav-link,
-        .account-nav-button {
-          display: block;
-          padding: 2px 0;
-          border: 0;
-          background: transparent;
-          color: #121212;
-          text-decoration: none;
-          text-align: left;
-          font-size: 17px;
-          line-height: 1.45;
-          cursor: pointer;
-        }
-
-        .account-nav-link:hover,
-        .account-nav-button:hover {
-          color: #14544f;
-        }
-
-        .account-main {
-          min-width: 0;
-          padding: 54px 56px 48px 36px;
-          background: #fff;
-        }
-
-        .account-top {
-          display: block;
-        }
-
-        .account-copy {
-          max-width: 940px;
-        }
-
-        .account-greeting {
-          margin: 0 0 18px;
-          color: #1f3550;
-          font-size: 18px;
-          line-height: 1.6;
-        }
-
-        .account-inline-action {
-          border: 0;
-          padding: 0;
-          background: transparent;
-          color: #111;
-          font: inherit;
-          cursor: pointer;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
-
-        .account-description {
-          margin: 0;
-          color: #111;
-          font-size: 19px;
-          line-height: 1.75;
-          max-width: 960px;
-        }
-
-        @media (max-width: 991px) {
-          .account-layout,
-          .account-auth-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .account-sidebar-inner {
-            position: static;
-          }
-
-          .account-main {
-            padding-left: 42px;
-          }
-        }
-
-        @media (max-width: 767px) {
-          .account-sidebar,
-          .account-main,
-          .account-auth-card {
-            padding: 18px;
-          }
-
-          .account-description {
-            font-size: 16px;
-            line-height: 1.7;
-          }
-
-        }
-      `}</style>
-
       <Header />
       <div className="dima-main account-page">
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
               {isLoading ? (
-                <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
-              ) : isLoggedIn && user ? (
-                <div className="account-shell">
+              <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
+              ) : isLoggedIn && user ? (                <div className="account-shell">
                   <div className="account-layout">
                     <aside className="account-sidebar">
                       <div className="account-sidebar-inner">
@@ -324,7 +158,7 @@ export default function MyAccountPage() {
                         <label className="required">Password</label>
                         <input type="password" placeholder="Password" value={login.password} onChange={setL('password')} />
                       </div>
-                      {loginErr && <p style={errStyle}>{loginErr}</p>}
+                      {loginErr && <p className="account-err">{loginErr}</p>}
                       <div className="field last">
                         <button type="submit" className="button small fill uppercase" disabled={loginLoading}>
                           {loginLoading ? 'Logging in...' : 'Login'}
@@ -348,8 +182,8 @@ export default function MyAccountPage() {
                         <label className="required">Password</label>
                         <input type="password" placeholder="Password" value={reg.password} onChange={setR('password')} />
                       </div>
-                      {regErr && <p style={errStyle}>{regErr}</p>}
-                      {regSuccess && <p style={{ color: '#2bbfaa', fontSize: 13, marginBottom: 8 }}>{regSuccess}</p>}
+                      {regErr && <p className="account-err">{regErr}</p>}
+                      {regSuccess && <p className="account-success">{regSuccess}</p>}
                       <div className="field last">
                         <button type="submit" className="button small fill uppercase" disabled={regLoading}>
                           {regLoading ? 'Registering...' : 'Register'}
@@ -368,4 +202,3 @@ export default function MyAccountPage() {
   );
 }
 
-const errStyle: React.CSSProperties = { color: '#c62828', fontSize: 13, marginBottom: 8 };

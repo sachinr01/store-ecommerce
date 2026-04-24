@@ -6,6 +6,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { getMyOrderById } from '../../lib/api';
 import { useAuth } from '../../lib/authContext';
+import './order-tracking.css';
 
 function formatDate(value: string) {
   const d = new Date(value);
@@ -90,263 +91,17 @@ export default function OrderTrackingPage() {
 
   return (
     <>
-      <style>{`
-        .tracking-page {
-          padding-bottom: 48px;
-        }
-
-        .tracking-shell {
-          overflow: hidden;
-          background: #fff;
-        }
-
-        .tracking-layout {
-          display: grid;
-          grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-          align-items: start;
-        }
-
-        .tracking-sidebar {
-          min-height: 100%;
-          padding: 60px 42px 48px;
-          background: #fff;
-        }
-
-        .tracking-sidebar-inner {
-          position: sticky;
-          top: 104px;
-        }
-
-        .tracking-avatar {
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          background: #8fb8a8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-
-        .tracking-hello {
-          margin: 28px 0 10px;
-          color: #000;
-          font-size: 27px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .tracking-handle {
-          margin: 0;
-          color: #42556d;
-          font-size: 18px;
-          line-height: 1.5;
-        }
-
-        .tracking-nav {
-          display: grid;
-          gap: 8px;
-          margin-top: 66px;
-        }
-
-        .tracking-link,
-        .tracking-button {
-          display: block;
-          padding: 2px 0;
-          border: 0;
-          background: transparent;
-          color: #121212;
-          text-decoration: none;
-          text-align: left;
-          font-size: 17px;
-          line-height: 1.45;
-          cursor: pointer;
-        }
-
-        .tracking-link:hover,
-        .tracking-button:hover,
-        .tracking-link.active {
-          color: #111;
-        }
-
-        .tracking-main {
-          min-width: 0;
-          padding: 44px 56px 48px 36px;
-          background: #fff;
-        }
-
-        .tracking-top {
-          margin-bottom: 0;
-        }
-
-        .tracking-copy {
-          max-width: 900px;
-          margin: 0 auto;
-          color: #33465c;
-          font-size: 18px;
-          line-height: 1.7;
-          text-align: center;
-        }
-
-        .tracking-panel {
-          margin-top: 46px;
-          padding-top: 34px;
-          border-top: 1px solid #ece8df;
-        }
-
-        .tracking-form {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 230px;
-          gap: 10px;
-          align-items: end;
-        }
-
-        .tracking-field label {
-          display: block;
-          margin-bottom: 10px;
-          color: #111;
-          font-size: 16px;
-          line-height: 1.4;
-        }
-
-        .tracking-field input {
-          width: 100%;
-          min-height: 76px;
-          padding: 16px 22px;
-          border: 1px solid #ddd8cf;
-          background: #fff;
-          color: #465468;
-          font-size: 15px;
-          outline: none;
-        }
-
-        .tracking-field input:focus {
-          border-color: #14544f;
-          box-shadow: 0 0 0 3px rgba(20, 84, 79, 0.08);
-        }
-
-        .tracking-action .button {
-          width: 100%;
-          min-height: 76px;
-          font-size: 15px;
-          letter-spacing: 0.1em;
-          background: #172233;
-        }
-
-        .tracking-message {
-          margin-top: 18px;
-          padding: 14px 16px;
-          border: 1px solid #ece8df;
-          background: #fff;
-          color: #5f6977;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-
-        .tracking-message.error {
-          color: #9b1c1c;
-          border-color: #efcaca;
-          background: #fff5f5;
-        }
-
-        .tracking-result {
-          margin-top: 22px;
-          padding: 24px 0 0;
-          border-top: 1px solid #ece8df;
-          background: #fff;
-        }
-
-        .tracking-result-title {
-          margin: 0 0 14px;
-          color: #111;
-          font-size: 18px;
-          font-weight: 700;
-        }
-
-        .tracking-result-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-          margin-bottom: 16px;
-        }
-
-        .tracking-result-item {
-          padding: 14px;
-          border: 1px solid #ece8df;
-          background: #fcfbf8;
-        }
-
-        .tracking-result-item span {
-          display: block;
-          margin-bottom: 6px;
-          color: #7a7a7a;
-          font-size: 11px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .tracking-result-item strong {
-          color: #111;
-          font-size: 15px;
-          font-weight: 600;
-        }
-
-        .tracking-result-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-
-        @media (max-width: 991px) {
-          .tracking-layout,
-          .tracking-form,
-          .tracking-result-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .tracking-sidebar {
-            padding-bottom: 28px;
-          }
-
-          .tracking-sidebar-inner {
-            position: static;
-          }
-
-        }
-
-        @media (max-width: 767px) {
-          .tracking-sidebar,
-          .tracking-main {
-            padding: 18px;
-          }
-
-          .tracking-copy {
-            font-size: 16px;
-            margin-top: 18px;
-          }
-
-          .tracking-action .button,
-          .tracking-result-actions .button {
-            width: 100%;
-            text-align: center;
-          }
-        }
-      `}</style>
-
       <Header />
       <div className="dima-main tracking-page">
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
               {isLoading ? (
-                <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
+              <p className="tracking-loading">Loading...</p>
               ) : !isLoggedIn || !user ? (
                 <div className="tracking-message">
                   Please log in to track an order from your account.
-                  <div style={{ marginTop: 16 }}>
+                  <div className="tracking-login-action">
                     <Link href="/my-account" className="button fill uppercase">Login / Register</Link>
                   </div>
                 </div>
@@ -377,8 +132,8 @@ export default function OrderTrackingPage() {
                     </aside>
 
                     <div className="tracking-main">
-                      <div className="tracking-top">
-                        <div style={{ width: '100%' }}>
+                        <div className="tracking-top">
+                          <div style={{ width: '100%' }}>
                           <p className="tracking-copy">
                             To track your order please enter your Order ID in the box below and press the &quot;Track&quot; button.
                             This was given to you on your receipt and in the confirmation email you should have received.
@@ -424,7 +179,7 @@ export default function OrderTrackingPage() {
                             <div className="tracking-result-grid">
                               <div className="tracking-result-item">
                                 <span>Status</span>
-                                <strong style={{ textTransform: 'capitalize' }}>{result.status}</strong>
+                                <strong className="tracking-result-status">{result.status}</strong>
                               </div>
                               <div className="tracking-result-item">
                                 <span>Placed</span>
