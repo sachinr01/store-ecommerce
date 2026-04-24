@@ -60,6 +60,11 @@ const normalizePost = (row) => {
         author_name:           row.author_name || 'Admin',
         primary_category_name: row.primary_category_name || null,
         primary_category_id:   row.primary_category_id   || null,
+        // SEO fields — dynamically fetched from tbl_postmeta, latest row per key (ORDER BY meta_id DESC)
+        seo_meta_title:        row.seo_meta_title        || null,
+        seo_meta_description:  row.seo_meta_description  || null,
+        seo_canonical_tag:     row.seo_canonical_tag     || null,
+        seo_meta_index:        row.seo_meta_index        || 'yes',  // default YES if not set by admin
     };
 };
 
@@ -904,7 +909,11 @@ const POST_WITH_CATEGORY_SQL = `
               AND bm.media_type = 'blog_image'
             ORDER BY bm.media_id ASC
             LIMIT 1
-        ) AS blog_img_path
+        ) AS blog_img_path,
+        (SELECT pm1.meta_value FROM tbl_postmeta pm1 WHERE pm1.post_id = p.ID AND pm1.meta_key = 'meta_title'       ORDER BY pm1.meta_id DESC LIMIT 1) AS seo_meta_title,
+        (SELECT pm2.meta_value FROM tbl_postmeta pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'meta_description' ORDER BY pm2.meta_id DESC LIMIT 1) AS seo_meta_description,
+        (SELECT pm3.meta_value FROM tbl_postmeta pm3 WHERE pm3.post_id = p.ID AND pm3.meta_key = 'canonical_tag'    ORDER BY pm3.meta_id DESC LIMIT 1) AS seo_canonical_tag,
+        (SELECT pm4.meta_value FROM tbl_postmeta pm4 WHERE pm4.post_id = p.ID AND pm4.meta_key = 'meta_index'       ORDER BY pm4.meta_id DESC LIMIT 1) AS seo_meta_index
     FROM tbl_posts p
     LEFT JOIN tbl_users u
         ON u.ID = p.user_id

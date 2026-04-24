@@ -26,17 +26,27 @@ export async function generateMetadata({
   const blog = blogResult.blog;
   if (!blog) return {};
 
+  // Use admin-set SEO fields from tbl_postmeta — fall back to blog title/summary if not set
+  const metaTitle       = blog.seo_meta_title       || `${blog.title} | Blog`;
+  const metaDescription = blog.seo_meta_description || blog.summary || `Read "${blog.title}" on our blog.`;
+  const canonicalUrl    = blog.seo_canonical_tag     || `/blog/${blog.slug}`;
+  const shouldIndex     = (blog.seo_meta_index || 'yes').toLowerCase() !== 'no';
+
   return {
-    title: `${blog.title} | Blog`,
-    description: blog.summary || `Read "${blog.title}" on our blog.`,
+    title: metaTitle,
+    description: metaDescription,
+    robots: {
+      index:  shouldIndex,
+      follow: shouldIndex,
+    },
     openGraph: {
-      title: blog.title,
-      description: blog.summary || '',
-      url: `/blog/${blog.slug}`,
-      type: 'article',
+      title:       metaTitle,
+      description: metaDescription,
+      url:         canonicalUrl,
+      type:        'article',
       ...(blog.image ? { images: [{ url: blog.image, alt: blog.title }] } : {}),
     },
-    alternates: { canonical: `/blog/${blog.slug}` },
+    alternates: { canonical: canonicalUrl },
   };
 }
 
