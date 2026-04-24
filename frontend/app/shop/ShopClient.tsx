@@ -588,9 +588,15 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
       <Header />
 
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Shop</span>
+        <div className="csp-breadcrumb-left">
+          <span className="csp-breadcrumb-title">Shop</span>
+          <span className="csp-breadcrumb-sub">Explore our all collections</span>
+        </div>
+        <div className="csp-breadcrumb-right">
+          <Link href="/">Home</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <span aria-current="page">Shop</span>
+        </div>
       </nav>
 
 

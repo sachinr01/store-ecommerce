@@ -334,17 +334,18 @@ export default function KitchenOrganisersPage() {
     <>
       <Header/>
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <Link href="/shop">Shop</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">{PAGE_LABEL}</span>
+        <div className="csp-breadcrumb-left">
+          <span className="csp-breadcrumb-title">{PAGE_LABEL}</span>
+          <span className="csp-breadcrumb-sub">Explore our {PAGE_LABEL} collection</span>
+        </div>
+        <div className="csp-breadcrumb-right">
+          <Link href="/">Home</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <Link href="/shop">Shop</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <span aria-current="page">{PAGE_LABEL}</span>
+        </div>
       </nav>
-
-      <div className="csp-cat-banner">
-        <h1 className="csp-cat-banner-title">{PAGE_LABEL}</h1>
-        <p className="csp-cat-banner-sub">Explore our {PAGE_LABEL} collection</p>
-      </div>
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>

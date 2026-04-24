@@ -25,15 +25,37 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 .csp-breadcrumb {
-  padding: 12px 48px;
+  padding: 12px 40px;
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--cs-text-muted);
   border-bottom: 1px solid var(--cs-border);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   background: var(--cs-white);
+}
+.csp-breadcrumb-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.csp-breadcrumb-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cs-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.csp-breadcrumb-sub {
+  font-size: 12px;
+  color: var(--cs-text-muted);
+}
+.csp-breadcrumb-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .csp-breadcrumb a {
   color: var(--cs-text-muted);
@@ -49,6 +71,8 @@
   padding: 40px 48px 32px;
   background: var(--cs-white);
   border-bottom: 1px solid var(--cs-border);
+  display: block;
+  width: 100%;
 }
 .csp-cat-banner-title {
   font-size: 32px;
@@ -57,11 +81,13 @@
   color: var(--cs-text);
   margin: 0 0 8px;
   text-transform: uppercase;
+  display: block;
 }
 .csp-cat-banner-sub {
   font-size: 14px;
   color: var(--cs-text-muted);
   margin: 0;
+  display: block;
 }
 
 .csp-page-header {

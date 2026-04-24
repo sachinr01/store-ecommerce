@@ -113,7 +113,7 @@ function ProductGrid({ title, products, loading }: { title: string; products: Pr
 
 const STYLES = (
   <style>{`
-    .na-outer { max-width: 1360px; margin: 0 auto; padding: 60px 24px; }
+    .na-outer { max-width: 1360px; margin: 0 auto; padding: 60px 40px; }
     .na-section { margin-bottom: 56px; }
     .na-section-title { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #111; margin: 0 0 28px; text-align: center; }
     .na-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
