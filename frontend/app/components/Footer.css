@@ -3,18 +3,18 @@
 }
 .footer-top {
   background: #c4a298;
-  padding: 40px 45px 0px;
+  padding: 40px 4.5% 0px;
 }
 .footer-middle {
   height: 0px;
 }
 .footer-bottom {
   background: #c4a298;
-  padding: 40px 45px 0px;
+  padding: 40px 4.5% 0px;
 }
 .footer-bottom2 {
   background: #c4a298;
-  padding: 40px 45px 40px;
+  padding: 40px 4.5% 40px;
 }
 .footer-grid {
   display: grid;

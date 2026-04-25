@@ -1,6 +1,6 @@
 /* ─── HEADER LAYOUT ─── */
 .nh-header { position: sticky; top: 0; z-index: 1000; background: #fff; border-bottom: 1px solid #ececec; }
-.nh-inner { max-width: 1360px; margin: 0 auto; height: 84px; padding: 0 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; }
+.nh-inner { max-width: 1360px; margin: 0 auto; height: 84px; padding: 0 35px 0 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; }
 .nh-left, .nh-right { display: flex; align-items: center; min-width: 0; gap: 12px; }
 .nh-left { justify-content: flex-start; }
 .nh-center { display: flex; align-items: center; justify-content: center; }
