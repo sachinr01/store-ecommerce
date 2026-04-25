@@ -379,7 +379,11 @@ export default function CheckoutPage() {
           currency: data.currency,
           order_id: data.razorpayOrderId,
 
-          handler: async function (response) {
+          handler: async function (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id: string;
+            razorpay_signature: string;
+          }) {
 
             const verifyRes = await fetch('/store/api/orders/place', {
               method: 'POST',
