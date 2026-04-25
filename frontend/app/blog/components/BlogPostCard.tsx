@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import styles from './BlogPostCard.module.css';
 import type { BlogCard } from '../types';
 
 export type BlogPostCardData = BlogCard;
@@ -15,13 +14,13 @@ export default function BlogPostCard({
   post: BlogPostCardData;
   href: string;
   onClick?: () => void;
-}) {
+  }) {
   return (
-    <Link href={href} className={styles.card} onClick={onClick}>
-      <div className={styles.imageWrap}>
+    <Link href={href} className="blog-post-card" onClick={onClick}>
+      <div className="blog-post-card__image-wrap">
         {post.image ? (
           <Image
-            className={styles.image}
+            className="blog-post-card__image"
             src={post.image}
             alt={post.title}
             fill
@@ -30,10 +29,10 @@ export default function BlogPostCard({
           />
         ) : null}
       </div>
-      <div className={styles.body}>
-        <span className={styles.date}>{post.date}</span>
-        <h3 className={styles.title}>{post.title}</h3>
-        <p className={styles.summary}>{post.summary}</p>
+      <div className="blog-post-card__body">
+        <span className="blog-post-card__date">{post.date}</span>
+        <h3 className="blog-post-card__title">{post.title}</h3>
+        <p className="blog-post-card__summary">{post.summary}</p>
       </div>
     </Link>
   );

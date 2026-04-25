@@ -26,17 +26,27 @@ export async function generateMetadata({
   const blog = blogResult.blog;
   if (!blog) return {};
 
+  // Use admin-set SEO fields from tbl_postmeta — fall back to blog title/summary if not set
+  const metaTitle       = blog.seo_meta_title       || `${blog.title} | Blog`;
+  const metaDescription = blog.seo_meta_description || blog.summary || `Read "${blog.title}" on our blog.`;
+  const canonicalUrl    = blog.seo_canonical_tag     || `/blog/${blog.slug}`;
+  const shouldIndex     = (blog.seo_meta_index || 'yes').toLowerCase() !== 'no';
+
   return {
-    title: `${blog.title} | Blog`,
-    description: blog.summary || `Read "${blog.title}" on our blog.`,
+    title: metaTitle,
+    description: metaDescription,
+    robots: {
+      index:  shouldIndex,
+      follow: shouldIndex,
+    },
     openGraph: {
-      title: blog.title,
-      description: blog.summary || '',
-      url: `/blog/${blog.slug}`,
-      type: 'article',
+      title:       metaTitle,
+      description: metaDescription,
+      url:         canonicalUrl,
+      type:        'article',
       ...(blog.image ? { images: [{ url: blog.image, alt: blog.title }] } : {}),
     },
-    alternates: { canonical: `/blog/${blog.slug}` },
+    alternates: { canonical: canonicalUrl },
   };
 }
 
@@ -127,9 +137,19 @@ export default async function BlogRoutePage({
 
   const latestPosts = latestFromApi.slice(0, BLOG_FEATURED_LIMIT);
 
-  const categoryName = blog.primary_category_name || null;
+  const primaryCategory = blog.categories?.find((category) => category.is_primary_category) || blog.categories?.[0];
+  const categoryName = blog.primary_category_name || primaryCategory?.category_name || null;
+  const categorySlug =
+    primaryCategory?.category_slug ||
+    (categoryName
+      ? categories.find(
+          (category) =>
+            category.category_name.toLowerCase() === categoryName.toLowerCase() ||
+            category.category_slug.toLowerCase().replace(/[^a-z0-9]+/g, '-') === categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        )?.category_slug
+      : null);
   const categoryCrumb = categoryName
-    ? { label: categoryName }
+    ? { label: categoryName, ...(categorySlug ? { href: `/blog/${categorySlug}` } : {}) }
     : undefined;
 
   return (
@@ -138,8 +158,6 @@ export default async function BlogRoutePage({
       <BlogDetailView
         blog={blog}
         latestPosts={latestPosts}
-        backHref="/blog"
-        backLabel="Back to Blogs"
         categoryCrumb={categoryCrumb}
         categories={categories}
       />

@@ -1,6 +1,3 @@
-﻿// app/app/blog/components/BlogListView.tsx
-// FULL FILE — replace entirely
-
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -69,7 +66,6 @@ export default function BlogListView({
   const [visiblePosts, setVisiblePosts] = useState<Blog[]>(posts);
   const [hasMore, setHasMore] = useState<boolean>(() => (loadMoreEndpoint ? posts.length > 0 : posts.length > visibleCount));
   const [loadingMore, setLoadingMore] = useState(false);
-  // Fix: surface load-more errors to the user instead of silently swallowing them
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const hasRestoredRef = useRef(false);
 
@@ -121,7 +117,6 @@ export default function BlogListView({
           sessionStorage.setItem(storageKey, String(nextVisibleCount));
         }
       } catch (err) {
-        // Surface the error instead of silently dropping it
         setLoadMoreError(err instanceof Error ? err.message : 'Failed to load more posts. Please try again.');
       } finally {
         setLoadingMore(false);
@@ -156,7 +151,7 @@ export default function BlogListView({
                 {item.href ? (
                   <Link href={item.href}>{item.label}</Link>
                 ) : (
-                  <span style={{ color: '#555' }}>{item.label}</span>
+                  <span className="blog-breadcrumb-current">{item.label}</span>
                 )}
                 {index < breadcrumbs.length - 1 && <span>{' > '}</span>}
               </span>
@@ -184,7 +179,6 @@ export default function BlogListView({
                 ))}
               </div>
 
-              {/* Load-more error message */}
               {loadMoreError && (
                 <p className="load-more-error">{loadMoreError}</p>
               )}
@@ -208,88 +202,6 @@ export default function BlogListView({
           categories={categories ?? []}
         />
       </div>
-
-      <style>{` 
-        .${pageClassName} { background: #f7f5f2; min-height: 80vh; }
-        .blog-list-hero {
-          max-width: 1160px;
-          margin: 0 auto;
-          padding: 40px 24px 10px;
-        }
-        .blog-list-breadcrumb {
-          font-size: 12px;
-          color: #aaa;
-          margin-bottom: 10px;
-        }
-        .blog-list-breadcrumb a { color: #aaa; text-decoration: none; }
-        .blog-list-breadcrumb a:hover { color: #1a1a1a; }
-        .blog-list-title {
-          font-size: 28px;
-          font-weight: 700;
-          margin: 0 0 6px;
-          letter-spacing: -0.4px;
-          color: #1a1a1a;
-        }
-        .blog-list-subtitle {
-          font-size: 13px;
-          color: #8c857d;
-          margin: 0 0 22px;
-        }
-        .blog-list-layout {
-          max-width: 1160px;
-          margin: 0 auto;
-          padding: 0 24px 72px;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 300px;
-          gap: 32px;
-          align-items: start;
-        }
-        .blog-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 24px;
-        }
-        .blog-empty {
-          padding: 20px 0 24px;
-          color: #777;
-          font-size: 14px;
-        }
-        .load-more-wrap {
-          display: flex;
-          justify-content: center;
-          margin-top: 28px;
-        }
-        .load-more-btn {
-          background: #1a1a1a;
-          color: #fff;
-          border: none;
-          padding: 10px 18px;
-          font-size: 11px;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-        .load-more-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
-        .load-more-error {
-          text-align: center;
-          margin-top: 16px;
-          font-size: 13px;
-          color: #c0392b;
-        }
-        @media (max-width: 1100px) {
-          .blog-list-layout { grid-template-columns: minmax(0, 1fr) 280px; }
-          .blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 900px) {
-          .blog-list-layout { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 560px) {
-          .blog-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import TrustBar from "./TrustBar";
+import "./Footer.css";
 
 type FooterPage = {
   slug: string;
@@ -17,9 +18,7 @@ const normalize = (value: string) =>
 
 const fetchFooterPages = async (): Promise<FooterPage[]> => {
   try {
-    const res = await fetch('/store/api/pages?limit=25', {
-      cache: 'no-store',
-    });
+    const res = await fetch('/store/api/pages?limit=25', { cache: 'no-store' });
     if (!res.ok) return [];
     const data = await res.json();
     if (!data?.success || !Array.isArray(data.data)) return [];
@@ -29,16 +28,11 @@ const fetchFooterPages = async (): Promise<FooterPage[]> => {
   }
 };
 
-const resolvePageHref = (
-  pages: FooterPage[],
-  matchers: string[],
-  fallback: string
-) => {
+const resolvePageHref = (pages: FooterPage[], matchers: string[], fallback: string) => {
   const page = pages.find((item) => {
     const title = normalize(item.title);
     return matchers.some((matcher) => title.includes(normalize(matcher)));
   });
-
   return `/${page?.slug || fallback}`;
 };
 
@@ -47,21 +41,15 @@ export default function Footer() {
 
   useEffect(() => {
     let active = true;
-
-    fetchFooterPages().then((nextPages) => {
-      if (active) setPages(nextPages);
-    });
-
-    return () => {
-      active = false;
-    };
+    fetchFooterPages().then((nextPages) => { if (active) setPages(nextPages); });
+    return () => { active = false; };
   }, []);
 
-  const aboutHref = resolvePageHref(pages, ['about us', 'our story'], 'about-us');
+  const aboutHref   = resolvePageHref(pages, ['about us', 'our story'], 'about-us');
   const contactHref = resolvePageHref(pages, ['contact us', 'contact'], 'contact-us');
   const returnsHref = resolvePageHref(pages, ['refund', 'return'], 'refund_returns');
   const privacyHref = resolvePageHref(pages, ['privacy'], 'privacy-policy');
-  const termsHref = resolvePageHref(pages, ['terms', 'conditions'], 'terms-conditions');
+  const termsHref   = resolvePageHref(pages, ['terms', 'conditions'], 'terms-conditions');
 
   return (
     <footer className="okab-footer">
@@ -100,8 +88,28 @@ export default function Footer() {
               <li><a href="#" className="link-faded">Whatsapp: 91 0000000000</a></li>
               <li><a href="#" className="link-faded">Mon-Sat 10AM - 6PM IST</a></li>
               <li><a href="#" className="link-faded">Email: Info@test.com</a></li>
-              <li><a href="#" className="link-faded">Instagram</a></li>
-              <li><a href="#" className="link-faded">Facebook</a></li>
+              <li style={{display:'flex',alignItems:'center',gap:'16px'}}>
+                {/* Instagram logo */}
+                <a href="#" className="link-faded" aria-label="Instagram" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                </a>
+                {/* Facebook logo */}
+                <a href="#" className="link-faded" aria-label="Facebook" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </a>
+                {/* X (Twitter) logo */}
+                <a href="#" className="link-faded" aria-label="X (Twitter)" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+                {/* Whatsapp logo */}
+                <a href="https://wa.me/910000000000" className="link-faded" aria-label="WhatsApp" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                </a>
+                {/* Mail Logo */}
+                <a href="mailto:Info@test.com" className="link-faded" aria-label="Email" style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -156,91 +164,6 @@ export default function Footer() {
           Gifts Under 1000 | Gifts for Women | Low Price Gift Items | Laptop Backpack for Women | Laptop Handbags for Women | Laptop Backpack | Laptop Cover | Small Handbags for Women | Handbags for Women | Office Handbags for Womens | Luggage Trolley Bags | Travel Bag for Women | Women&apos;s Clutch Wallet | Ladies Clutch Wallet | Stainless Steel Watch | Stainless Steel Watch Strap | Metal Strap Watches | Passport Holder | Passport Holder for Women | Crockery Set | Dining Table Accessories | Table Decoration Items | Home Decor Items | Home Decor Products | Home Decor | Wall Decor Items | Wrist Watches for Women | Smart Watch for Women | Ladies Smart Watch | Traveling Bags
         </p>
       </div>
-
-      <style>{`
-        .okab-footer {
-          border-top: 5px solid #ffcc00;
-        }
-        .footer-top {
-          background: #c4a298;
-          padding: 40px 5% 0px;
-        }
-        .footer-middle {
-          height: 0px;
-        }
-        .footer-bottom {
-          background: #c4a298;
-          padding: 40px 5% 0px;
-        }
-        .footer-bottom2 {
-          background: #c4a298;
-          padding: 40px 5% 40px;
-        }
-        .footer-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 40px;
-          align-items: start;
-        }
-        .footer-grid h4,
-        .footer-bottom2 h4 {
-          font-size: 17px;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin: 0 0 14px 0;
-          color: #884531;
-        }
-        .footer-nav-list {
-          padding: 0;
-          margin: 0;
-          list-style: none;
-          text-align: left;
-        }
-        .footer-nav-list li {
-          margin-bottom: 8px !important;
-          list-style: none !important;
-          font-size: 15px !important;
-          line-height: 1.5 !important;
-          text-align: left !important;
-        }
-        .footer-nav-list li a {
-          font-size: 15px !important;
-          color: #5f3022 !important;
-          text-decoration: none !important;
-          letter-spacing: 0.5px !important;
-          line-height: 1.5 !important;
-          display: block !important;
-          padding: 0 !important;
-        }
-        .footer-nav-list li a:hover {
-          text-decoration: underline !important;
-        }
-        .footer-grid p {
-          color: #fff;
-        }
-        .popular_search--p {
-          color: #000 !important;
-          text-decoration: none;
-          font-size: 14px !important;
-          letter-spacing: 0.3px !important;
-          line-height: 1.8 !important;
-          font-weight: 400 !important;
-          display: block;
-          word-break: normal;
-          overflow-wrap: break-word;
-        }
-        @media (max-width: 900px) {
-          .footer-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (max-width: 480px) {
-          .footer-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </footer>
   );
 }

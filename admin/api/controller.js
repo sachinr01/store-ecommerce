@@ -60,6 +60,11 @@ const normalizePost = (row) => {
         author_name:           row.author_name || 'Admin',
         primary_category_name: row.primary_category_name || null,
         primary_category_id:   row.primary_category_id   || null,
+        // SEO fields — dynamically fetched from tbl_postmeta, latest row per key (ORDER BY meta_id DESC)
+        seo_meta_title:        row.seo_meta_title        || null,
+        seo_meta_description:  row.seo_meta_description  || null,
+        seo_canonical_tag:     row.seo_canonical_tag     || null,
+        seo_meta_index:        row.seo_meta_index        || 'yes',  // default YES if not set by admin
     };
 };
 
@@ -69,11 +74,20 @@ const normalizePage = (row) => {
     const safeContent = sanitizeContent(rawContent).trim();
     const safeSummary = sanitizeSummary(rawSummary);
     return {
-        slug: row.post_slug,
-        title: row.post_title,
-        content: safeContent,
-        summary: safeSummary,
-        date: formatPostDate(row.post_date),
+        slug:                 row.post_slug,
+        title:                row.post_title,
+        content:              safeContent,
+        summary:              safeSummary,
+        date:                 formatPostDate(row.post_date),
+        // Page image — fetched from tbl_media where media_type='blog_image' AND parent_id=page.ID
+        // Same mechanism as blog images; admin uploads via Page Image section
+        image:                row.page_img_path || null,
+        // SEO fields — dynamically fetched from tbl_postmeta per page
+        // ORDER BY meta_id DESC picks the LATEST saved value (admin can save multiple times)
+        seo_meta_title:       row.seo_meta_title       || null,
+        seo_meta_description: row.seo_meta_description || null,
+        seo_canonical_tag:    row.seo_canonical_tag    || null,
+        seo_meta_index:       row.seo_meta_index       || 'yes', // default YES if not set by admin
     };
 };
 
@@ -453,8 +467,12 @@ const getProduct = async (req, res) => {
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_care' ORDER BY meta_id DESC LIMIT 1) AS product_care,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_included' ORDER BY meta_id DESC LIMIT 1) AS product_included,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_more_info' ORDER BY meta_id DESC LIMIT 1) AS product_more_info,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_title' ORDER BY meta_id DESC LIMIT 1) AS seo_title,
-                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_yoast_wpseo_metadesc' ORDER BY meta_id DESC LIMIT 1) AS seo_description,
+                -- SEO fields — set by admin in Product SEO Settings, stored in tbl_productmeta
+                -- ORDER BY meta_id DESC LIMIT 1 always returns the LATEST saved value
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_title'       ORDER BY meta_id DESC LIMIT 1) AS seo_meta_title,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_description' ORDER BY meta_id DESC LIMIT 1) AS seo_meta_description,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'canonical_tag'    ORDER BY meta_id DESC LIMIT 1) AS seo_canonical_tag,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_index'       ORDER BY meta_id DESC LIMIT 1) AS seo_meta_index,
                 (SELECT CAST(meta_value AS DECIMAL(3,2)) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_average_rating' ORDER BY meta_id DESC LIMIT 1) AS avg_rating,
                 (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' ORDER BY meta_id DESC LIMIT 1) AS review_count
             FROM tbl_products p
@@ -904,7 +922,11 @@ const POST_WITH_CATEGORY_SQL = `
               AND bm.media_type = 'blog_image'
             ORDER BY bm.media_id ASC
             LIMIT 1
-        ) AS blog_img_path
+        ) AS blog_img_path,
+        (SELECT pm1.meta_value FROM tbl_postmeta pm1 WHERE pm1.post_id = p.ID AND pm1.meta_key = 'meta_title'       ORDER BY pm1.meta_id DESC LIMIT 1) AS seo_meta_title,
+        (SELECT pm2.meta_value FROM tbl_postmeta pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'meta_description' ORDER BY pm2.meta_id DESC LIMIT 1) AS seo_meta_description,
+        (SELECT pm3.meta_value FROM tbl_postmeta pm3 WHERE pm3.post_id = p.ID AND pm3.meta_key = 'canonical_tag'    ORDER BY pm3.meta_id DESC LIMIT 1) AS seo_canonical_tag,
+        (SELECT pm4.meta_value FROM tbl_postmeta pm4 WHERE pm4.post_id = p.ID AND pm4.meta_key = 'meta_index'       ORDER BY pm4.meta_id DESC LIMIT 1) AS seo_meta_index
     FROM tbl_posts p
     LEFT JOIN tbl_users u
         ON u.ID = p.user_id
@@ -1021,10 +1043,20 @@ const getBlogBySlug = async (req, res) => {
 const getPages = async (_req, res) => {
     try {
         const [rows] = await withRetry(() => db.query(`
-            SELECT post_slug, post_title, post_content, post_short_desc, post_date
-            FROM tbl_posts
-            WHERE post_type = 'page' AND post_status = 'publish'
-            ORDER BY post_date DESC
+            SELECT
+                p.post_slug, p.post_title, p.post_content, p.post_short_desc, p.post_date,
+                (
+                    SELECT m.media_path FROM tbl_media m
+                    WHERE m.parent_id = p.ID AND m.media_type = 'blog_image'
+                    ORDER BY m.media_id DESC LIMIT 1
+                ) AS page_img_path,
+                (SELECT pm1.meta_value FROM tbl_postmeta pm1 WHERE pm1.post_id = p.ID AND pm1.meta_key = 'meta_title'       ORDER BY pm1.meta_id DESC LIMIT 1) AS seo_meta_title,
+                (SELECT pm2.meta_value FROM tbl_postmeta pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'meta_description' ORDER BY pm2.meta_id DESC LIMIT 1) AS seo_meta_description,
+                (SELECT pm3.meta_value FROM tbl_postmeta pm3 WHERE pm3.post_id = p.ID AND pm3.meta_key = 'canonical_tag'    ORDER BY pm3.meta_id DESC LIMIT 1) AS seo_canonical_tag,
+                (SELECT pm4.meta_value FROM tbl_postmeta pm4 WHERE pm4.post_id = p.ID AND pm4.meta_key = 'meta_index'       ORDER BY pm4.meta_id DESC LIMIT 1) AS seo_meta_index
+            FROM tbl_posts p
+            WHERE p.post_type = 'page' AND p.post_status = 'publish'
+            ORDER BY p.post_date DESC
         `));
         const data = rows.map((row) => normalizePage(row));
         res.json({ success: true, count: data.length, data });
@@ -1039,9 +1071,19 @@ const getPageBySlug = async (req, res) => {
     const { slug } = req.params;
     try {
         const [[row]] = await withRetry(() => db.query(`
-            SELECT post_slug, post_title, post_content, post_short_desc, post_date
-            FROM tbl_posts
-            WHERE post_type = 'page' AND post_status = 'publish' AND post_slug = ?
+            SELECT
+                p.post_slug, p.post_title, p.post_content, p.post_short_desc, p.post_date,
+                (
+                    SELECT m.media_path FROM tbl_media m
+                    WHERE m.parent_id = p.ID AND m.media_type = 'blog_image'
+                    ORDER BY m.media_id DESC LIMIT 1
+                ) AS page_img_path,
+                (SELECT pm1.meta_value FROM tbl_postmeta pm1 WHERE pm1.post_id = p.ID AND pm1.meta_key = 'meta_title'       ORDER BY pm1.meta_id DESC LIMIT 1) AS seo_meta_title,
+                (SELECT pm2.meta_value FROM tbl_postmeta pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'meta_description' ORDER BY pm2.meta_id DESC LIMIT 1) AS seo_meta_description,
+                (SELECT pm3.meta_value FROM tbl_postmeta pm3 WHERE pm3.post_id = p.ID AND pm3.meta_key = 'canonical_tag'    ORDER BY pm3.meta_id DESC LIMIT 1) AS seo_canonical_tag,
+                (SELECT pm4.meta_value FROM tbl_postmeta pm4 WHERE pm4.post_id = p.ID AND pm4.meta_key = 'meta_index'       ORDER BY pm4.meta_id DESC LIMIT 1) AS seo_meta_index
+            FROM tbl_posts p
+            WHERE p.post_type = 'page' AND p.post_status = 'publish' AND p.post_slug = ?
             LIMIT 1
         `, [slug]));
         if (!row) return res.status(404).json({ success: false, message: 'Page not found' });

@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PdfDownloadButton from './PdfDownloadButton';
+import './footepages.css';
 
 type StaticPage = {
   slug: string;
@@ -10,6 +12,13 @@ type StaticPage = {
   content: string;
   summary: string;
   date: string;
+  // Page image — from tbl_media where media_type='blog_image' AND parent_id=page.ID
+  image?: string | null;
+  // SEO fields — dynamically stored in tbl_postmeta by admin
+  seo_meta_title?:       string | null;
+  seo_meta_description?: string | null;
+  seo_canonical_tag?:    string | null;
+  seo_meta_index?:       string | null; // 'yes' | 'no'  (default: 'yes')
 };
 
 type PageResult = { page?: StaticPage; error?: 'api' | 'not-found' };
@@ -65,6 +74,12 @@ const fetchPage = async (slug: string): Promise<PageResult> => {
   }
 };
 
+// Lightweight fetch used only by generateMetadata in [slug]/page.tsx
+export const fetchPageForMeta = async (slug: string): Promise<StaticPage | null> => {
+  const result = await fetchPage(slug);
+  return result.page ?? null;
+};
+
 const fetchPageList = async (): Promise<PageListItem[]> => {
   try {
     const res = await fetch(`${BASE_URL}/store/api/pages?limit=10`, {
@@ -89,9 +104,9 @@ export async function renderStaticPage(slug: string) {
     return (
       <>
         <Header />
-        <div className="dima-main" style={{ padding: '80px 20px', textAlign: 'center' }}>
-          <h2 style={{ marginBottom: 10 }}>We&apos;re having trouble loading this page.</h2>
-          <p style={{ color: '#666', marginBottom: 22 }}>
+        <div className="dima-main static-error-wrap">
+          <h2>We&apos;re having trouble loading this page.</h2>
+          <p>
             Please try again in a few minutes.
           </p>
           
@@ -120,172 +135,6 @@ export async function renderStaticPage(slug: string) {
 
   return (
     <>
-      <style>{`
-        .static-page { background: #f7f5f2; min-height: 70vh; }
-        .static-body {
-          width: 100%;
-          max-width: 1318px;
-          margin: 0 auto;
-          padding: 40px 24px 72px;
-          box-sizing: border-box;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 300px;
-          gap: 36px;
-        }
-        .static-body.no-sidebar {
-          max-width: 820px;
-          grid-template-columns: 1fr;
-          padding: 24px 20px 64px;
-        }
-        .static-body.no-sidebar .static-sidebar { display: none; }
-        .static-title { margin: 0 0 6px; font-size: 28px; font-weight: 700; color: #1a1a1a; }
-        .static-date { font-size: 12px; color: #999; margin-bottom: 18px; }
-        .static-breadcrumb { font-size: 12px; color: #888; margin-bottom: 16px; display: flex; gap: 6px; align-items: center; }
-        .static-breadcrumb a { color: #888; text-decoration: none; }
-        .static-breadcrumb a:hover { color: #222; }
-        .static-summary { background: #fff; border: 1px solid #ece7df; padding: 16px 18px; border-radius: 6px; margin: 16px 0 28px; font-size: 14px; color: #555; line-height: 1.7; }
-        .static-content p { font-size: 14px; line-height: 1.9; color: #444; margin: 0 0 16px; }
-        .static-content h1,
-        .static-content h2,
-        .static-content h3,
-        .static-content h4 {
-          color: #1a1a1a;
-          margin: 18px 0 10px;
-          line-height: 1.4;
-        }
-        .static-content h1 { font-size: 22px; }
-        .static-content h2 { font-size: 18px; }
-        .static-content h3 { font-size: 16px; }
-        .static-content ul { padding-left: 18px; margin: 0 0 16px; color: #444; }
-        .static-content li { margin-bottom: 8px; font-size: 14px; line-height: 1.7; }
-        .static-content table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 13px; }
-        .static-content th,
-        .static-content td { border: 1px solid #e6dfd6; padding: 8px 10px; text-align: left; }
-        .static-content th { background: #f2ece4; font-weight: 700; }
-        .static-back { display: inline-flex; gap: 8px; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #1a1a1a; text-decoration: none; border-bottom: 1.5px solid #1a1a1a; padding-bottom: 2px; margin-top: 16px; }
-        .static-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          align-items: center;
-          justify-content: center;
-          margin: 14px 0 20px;
-        }
-        .static-download-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 38px;
-          padding: 0 16px;
-          border-radius: 999px;
-          border: 1px solid #1a1a1a;
-          background: #1a1a1a;
-          color: #fff;
-          text-decoration: none;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .static-download-btn:hover {
-          background: #fff;
-          color: #1a1a1a;
-        }
-
-        .static-sidebar {
-          display: flex;
-          flex-direction: column;
-          gap: 22px;
-          align-self: start;
-        }
-        .sidebar-box {
-          border: 1px solid #ece7df;
-          border-radius: 4px;
-          background: #fff;
-          padding: 16px 18px;
-        }
-        .sidebar-title {
-          margin: 0 0 14px;
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          color: #1a1a1a;
-        }
-        .sidebar-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: grid;
-          gap: 10px;
-        }
-        .sidebar-item {
-          display: flex;
-          justify-content: space-between;
-          font-size: 13px;
-          color: #555;
-          border-bottom: 1px solid #f1ece4;
-          padding-bottom: 8px;
-        }
-        .sidebar-item:last-child { border-bottom: none; padding-bottom: 0; }
-        .sidebar-item span:last-child { color: #999; }
-        .featured-list { list-style: none; margin: 0; padding: 0; }
-        .featured-item { padding: 12px 0; border-bottom: 1px solid #f1ece4; }
-        .featured-item:last-child { border-bottom: none; padding-bottom: 0; }
-        .featured-title {
-          text-decoration: none;
-          color: #3f3a33;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.4px;
-          text-transform: uppercase;
-          line-height: 1.5;
-          display: block;
-        }
-        .featured-title:hover { color: #e4572e; }
-        .featured-meta {
-          display: block;
-          font-size: 11px;
-          color: #9a948c;
-          margin-top: 4px;
-        }
-        .featured-meta span { color: #c0b9b1; margin: 0 4px; }
-        .contact-info-list {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-          display: grid;
-          gap: 12px;
-          font-size: 13px;
-          color: #555;
-        }
-        .contact-info-list li {
-          display: grid;
-          gap: 4px;
-          border-bottom: 1px solid #f1ece4;
-          padding-bottom: 10px;
-        }
-        .contact-info-list li:last-child {
-          border-bottom: none;
-          padding-bottom: 0;
-        }
-        .contact-info-list strong {
-          font-size: 11px;
-          letter-spacing: 1.2px;
-          text-transform: uppercase;
-          color: #777;
-        }
-
-        @media (max-width: 990px) {
-          .static-body { grid-template-columns: 1fr; }
-          .static-sidebar { position: static; }
-        }
-        @media (max-width: 640px) {
-          .static-body { padding: 18px 16px 48px; }
-          .static-title { font-size: 24px; }
-        }
-      `}</style>
-
       <Header />
       <div className="dima-main static-page">
         <div className="static-body">
@@ -293,11 +142,25 @@ export async function renderStaticPage(slug: string) {
             <nav className="static-breadcrumb">
               <Link href="/">Home</Link>
               <span>{'>'}</span>
-              <span style={{ color: '#555' }}>{page?.title || 'Page'}</span>
+              <span className="static-breadcrumb-current">{page?.title || 'Page'}</span>
             </nav>
 
             <h1 className="static-title">{page?.title || 'Page'}</h1>
             {page?.date && <div className="static-date">{page.date}</div>}
+
+            {/* Page image — uploaded via admin Page Image section, stored in tbl_media */}
+            {page?.image && (
+              <div className="static-page-image">
+                <Image
+                  src={page.image}
+                  alt={page.title || 'Page image'}
+                  width={860}
+                  height={450}
+                  priority
+                />
+              </div>
+            )}
+
             {page?.summary && (
               <div className="static-summary">{page.summary}</div>
             )}
@@ -325,7 +188,7 @@ export async function renderStaticPage(slug: string) {
                     </li>
                   ))
                 ) : (
-                  <li style={{ fontSize: 13, color: '#777' }}>No featured posts yet.</li>
+                  <li className="featured-empty">No featured posts yet.</li>
                 )}
               </ul>
             </div>

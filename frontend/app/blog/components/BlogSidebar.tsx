@@ -1,7 +1,6 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
-import styles from './BlogSidebar.module.css';
 import { slugify } from '../utils/slugify';
 import type { BlogCategory, BlogSidebarFeaturedItem } from '../types';
 
@@ -22,19 +21,19 @@ export default function BlogSidebar({
   variant?: Variant;
   categories: BlogCategory[];
 }) {
-  const wrapClass = variant === 'sidebar-box' ? styles.sidebarBox : styles.widget;
-  const titleClass = variant === 'sidebar-box' ? styles.sidebarTitle : styles.widgetTitle;
-  const contentClass = variant === 'sidebar-box' ? undefined : styles.widgetContent;
+  const wrapClass = variant === 'sidebar-box' ? 'sidebarBox' : 'widget';
+  const titleClass = variant === 'sidebar-box' ? 'sidebarTitle' : 'widgetTitle';
+  const contentClass = variant === 'sidebar-box' ? undefined : 'widgetContent';
   const featuredListClass = variant === 'sidebar-box'
-    ? styles.featuredList
-    : cn(styles.withBorder, styles.featuredPosts);
+    ? 'featuredList'
+    : cn('withBorder', 'featuredPosts');
   const categoryListClass = variant === 'sidebar-box'
-    ? styles.sidebarList
-    : cn(styles.withBorder, styles.categoriesPosts);
+    ? 'sidebarList'
+    : cn('withBorder', 'categoriesPosts');
   const visibleCategories = categories.filter((cat) => Number(cat.post_count) > 0);
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className="sidebar">
       <div className={wrapClass}>
         <h5 className={titleClass}>{featuredTitle}</h5>
         <div className={contentClass}>
@@ -43,17 +42,17 @@ export default function BlogSidebar({
               featuredItems.map((item) => (
                 <li
                   key={item.href}
-                  className={variant === 'sidebar-box' ? styles.featuredItem : undefined}
+                  className={variant === 'sidebar-box' ? 'featuredItem' : undefined}
                 >
                   <Link
                     href={item.href}
-                    className={variant === 'sidebar-box' ? styles.featuredTitle : undefined}
+                    className={variant === 'sidebar-box' ? 'featuredTitle' : undefined}
                   >
                     {variant === 'sidebar-box' ? item.title : <h6>{item.title}</h6>}
                   </Link>
                   {item.meta ? (
                     variant === 'sidebar-box' ? (
-                      <span className={styles.featuredMeta}>{item.meta}</span>
+                      <span className="featuredMeta">{item.meta}</span>
                     ) : (
                       <span>{item.meta}</span>
                     )
@@ -61,7 +60,7 @@ export default function BlogSidebar({
                 </li>
               ))
             ) : (
-              <li style={{ fontSize: variant === 'sidebar-box' ? 13 : 12, color: '#9a948c' }}>
+              <li className={variant === 'sidebar-box' ? 'sidebarEmpty sidebarEmpty--box' : 'sidebarEmpty'}>
                 No featured posts yet.
               </li>
             )}
@@ -80,23 +79,23 @@ export default function BlogSidebar({
                   ? slugify(resolvedCategorySlug) === slugify(activeCategorySlug)
                   : false;
                 const linkClass = variant === 'sidebar-box'
-                  ? cn(styles.sidebarItem, isActive && styles.activeCat)
+                  ? cn('sidebarItem', isActive && 'activeCat')
                   : isActive
-                    ? styles.activeCat
+                    ? 'activeCat'
                     : undefined;
 
                 return (
                   <li key={cat.category_id}>
                     <Link href={`/blog/${resolvedCategorySlug}`} className={linkClass}>
-                      <span className={styles.catName}>{cat.category_name}</span>
-                      <span className={styles.catCount}>{String(cat.post_count).padStart(2, '0')}</span>
+                      <span className="catName">{cat.category_name}</span>
+                      <span className="catCount">{String(cat.post_count).padStart(2, '0')}</span>
                     </Link>
                   </li>
                 );
               })}
             </ul>
           ) : (
-            <p className={variant === 'sidebar-box' ? undefined : styles.catLoading}>
+            <p className={variant === 'sidebar-box' ? 'catLoading catLoading--box' : 'catLoading'}>
               No categories found.
             </p>
           )}

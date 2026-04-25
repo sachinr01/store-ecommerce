@@ -85,7 +85,7 @@ function CheckOption({ label, checked, onChange }: { label: string; checked: boo
 }
 
 /* ── Product Card ──────────────────────────────────────────────────────────── */
-function ProductCard({ product, idx }: { product: Product; idx: number }) {
+function ProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
   const inWishlist = hasItem(product.ID);
@@ -135,6 +135,9 @@ function ProductCard({ product, idx }: { product: Product; idx: number }) {
           <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
           {discount !== null && <span className="csp-save-badge">{discount}% off</span>}
         </div>
+        {listMode && product.short_description && (
+          <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
+        )}
       </div>
     </div>
   );
@@ -334,17 +337,18 @@ export default function KitchenOrganisersPage() {
     <>
       <Header/>
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <Link href="/shop">Shop</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">{PAGE_LABEL}</span>
+        <div className="csp-breadcrumb-left">
+          <span className="csp-breadcrumb-title">{PAGE_LABEL}</span>
+          <span className="csp-breadcrumb-sub">Explore our {PAGE_LABEL} collection</span>
+        </div>
+        <div className="csp-breadcrumb-right">
+          <Link href="/">Home</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <Link href="/shop">Shop</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <span aria-current="page">{PAGE_LABEL}</span>
+        </div>
       </nav>
-
-      <div className="csp-cat-banner">
-        <h1 className="csp-cat-banner-title">{PAGE_LABEL}</h1>
-        <p className="csp-cat-banner-sub">Explore our {PAGE_LABEL} collection</p>
-      </div>
 
       <div className="csp-body">
         <aside className="csp-sidebar" aria-label="Product filters">{SidebarContent}</aside>
@@ -449,7 +453,7 @@ export default function KitchenOrganisersPage() {
 
           {!loading && filtered.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label={`${PAGE_LABEL} products`}>
-              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i}/>)}
+              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i} listMode={viewMode === 'list'}/>)}
             </div>
           )}
         </main>

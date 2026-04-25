@@ -1,3 +1,2 @@
-﻿'use client';
+﻿export { default, generateMetadata } from '../../../product/[slug]/page';
 
-export { default } from '../../../product/[slug]/page';

@@ -1,7 +1,7 @@
 export default function CuratedGifting() {
   return (
     <section style={{ padding: '56px 0', background: '#fff' }}>
-      <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 45px' }}>
         <h2 className="section-title">Collection</h2>
         <div className="gifting-collage">
           <div className="gift-panel gift-panel-tall"

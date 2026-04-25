@@ -36,7 +36,7 @@ function MiniStars({ rating = 4 }: { rating?: number }) {
 }
 
 /* Product Card */
-function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
+function ShopProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
   const inWishlist = hasItem(product.ID);
@@ -121,6 +121,9 @@ function ShopProductCard({ product, idx }: { product: Product; idx: number }) {
             <span className="csp-save-badge">{discountPercent}% off</span>
           )}
         </div>
+        {listMode && product.short_description && (
+          <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
+        )}
       </div>
     </div>
   );
@@ -588,9 +591,15 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
       <Header />
 
       <nav className="csp-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span className="csp-bsep" aria-hidden="true">&gt;</span>
-        <span aria-current="page">Shop</span>
+        <div className="csp-breadcrumb-left">
+          <span className="csp-breadcrumb-title">Shop</span>
+          <span className="csp-breadcrumb-sub">Explore our all collections</span>
+        </div>
+        <div className="csp-breadcrumb-right">
+          <Link href="/">Home</Link>
+          <span className="csp-bsep" aria-hidden="true">&gt;</span>
+          <span aria-current="page">Shop</span>
+        </div>
       </nav>
 
 
@@ -776,7 +785,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
           {!loading && !error && sorted.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label="Products">
               {sorted.map((product, idx) => (
-                <ShopProductCard key={product.ID} product={product} idx={idx} />
+                <ShopProductCard key={product.ID} product={product} idx={idx} listMode={viewMode === 'list'} />
               ))}
             </div>
           )}
