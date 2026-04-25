@@ -10,6 +10,11 @@ import { getRecentOrderAddresses, getActiveCoupon, applyCoupon, removeCoupon, ty
 import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
 import Script from 'next/script';
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
