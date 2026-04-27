@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   // metadataBase is required so that relative canonical/og:url values resolve correctly.
   // Set NEXT_PUBLIC_SITE_URL in your environment (e.g. https://yourstore.com).
   // Falls back to localhost for local development.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3001'),
 
   title: 'Blog – Home Decor & Lifestyle',
   description:

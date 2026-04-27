@@ -61,8 +61,8 @@ const UPLOADS_ORIGIN =
     ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/store/api').replace('/store/api', '')
     : '';
 
-export function getImageUrl(filePath: string | null | undefined): string {
-  if (!filePath) return '/store/images/dummy.jpg';
+export function getImageUrl(filePath: string | null | undefined, placeholder = '/store/images/dummy.jpg'): string {
+  if (!filePath) return placeholder;
   // Already a full URL — use as-is
   if (filePath.startsWith('http')) return filePath;
   // Absolute path — use as-is

@@ -9,8 +9,8 @@ import { getProducts, getAllAttributeGroups, getImageUrl, type Product, type Att
 import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
 import { getDiscountPercent } from '../lib/helpers/pricing';
 import { useWishlist } from '../lib/wishlistContext';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 
-const PLACEHOLDER = '/store/images/dummy.jpg';
 
 const toSlug = (value: string): string =>
   value
@@ -39,6 +39,7 @@ function MiniStars({ rating = 4 }: { rating?: number }) {
 function ShopProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
+  const PLACEHOLDER = usePlaceholderImage();
   const inWishlist = hasItem(product.ID);
 
   const slugBase = toSlug(product.slug || product.title) || 'product';
@@ -64,7 +65,7 @@ function ShopProductCard({ product, idx, listMode }: { product: Product; idx: nu
       <div className="csp-img-wrap">
         <Link href={productHref} tabIndex={-1} aria-hidden="true">
           <img
-            src={getImageUrl(product.thumbnail_url)}
+            src={getImageUrl(product.thumbnail_url, PLACEHOLDER)}
             alt={product.title}
             className={`csp-img${hovered ? ' zoomed' : ''}`}
             loading={idx < 8 ? 'eager' : 'lazy'}
@@ -89,7 +90,7 @@ function ShopProductCard({ product, idx, listMode }: { product: Product; idx: nu
                 id: product.ID,
                 title: product.title,
                 price: displayPrice ?? 0,
-                image: getImageUrl(product.thumbnail_url),
+                image: getImageUrl(product.thumbnail_url, PLACEHOLDER),
                 inStock: product.stock_status === 'instock' || product.stock_status === 'onbackorder',
               });
             }

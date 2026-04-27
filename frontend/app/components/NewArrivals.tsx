@@ -6,9 +6,8 @@ import { getProducts, getImageUrl, type Product } from '../lib/api';
 import { formatPrice, formatPriceRange } from '../lib/price';
 import { getDiscountPercent } from '../lib/helpers/pricing';
 import { useWishlist } from '../lib/wishlistContext';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import './NewArrivals.css';
-
-const PLACEHOLDER = '/store/images/dummy.jpg';
 
 const toSlug = (s: string) =>
   s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -16,6 +15,7 @@ const toSlug = (s: string) =>
 function ProductCard({ p, idx }: { p: Product; idx: number }) {
   const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
+  const PLACEHOLDER = usePlaceholderImage();
   const inWishlist = hasItem(p.ID);
 
   const priceMin = Number(p.price_min ?? 0);
@@ -38,7 +38,7 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
       <div className="na-img-wrap">
         <Link href={href} tabIndex={-1} aria-hidden="true">
           <img
-            src={getImageUrl(p.thumbnail_url)}
+            src={getImageUrl(p.thumbnail_url, PLACEHOLDER)}
             alt={p.title}
             loading={idx < 4 ? 'eager' : 'lazy'}
             className={`na-img${hovered ? ' zoomed' : ''}`}

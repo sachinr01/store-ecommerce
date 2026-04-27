@@ -11,9 +11,8 @@ import { getDiscountPercent } from '../lib/helpers/pricing';
 import { htmlToText, sanitizeHtml } from '../lib/helpers/html';
 import { useCart } from '../lib/cartContext';
 import { useWishlist } from '../lib/wishlistContext';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import './product-details.css';
-
-const PLACEHOLDER = '/store/images/dummy.jpg';
 
 type SwatchStyle = { style: { background?: string }; isLight: boolean };
 
@@ -160,6 +159,7 @@ function AccordionItem({ label, content }: { label: string; content: string }) {
 function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
   const { addItem }    = useCart();
   const { hasItem: inWishlist, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlist();
+  const PLACEHOLDER = usePlaceholderImage();
 
   const [product,       setProduct]       = useState<ProductDetail | null>(null);
   const [loading,       setLoading]       = useState(true);
@@ -358,8 +358,8 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
   );
 
   const defaultImages = sortedGallery.length > 0
-    ? sortedGallery.map(g => getImageUrl(g.file_path))
-    : (product.thumbnail_url ? [getImageUrl(product.thumbnail_url)] : [PLACEHOLDER]);
+    ? sortedGallery.map(g => getImageUrl(g.file_path, PLACEHOLDER))
+    : (product.thumbnail_url ? [getImageUrl(product.thumbnail_url, PLACEHOLDER)] : [PLACEHOLDER]);
 
   const selectedVariationImages = (() => {
     if (!selectedColor && !selectedSize) return null;
@@ -370,7 +370,7 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
       return colorMatch && sizeMatch && v.image_urls?.length > 0;
     });
     if (!variation?.image_urls?.length) return null;
-    return variation.image_urls.map(p => getImageUrl(p));
+    return variation.image_urls.map(p => getImageUrl(p, PLACEHOLDER));
   })();
 
   const allImages = selectedVariationImages ?? defaultImages;

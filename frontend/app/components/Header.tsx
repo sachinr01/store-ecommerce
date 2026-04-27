@@ -8,9 +8,28 @@ import { useRouter } from "next/navigation";
 import { useCart } from "../lib/cartContext";
 import { useAuth } from "../lib/authContext";
 import { formatPrice } from "../lib/price";
+import { usePlaceholderImage } from "../lib/siteSettingsContext";
+import { getImageUrl } from "../lib/api";
 import "./Header.css";
 
-const PLACEHOLDER = "/store/images/dummy.jpg";
+
+const CATEGORY_PAGE_SLUGS: Record<string, string> = {
+  'drinkware': '/shop/drinkware',
+  'glassware': '/shop/glassware',
+  'jars-and-containers': '/shop/jars-and-containers',
+};
+const CATEGORY_NAME_TO_SLUG: Record<string, string> = {
+  'drinkware': 'drinkware',
+  'glassware': 'glassware',
+  'jars and containers': 'jars-and-containers',
+  'jars & containers': 'jars-and-containers',
+  'kitchen organisers': 'jars-and-containers',
+  'kitchen organizers': 'jars-and-containers',
+};
+const getCategoryHref = (slug: string) => {
+  const normalized = slug.toLowerCase().trim();
+  return CATEGORY_PAGE_SLUGS[normalized] ?? `/shop?category=${encodeURIComponent(normalized)}`;
+};
 
 type MegaLink = { label: string; href: string; };
 type MegaColumn = { heading: string; links: MegaLink[]; };
@@ -30,14 +49,17 @@ export default function Header() {
   const router = useRouter();
   const { items, count, total, removeItem } = useCart();
   const { user, isLoggedIn } = useAuth();
+  const PLACEHOLDER = usePlaceholderImage();
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Array<{ id: number; title: string; price: string; image: string; slug: string }>>([]);
+  const [categorySuggestions, setCategorySuggestions] = useState<Array<{ id: number; name: string; slug: string; count: number }>>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestAbort = useRef<AbortController | null>(null);
   const megaLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const cartRef = useRef<HTMLDivElement>(null);
@@ -50,7 +72,7 @@ export default function Header() {
     };
     const handleResize = () => { if (window.innerWidth >= 992) setMobileMenuOpen(false); };
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setCartOpen(false); setSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); setSuggestions([]); }
+      if (event.key === "Escape") { setCartOpen(false); setSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); setSuggestions([]); setCategorySuggestions([]); }
     };
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
@@ -59,6 +81,8 @@ export default function Header() {
       document.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("keydown", handleEscape);
+      if (suggestTimer.current) clearTimeout(suggestTimer.current);
+      if (suggestAbort.current) suggestAbort.current.abort();
     };
   }, []);
 
@@ -72,10 +96,16 @@ export default function Header() {
   }, [searchOpen]);
 
   const highlight = (text: string, query: string) => {
-    if (!query.trim()) return <>{text}</>;
+    if (!query.trim()) return <span>{text}</span>;
     const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return <>{text}</>;
-    return <>{text.slice(0, idx)}<strong>{text.slice(idx, idx + query.length)}</strong>{text.slice(idx + query.length)}</>;
+    if (idx === -1) return <span>{text}</span>;
+    return (
+      <span>
+        {text.slice(0, idx)}
+        <strong>{text.slice(idx, idx + query.length)}</strong>
+        {text.slice(idx + query.length)}
+      </span>
+    );
   };
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -83,27 +113,48 @@ export default function Header() {
     const query = searchQuery.trim();
     closeOverlays();
     setSuggestions([]);
-    router.push(query ? `/shop?search=${encodeURIComponent(query)}` : "/shop");
+    setCategorySuggestions([]);
+    const catSlug = CATEGORY_NAME_TO_SLUG[query.toLowerCase()];
+    if (catSlug) {
+      router.push(getCategoryHref(catSlug));
+    } else {
+      router.push(query ? `/shop?search=${encodeURIComponent(query)}` : "/shop");
+    }
   };
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
-    if (!value.trim()) { setSuggestions([]); return; }
+    if (suggestAbort.current) suggestAbort.current.abort();
+    if (!value.trim()) { setSuggestions([]); setCategorySuggestions([]); return; }
     suggestTimer.current = setTimeout(async () => {
+      const controller = new AbortController();
+      suggestAbort.current = controller;
       setSuggestLoading(true);
       try {
-        const res = await fetch(`/store/api/products?search=${encodeURIComponent(value.trim())}&limit=5`, { headers: { Accept: 'application/json' } });
-        const json = await res.json();
-        const items = (json.data ?? json ?? []).slice(0, 5).map((p: any) => ({
+        const [prodRes, catRes] = await Promise.all([
+          fetch(`/store/api/products?search=${encodeURIComponent(value.trim())}&limit=5`, { headers: { Accept: 'application/json' }, signal: controller.signal }),
+          fetch(`/store/api/product-categories/search?q=${encodeURIComponent(value.trim())}&limit=4`, { headers: { Accept: 'application/json' }, signal: controller.signal }),
+        ]);
+        if (!prodRes.ok || !catRes.ok) throw new Error('fetch failed');
+        const prodJson = await prodRes.json();
+        const catJson = await catRes.json();
+        const items = (prodJson.data ?? prodJson ?? []).slice(0, 5).map((p: any) => ({
           id: p.ID, title: p.title,
           price: p._sale_price ?? p._regular_price ?? p.price_min ?? '',
-          image: p.thumbnail_url ? (p.thumbnail_url.startsWith('http') || p.thumbnail_url.startsWith('/') ? p.thumbnail_url : `/uploads/${p.thumbnail_url}`) : '/store/images/dummy.jpg',
+          image: p.thumbnail_url ? (p.thumbnail_url.startsWith('http') || p.thumbnail_url.startsWith('/') ? p.thumbnail_url : `/uploads/${p.thumbnail_url}`) : PLACEHOLDER,
           slug: (p.slug || p.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
         }));
+        const cats = (catJson.data ?? []).map((c: any) => ({
+          id: c.category_id, name: c.category_name, slug: c.category_slug, count: Number(c.product_count),
+        }));
         setSuggestions(items);
-      } catch { setSuggestions([]); }
-      finally { setSuggestLoading(false); }
+        setCategorySuggestions(cats);
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') { setSuggestions([]); setCategorySuggestions([]); }
+      } finally {
+        setSuggestLoading(false);
+      }
     }, 280);
   };
 
@@ -127,7 +178,7 @@ export default function Header() {
         : raw_img.startsWith('/')
           ? raw_img
           : `/uploads/${raw_img}`
-      : '/store/images/dummy.jpg';
+      : PLACEHOLDER;
     return {
       id: p.ID ?? p.id,
       title: p.title,
@@ -176,7 +227,6 @@ export default function Header() {
                       </Link>
                       <div className={`nh-mega-panel${activeMenu === link.label ? ' open' : ''}`} onMouseEnter={keepMega} onMouseLeave={closeMega}>
                         {(link.mega.isKitchen || link.mega.isDrinkware || link.mega.isGlassware) ? (() => {
-                          const isCat = link.mega.isKitchen ? 'kitchen' : link.mega.isDrinkware ? 'drinkware' : 'glassware';
                           const products = link.mega.isKitchen ? kitchenProducts : link.mega.isDrinkware ? drinkwareProducts : glasswareProducts;
                           const shopHref = link.href;
                           const promos = link.mega.isKitchen
@@ -304,7 +354,8 @@ export default function Header() {
                   <>
                     {items.map(item => (
                       <div key={item.cartItemId} className="nh-cart-item">
-                        <Image src={item.image || PLACEHOLDER} alt={item.title} width={56} height={60} className="nh-cart-thumb"/>
+                        <img src={getImageUrl(item.image, PLACEHOLDER)} alt={item.title} width={56} height={60} className="nh-cart-thumb"
+                          onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
                         <div>
                           <p className="nh-cart-item-title">{item.title}</p>
                           <div className="nh-cart-item-meta">{item.quantity} x {formatPrice(item.price)}</div>
@@ -326,37 +377,61 @@ export default function Header() {
       </header>
 
       {searchOpen && (
-        <div className="nh-search-overlay" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); }}>
+        <div className="nh-search-overlay" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }}>
           <div className="nh-search-box-wrap" onClick={e => e.stopPropagation()}>
             <form className="nh-search-box" onSubmit={handleSearchSubmit}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input ref={searchRef} type="text" placeholder="Search products..." value={searchQuery} onChange={e => handleSearchChange(e.target.value)}/>
-              <button type="button" className="nh-search-close" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); }} aria-label="Close search">×</button>
+              <button type="button" className="nh-search-close" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }} aria-label="Close search">×</button>
             </form>
-            {(suggestions.length > 0 || suggestLoading) && (
+            {(suggestions.length > 0 || categorySuggestions.length > 0 || suggestLoading) && (
               <div className="nh-search-suggestions">
-                {suggestLoading && <p className="nh-ss-section-title">Searching...</p>}
-                {!suggestLoading && suggestions.length > 0 && (
+                {suggestLoading && <div className="nh-ss-loading">Searching...</div>}
+                {!suggestLoading && (suggestions.length > 0 || categorySuggestions.length > 0) && (
                   <>
-                    <p className="nh-ss-section-title">Search Suggestions</p>
-                    <div className="nh-ss-keywords">
-                      {suggestions.slice(0, 4).map(s => (
-                        <Link key={`kw-${s.id}`} href={`/shop?search=${encodeURIComponent(s.title)}`} className="nh-ss-keyword"
-                          onClick={() => { closeOverlays(); setSuggestions([]); setSearchQuery(''); }}>
-                          {highlight(s.title, searchQuery)}
-                        </Link>
-                      ))}
-                    </div>
-                    <p className="nh-ss-section-title" style={{ marginTop: 14 }}>Product Suggestions</p>
-                    <div className="nh-ss-products">
-                      {suggestions.map(s => (
-                        <Link key={`prod-${s.id}`} href={`/shop/product/${s.slug}`} className="nh-ss-product"
-                          onClick={() => { closeOverlays(); setSuggestions([]); setSearchQuery(''); }}>
-                          <img src={s.image} alt={s.title} className="nh-ss-thumb" onError={e => { (e.target as HTMLImageElement).src = '/store/images/dummy.jpg'; }}/>
-                          <span className="nh-ss-product-name">{highlight(s.title, searchQuery)}</span>
-                        </Link>
-                      ))}
-                    </div>
+                    {suggestions.length > 0 && (
+                      <div className="nh-ss-section">
+                        <p className="nh-ss-section-title">Search Suggestions</p>
+                        <div className="nh-ss-keywords">
+                          {suggestions.slice(0, 4).map(s => (
+                            <Link key={`kw-${s.id}`} href={`/shop?search=${encodeURIComponent(s.title)}`} className="nh-ss-keyword"
+                              onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
+                              <svg className="nh-ss-kw-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                              {highlight(s.title, searchQuery)}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {categorySuggestions.length > 0 && (
+                      <div className="nh-ss-section">
+                        <p className="nh-ss-section-title">Category Suggestions</p>
+                        <div className="nh-ss-keywords">
+                          {categorySuggestions.map(c => (
+                            <Link key={`cat-${c.id}`} href={getCategoryHref(c.slug)} className="nh-ss-keyword nh-ss-category"
+                              onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                              {highlight(c.name, searchQuery)}
+                              {c.count > 0 && <span className="nh-ss-cat-count">{c.count}</span>}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {suggestions.length > 0 && (
+                      <div className="nh-ss-section">
+                        <p className="nh-ss-section-title">Product Suggestions</p>
+                        <div className="nh-ss-products">
+                          {suggestions.map(s => (
+                            <Link key={`prod-${s.id}`} href={`/shop/product/${s.slug}`} className="nh-ss-product"
+                              onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
+                              <img src={s.image} alt={s.title} className="nh-ss-thumb" onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
+                              <span className="nh-ss-product-name">{highlight(s.title, searchQuery)}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

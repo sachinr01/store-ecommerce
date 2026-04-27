@@ -9,13 +9,13 @@ import { useCart } from '../lib/cartContext';
 import { getProductById } from '../lib/api';
 import type { ProductDetail } from '../lib/api';
 import { formatPrice } from '../lib/price';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import '../shop/shop.css';
 import './wishlist.css';
 
-const PLACEHOLDER = '/store/images/dummy.jpg';
-
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist();
+  const PLACEHOLDER = usePlaceholderImage();
   const [products, setProducts] = useState<Record<number, ProductDetail>>({});
   const [loading, setLoading] = useState(true);
   const toSlug = (text: string) =>
@@ -51,9 +51,15 @@ export default function WishlistPage() {
       <Header />
       <div className="dima-main">
         <nav className="csp-breadcrumb" aria-label="Breadcrumb">
-          <Link href="/">Home</Link>
-          <span className="csp-bsep" aria-hidden="true">&gt;</span>
-          <span aria-current="page">Wishlist</span>
+          <div className="csp-breadcrumb-left">
+            <span className="csp-breadcrumb-title">Wishlist</span>
+            <span className="csp-breadcrumb-sub">Your saved products</span>
+          </div>
+          <div className="csp-breadcrumb-right">
+            <Link href="/">Home</Link>
+            <span className="csp-bsep" aria-hidden="true">&gt;</span>
+            <span aria-current="page">Wishlist</span>
+          </div>
         </nav>
 
 

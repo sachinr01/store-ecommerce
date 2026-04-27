@@ -104,6 +104,30 @@ async function withRetry(fn) {
     }
 }
 
+// GET /store/api/site-settings
+// Returns public-safe site settings (no secrets)
+const PUBLIC_SETTINGS_KEYS = [
+    'placeholder_image',
+    'store_name',
+    'store_currency',
+    'enable_reviews',
+    'enable_ratings',
+];
+const getPublicSiteSettings = async (req, res) => {
+    try {
+        const [rows] = await withRetry(() => db.query(
+            `SELECT option_name, option_value FROM tbl_site_options WHERE option_name IN (${PUBLIC_SETTINGS_KEYS.map(() => '?').join(',')})`,
+            PUBLIC_SETTINGS_KEYS
+        ));
+        const data = {};
+        rows.forEach(r => { data[r.option_name] = r.option_value; });
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('getPublicSiteSettings error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 //  shared product list query builder 
 async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', limit = null, params = [], extraHaving = '') {
     const parsedLimit = parseInt(limit, 10);
@@ -303,9 +327,16 @@ const getProducts = async (req, res) => {
         const priceGte = getSingle('filter.v.price.gte');
         const priceLte = getSingle('filter.v.price.lte');
         const sortBy = String(getSingle('sort_by') || 'best-selling');
+        const searchTerm = (getSingle('search') || '').trim().slice(0, 200);
 
         const whereParts = [];
         const params = [];
+
+        if (searchTerm) {
+            const like = `%${searchTerm}%`;
+            whereParts.push(`AND (p.product_title LIKE ? OR p.product_url LIKE ? OR p.product_short_desc LIKE ? OR EXISTS (SELECT 1 FROM tbl_productmeta pm_sku WHERE pm_sku.product_id = p.ID AND pm_sku.meta_key = '_sku' AND pm_sku.meta_value LIKE ?))`);
+            params.push(like, like, like, like);
+        }
 
         if (productTypes.length > 0) {
             const placeholders = productTypes.map(() => '?').join(', ');
@@ -745,6 +776,36 @@ const getProductCategories = async (req, res) => {
     }
 };
 
+// GET /store/api/product-categories/search?q=term&limit=N
+// Returns categories whose name matches the search term
+const searchProductCategories = async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim().slice(0, 200);
+        const limit = Math.min(parseInt(req.query.limit, 10) || 5, 20);
+        if (!q) return res.json({ success: true, data: [] });
+        const like = `%${q}%`;
+        const [rows] = await withRetry(() => db.query(
+            `SELECT
+                c.category_id,
+                c.category_slug,
+                c.category_name,
+                CAST(COUNT(DISTINCT l.product_id) AS UNSIGNED) AS product_count
+             FROM tbl_products_category c
+             LEFT JOIN tbl_products_category_link l ON l.category_id = c.category_id
+             WHERE c.category_name LIKE ?
+               AND (c.parent_id = 0 OR c.parent_id IS NULL)
+             GROUP BY c.category_id, c.category_slug, c.category_name
+             ORDER BY product_count DESC
+             LIMIT ?`,
+            [like, limit]
+        ));
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        console.error('searchProductCategories error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 // GET /store/api/product-categories/:slug/children
 // Returns child categories of a given slug with product_count
 const getCategoryChildren = async (req, res) => {
@@ -1095,6 +1156,7 @@ const getPageBySlug = async (req, res) => {
 };
 
 module.exports = {
+    getPublicSiteSettings,
     getProducts,
     getFeaturedProducts,
     getOnSaleProducts,
@@ -1104,6 +1166,7 @@ module.exports = {
     getAttributesByTaxonomy,
     getAllAttributeGroups,
     getProductCategories,
+    searchProductCategories,
     getCategoryChildren,
     getCategoryProducts,
     getBlogs,

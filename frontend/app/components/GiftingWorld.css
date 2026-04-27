@@ -54,7 +54,7 @@
   text-underline-offset: 3px;
 }
 @media (max-width: 768px) {
-  .gw-section { padding: 40px 20px; }
+  .gw-section { padding: 45px 20px; }
   .gw-grid { gap: 10px; }
   .gw-title { font-size: 15px; margin-bottom: 24px; }
 }

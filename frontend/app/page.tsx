@@ -12,7 +12,7 @@ import { BLOG_HOME_LIMIT } from './blog/utils/config';
 import { getLatestBlogs } from './blog/utils/getBlogs';
 
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'e-commerce store';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Coffr';
 
 export const metadata: Metadata = {
   title: `${SITE_NAME} | Hoodies, Mugs, Decals & More`,

@@ -8,6 +8,7 @@ import { getCategoryChildren, getCategoryProducts, getImageUrl, type ProductCate
 import { formatPrice, formatPriceRange, CURRENCY } from '../../lib/price';
 import { getDiscountPercent } from '../../lib/helpers/pricing';
 import { useWishlist } from '../../lib/wishlistContext';
+import { usePlaceholderImage } from '../../lib/siteSettingsContext';
 import '../shop.css';
 
 const PLACEHOLDER = '/store/images/dummy.jpg';
@@ -88,6 +89,7 @@ function CheckOption({ label, checked, onChange }: { label: string; checked: boo
 function ProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
+  const PLACEHOLDER = usePlaceholderImage();
   const inWishlist = hasItem(product.ID);
   const href = `/shop/product/${toSlug(product.slug || product.title)}`;
   const priceMin = Number(product.price_min ?? 0);
@@ -105,7 +107,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <div className="csp-img-wrap">
         <Link href={href} tabIndex={-1} aria-hidden="true">
-          <img src={getImageUrl(product.thumbnail_url)} alt={product.title}
+          <img src={getImageUrl(product.thumbnail_url, PLACEHOLDER)} alt={product.title}
             className={`csp-img${hovered ? ' zoomed' : ''}`}
             loading={idx < 8 ? 'eager' : 'lazy'}
             onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
@@ -117,7 +119,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
         </div>
         <button className={`csp-wishlist${inWishlist ? ' active' : ''}`}
           aria-label={inWishlist ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
-          onClick={e => { e.preventDefault(); inWishlist ? removeItem(product.ID) : addItem({ id: product.ID, title: product.title, price: displayPrice ?? 0, image: getImageUrl(product.thumbnail_url), inStock: product.stock_status === 'instock' || product.stock_status === 'onbackorder' }); }}>
+          onClick={e => { e.preventDefault(); inWishlist ? removeItem(product.ID) : addItem({ id: product.ID, title: product.title, price: displayPrice ?? 0, image: getImageUrl(product.thumbnail_url, PLACEHOLDER), inStock: product.stock_status === 'instock' || product.stock_status === 'onbackorder' }); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"
             fill={inWishlist ? '#e74c3c' : 'none'} stroke={inWishlist ? '#e74c3c' : 'currentColor'} strokeWidth="1.8">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>

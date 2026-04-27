@@ -9,6 +9,7 @@ import { useCart } from '../lib/cartContext';
 import { getRecentOrderAddresses, getActiveCoupon, applyCoupon, removeCoupon, type RecentOrderAddress, type AppliedCoupon } from '../lib/api';
 import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import Script from 'next/script';
 declare global {
   interface Window {
@@ -124,6 +125,7 @@ export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
   const router = useRouter();
   const { isLoggedIn } = useAuth();
+  const PLACEHOLDER = usePlaceholderImage();
 
   // ─── UI state ───────────────────────────────────────────────────────────────
   const [showLogin, setShowLogin] = useState(false);
@@ -921,7 +923,7 @@ export default function CheckoutPage() {
                         {items.map((item) => (
                           <div key={item.cartItemId} className="checkout-order-item">
                             <img
-                              src={item.image || '/store/images/dummy.png'}
+                              src={item.image || PLACEHOLDER}
                               alt={item.title}
                               className="checkout-order-thumb"
                             />

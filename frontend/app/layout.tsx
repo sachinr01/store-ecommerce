@@ -3,19 +3,21 @@ import "./globals.css";
 import { CartProvider } from "./lib/cartContext";
 import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
+import { SiteSettingsProvider } from "./lib/siteSettingsContext";
+
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Coffr';
+const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
 
 export const metadata: Metadata = {
   title: {
-    default: 'coffer e-commerce store',
-    template: '%s | All in one e-commerce store & customization platform ',
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
   },
   description:
-    'e-commerce store for every  — hoodies, tumblers, mugs, decals, koozies and more.',
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001'
-  ),
+    'Shop our full collection of custom tumblers, mugs, decals, koozies and more.',
+  metadataBase: new URL(SITE_URL),
   openGraph: {
-    siteName: 'coffer e-commerce store',
+    siteName: SITE_NAME,
     type: 'website',
   },
   robots: {
@@ -46,7 +48,9 @@ export default function RootLayout({
           <CartProvider>
             <AuthProvider>
               <WishlistProvider>
-                {children}
+                <SiteSettingsProvider>
+                  {children}
+                </SiteSettingsProvider>
               </WishlistProvider>
             </AuthProvider>
           </CartProvider>

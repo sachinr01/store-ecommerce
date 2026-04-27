@@ -4,7 +4,7 @@ import { getProducts, type Product } from '../lib/api';
 import { CURRENCY } from '../lib/price';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3001';
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'e-commerce';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Coffr';
 
 async function fetchProducts(): Promise<Product[]> {
   try {

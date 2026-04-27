@@ -6,12 +6,12 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
 import { formatPrice } from '../lib/price';
-import { applyCoupon, removeCoupon, type AppliedCoupon } from '../lib/api';
+import { applyCoupon, removeCoupon, getImageUrl, type AppliedCoupon } from '../lib/api';
+import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import './cart.css';
 
-const PLACEHOLDER = '/store/images/dummy.jpg';
-
 export default function CartPage() {
+  const PLACEHOLDER = usePlaceholderImage();
   const { items, removeItem, updateQty, total } = useCart();
 
   const [couponInput, setCouponInput] = useState('');
@@ -75,9 +75,10 @@ export default function CartPage() {
                       {items.map((item) => (
                         <article key={item.cartItemId} className="cart-item">
                           <img
-                            src={item.image || PLACEHOLDER}
+                            src={getImageUrl(item.image, PLACEHOLDER)}
                             alt={item.title}
                             className="cart-item-thumb"
+                            onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
                           />
 
                           <div className="cart-item-main">
