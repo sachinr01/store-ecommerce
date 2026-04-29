@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCart } from "../lib/cartContext";
 import { useAuth } from "../lib/authContext";
 import { formatPrice } from "../lib/price";
@@ -47,11 +47,13 @@ type MegaMenu = {
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { items, count, total, removeItem } = useCart();
   const { user, isLoggedIn } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,15 +66,21 @@ export default function Header() {
   const headerRef = useRef<HTMLElement>(null);
   const cartRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       if (cartRef.current && !cartRef.current.contains(event.target as Node)) setCartOpen(false);
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) setActiveMenu(null);
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+        setSuggestions([]);
+        setCategorySuggestions([]);
+      }
     };
     const handleResize = () => { if (window.innerWidth >= 992) setMobileMenuOpen(false); };
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setCartOpen(false); setSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); setSuggestions([]); setCategorySuggestions([]); }
+      if (event.key === "Escape") { setCartOpen(false); setSearchOpen(false); setMobileSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); setSuggestions([]); setCategorySuggestions([]); }
     };
     document.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("resize", handleResize);
@@ -87,13 +95,20 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = mobileMenuOpen || searchOpen ? "hidden" : "";
+    document.body.style.overflow = mobileMenuOpen || mobileSearchOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [mobileMenuOpen, searchOpen]);
+  }, [mobileMenuOpen, mobileSearchOpen]);
+
+  // Reset scroll lock and close all overlays on route change
+  useEffect(() => {
+    document.body.style.overflow = "";
+    closeOverlays();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
+    if (mobileSearchOpen) searchRef.current?.focus();
+  }, [mobileSearchOpen]);
 
   const highlight = (text: string, query: string) => {
     if (!query.trim()) return <span>{text}</span>;
@@ -196,7 +211,7 @@ export default function Header() {
     fetchCat('drinkware', setDrinkwareProducts);
     fetchCat('glassware', setGlasswareProducts);
   }, []);
-  const closeOverlays = () => { setCartOpen(false); setSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); };
+  const closeOverlays = () => { setCartOpen(false); setSearchOpen(false); setMobileSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); };
   const openMega = (label: string) => { if (megaLeaveTimer.current) clearTimeout(megaLeaveTimer.current); setActiveMenu(label); };
   const closeMega = () => { megaLeaveTimer.current = setTimeout(() => setActiveMenu(null), 120); };
   const keepMega = () => { if (megaLeaveTimer.current) clearTimeout(megaLeaveTimer.current); };
@@ -231,17 +246,17 @@ export default function Header() {
                           const shopHref = link.href;
                           const promos = link.mega.isKitchen
                             ? [
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg', title: 'OUR KITCHEN COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg', title: 'EXCLUSIVE KITCHEN DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
+                                { img: '/store/images/category_images/CC_KITCHEN_ORGANISERS.png', title: 'OUR KITCHEN COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
+                                { img: '/store/images/category_images/CC_KITCHEN_ORGANISERS.png', title: 'EXCLUSIVE KITCHEN DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
                               ]
                             : link.mega.isDrinkware
                             ? [
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller02-10.03.2026.jpg', title: 'OUR DRINKWARE COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg', title: 'EXCLUSIVE DRINKWARE DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
+                                { img: '/store/images/category_images/CC_TUMBLERS.png', title: 'OUR DRINKWARE COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
+                                { img: '/store/images/category_images/CC_TUMBLERS.png', title: 'EXCLUSIVE DRINKWARE DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
                               ]
                             : [
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller03-10.03.2026.jpg', title: 'OUR GLASSWARE COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
-                                { img: 'https://icmedianew.gumlet.io/pub/media//home_banner/images/Best-Seller04-10.03.2026.jpg', title: 'EXCLUSIVE GLASSWARE DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
+                                { img: '/store/images/category_images/CC_GLASSWARE.png', title: 'OUR GLASSWARE COLLECTION', sub: '150+ Products Available', badge: false, cta: false },
+                                { img: '/store/images/category_images/CC_GLASSWARE.png', title: 'EXCLUSIVE GLASSWARE DEALS', sub: 'GET UPTO 40% DISCOUNT', badge: true, cta: true },
                               ];
                           const placeholder = <span className="nh-km-placeholder"><svg viewBox="0 0 48 48" fill="none"><rect width="48" height="48" fill="#e8e8e8"/><path d="M14 34l8-10 6 7 4-5 6 8H14z" fill="#bbb"/><circle cx="30" cy="20" r="4" fill="#bbb"/></svg></span>;
                           return (
@@ -327,7 +342,67 @@ export default function Header() {
           </div>
 
           <div className="nh-right">
-            <button type="button" className="nh-icon-btn nh-mobile-search" onClick={() => setSearchOpen(true)} aria-label="Open search">
+            {/* Desktop inline search bar */}
+            <div className="nh-header-search" ref={searchWrapRef}>
+              <form className="nh-header-search-form" onSubmit={handleSearchSubmit}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={e => handleSearchChange(e.target.value)}
+                  onFocus={() => setSearchOpen(true)}
+                  aria-label="Search products"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0 || categorySuggestions.length > 0}
+                />
+                {searchQuery && (
+                  <button type="button" className="nh-header-search-clear" onClick={() => { setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); searchRef.current?.focus(); }} aria-label="Clear search">×</button>
+                )}
+              </form>
+              {searchOpen && (suggestions.length > 0 || categorySuggestions.length > 0 || suggestLoading) && (
+                <div className="nh-header-search-dropdown">
+                  {suggestLoading && <div className="nh-ss-loading">Searching...</div>}
+                  {!suggestLoading && (suggestions.length > 0 || categorySuggestions.length > 0) && (
+                    <>
+                      {categorySuggestions.length > 0 && (
+                        <div className="nh-ss-section">
+                          <p className="nh-ss-section-title">Category Suggestions</p>
+                          <div className="nh-ss-keywords">
+                            {categorySuggestions.map(c => (
+                              <Link key={`cat-${c.id}`} href={getCategoryHref(c.slug)} className="nh-ss-keyword nh-ss-category"
+                                onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                                {highlight(c.name, searchQuery)}
+                                {c.count > 0 && <span className="nh-ss-cat-count">{c.count}</span>}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {suggestions.length > 0 && (
+                        <div className="nh-ss-section">
+                          <p className="nh-ss-section-title">Product Suggestions</p>
+                          <div className="nh-ss-products">
+                            {suggestions.map(s => (
+                              <Link key={`prod-${s.id}`} href={`/shop/product/${s.slug}`} className="nh-ss-product"
+                                onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
+                                <img src={s.image} alt={s.title} className="nh-ss-thumb" onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
+                                <span className="nh-ss-product-name">{highlight(s.title, searchQuery)}</span>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile search icon — only visible on small screens */}
+            <button type="button" className="nh-icon-btn nh-mobile-search" onClick={() => setMobileSearchOpen(true)} aria-label="Open search">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </button>
 
@@ -338,7 +413,6 @@ export default function Header() {
             ) : (
               <Link href="/my-account" className="nh-account-link nh-login" onClick={() => setCartOpen(false)}>
                 <span className="nh-account-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-                <span className="nh-login-label">Login</span>
               </Link>
             )}
 
@@ -376,33 +450,19 @@ export default function Header() {
         </div>
       </header>
 
-      {searchOpen && (
-        <div className="nh-search-overlay" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }}>
+      {mobileSearchOpen && (
+        <div className="nh-search-overlay" onClick={() => { setMobileSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }}>
           <div className="nh-search-box-wrap" onClick={e => e.stopPropagation()}>
             <form className="nh-search-box" onSubmit={handleSearchSubmit}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input ref={searchRef} type="text" placeholder="Search products..." value={searchQuery} onChange={e => handleSearchChange(e.target.value)}/>
-              <button type="button" className="nh-search-close" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }} aria-label="Close search">×</button>
+              <button type="button" className="nh-search-close" onClick={() => { setMobileSearchOpen(false); setSearchQuery(''); setSuggestions([]); setCategorySuggestions([]); }} aria-label="Close search">×</button>
             </form>
             {(suggestions.length > 0 || categorySuggestions.length > 0 || suggestLoading) && (
               <div className="nh-search-suggestions">
                 {suggestLoading && <div className="nh-ss-loading">Searching...</div>}
                 {!suggestLoading && (suggestions.length > 0 || categorySuggestions.length > 0) && (
                   <>
-                    {suggestions.length > 0 && (
-                      <div className="nh-ss-section">
-                        <p className="nh-ss-section-title">Search Suggestions</p>
-                        <div className="nh-ss-keywords">
-                          {suggestions.slice(0, 4).map(s => (
-                            <Link key={`kw-${s.id}`} href={`/shop?search=${encodeURIComponent(s.title)}`} className="nh-ss-keyword"
-                              onClick={() => { closeOverlays(); setSuggestions([]); setCategorySuggestions([]); setSearchQuery(''); }}>
-                              <svg className="nh-ss-kw-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                              {highlight(s.title, searchQuery)}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     {categorySuggestions.length > 0 && (
                       <div className="nh-ss-section">
                         <p className="nh-ss-section-title">Category Suggestions</p>

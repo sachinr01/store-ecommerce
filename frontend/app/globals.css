@@ -109,3 +109,28 @@ input[type="checkbox"] {
   max-height: 20px !important;
   flex-shrink: 0 !important;
 }
+
+/* ─── REUSABLE: VIEW PRODUCT BUTTON ─── */
+.btn-view-product {
+  display: block;
+  text-align: center;
+  height: 34px;
+  line-height: 34px;
+  border: 1.5px solid #1a8a6e;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a8a6e;
+  text-decoration: none;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  transition: background 150ms ease, color 150ms ease;
+  cursor: pointer;
+  background: transparent;
+  width: 100%;
+  box-sizing: border-box;
+}
+.btn-view-product:hover {
+  background: #1a8a6e;
+  color: #fff;
+}

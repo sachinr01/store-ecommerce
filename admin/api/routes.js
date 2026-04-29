@@ -55,6 +55,7 @@ router.get('/product-categories/:slug/products',   ctrl.getCategoryProducts);
 // ── Auth ──────────────────────────────────────────────────────────────────────
 router.post('/auth/register', auth.register);
 router.post('/auth/login',    auth.login);
+router.post('/auth/google',   auth.googleLogin);
 router.post('/auth/logout',   auth.logout);
 router.get('/auth/me',        auth.me);
 router.put('/auth/profile',   requireLogin, auth.updateProfile);
@@ -97,4 +98,3 @@ router.put('/admin/orders/:orderId/status',     requireAdmin,        orders.upda
 router.get('/agent/orders',                     requireAgentOrAdmin, orders.getAllOrders);
 
 module.exports = router;
-

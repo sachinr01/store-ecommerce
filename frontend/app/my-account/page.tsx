@@ -20,6 +20,7 @@ export default function MyAccountPage() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
   const [regSuccess, setRegSuccess] = useState('');
+  const [showRegister, setShowRegister] = useState(false);
 
   const setL = (k: keyof typeof login) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -147,6 +148,7 @@ export default function MyAccountPage() {
                 </div>
               ) : (
                 <div className="account-auth-grid">
+                  {!showRegister ? (
                   <div className="account-auth-card">
                     <h4 className="box-titel">Login</h4>
                     <form className="form-small form" onSubmit={handleLogin} noValidate>
@@ -165,8 +167,14 @@ export default function MyAccountPage() {
                         </button>
                       </div>
                     </form>
+                    <p style={{ marginTop: '14px', fontSize: '13px', color: '#555' }}>
+                      Don&apos;t have an account?{' '}
+                      <button onClick={() => setShowRegister(true)} style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit' }}>
+                        Create New Account
+                      </button>
+                    </p>
                   </div>
-
+                  ) : (
                   <div className="account-auth-card">
                     <h4 className="box-titel">Register</h4>
                     <form className="form-small form" onSubmit={handleRegister} noValidate>
@@ -190,7 +198,14 @@ export default function MyAccountPage() {
                         </button>
                       </div>
                     </form>
+                    <p style={{ marginTop: '14px', fontSize: '13px', color: '#555' }}>
+                      Already have an account?{' '}
+                      <button onClick={() => setShowRegister(false)} style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit' }}>
+                        Back to Login
+                      </button>
+                    </p>
                   </div>
+                  )}
                 </div>
               )}
             </div>

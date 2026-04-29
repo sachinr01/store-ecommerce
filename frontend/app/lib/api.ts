@@ -123,6 +123,10 @@ export interface AuthUser {
   userType: number;
 }
 
+export interface AuthUserResponse {
+  user: AuthUser;
+}
+
 async function apiFetch<T>(path: string, withCredentials = false): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     cache: 'no-store',
@@ -200,7 +204,10 @@ export const getCategoryChildren = (slug: string) => apiFetch<ProductCategory[]>
 export const getCategoryProducts = (slug: string) => apiFetch<Product[]>(`/product-categories/${slug}/products`);
 
 export const authLogin    = (username: string, password: string) =>
-  apiPost<AuthUser>('/auth/login', { username, password });
+  apiPost<AuthUserResponse>('/auth/login', { username, password });
+
+export const authGoogleLogin = (credential: string) =>
+  apiPost<AuthUserResponse>('/auth/google', { credential });
 
 export const authRegister = (username: string, email: string, password: string) =>
   apiPost<{ userId: number }>('/auth/register', { username, email, password });

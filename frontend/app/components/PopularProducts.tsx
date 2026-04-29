@@ -5,11 +5,11 @@ export default function CuratedGifting() {
         <h2 className="section-title">Collection</h2>
         <div className="gifting-collage">
           <div className="gift-panel gift-panel-tall"
-            style={{ backgroundImage: "url('https://icmedianew.gumlet.io/pub/media/home_banner/images/Trending-left_KP-10.03.2026.jpg')" }} />
+            style={{ backgroundImage: "url('/store/images/category_images/CC_TUMBLERS.png')" }} />
           <div className="gift-panel"
-            style={{ backgroundImage: "url('https://icmedianew.gumlet.io/pub/media/home_banner/images/Trending-Slider_KP-Trays-10.03.2026.jpg')" }} />
+            style={{ backgroundImage: "url('/store/images/category_images/CC_GLASSWARE.png')" }} />
           <div className="gift-panel"
-            style={{ backgroundImage: "url('https://icmedianew.gumlet.io/pub/media/home_banner/images/Trending-Slider_KP-Side-Tables-10.03.2026.jpg')" }} />
+            style={{ backgroundImage: "url('/store/images/category_images/CC_KITCHEN_ORGANISERS.png')" }} />
         </div>
       </div>
     </section>

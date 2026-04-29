@@ -1,4 +1,4 @@
-# O-Kab E-commerce - Next.js Conversion
+# Coffr E-commerce - Next.js Conversion
 
 This is a Next.js conversion of the original shop HTML template, maintaining pixel-perfect design and all functionality.
 

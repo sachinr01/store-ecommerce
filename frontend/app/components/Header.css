@@ -1,7 +1,7 @@
 /* ─── HEADER LAYOUT ─── */
-.nh-header { position: sticky; top: 0; z-index: 1000; background: #fff; border-bottom: 1px solid #ececec; }
+.nh-header { position: sticky; top: 0; z-index: 1000; background: #fff; border-bottom: 1px solid #ececec; overflow: visible; }
 .nh-inner { max-width: 1360px; margin: 0 auto; height: 84px; padding: 0 35px 0 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; }
-.nh-left, .nh-right { display: flex; align-items: center; min-width: 0; gap: 12px; }
+.nh-left, .nh-right { display: flex; align-items: center; min-width: 0; gap: 12px; overflow: visible; }
 .nh-left { justify-content: flex-start; }
 .nh-center { display: flex; align-items: center; justify-content: center; }
 .nh-right { justify-content: flex-end; }
@@ -18,10 +18,22 @@
 /* ─── ICON BUTTONS ─── */
 .nh-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: none; border-radius: 999px; background: transparent; color: #1b1b1b; cursor: pointer; flex-shrink: 0; }
 .nh-icon-btn:hover { background: #f5f5f5; }
-.nh-mobile-search, .nh-hamburger { display: none; }
-.nh-mobile-search { display: inline-flex !important; }
+.nh-mobile-search { display: none; }
+.nh-hamburger { display: none; }
 .nh-hamburger-lines { display: flex; flex-direction: column; gap: 4px; }
 .nh-hamburger-lines span { display: block; width: 20px; height: 2px; border-radius: 999px; background: currentColor; }
+
+/* ─── HEADER INLINE SEARCH ─── */
+.nh-header-search { position: relative; display: flex; align-items: center; }
+.nh-header-search-form { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; background: #f5f5f5; border-radius: 999px; border: 1px solid transparent !important; outline: none !important; transition: border-color 0.15s, background 0.15s; width: 280px; }
+.nh-header-search-form:focus, .nh-header-search-form:focus-visible { outline: none !important; }
+.nh-header-search-form:focus-within { background: #fff; border-color: #ddd !important; outline: none !important; }
+.nh-header-search-form input { flex: 1; min-width: 0; border: none !important; outline: none !important; box-shadow: none !important; font-size: 13px; color: #1a1a1a; background: transparent; }
+.nh-header-search-form input:focus, .nh-header-search-form input:focus-visible { outline: none !important; box-shadow: none !important; border: none !important; }
+.nh-header-search-form input::placeholder { color: #aaa; }
+.nh-header-search-clear { border: none; background: transparent; cursor: pointer; color: #aaa; font-size: 18px; line-height: 1; padding: 0 2px; transition: color 0.15s; flex-shrink: 0; }
+.nh-header-search-clear:hover { color: #333; }
+.nh-header-search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; right: 0; min-width: 100%; background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 1200; max-height: 360px; overflow-y: auto; }
 
 /* ─── ACCOUNT ─── */
 .nh-account-link { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
@@ -122,18 +134,18 @@
 
 /* ─── PRODUCT-CARD MEGA MENU (DRINKWARE / GLASSWARE / KITCHEN) ─── */
 .nh-km-layout { max-width: 1360px; margin: 0 auto; padding: 24px 48px 28px; display: grid; grid-template-columns: 1fr 420px; gap: 24px; align-items: start; }
-.nh-km-products { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-right: 1px solid #efefef; padding-right: 24px; }
-.nh-km-section { padding: 0 16px; }
+.nh-km-products { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-right: 1px solid #efefef; padding-right: 24px; min-width: 0; overflow: hidden; }
+.nh-km-section { padding: 0 16px; min-width: 0; overflow: hidden; }
 .nh-km-section:first-child { border-right: 1px solid #efefef; padding-left: 0; }
 .nh-km-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #999; margin: 0 0 14px; }
-.nh-km-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.nh-km-card { display: flex; flex-direction: column; gap: 5px; text-decoration: none; color: #1b1b1b; }
-.nh-km-img-wrap { width: 100%; height: 160px; background: #f0f0f0; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nh-km-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
+.nh-km-card { display: flex; flex-direction: column; gap: 5px; text-decoration: none; color: #1b1b1b; width: 100%; min-width: 0; overflow: hidden; }
+.nh-km-img-wrap { width: 160px; height: 160px; background: #f0f0f0; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .nh-km-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
 .nh-km-card:hover .nh-km-img-wrap img { transform: scale(1.05); }
 .nh-km-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .nh-km-placeholder svg { width: 48px; height: 48px; }
-.nh-km-name { font-size: 12px; font-weight: 500; color: #1b1b1b; margin: 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nh-km-name { font-size: 12px; font-weight: 500; color: #1b1b1b; margin: 0; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; word-break: break-word; }
 .nh-km-price { font-size: 13px; font-weight: 700; color: #1b1b1b; margin: 0; }
 .nh-km-shop { font-size: 11px; color: #555; text-decoration: underline; text-underline-offset: 2px; }
 .nh-km-card:hover .nh-km-shop { color: #111; }
@@ -159,7 +171,8 @@
   .nh-inner { grid-template-columns: auto 1fr auto; height: 72px; padding: 0 12px; gap: 10px; }
   .nh-left { flex: 0 0 auto; }
   .nh-center, .nh-nav, .nh-mega-panel, .nh-login-label { display: none; }
-  .nh-hamburger, .nh-mobile-search { display: inline-flex; }
+  .nh-hamburger, .nh-mobile-search { display: inline-flex !important; }
+  .nh-header-search { display: none; }
   .nh-right { gap: 4px; }
   .nh-icon-btn { width: 34px; height: 34px; }
   .nh-logo-image { height: 52px; max-width: min(240px, 100%); }

@@ -66,7 +66,7 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
           </svg>
         </button>
         <div className={`na-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
-          <Link href={href} className="na-quick-view">View Product</Link>
+          <Link href={href} className="na-quick-view btn-view-product">View Product</Link>
         </div>
       </div>
       <div className="na-info">
@@ -80,6 +80,9 @@ function ProductCard({ p, idx }: { p: Product; idx: number }) {
           </span>
           {discountPercent !== null && <span className="na-save-badge">{discountPercent}% off</span>}
         </div>
+        {p.stock_status !== 'instock' && p.stock_status !== 'onbackorder' && (
+          <span className="na-stock-label out">Out of Stock</span>
+        )}
       </div>
     </div>
   );

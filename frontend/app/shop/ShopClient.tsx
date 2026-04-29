@@ -122,6 +122,9 @@ function ShopProductCard({ product, idx, listMode }: { product: Product; idx: nu
             <span className="csp-save-badge">{discountPercent}% off</span>
           )}
         </div>
+        {product.stock_status !== 'instock' && product.stock_status !== 'onbackorder' && (
+          <span className="csp-stock-label out">Out of Stock</span>
+        )}
         {listMode && product.short_description && (
           <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
         )}
