@@ -13,11 +13,19 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  setUser: (user: AuthUser | null) => void;
+  setUser: (user: AuthUser | { user?: AuthUser | null } | null) => void;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function normalizeUser(user: AuthUser | { user?: AuthUser | null } | null | undefined): AuthUser | null {
+  if (!user) return null;
+  if (typeof user === 'object' && 'user' in user && user.user) {
+    return user.user;
+  }
+  return user as AuthUser;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, isLoggedIn: false, isLoading: true });
@@ -28,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then((json: { success: boolean; data?: { isLoggedIn: boolean; user?: AuthUser } }) => {
         if (json.success && json.data?.isLoggedIn && json.data.user) {
-          setState({ user: json.data.user, isLoggedIn: true, isLoading: false });
+          setState({ user: normalizeUser(json.data.user), isLoggedIn: true, isLoading: false });
         } else {
           setState({ user: null, isLoggedIn: false, isLoading: false });
         }
@@ -36,8 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setState({ user: null, isLoggedIn: false, isLoading: false }));
   }, []);
 
-  const setUser = useCallback((user: AuthUser | null) => {
-    setState({ user, isLoggedIn: !!user, isLoading: false });
+  const setUser = useCallback((user: AuthUser | { user?: AuthUser | null } | null) => {
+    const normalized = normalizeUser(user);
+    setState({ user: normalized, isLoggedIn: !!normalized, isLoading: false });
   }, []);
 
   const logout = useCallback(async () => {

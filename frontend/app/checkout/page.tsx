@@ -1,21 +1,53 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
-import { getRecentOrderAddresses, getActiveCoupon, applyCoupon, removeCoupon, type RecentOrderAddress, type AppliedCoupon } from '../lib/api';
+import {
+  authGoogleLogin,
+  authLogin,
+  getRecentOrderAddresses,
+  getActiveCoupon,
+  applyCoupon,
+  removeCoupon,
+  type AuthUser,
+  type AuthUserResponse,
+  type RecentOrderAddress,
+  type AppliedCoupon,
+} from '../lib/api';
 import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import Script from 'next/script';
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: RazorpayConstructor;
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+          prompt: () => void;
+          cancel?: () => void;
+        };
+      };
+    };
   }
 }
+
+interface RazorpayInstance {
+  open: () => void;
+}
+
+interface RazorpayConstructor {
+  new (options: Record<string, unknown>): RazorpayInstance;
+}
+
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,15 +154,20 @@ function deduplicateCards(cards: PreviousAddressCard[]): PreviousAddressCard[] {
 }
 
 export default function CheckoutPage() {
-  const { items, total, clearCart } = useCart();
+  const { items, total, clearCart, refresh } = useCart();
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, setUser } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
 
   // ─── UI state ───────────────────────────────────────────────────────────────
   const [showLogin, setShowLogin] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleScriptReady, setGoogleScriptReady] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   // ─── Coupon state ────────────────────────────────────────────────────────────
   const [couponInput, setCouponInput] = useState('');
@@ -166,8 +203,103 @@ export default function CheckoutPage() {
   const [cardCvv, setCardCvv] = useState('');
   const [shipForm, setShipForm] = useState<AddressFields>({ ...emptyAddress });
   const [billForm, setBillForm] = useState<AddressFields>({ ...emptyAddress });
+  const handleLoginSuccess = useCallback(async (payload: AuthUser | AuthUserResponse | null | undefined) => {
+    setUser(payload ?? null);
+    await refresh();
+    setLoginError('');
+    setLoginUsername('');
+    setLoginPassword('');
+    setShowLogin(false);
+  }, [refresh, setUser]);
+
+  const handlePasswordLogin = async () => {
+    if (!loginUsername.trim() || !loginPassword.trim()) {
+      setLoginError('Please enter your username/email and password.');
+      return;
+    }
+
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      const res = await authLogin(loginUsername.trim(), loginPassword);
+      if (res.success && res.data) {
+        await handleLoginSuccess(res.data);
+      } else {
+        setLoginError(res.message || 'Login failed.');
+      }
+    } catch {
+      setLoginError('Could not connect to the server.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = useCallback(async (credential: string) => {
+    if (!credential) {
+      setLoginError('Google did not return a sign-in credential.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    setLoginError('');
+
+    try {
+      const res = await authGoogleLogin(credential);
+      if (res.success && res.data) {
+        await handleLoginSuccess(res.data);
+      } else {
+        setLoginError(res.message || 'Google sign-in failed.');
+      }
+    } catch {
+      setLoginError('Could not complete Google sign-in.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [handleLoginSuccess]);
 
   // ─── Load previous order addresses for logged-in users ──────────────────────
+  // Google sign-in button setup
+  useEffect(() => {
+    if (!showLogin || !googleScriptReady || !googleButtonRef.current || !window.google?.accounts?.id) {
+      return;
+    }
+
+    if (!GOOGLE_CLIENT_ID) {
+      setLoginError('Google sign-in is not configured for this environment.');
+      return;
+    }
+
+    const google = window.google.accounts.id;
+    const button = googleButtonRef.current;
+    button.innerHTML = '';
+    google.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: (response) => {
+        if (response.credential) {
+          void handleGoogleLogin(response.credential);
+        } else {
+          setLoginError('Google sign-in did not return a credential.');
+        }
+      },
+    });
+    google.renderButton(googleButtonRef.current, {
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'rectangular',
+      width: 320,
+      logo_alignment: 'left',
+    });
+
+    return () => {
+      if (button) {
+        button.innerHTML = '';
+      }
+    };
+  }, [googleScriptReady, handleGoogleLogin, showLogin]);
+
+  // Load previous order addresses for logged-in users
   useEffect(() => {
     if (!isLoggedIn) return;
     let active = true;
@@ -506,6 +638,12 @@ export default function CheckoutPage() {
         .checkout-toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
         .checkout-card-box, .checkout-account-box, .checkout-shipping-box, .checkout-login-box, .checkout-coupon-box { padding: 18px; border: 1px solid #ece7dc; background: #fff; }
         .checkout-login-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+        .checkout-auth-feedback { margin: 12px 0 0; font-size: 13px; color: #b45309; }
+        .checkout-auth-feedback.error { color: #c62828; }
+        .checkout-google-wrap { display: grid; gap: 10px; margin-top: 16px; }
+        .checkout-auth-divider { display: flex; align-items: center; gap: 12px; color: #8b8175; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+        .checkout-auth-divider::before, .checkout-auth-divider::after { content: ''; flex: 1; height: 1px; background: #ece7dc; }
+        .checkout-google-button { display: flex; align-items: center; justify-content: flex-start; min-height: 48px; overflow: hidden; }
         .checkout-coupon-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
         .checkout-payment-list { margin: 0; padding: 0; display: grid; gap: 12px; }
         .checkout-payment-item { border: 1px solid #eee3d6; border-radius: 10px; padding: 12px 14px; background: #fff; }
@@ -535,6 +673,12 @@ export default function CheckoutPage() {
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
+      />
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={() => setGoogleScriptReady(true)}
+        onError={() => setLoginError('Google sign-in could not load right now.')}
       />
       <Header />
       <div className="dima-main checkout-page">
@@ -568,8 +712,19 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="checkout-login-actions">
-                    <a href="#" className="button small fill uppercase">Login</a>
+                    <button type="button" className="button small fill uppercase" onClick={() => void handlePasswordLogin()} disabled={loginLoading}>
+                      {loginLoading ? 'Logging in...' : 'Login'}
+                    </button>
                     <a href="#" className="lost-pass" style={{ fontSize: 13 }}>Lost Password?</a>
+                  </div>
+                  {loginError && <p className="checkout-auth-feedback error">{loginError}</p>}
+                  <div className="checkout-google-wrap">
+                    <div className="checkout-auth-divider"><span>or</span></div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#6f6459' }}>
+                      Sign in with Google to reuse your saved account and checkout details.
+                    </p>
+                    <div ref={googleButtonRef} className="checkout-google-button" />
+                    {googleLoading && <p className="checkout-auth-feedback">Completing Google sign-in...</p>}
                   </div>
                 </div>
               )}
