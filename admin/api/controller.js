@@ -386,6 +386,7 @@ const getProducts = async (req, res) => {
         if (sortBy === 'price-ascending') orderBy = 'price_min ASC, p.menu_order ASC';
         if (sortBy === 'price-descending') orderBy = 'price_min DESC, p.menu_order ASC';
         if (sortBy === 'title-ascending') orderBy = 'p.product_title ASC';
+        if (sortBy === 'newest') orderBy = 'p.product_date_added DESC, p.ID DESC';
 
         const extraWhere = whereParts.length ? `\n          ${whereParts.join('\n          ')}` : '';
 
@@ -457,6 +458,80 @@ const getOnSaleProducts = async (req, res) => {
         res.json({ success: true, count: products.length, data: products });
     } catch (err) {
         console.error('getOnSaleProducts error:', err);
+        res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
+    }
+};
+
+// Best-selling products based on actual order count (same logic as admin dashboard).
+// Query params: ?limit=N (default 5)
+const getBestSellerProducts = async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+
+        const [rows] = await db.query(`
+            SELECT
+                p.ID,
+                p.product_title AS title,
+                p.product_url   AS slug,
+                p.product_date_added AS date_added,
+                COUNT(oim.meta_value) AS total_sales,
+                (
+                    SELECT m2.media_path
+                    FROM tbl_productmeta pm2
+                    JOIN tbl_media m2 ON m2.media_id = CAST(pm2.meta_value AS UNSIGNED)
+                    WHERE pm2.product_id = p.ID AND pm2.meta_key = '_thumbnail_id'
+                    ORDER BY pm2.meta_id DESC LIMIT 1
+                ) AS thumbnail_url,
+                CAST(COALESCE((
+                    SELECT pm3.meta_value FROM tbl_productmeta pm3
+                    WHERE pm3.product_id = p.ID AND pm3.meta_key = '_price'
+                    AND pm3.meta_value != '' ORDER BY pm3.meta_id DESC LIMIT 1
+                ), '0') AS DECIMAL(10,2)) AS price_min,
+                CAST(COALESCE((
+                    SELECT pm4.meta_value FROM tbl_productmeta pm4
+                    WHERE pm4.product_id = p.ID AND pm4.meta_key = '_regular_price'
+                    AND pm4.meta_value != '' ORDER BY pm4.meta_id DESC LIMIT 1
+                ), '0') AS DECIMAL(10,2)) AS _regular_price,
+                CAST(COALESCE((
+                    SELECT pm5.meta_value FROM tbl_productmeta pm5
+                    WHERE pm5.product_id = p.ID AND pm5.meta_key = '_sale_price'
+                    AND pm5.meta_value != '' ORDER BY pm5.meta_id DESC LIMIT 1
+                ), NULL) AS DECIMAL(10,2)) AS _sale_price,
+                COALESCE((
+                    SELECT pm6.meta_value FROM tbl_productmeta pm6
+                    WHERE pm6.product_id = p.ID AND pm6.meta_key = '_stock_status'
+                    ORDER BY pm6.meta_id DESC LIMIT 1
+                ), 'instock') AS stock_status
+            FROM tbl_order_itemmeta oim
+            INNER JOIN tbl_order_items oi ON oi.order_item_id = oim.order_item_id
+            INNER JOIN tbl_orders o ON o.order_id = oi.order_id
+            INNER JOIN tbl_products p ON p.ID = oim.meta_value
+            WHERE oim.meta_key = '_product_id'
+              AND p.product_status = 'publish'
+              AND (p.parent_id = 0 OR p.parent_id IS NULL)
+              AND o.order_type = 'shop_order'
+            GROUP BY p.ID
+            ORDER BY total_sales DESC
+            LIMIT ?
+        `, [limit]);
+
+        const data = rows.map(r => ({
+            ID:            r.ID,
+            title:         r.title,
+            slug:          r.slug,
+            date_added:    r.date_added,
+            total_sales:   r.total_sales,
+            thumbnail_url: r.thumbnail_url || null,
+            price_min:     r.price_min,
+            price_max:     r.price_min,
+            _regular_price: r._regular_price,
+            _sale_price:   r._sale_price,
+            stock_status:  r.stock_status,
+        }));
+
+        res.json({ success: true, count: data.length, data });
+    } catch (err) {
+        console.error('getBestSellerProducts error:', err);
         res.status(500).json({ success: false, message: 'Server error', ...(NODE_ENV !== 'production' ? { error: err.message || String(err), code: err.code || null } : {}) });
     }
 };
@@ -1160,6 +1235,7 @@ module.exports = {
     getProducts,
     getFeaturedProducts,
     getOnSaleProducts,
+    getBestSellerProducts,
     getProduct,
     getProductBySlug,
     getColors,

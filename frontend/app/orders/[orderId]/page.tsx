@@ -120,9 +120,17 @@ export default function OrderDetailPage() {
   return (
     <>
       <Header />
-      <div className="order-detail-page">
-        <div className="order-detail-wrap">
-          <Link href="/orders" className="order-back">{'<- Back to Orders'}</Link>
+      <div className="dima-main order-detail-page">
+        <nav style={{ padding: '13px 24px', fontSize: 13, color: '#888', display: 'flex', gap: 6, alignItems: 'center', borderBottom: '1px solid #ececec', background: '#fff', flexWrap: 'wrap' as const }}>
+          <Link href="/" style={{ color: '#888', textDecoration: 'none' }}>Home</Link>
+          <span aria-hidden="true">&gt;</span>
+          <Link href="/orders" style={{ color: '#888', textDecoration: 'none' }}>Orders</Link>
+          <span aria-hidden="true">&gt;</span>
+          <span style={{ color: '#1c1c1c', fontWeight: 500 }}>Order #{orderId}</span>
+        </nav>
+        <div className="order-detail-container">
+          <div className="order-detail-wrap">
+            <Link href="/orders" className="order-back">{'<- Back to Orders'}</Link>
 
           {loading && <div className="order-detail-empty">Loading order...</div>}
 
@@ -212,6 +220,7 @@ export default function OrderDetailPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
       <Footer />

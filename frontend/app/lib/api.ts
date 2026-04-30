@@ -184,6 +184,7 @@ export const getProducts    = (searchParams?: URLSearchParams) => {
 };
 export const getFeatured    = (n = 4)   => apiFetch<Product[]>(`/products/featured?limit=${n}`);
 export const getOnSale      = (n?: number) => apiFetch<Product[]>(`/products/on-sale${n ? `?limit=${n}` : ''}`);
+export const getBestSellers = (n = 5)   => apiFetch<Product[]>(`/products/best-sellers?limit=${n}`);
 export const getProductById  = (id: number | string) => apiFetch<ProductDetail>(`/products/${id}`);
 export const getProductBySlug = (slug: string) => apiFetch<ProductDetail>(`/products/slug/${slug}`);
 export const getColors      = ()        => apiFetch<ColorAttribute[]>('/attributes/colors');

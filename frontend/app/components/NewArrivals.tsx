@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getProducts, getImageUrl, type Product } from '../lib/api';
+import { getProducts, getImageUrl, getBestSellers, type Product } from '../lib/api';
 import { formatPrice, formatPriceRange } from '../lib/price';
 import { getDiscountPercent } from '../lib/helpers/pricing';
 import { useWishlist } from '../lib/wishlistContext';
@@ -120,13 +120,8 @@ export default function NewArrivals() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getProducts(new URLSearchParams({ limit: '20' }))
-      .then(all => {
-        const newest = [...all]
-          .sort((a, b) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime())
-          .slice(0, 5);
-        setProducts(newest);
-      })
+    getProducts(new URLSearchParams({ sort_by: 'newest', limit: '5' }))
+      .then(all => setProducts(all.slice(0, 5)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -146,8 +141,8 @@ export function BestSellers() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getProducts(new URLSearchParams({ sort_by: 'best-selling', limit: '5' }))
-      .then(all => setProducts(all.slice(0, 5)))
+    getBestSellers(5)
+      .then(data => setProducts(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

@@ -5,7 +5,7 @@ import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Coffr';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'NESTCASE';
 const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
 
 export const metadata: Metadata = {

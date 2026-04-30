@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} | Hoodies, Mugs, Decals & More`,
     description:
       'Shop custom hoodies, tumblers, mugs, decals and more. Free shipping on orders above $99.',
-    images: [`${SITE_URL}/store/images/logo-white.png`],
+    images: [`${SITE_URL}/images/logo/Nestcase_Logo.png`],
   },
   robots: { index: true, follow: true },
 };
@@ -68,7 +68,7 @@ const jsonLd = {
       name: SITE_NAME,
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE_URL}/store/images/logo/Nestcase_logo.png`,
+        url: `${SITE_URL}/images/logo/Nestcase_Logo.png`,
       },
     },
     {

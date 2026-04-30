@@ -23,6 +23,7 @@ import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import Script from 'next/script';
+import './checkout.css';
 declare global {
   interface Window {
     Razorpay: RazorpayConstructor;
@@ -702,9 +703,22 @@ export default function CheckoutPage() {
     return (
       <>
         <Header />
-        <div className="dima-main" style={{ textAlign: 'center', padding: '80px 20px' }}>
-          <p style={{ fontSize: 18, marginBottom: 20 }}>Your cart is empty.</p>
-          <Link href="/shop" className="btn-view-product btn-view-product--inline">Go to Shop</Link>
+        <div className="dima-main checkout-page">
+          <nav style={{ padding: '13px 48px', fontSize: 13, color: '#888', display: 'flex', gap: 6, alignItems: 'center', borderBottom: '1px solid #ececec', background: '#fff', flexWrap: 'wrap' as const }}>
+            <Link href="/" style={{ color: '#888', textDecoration: 'none' }}>Home</Link>
+            <span aria-hidden="true">&gt;</span>
+            <Link href="/shop" style={{ color: '#888', textDecoration: 'none' }}>Shop</Link>
+            <span aria-hidden="true">&gt;</span>
+            <span style={{ color: '#1c1c1c', fontWeight: 500 }}>Checkout</span>
+          </nav>
+          <section className="section">
+            <div className="page-section-content overflow-hidden checkout-content">
+              <div className="container" style={{ textAlign: 'center', padding: '64px 20px' }}>
+                <p style={{ fontSize: 18, marginBottom: 20 }}>Your cart is empty.</p>
+                <Link href="/shop" className="btn-view-product btn-view-product--inline">Go to Shop</Link>
+              </div>
+            </div>
+          </section>
         </div>
         <Footer />
       </>
@@ -713,95 +727,6 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <style>{`
-        .checkout-page { padding-bottom: 40px; }
-        .checkout-content { padding-top: 24px; }
-        .checkout-alert { margin-bottom: 16px; }
-        .checkout-box { margin-bottom: 18px; padding: 18px 20px; border: 1px solid #ece7dc; background: #fff; }
-        .checkout-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); gap: 32px; align-items: start; }
-        .checkout-main, .checkout-side { min-width: 0; }
-        .checkout-side .order-products { padding: 22px; border: 1px solid #ece7dc; background: #fff; position: sticky; top: 96px; }
-        .checkout-summary-card { padding: 18px; border: 1px solid #e9e1d5; border-radius: 8px; background: #fff; margin-bottom: 18px; }
-        .checkout-summary-title { margin: 0 0 14px; font-size: 20px; font-weight: 700; color: #1a1a1a; }
-        .checkout-summary-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: #444; padding: 8px 0; border-bottom: 1px solid #f1ece4; }
-        .checkout-summary-row:last-child { border-bottom: none; }
-        .checkout-summary-total { display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: 700; padding-top: 12px; }
-        .checkout-order-items { margin-top: 6px; }
-        .checkout-order-item { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1ece4; }
-        .checkout-order-item:last-child { border-bottom: none; }
-        .checkout-order-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #eee3d6; background: #faf6f0; }
-        .checkout-order-meta { font-size: 14px; color: #222; }
-        .checkout-order-meta span { display: block; font-size: 12px; color: #777; margin-top: 4px; }
-        .checkout-order-price { font-weight: 700; font-size: 14px; color: #222; }
-        .checkout-cta { margin: 18px 0; }
-        .checkout-page .field > label:not(.checkout-toggle-label) { display: none; }
-        .checkout-page .field input, .checkout-page .field select, .checkout-page .field textarea { font-size: 13px; padding: 8px 12px; border-radius: 4px; }
-        .checkout-page .field input, .checkout-page .field select { height: 40px; }
-        .checkout-page .field textarea { min-height: 80px; }
-        .ck-box { width: 20px; height: 20px; min-width: 20px; min-height: 20px; border: 2px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; box-sizing: border-box; }
-        .ck-box.checked { background: #e53935; border-color: #e53935; }
-        .ck-box.checked::after { content: ''; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translateY(-1px); display: block; }
-        .checkout-toggle-label, .checkout-terms label { gap: 10px; font-size: 15px; font-weight: 600; color: #2563eb; }
-        .checkout-terms label span, .checkout-terms label a { color: #2563eb; font-weight: 600; }
-        .checkout-section-title { margin: 0 0 16px; font-size: 24px; font-weight: 700; color: #1a1a1a; }
-        .checkout-subsection-title { margin: 26px 0 14px; font-size: 22px; font-weight: 700; color: #1a1a1a; }
-        .checkout-inline-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-        .checkout-toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
-        .checkout-card-box, .checkout-account-box, .checkout-shipping-box, .checkout-login-box, .checkout-coupon-box { padding: 18px; border: 1px solid #ece7dc; background: #fff; }
-        .checkout-login-box p { font-size: 14px; color: #444; line-height: 1.6; margin-bottom: 14px; }
-        .checkout-login-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
-        .checkout-auth-feedback { margin: 12px 0 0; font-size: 13px; color: #b45309; }
-        .checkout-auth-feedback.error { color: #c62828; }
-        .checkout-google-wrap { display: grid; gap: 10px; margin-top: 16px; }
-        .checkout-auth-divider { display: flex; align-items: center; gap: 12px; color: #8b8175; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-        .checkout-auth-divider::before, .checkout-auth-divider::after { content: ''; flex: 1; height: 1px; background: #ece7dc; }
-        .checkout-google-button { display: flex; align-items: center; justify-content: flex-start; min-height: 48px; overflow: hidden; width: 100%; }
-        .checkout-coupon-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
-        .checkout-payment-list { margin: 0; padding: 0; display: grid; gap: 12px; }
-        .checkout-payment-item { border: 1px solid #eee3d6; border-radius: 10px; padding: 12px 14px; background: #fff; }
-        .checkout-payment-item.selected { border-color: #00cfc1; background: #f7fffd; }
-        .checkout-payment-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; width: 100%; }
-        .checkout-payment-label input { margin-top: 3px; }
-        .checkout-card-box { border: 1px solid #eee3d6; background: #fff; border-radius: 10px; padding: 14px; }
-        .checkout-submit { width: 100%; margin-bottom: 12px; cursor: pointer; }
-        .checkout-terms { margin-top: 8px; font-size: 13px; }
-        .checkout-terms a { white-space: nowrap; }
-        .checkout-prev-addr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-bottom: 14px; }
-        .address-card { border: 1px solid #e6ded3; border-radius: 10px; padding: 14px 16px; background: #fff; text-align: left; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
-        .address-card:hover { border-color: #d2c7b8; box-shadow: 0 10px 22px rgba(0,0,0,0.06); transform: translateY(-2px); }
-        .address-card.selected { border-color: #00cfc1; box-shadow: 0 10px 22px rgba(0,207,193,0.15); background: #f7fffd; }
-        .address-card-tag { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 11px; border-radius: 999px; background: #eaf0ff; color: #2f5bd6; margin-bottom: 10px; font-weight: 600; }
-        .address-card-name { font-size: 14px; font-weight: 700; color: #222; margin-bottom: 6px; }
-        .address-card-line { font-size: 13px; color: #5f5a52; line-height: 1.5; }
-        .address-card-phone { font-size: 12px; color: #7b746b; margin-top: 6px; }
-        .address-card.add-new { border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; color: #3a3a3a; min-height: 80px; }
-        .address-card.add-new span { font-size: 13px; }
-        .address-help { font-size: 13px; color: #6f6a61; margin: 0 0 10px; }
-        @media (max-width: 991px) { .checkout-content { padding-top: 18px; } .checkout-grid { grid-template-columns: 1fr; } .checkout-side .order-products { position: static; } }
-        @media (max-width: 767px) { .checkout-page { padding-bottom: 28px; } .checkout-content { padding-top: 14px; } .checkout-box, .checkout-card-box, .checkout-account-box, .checkout-shipping-box, .checkout-login-box, .checkout-coupon-box, .checkout-side .order-products { padding: 16px; } .checkout-inline-row, .checkout-coupon-grid { grid-template-columns: 1fr; gap: 12px; } .checkout-section-title { font-size: 22px; } .checkout-subsection-title { font-size: 20px; } .checkout-order-toggle { align-items: stretch; flex-direction: column; } }
-        .register-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .register-modal { background: #fff; border: 1px solid #ece8df; width: 100%; max-width: 460px; padding: 32px 28px 28px; position: relative; }
-        .register-modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; cursor: pointer; font-size: 18px; color: #555; line-height: 1; padding: 6px; display: flex; align-items: center; justify-content: center; }
-        .register-modal-close:hover { color: #111; }
-        .register-modal-title { margin: 0 0 4px; font-size: 26px; font-weight: 800; color: #1a1a1a; letter-spacing: 0.01em; }
-        .register-modal-sub { margin: 0 0 22px; font-size: 14px; color: #666; }
-        .register-modal-label { display: block; font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
-        .register-modal-label span { color: #e53935; margin-left: 2px; }
-        .register-modal-input { width: 100%; height: 48px; font-size: 14px; padding: 0 14px; border: 1px solid #d4cfc8; background: #f7f4f0; border-radius: 0; box-sizing: border-box; outline: none; color: #1a1a1a; }
-        .register-modal-input:focus { border-color: #2bbfaa; background: #fff; }
-        .register-modal-field { margin-bottom: 16px; }
-        .register-modal-submit { width: 100%; height: 48px; background: #2bbfaa; color: #fff; border: none; font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; margin-top: 4px; }
-        .register-modal-submit:hover { background: #22a896; }
-        .register-modal-submit:disabled { opacity: 0.65; cursor: not-allowed; }
-        .register-modal-err { color: #c62828; font-size: 13px; margin: 8px 0 0; }
-        .register-modal-success { color: #2bbfaa; font-size: 13px; margin: 8px 0 0; }
-        .register-modal-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: #999; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-        .register-modal-divider::before, .register-modal-divider::after { content: ''; flex: 1; height: 1px; background: #e8e0d8; }
-        .register-modal-google { min-height: 48px; display: flex; align-items: center; width: 100%; }
-        .register-modal-google-msg { font-size: 13px; color: #b45309; margin: 6px 0 0; }
-        @media (max-width: 480px) { .checkout-page .page-section { padding-top: 28px; padding-bottom: 28px; } .checkout-section-title { font-size: 20px; } .checkout-subsection-title { font-size: 18px; } .checkout-login-actions > * { width: 100%; text-align: center; } .checkout-terms label { align-items: flex-start !important; } }
-      `}</style>
-
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"

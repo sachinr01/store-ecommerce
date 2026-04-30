@@ -79,4 +79,10 @@
   .footer-grid {
     grid-template-columns: 1fr;
   }
+  .footer-top,
+  .footer-bottom,
+  .footer-bottom2 {
+    padding-left: 45px;
+    padding-right: 45px;
+  }
 }

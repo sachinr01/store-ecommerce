@@ -17,11 +17,12 @@ router.use(sessionMiddleware());
 router.get('/health', (_req, res) => res.json({ success: true, message: 'API is running' }));
 
 // ── Products ──────────────────────────────────────────────────────────────────
-router.get('/products/featured',   ctrl.getFeaturedProducts);
-router.get('/products/on-sale',    ctrl.getOnSaleProducts);
-router.get('/products',            ctrl.getProducts);
-router.get('/products/slug/:slug', ctrl.getProductBySlug);
-router.get('/products/:id',        ctrl.getProduct);
+router.get('/products/featured',      ctrl.getFeaturedProducts);
+router.get('/products/on-sale',       ctrl.getOnSaleProducts);
+router.get('/products/best-sellers',  ctrl.getBestSellerProducts);
+router.get('/products',               ctrl.getProducts);
+router.get('/products/slug/:slug',    ctrl.getProductBySlug);
+router.get('/products/:id',           ctrl.getProduct);
 
 // ── Media ─────────────────────────────────────────────────────────────────────
 // NOTE: static routes before dynamic :id
