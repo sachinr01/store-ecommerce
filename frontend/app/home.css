@@ -1,6 +1,5 @@
 /* ─── HOME PAGE RESPONSIVE STYLES ─── */
 
-/* Announcement bar */
 .ann-bar {
   background: #1a1a1a;
   color: #fff;
@@ -12,17 +11,9 @@
 }
 
 /* ─── SECTION SHARED ─── */
-.home-section {
-  padding: 56px 5%;
-}
-.home-section-alt {
-  padding: 56px 5%;
-  background: #fff;
-}
-.home-section-gray {
-  padding: 56px 5%;
-  background: #fafafa;
-}
+.home-section        { padding: 56px 5%; }
+.home-section-alt    { padding: 56px 5%; background: #fff; }
+.home-section-gray   { padding: 56px 5%; background: #fafafa; }
 
 .section-title {
   text-align: center;
@@ -40,17 +31,13 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
-.cat-card {
-  text-align: center;
-  cursor: pointer;
-}
+.cat-card { text-align: center; cursor: pointer; }
 .cat-card img {
   width: 100%;
-  border-radius: 8px;
+  height: 220px;        /* ← CHANGE for category image height */
   display: block;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  transition: transform 0.3s ease;
+  border-radius: 8px;
+  object-fit: fill;     /* stretches to exact box, no cropping */
 }
 .cat-card:hover img { transform: scale(1.04); }
 .cat-label {
@@ -58,65 +45,46 @@
   font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
-  text-align: center;
-}
-.cat-card h3 {
-  margin: 12px 0 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
 }
 
-/* ─── PRODUCT GRIDS (Newly Launched / Best Sellers) ─── */
+/* ─── PRODUCT GRIDS ─── */
 .product-section { margin-bottom: 52px; }
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
-.product-card {
-  text-align: center;
-  cursor: pointer;
-}
+.product-card { text-align: center; cursor: pointer; }
 .product-card-img-wrap {
   overflow: hidden;
   border-radius: 6px;
+  width: 100%;
+  height: 280px;        /* ← CHANGE for product image height */
 }
 .product-card-img-wrap img {
   width: 100%;
+  height: 100%;
   display: block;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
+  object-fit: fill;     /* stretches to exact box */
   transition: transform 0.35s ease;
 }
 .product-card:hover .product-card-img-wrap img { transform: scale(1.06); }
-.product-card p {
-  margin: 10px 0 4px;
-  font-size: 14px;
-  color: #444;
-}
-.product-card strong {
-  font-size: 15px;
-  color: #1a1a1a;
-}
-.view-all-wrap { /* use .btn-view-product-wrap from styles-shop.css */ }
-.view-all-btn { /* use .btn-view-product.btn-view-product--inline from styles-shop.css */ }
+.product-card p      { margin: 10px 0 4px; font-size: 14px; color: #444; }
+.product-card strong { font-size: 15px; color: #1a1a1a; }
 
-/* ─── VIDEO / FULL-WIDTH BANNER ─── */
+/* ─── FULL-WIDTH BANNER ─── */
 .video-banner {
   width: 100%;
   height: 450px;
   position: relative;
   overflow: hidden;
-  background: transparent;
 }
 .video-banner-bg {
   position: absolute;
   inset: 0;
   background-image: url('/store/images/ecommerce/FILLER_BANNER.png');
-  background-size: cover;
-  background-position: center;
-  opacity: 1;
+  background-size: 100% 100%;  /* stretches exactly */
+  background-repeat: no-repeat;
 }
 .video-banner-overlay {
   position: absolute;
@@ -159,17 +127,21 @@
 }
 .video-banner-btn:hover { background: #fff; color: #000; }
 
-/* ─── CURATED GIFTING ─── */
+/* ─── COLLECTION COLLAGE ─── */
 .gifting-collage {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  grid-template-rows: 300px 300px;
+  grid-template-rows: 300px 300px; /* ← CHANGE for collection panel height */
   gap: 15px;
 }
 .gift-panel {
-  background-size: cover;
+  background-size: 100% 100%;  /* stretches to exact box, no cropping */
+  background-repeat: no-repeat;
   background-position: center;
   border-radius: 6px;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .gift-panel-tall { grid-row: span 2; }
 
@@ -183,12 +155,14 @@
   overflow: hidden;
   border-radius: 6px;
   cursor: pointer;
+  width: 100%;
+  height: 280px;        /* ← CHANGE for popular category height */
 }
 .pop-cat-item img {
   width: 100%;
+  height: 100%;
   display: block;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
+  object-fit: fill;     /* stretches to exact box */
   transition: transform 0.3s ease;
 }
 .pop-cat-item:hover img { transform: scale(1.05); }
@@ -199,53 +173,25 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
-.blog-card {
-  border: 1px solid #eee;
-  background: #fff;
-  border-radius: 6px;
-  overflow: hidden;
-}
+.blog-card { border: 1px solid #eee; background: #fff; border-radius: 6px; overflow: hidden; }
 .blog-card img {
   width: 100%;
+  height: 220px;        /* ← CHANGE for blog image height */
   display: block;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
+  object-fit: fill;
 }
 .blog-card-body { padding: 14px 16px 18px; }
-.blog-card-date {
-  font-size: 12px;
-  font-style: italic;
-  color: #888;
-}
-.blog-card-title {
-  margin: 8px 0 10px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.45;
-  color: #1a1a1a;
-}
-.blog-card-link {
-  font-size: 13px;
-  color: #c8a000;
-  text-decoration: none;
-  font-weight: 600;
-}
+.blog-card-date { font-size: 12px; font-style: italic; color: #888; }
+.blog-card-title { margin: 8px 0 10px; font-size: 14px; font-weight: 600; line-height: 1.45; color: #1a1a1a; }
+.blog-card-link { font-size: 13px; color: #c8a000; text-decoration: none; font-weight: 600; }
 .blog-card-link:hover { text-decoration: underline; }
-
-/* ─── SLIDER RESPONSIVE ─── */
-@media (max-width: 768px) {
-  .slider-root { height: 60vw !important; min-height: 320px !important; }
-}
-@media (max-width: 480px) {
-  .slider-root { height: 70vw !important; min-height: 260px !important; }
-}
 
 /* ─── TABLET (≤ 1024px) ─── */
 @media (max-width: 1024px) {
-  .cat-grid       { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  .product-grid   { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  .pop-cat-grid   { grid-template-columns: repeat(2, 1fr); }
-  .blog-grid      { grid-template-columns: repeat(2, 1fr); }
+  .cat-grid     { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .pop-cat-grid { grid-template-columns: repeat(2, 1fr); }
+  .blog-grid    { grid-template-columns: repeat(2, 1fr); }
   .gifting-collage {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 240px 240px;
@@ -259,26 +205,21 @@
   .home-section,
   .home-section-alt,
   .home-section-gray { padding: 36px 4%; }
-
   .section-title { font-size: 20px; margin-bottom: 22px; }
-
-  .cat-grid       { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .product-grid   { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .pop-cat-grid   { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .blog-grid      { grid-template-columns: 1fr; }
-
+  .cat-grid     { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pop-cat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .blog-grid    { grid-template-columns: 1fr; }
   .gifting-collage {
     grid-template-columns: 1fr;
-    grid-template-rows: 220px 180px 180px;
+    grid-template-rows: 260px 200px 200px;
   }
   .gift-panel-tall { grid-row: span 1; }
-
   .video-banner { height: 280px; }
   .video-banner-btn { padding: 10px 28px; font-size: 12px; }
-
-  .view-all-btn { padding: 11px 32px; font-size: 12px; }
-
   .ann-bar { font-size: 10px; letter-spacing: 0.5px; padding: 7px 12px; }
+  .pop-cat-item { height: 200px; }
+  .product-card-img-wrap { height: 200px; }
 }
 
 /* ─── SMALL MOBILE (≤ 400px) ─── */
@@ -287,4 +228,7 @@
   .product-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .blog-grid    { grid-template-columns: 1fr; }
   .video-banner { height: 240px; }
+  .gifting-collage { grid-template-rows: 220px 180px 180px; }
+  .pop-cat-item { height: 160px; }
+  .product-card-img-wrap { height: 160px; }
 }

@@ -4,12 +4,18 @@ export default function CuratedGifting() {
       <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 45px' }}>
         <h2 className="section-title">Collection</h2>
         <div className="gifting-collage">
-          <div className="gift-panel gift-panel-tall"
-            style={{ backgroundImage: "url('/store/images/category_images/CC_TUMBLERS.png')" }} />
-          <div className="gift-panel"
-            style={{ backgroundImage: "url('/store/images/category_images/CC_GLASSWARE.png')" }} />
-          <div className="gift-panel"
-            style={{ backgroundImage: "url('/store/images/category_images/CC_KITCHEN_ORGANISERS.png')" }} />
+          <div
+            className="gift-panel gift-panel-tall"
+            style={{ backgroundImage: "url('/store/images/category_images/CC_TUMBLERS.png')" }}
+          />
+          <div
+            className="gift-panel"
+            style={{ backgroundImage: "url('/store/images/category_images/CC_GLASSWARE.png')" }}
+          />
+          <div
+            className="gift-panel"
+            style={{ backgroundImage: "url('/store/images/category_images/CC_KITCHEN_ORGANISERS.png')" }}
+          />
         </div>
       </div>
     </section>

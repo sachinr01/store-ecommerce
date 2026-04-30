@@ -21,8 +21,15 @@ export default function Slider() {
   return (
     <div className="slider-root">
       {slides.map((slide, index) => (
-        <div key={index} className={`slider-slide ${index === currentSlide ? "active" : "inactive"}`}>
-          <img src={slide.image} alt="Banner" className="slider-bg-img" />
+        <div
+          key={index}
+          className={`slider-slide ${index === currentSlide ? "active" : "inactive"}`}
+        >
+          <img
+            src={slide.image}
+            alt="Banner"
+            className="slider-bg-img"
+          />
         </div>
       ))}
 
@@ -39,14 +46,18 @@ export default function Slider() {
             ))}
           </div>
           <button
-            onClick={() => setCurrentSlide((p) => (p - 1 + slides.length) % slides.length)}
+            onClick={() =>
+              setCurrentSlide((p) => (p - 1 + slides.length) % slides.length)
+            }
             aria-label="Previous slide"
             className="slider-arrow prev"
           >
             &#8249;
           </button>
           <button
-            onClick={() => setCurrentSlide((p) => (p + 1) % slides.length)}
+            onClick={() =>
+              setCurrentSlide((p) => (p + 1) % slides.length)
+            }
             aria-label="Next slide"
             className="slider-arrow next"
           >
