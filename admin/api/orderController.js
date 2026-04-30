@@ -462,21 +462,49 @@ const placeOrder = async (req, res) => {
         .json({ success: false, message: "Cart is empty." });
     }
 
-    // ── 1b. Stock check for all cart items ────────────────────────────────────
+    // ── 1b. Stock check for all cart items (with row locking for race safety) ──
     for (const item of cartItems) {
       const checkId =
         item.variation_id && item.variation_id > 0
           ? item.variation_id
           : item.product_id;
-      const [[stockRow]] = await conn.query(
-        `SELECT COALESCE((SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_stock_status' ORDER BY meta_id DESC LIMIT 1), 'instock') AS stock_status`,
+      const qty = Number(item.quantity || 0);
+
+      // FOR UPDATE locks these rows so two simultaneous orders can't both pass
+      const [[stockStatusRow]] = await conn.query(
+        `SELECT meta_value AS stock_status
+         FROM tbl_productmeta
+         WHERE product_id = ? AND meta_key = '_stock_status'
+         LIMIT 1
+         FOR UPDATE`,
         [checkId],
       );
-      if (stockRow && stockRow.stock_status === "outofstock") {
+
+      const [[stockQtyRow]] = await conn.query(
+        `SELECT CAST(meta_value AS SIGNED) AS stock
+         FROM tbl_productmeta
+         WHERE product_id = ? AND meta_key = '_stock'
+         LIMIT 1
+         FOR UPDATE`,
+        [checkId],
+      );
+
+      const stockStatus = stockStatusRow ? stockStatusRow.stock_status : "instock";
+      const stockQty = stockQtyRow ? stockQtyRow.stock : 0;
+
+      if (stockStatus === "outofstock") {
         await conn.rollback();
         return res.status(400).json({
           success: false,
           message: `"${item.title || "A product in your cart"}" is out of stock. Please remove it before placing your order.`,
+        });
+      }
+
+      if (stockQty < qty) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `"${item.title || "A product in your cart"}" only has ${stockQty} left in stock but you ordered ${qty}. Please update your cart.`,
         });
       }
     }
@@ -687,6 +715,46 @@ const placeOrder = async (req, res) => {
         await conn.query(
           "INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)",
           [orderItemId, metaKey, metaValue],
+        );
+      }
+    }
+
+    // ── 6b. Deduct stock for each purchased item (atomic, inside transaction) ──
+    for (const item of cartItems) {
+      const qty = Number(item.quantity || 0);
+      if (!qty) continue;
+
+      // Use variation_id if present, otherwise product_id
+      const stockProductId =
+        item.variation_id && Number(item.variation_id) > 0
+          ? item.variation_id
+          : item.product_id;
+
+      // Deduct stock — rows already locked by FOR UPDATE in step 1b
+      await conn.query(
+        `UPDATE tbl_productmeta
+         SET meta_value = GREATEST(0, CAST(meta_value AS SIGNED) - ?)
+         WHERE product_id = ? AND meta_key = '_stock'`,
+        [qty, stockProductId],
+      );
+
+      // Re-read remaining stock and flip status to outofstock if depleted
+      const [[stockResult]] = await conn.query(
+        `SELECT CAST(meta_value AS SIGNED) AS stock
+         FROM tbl_productmeta
+         WHERE product_id = ? AND meta_key = '_stock'
+         LIMIT 1`,
+        [stockProductId],
+      );
+
+      const remainingStock = stockResult ? stockResult.stock : 0;
+
+      if (remainingStock <= 0) {
+        await conn.query(
+          `UPDATE tbl_productmeta
+           SET meta_value = 'outofstock'
+           WHERE product_id = ? AND meta_key = '_stock_status'`,
+          [stockProductId],
         );
       }
     }
@@ -1385,17 +1453,82 @@ const updateOrderStatus = async (req, res) => {
       .status(400)
       .json({ success: false, message: "orderId and status required." });
   }
+
+  const STOCK_RESTORE_STATUSES = ["wc-cancelled", "wc-refunded", "wc-failed"];
+
+  const conn = await db.getConnection();
   try {
-    await db.query(
+    await conn.beginTransaction();
+
+    // Get current status before updating
+    const [[currentOrder]] = await conn.query(
+      "SELECT order_status FROM tbl_orders WHERE order_id = ? LIMIT 1",
+      [orderId],
+    );
+    const previousStatus = currentOrder ? currentOrder.order_status : "";
+
+    await conn.query(
       "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
       [status, orderId],
     );
+
+    // ── Restore stock when order is cancelled, refunded, or failed ────────────
+    // Only restore if transitioning INTO a terminal status (not already there)
+    const isNewlyTerminal =
+      STOCK_RESTORE_STATUSES.includes(status) &&
+      !STOCK_RESTORE_STATUSES.includes(previousStatus);
+
+    if (isNewlyTerminal) {
+      // Get all line items for this order
+      const [orderItems] = await conn.query(
+        `SELECT oi.product_id,
+                MAX(CASE WHEN oim.meta_key = '_variation_id' THEN oim.meta_value END) AS variation_id,
+                MAX(CASE WHEN oim.meta_key = '_qty'          THEN oim.meta_value END) AS qty
+         FROM tbl_order_items oi
+         LEFT JOIN tbl_order_itemmeta oim ON oim.order_item_id = oi.order_item_id
+         WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+         GROUP BY oi.order_item_id, oi.product_id`,
+        [orderId],
+      );
+
+      for (const item of orderItems) {
+        const qty = Number(item.qty || 0);
+        if (!qty) continue;
+
+        const stockProductId =
+          item.variation_id && Number(item.variation_id) > 0
+            ? item.variation_id
+            : item.product_id;
+
+        // Add stock back
+        await conn.query(
+          `UPDATE tbl_productmeta
+           SET meta_value = CAST(meta_value AS SIGNED) + ?
+           WHERE product_id = ? AND meta_key = '_stock'`,
+          [qty, stockProductId],
+        );
+
+        // Re-enable instock status if it was outofstock
+        await conn.query(
+          `UPDATE tbl_productmeta
+           SET meta_value = 'instock'
+           WHERE product_id = ? AND meta_key = '_stock_status'
+             AND meta_value = 'outofstock'`,
+          [stockProductId],
+        );
+      }
+    }
+
+    await conn.commit();
     res.json({ success: true });
   } catch (err) {
+    await conn.rollback();
     console.error("updateOrderStatus error:", err);
     res
       .status(500)
       .json({ success: false, message: "Failed to update order status." });
+  } finally {
+    conn.release();
   }
 };
 
