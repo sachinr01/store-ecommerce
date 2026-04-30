@@ -225,7 +225,7 @@ export default function Header() {
               <span className="nh-hamburger-lines"><span /><span /><span /></span>
             </button>
             <Link href="/" className="nh-logo-link" onClick={closeOverlays}>
-              <Image src="/store/images/logo/Nestcase_Logo.png" alt="Nestcase" width={220} height={80} priority className="nh-logo-image" />
+              <Image src="/store/images/Nestcase.png" alt="Nestcase" width={220} height={80} priority className="nh-logo-image" />
             </Link>
           </div>
 
@@ -503,7 +503,7 @@ export default function Header() {
       {mobileMenuOpen && <div className="nh-drawer-overlay" onClick={() => setMobileMenuOpen(false)} />}
       <aside className={`nh-drawer${mobileMenuOpen ? ' open' : ''}`} aria-hidden={!mobileMenuOpen}>
         <div className="nh-drawer-head">
-          <Image src="/store/images/logo/Nestcase_Logo.png" alt="Nestcase" width={200} height={60} style={{ width: 'auto', height: '60px' }}/>
+          <Image src="/store/images/Nestcase.png" alt="Nestcase" width={200} height={60} style={{ width: 'auto', height: '60px' }}/>
           <button type="button" className="nh-search-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">×</button>
         </div>
         <ul className="nh-drawer-nav">
