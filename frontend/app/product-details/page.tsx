@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -216,14 +217,7 @@ function ProductDetailsInner({ id, slug }: { id?: string; slug?: string }) {
       <p style={{ marginTop: 16, fontFamily: 'sans-serif', color: '#888' }}>Loading product…</p>
     </div>
   );
-  if (error || !product) return (
-    <div className="cpd-centered">
-      <p style={{ fontFamily: 'sans-serif', color: '#e74c3c', maxWidth: 480, textAlign: 'center', padding: '0 16px' }}>
-        {error ?? 'Product not found.'}
-      </p>
-      <a href="/shop" style={{ marginTop: 16, fontFamily: 'sans-serif', fontSize: 13, color: '#555' }}>← Back to shop</a>
-    </div>
-  );
+  if (error || !product) return notFound();
 
   /* -- Variation logic -- */
   const hasColors = product.variations.some(v => v.color) || (product.attributes?.colors?.length ?? 0) > 0;

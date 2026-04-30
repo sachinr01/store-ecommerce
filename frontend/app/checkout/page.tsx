@@ -9,6 +9,7 @@ import { useCart } from '../lib/cartContext';
 import {
   authGoogleLogin,
   authLogin,
+  authRegister,
   getRecentOrderAddresses,
   getActiveCoupon,
   applyCoupon,
@@ -159,6 +160,7 @@ export default function CheckoutPage() {
   const { isLoggedIn, setUser } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const regGoogleRef = useRef<HTMLDivElement | null>(null);
 
   // ─── UI state ───────────────────────────────────────────────────────────────
   const [showLogin, setShowLogin] = useState(false);
@@ -168,6 +170,15 @@ export default function CheckoutPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleScriptReady, setGoogleScriptReady] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  // ─── Register modal state ────────────────────────────────────────────────────
+  const [showRegister, setShowRegister] = useState(false);
+  const [regUsername, setRegUsername] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [regSuccess, setRegSuccess] = useState('');
 
   // ─── Coupon state ────────────────────────────────────────────────────────────
   const [couponInput, setCouponInput] = useState('');
@@ -211,6 +222,49 @@ export default function CheckoutPage() {
     setLoginPassword('');
     setShowLogin(false);
   }, [refresh, setUser]);
+
+  const handleRegister = async () => {
+    setRegError('');
+    setRegSuccess('');
+    if (!regUsername.trim() || !regEmail.trim() || !regPassword.trim()) {
+      setRegError('All fields are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      setRegError('Please enter a valid email address.');
+      return;
+    }
+    if (regPassword.length < 6) {
+      setRegError('Password must be at least 6 characters.');
+      return;
+    }
+    setRegLoading(true);
+    try {
+      const res = await authRegister(regUsername.trim(), regEmail.trim(), regPassword);
+      if (res.success) {
+        // Fetch the actual session user so AuthContext reflects the new login
+        const me = await fetch('/store/api/auth/me', { credentials: 'include' }).then(r => r.json());
+        if (me.success && me.data?.isLoggedIn && me.data.user) {
+          setUser(me.data.user);
+        }
+        await refresh();
+        setRegSuccess('Account created! You are now logged in.');
+        setRegUsername('');
+        setRegEmail('');
+        setRegPassword('');
+        setTimeout(() => {
+          setShowRegister(false);
+          setRegSuccess('');
+        }, 1500);
+      } else {
+        setRegError(res.message || 'Registration failed.');
+      }
+    } catch {
+      setRegError('Could not connect to the server.');
+    } finally {
+      setRegLoading(false);
+    }
+  };
 
   const handlePasswordLogin = async () => {
     if (!loginUsername.trim() || !loginPassword.trim()) {
@@ -258,46 +312,57 @@ export default function CheckoutPage() {
     }
   }, [handleLoginSuccess]);
 
-  // ─── Load previous order addresses for logged-in users ──────────────────────
-  // Google sign-in button setup
+  // ─── Google button for login panel ──────────────────────────────────────────
   useEffect(() => {
-    if (!showLogin || !googleScriptReady || !googleButtonRef.current || !window.google?.accounts?.id) {
-      return;
-    }
-
+    if (!showLogin) return;
     if (!GOOGLE_CLIENT_ID) {
       setLoginError('Google sign-in is not configured for this environment.');
       return;
     }
 
-    const google = window.google.accounts.id;
-    const button = googleButtonRef.current;
-    button.innerHTML = '';
-    google.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: (response) => {
-        if (response.credential) {
-          void handleGoogleLogin(response.credential);
-        } else {
-          setLoginError('Google sign-in did not return a credential.');
+    const tryRender = () => {
+      if (!googleButtonRef.current || !window.google?.accounts?.id) return false;
+      const w = googleButtonRef.current.offsetWidth || 400;
+      const google = window.google.accounts.id;
+      googleButtonRef.current.innerHTML = '';
+      google.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response: { credential?: string }) => {
+          if (response.credential) {
+            void handleGoogleLogin(response.credential);
+          } else {
+            setLoginError('Google sign-in did not return a credential.');
+          }
+        },
+      });
+      google.renderButton(googleButtonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'rectangular',
+        width: w,
+        logo_alignment: 'left',
+      });
+      return true;
+    };
+
+    if (googleScriptReady) {
+      tryRender();
+    } else {
+      // Script not ready yet — poll until it is
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          tryRender();
         }
-      },
-    });
-    google.renderButton(googleButtonRef.current, {
-      theme: 'outline',
-      size: 'large',
-      text: 'signin_with',
-      shape: 'rectangular',
-      width: 320,
-      logo_alignment: 'left',
-    });
+      }, 200);
+      return () => clearInterval(interval);
+    }
 
     return () => {
-      if (button) {
-        button.innerHTML = '';
-      }
+      if (googleButtonRef.current) googleButtonRef.current.innerHTML = '';
     };
-  }, [googleScriptReady, handleGoogleLogin, showLogin]);
+  }, [showLogin, googleScriptReady, handleGoogleLogin]);
 
   // Load previous order addresses for logged-in users
   useEffect(() => {
@@ -585,6 +650,52 @@ export default function CheckoutPage() {
     }
   };
 
+  // Google button in register modal
+  useEffect(() => {
+    if (!showRegister || !GOOGLE_CLIENT_ID) return;
+
+    const tryRender = () => {
+      if (!regGoogleRef.current || !window.google?.accounts?.id) return false;
+      const w = regGoogleRef.current.offsetWidth || 400;
+      const google = window.google.accounts.id;
+      regGoogleRef.current.innerHTML = '';
+      google.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response: { credential?: string }) => {
+          if (response.credential) {
+            void handleGoogleLogin(response.credential);
+            setShowRegister(false);
+          }
+        },
+      });
+      google.renderButton(regGoogleRef.current, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signup_with',
+        shape: 'rectangular',
+        width: w,
+        logo_alignment: 'left',
+      });
+      return true;
+    };
+
+    if (googleScriptReady) {
+      tryRender();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          tryRender();
+        }
+      }, 200);
+      return () => clearInterval(interval);
+    }
+
+    return () => {
+      if (regGoogleRef.current) regGoogleRef.current.innerHTML = '';
+    };
+  }, [showRegister, googleScriptReady, handleGoogleLogin]);
+
   const showCardDetails = paymentMethod === 'card';
 
   if (items.length === 0 && !placing) {
@@ -644,7 +755,7 @@ export default function CheckoutPage() {
         .checkout-google-wrap { display: grid; gap: 10px; margin-top: 16px; }
         .checkout-auth-divider { display: flex; align-items: center; gap: 12px; color: #8b8175; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
         .checkout-auth-divider::before, .checkout-auth-divider::after { content: ''; flex: 1; height: 1px; background: #ece7dc; }
-        .checkout-google-button { display: flex; align-items: center; justify-content: flex-start; min-height: 48px; overflow: hidden; }
+        .checkout-google-button { display: flex; align-items: center; justify-content: flex-start; min-height: 48px; overflow: hidden; width: 100%; }
         .checkout-coupon-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
         .checkout-payment-list { margin: 0; padding: 0; display: grid; gap: 12px; }
         .checkout-payment-item { border: 1px solid #eee3d6; border-radius: 10px; padding: 12px 14px; background: #fff; }
@@ -668,6 +779,26 @@ export default function CheckoutPage() {
         .address-help { font-size: 13px; color: #6f6a61; margin: 0 0 10px; }
         @media (max-width: 991px) { .checkout-content { padding-top: 18px; } .checkout-grid { grid-template-columns: 1fr; } .checkout-side .order-products { position: static; } }
         @media (max-width: 767px) { .checkout-page { padding-bottom: 28px; } .checkout-content { padding-top: 14px; } .checkout-box, .checkout-card-box, .checkout-account-box, .checkout-shipping-box, .checkout-login-box, .checkout-coupon-box, .checkout-side .order-products { padding: 16px; } .checkout-inline-row, .checkout-coupon-grid { grid-template-columns: 1fr; gap: 12px; } .checkout-section-title { font-size: 22px; } .checkout-subsection-title { font-size: 20px; } .checkout-order-toggle { align-items: stretch; flex-direction: column; } }
+        .register-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .register-modal { background: #fff; border: 1px solid #ece8df; width: 100%; max-width: 460px; padding: 32px 28px 28px; position: relative; }
+        .register-modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; cursor: pointer; font-size: 18px; color: #555; line-height: 1; padding: 6px; display: flex; align-items: center; justify-content: center; }
+        .register-modal-close:hover { color: #111; }
+        .register-modal-title { margin: 0 0 4px; font-size: 26px; font-weight: 800; color: #1a1a1a; letter-spacing: 0.01em; }
+        .register-modal-sub { margin: 0 0 22px; font-size: 14px; color: #666; }
+        .register-modal-label { display: block; font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+        .register-modal-label span { color: #e53935; margin-left: 2px; }
+        .register-modal-input { width: 100%; height: 48px; font-size: 14px; padding: 0 14px; border: 1px solid #d4cfc8; background: #f7f4f0; border-radius: 0; box-sizing: border-box; outline: none; color: #1a1a1a; }
+        .register-modal-input:focus { border-color: #2bbfaa; background: #fff; }
+        .register-modal-field { margin-bottom: 16px; }
+        .register-modal-submit { width: 100%; height: 48px; background: #2bbfaa; color: #fff; border: none; font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; margin-top: 4px; }
+        .register-modal-submit:hover { background: #22a896; }
+        .register-modal-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+        .register-modal-err { color: #c62828; font-size: 13px; margin: 8px 0 0; }
+        .register-modal-success { color: #2bbfaa; font-size: 13px; margin: 8px 0 0; }
+        .register-modal-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: #999; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+        .register-modal-divider::before, .register-modal-divider::after { content: ''; flex: 1; height: 1px; background: #e8e0d8; }
+        .register-modal-google { min-height: 48px; display: flex; align-items: center; width: 100%; }
+        .register-modal-google-msg { font-size: 13px; color: #b45309; margin: 6px 0 0; }
         @media (max-width: 480px) { .checkout-page .page-section { padding-top: 28px; padding-bottom: 28px; } .checkout-section-title { font-size: 20px; } .checkout-subsection-title { font-size: 18px; } .checkout-login-actions > * { width: 100%; text-align: center; } .checkout-terms label { align-items: flex-start !important; } }
       `}</style>
 
@@ -679,7 +810,7 @@ export default function CheckoutPage() {
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onLoad={() => setGoogleScriptReady(true)}
-        onError={() => setLoginError('Google sign-in could not load right now.')}
+        onError={() => { setLoginError('Google sign-in could not load right now.'); }}
       />
       <Header />
       <div className="dima-main checkout-page">
@@ -809,17 +940,19 @@ export default function CheckoutPage() {
                         Verify your contact details with simple OTP for smooth delivery process.
                       </div>
                     </div>
+                    {!isLoggedIn && (
                     <div className="field">
                       <button
                         type="button"
                         className="checkout-toggle-label"
-                        onClick={() => router.push('/my-account')}
+                        onClick={() => { setShowRegister(true); setRegError(''); setRegSuccess(''); }}
                         style={{ cursor: 'pointer', userSelect: 'none', background: 'transparent', border: 'none', padding: 0 }}
                       >
                         <div className="ck-box" />
                         Create an account?
                       </button>
                     </div>
+                    )}
 
                     {/* ── Shipping Address ─────────────────────────────────── */}
                     <h4 className="checkout-subsection-title">Shipping Address</h4>
@@ -1187,6 +1320,44 @@ export default function CheckoutPage() {
           </div>
         </section>
       </div>
+      {showRegister && (
+        <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); } }}>
+          <div className="register-modal">
+            <button type="button" className="register-modal-close" onClick={() => { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); }} aria-label="Close">&#x2715;</button>
+            <p className="register-modal-title">Register</p>
+            <p className="register-modal-sub">Create your account to save details and track orders.</p>
+            <div className="register-modal-field">
+              <label className="register-modal-label">Username <span>*</span></label>
+              <input className="register-modal-input" type="text" placeholder="Username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} autoComplete="username" />
+            </div>
+            <div className="register-modal-field">
+              <label className="register-modal-label">Email <span>*</span></label>
+              <input className="register-modal-input" type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" />
+            </div>
+            <div className="register-modal-field">
+              <label className="register-modal-label">Password <span>*</span></label>
+              <input className="register-modal-input" type="password" placeholder="Password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} autoComplete="new-password" onKeyDown={(e) => { if (e.key === 'Enter') void handleRegister(); }} />
+            </div>
+            {regError && <p className="register-modal-err">{regError}</p>}
+            {regSuccess && <p className="register-modal-success">{regSuccess}</p>}
+            <button
+              type="button"
+              className="register-modal-submit"
+              onClick={() => void handleRegister()}
+              disabled={regLoading}
+            >
+              {regLoading ? 'Registering...' : 'Register'}
+            </button>
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <div className="register-modal-divider"><span>or</span></div>
+                <div ref={regGoogleRef} className="register-modal-google" />
+                {googleLoading && <p className="register-modal-google-msg">Completing Google sign-in...</p>}
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   );

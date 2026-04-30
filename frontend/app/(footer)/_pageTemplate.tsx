@@ -68,7 +68,7 @@ const fetchPage = async (slug: string): Promise<PageResult> => {
     if (!res.ok) return { error: 'api' };
     const data = await res.json();
     if (data?.success && data.data) return { page: data.data };
-    return { error: 'api' };
+    return { error: 'not-found' };
   } catch {
     return { error: 'api' };
   }
