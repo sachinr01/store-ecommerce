@@ -211,7 +211,7 @@ export default function EditAddressTypePage() {
                           </div>
 
                           <div className="account-address-actions">
-                            <button type="submit" className="button fill uppercase" disabled={saving}>
+                            <button type="submit" className="btn-view-product btn-view-product--inline" disabled={saving}>
                               {saving ? 'Saving...' : `Save ${isBilling ? '' : 'Shipping '}Address`}
                             </button>
                             <Link href="/my-account/edit-address" className="account-address-cancel">

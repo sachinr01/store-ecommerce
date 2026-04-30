@@ -105,7 +105,7 @@ function ShopProductCard({ product, idx, listMode }: { product: Product; idx: nu
         </button>
 
         <div className={`csp-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
-          <Link href={productHref} className="csp-quick-view">View Product</Link>
+          <Link href={productHref} className="csp-quick-view btn-view-product">View Product</Link>
         </div>
       </div>
 

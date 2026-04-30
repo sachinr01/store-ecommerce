@@ -66,7 +66,7 @@ export default function CartPage() {
               {items.length === 0 ? (
                 <div className="cart-empty">
                   <p>Your cart is empty.</p>
-                  <Link href="/shop" className="button fill uppercase">Continue Shopping</Link>
+                  <Link href="/shop" className="btn-view-product btn-view-product--inline">Continue Shopping</Link>
                 </div>
               ) : (
                 <div className="cart-grid">
@@ -150,7 +150,7 @@ export default function CartPage() {
                     </div>
 
                     <div className="cart-actions">
-                      <Link href="/shop" className="button fill uppercase">
+                      <Link href="/shop" className="btn-view-product btn-view-product--inline">
                         ← Continue Shopping
                       </Link>
                     </div>
@@ -171,14 +171,14 @@ export default function CartPage() {
                       />
                       {appliedCoupon ? (
                         <button
-                          className="button fill uppercase cart-coupon-remove-btn"
+                          className="btn-view-product btn-view-product--inline cart-coupon-remove-btn"
                           onClick={handleRemoveCoupon}
                         >
                           Remove
                         </button>
                       ) : (
                         <button
-                          className="button fill uppercase cart-coupon-apply-btn"
+                          className="btn-view-product btn-view-product--inline cart-coupon-apply-btn"
                           onClick={() => void handleApplyCoupon()}
                           disabled={couponLoading}
                         >
@@ -217,7 +217,7 @@ export default function CartPage() {
                     </div>
 
                     <div className="cart-checkout-wrap">
-                      <Link href="/checkout" className="button fill uppercase cart-checkout-link">
+                      <Link href="/checkout" className="btn-view-product btn-view-product--inline cart-checkout-link">
                         Proceed to Checkout
                       </Link>
                     </div>

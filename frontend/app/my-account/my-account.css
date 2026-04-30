@@ -136,6 +136,13 @@
 .account-err { color: #c62828; font-size: 13px; margin-bottom: 8px; }
 .account-success { color: #2bbfaa; font-size: 13px; margin-bottom: 8px; }
 
+.box-titel {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 18px;
+}
+
 @media (max-width: 991px) {
   .account-layout,
   .account-auth-grid {

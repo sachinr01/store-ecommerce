@@ -593,7 +593,7 @@ export default function CheckoutPage() {
         <Header />
         <div className="dima-main" style={{ textAlign: 'center', padding: '80px 20px' }}>
           <p style={{ fontSize: 18, marginBottom: 20 }}>Your cart is empty.</p>
-          <Link href="/shop" className="button fill uppercase">Go to Shop</Link>
+          <Link href="/shop" className="btn-view-product btn-view-product--inline">Go to Shop</Link>
         </div>
         <Footer />
       </>
@@ -637,6 +637,7 @@ export default function CheckoutPage() {
         .checkout-inline-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
         .checkout-toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
         .checkout-card-box, .checkout-account-box, .checkout-shipping-box, .checkout-login-box, .checkout-coupon-box { padding: 18px; border: 1px solid #ece7dc; background: #fff; }
+        .checkout-login-box p { font-size: 14px; color: #444; line-height: 1.6; margin-bottom: 14px; }
         .checkout-login-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
         .checkout-auth-feedback { margin: 12px 0 0; font-size: 13px; color: #b45309; }
         .checkout-auth-feedback.error { color: #c62828; }
@@ -712,7 +713,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="checkout-login-actions">
-                    <button type="button" className="button small fill uppercase" onClick={() => void handlePasswordLogin()} disabled={loginLoading}>
+                    <button type="button" className="btn-view-product btn-view-product--inline" onClick={() => void handlePasswordLogin()} disabled={loginLoading}>
                       {loginLoading ? 'Logging in...' : 'Login'}
                     </button>
                     <a href="#" className="lost-pass" style={{ fontSize: 13 }}>Lost Password?</a>
@@ -751,8 +752,7 @@ export default function CheckoutPage() {
                     {appliedCoupon ? (
                       <button
                         type="button"
-                        className="button small uppercase"
-                        style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#e53935', color: '#fff', border: 'none' }}
+                        className="btn-view-product btn-view-product--inline"
                         onClick={handleRemoveCoupon}
                       >
                         Remove
@@ -760,8 +760,7 @@ export default function CheckoutPage() {
                     ) : (
                       <button
                         type="button"
-                        className="button small fill uppercase"
-                        style={{ minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        className="btn-view-product btn-view-product--inline"
                         onClick={() => void handleApplyCoupon()}
                         disabled={couponLoading}
                       >
@@ -1099,7 +1098,7 @@ export default function CheckoutPage() {
                       <div className="checkout-cta">
                         <button
                           type="button"
-                          className="button fill uppercase"
+                          className="btn-view-product btn-view-product--inline"
                           onClick={() => { if (!validate(false)) return; if (!showPayment) setPaymentMethod('cod'); setShowPayment(true); }}
                         >
                           Continue to Payment

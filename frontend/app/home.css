@@ -99,23 +99,8 @@
   font-size: 15px;
   color: #1a1a1a;
 }
-.view-all-wrap {
-  text-align: center;
-  margin-top: 8px;
-}
-.view-all-btn {
-  display: inline-block;
-  padding: 13px 44px;
-  background: #1a1a1a;
-  color: #fff;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  transition: background 0.25s, color 0.25s;
-}
-.view-all-btn:hover { background: #333; }
+.view-all-wrap { /* use .btn-view-product-wrap from styles-shop.css */ }
+.view-all-btn { /* use .btn-view-product.btn-view-product--inline from styles-shop.css */ }
 
 /* ─── VIDEO / FULL-WIDTH BANNER ─── */
 .video-banner {

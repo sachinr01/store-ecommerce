@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import { getMyOrders, type OrderSummary } from '../lib/api';
 import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
+import './orders.css';
 
 type OrderCard = {
   id: number;
@@ -96,351 +97,18 @@ export default function OrdersPage() {
 
   return (
     <>
-      <style>{`
-        .orders-account-page {
-          padding-bottom: 48px;
-        }
-
-        .orders-account-shell {
-          overflow: hidden;
-          background: #fff;
-        }
-
-        .orders-account-layout {
-          display: grid;
-          grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-          align-items: start;
-        }
-
-        .orders-account-sidebar {
-          min-height: 100%;
-          padding: 60px 42px 48px;
-          background: #fff;
-        }
-
-        .orders-account-sidebar-inner {
-          position: sticky;
-          top: 104px;
-        }
-
-        .orders-account-avatar {
-          width: 140px;
-          height: 140px;
-          border-radius: 50%;
-          background: #8fb8a8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-        }
-
-        .orders-account-hello {
-          margin: 28px 0 10px;
-          color: #000;
-          font-size: 27px;
-          line-height: 1;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        .orders-account-handle {
-          margin: 0;
-          color: #42556d;
-          font-size: 18px;
-          line-height: 1.5;
-        }
-
-        .orders-account-nav {
-          display: grid;
-          gap: 8px;
-          margin-top: 66px;
-        }
-
-        .orders-account-link,
-        .orders-account-button {
-          display: block;
-          padding: 2px 0;
-          border: 0;
-          background: transparent;
-          color: #121212;
-          text-decoration: none;
-          text-align: left;
-          font-size: 17px;
-          line-height: 1.45;
-          cursor: pointer;
-        }
-
-        .orders-account-link:hover,
-        .orders-account-button:hover,
-        .orders-account-link.active {
-          color: #111;
-        }
-
-        .orders-account-main {
-          min-width: 0;
-          padding: 44px 56px 48px 36px;
-          background: #fff;
-        }
-
-        .orders-account-top {
-          margin-bottom: 28px;
-        }
-
-        .orders-section {
-          margin-top: 0;
-          padding: 0;
-        }
-
-        .orders-section-title {
-          margin: 0 0 10px;
-          color: #101010;
-          font-size: 16px;
-          line-height: 1.2;
-          font-weight: 700;
-        }
-
-        .orders-section-copy {
-          margin: 0 0 18px;
-          color: #5f6977;
-          font-size: 14px;
-          line-height: 1.7;
-        }
-
-        .orders-table {
-          width: 100%;
-          border-top: 1px solid #ece8df;
-          max-width: 980px;
-        }
-
-        .orders-head,
-        .orders-row {
-          display: grid;
-          grid-template-columns: minmax(88px, 108px) minmax(165px, 1.15fr) minmax(110px, .78fr) minmax(150px, .95fr) minmax(170px, 1fr);
-          gap: 18px;
-          align-items: center;
-        }
-
-        .orders-head {
-          padding: 14px 0;
-          border-bottom: 1px solid #ece8df;
-        }
-
-        .orders-head-item {
-          color: #0c0c0c;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .orders-row {
-          padding: 20px 0;
-          border-bottom: 1px solid #ece8df;
-        }
-
-        .orders-row-id {
-          color: #111;
-          font-size: 15px;
-          font-weight: 700;
-        }
-
-        .orders-row-value {
-          color: #516276;
-          font-size: 15px;
-          line-height: 1.6;
-        }
-
-        .orders-row-status {
-          color: #516276;
-          font-size: 15px;
-          line-height: 1.6;
-        }
-
-        .orders-row-status.pending {
-          color: #8a5a13;
-        }
-
-        .orders-row-status.processing {
-          color: #11606c;
-        }
-
-        .orders-row-status.completed {
-          color: #1d6a34;
-        }
-
-        .orders-row-status.cancelled {
-          color: #9b1c1c;
-        }
-
-        .orders-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: flex-start;
-        }
-
-        .orders-empty,
-        .orders-error {
-          padding: 24px 0;
-          color: #5f6977;
-          font-size: 14px;
-          line-height: 1.7;
-        }
-
-        .orders-empty-actions,
-        .orders-login-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          margin-top: 16px;
-        }
-
-        .orders-empty-panel {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          min-height: 96px;
-          padding: 18px 38px;
-          border: 1px solid #ece8df;
-          background: #fff;
-        }
-
-        .orders-empty-text {
-          color: #5f6977;
-          font-size: 17px;
-          line-height: 1.7;
-        }
-
-        .orders-empty-cta {
-          min-width: 276px;
-          min-height: 58px;
-          padding: 16px 24px;
-          background: #172233;
-          color: #fff;
-          text-decoration: none;
-          text-align: center;
-          font-size: 14px;
-          line-height: 1;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .orders-empty-cta:hover {
-          background: #0f1827;
-          color: #fff;
-        }
-
-        .orders-action-btn {
-          min-width: 92px;
-          min-height: 40px;
-          padding: 10px 14px;
-          background: #172233;
-          color: #fff;
-          text-decoration: none;
-          text-align: center;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .orders-action-btn:hover {
-          background: #0f1827;
-          color: #fff;
-        }
-
-        @media (max-width: 991px) {
-          .orders-account-layout {
-            grid-template-columns: 1fr;
-          }
-
-          .orders-account-sidebar {
-            padding-bottom: 28px;
-          }
-
-          .orders-account-sidebar-inner {
-            position: static;
-          }
-
-        }
-
-        @media (max-width: 767px) {
-          .orders-account-sidebar,
-          .orders-account-main {
-            padding: 18px;
-          }
-
-          .orders-account-copy {
-            font-size: 16px;
-            line-height: 1.7;
-          }
-
-          .orders-head {
-            display: none;
-          }
-
-          .orders-row {
-            grid-template-columns: 1fr;
-            gap: 8px;
-            padding: 18px 0;
-          }
-
-          .orders-table {
-            max-width: none;
-          }
-
-          .orders-empty-panel {
-            flex-direction: column;
-            align-items: stretch;
-            padding: 18px;
-          }
-
-          .orders-empty-text {
-            font-size: 16px;
-          }
-
-          .orders-empty-cta {
-            width: 100%;
-            min-width: 0;
-          }
-
-          .orders-empty-actions .button,
-          .orders-login-actions .button {
-            width: 100%;
-            text-align: center;
-          }
-
-          .orders-actions {
-            margin-top: 4px;
-          }
-
-          .orders-action-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
-
       <Header />
       <div className="dima-main orders-account-page">
         <section className="section">
           <div className="page-section-content overflow-hidden">
             <div className="container">
               {isLoading ? (
-                <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
+                <p className="orders-loading">Loading...</p>
               ) : !isLoggedIn || !user || needsLogin ? (
                 <div className="orders-empty">
                   Please log in to view your orders.
                   <div className="orders-empty-actions">
-                    <Link className="button fill uppercase" href="/my-account">Login / Register</Link>
+                    <Link className="btn-view-product btn-view-product--inline" href="/my-account">Login / Register</Link>
                   </div>
                 </div>
               ) : (
@@ -490,7 +158,7 @@ export default function OrdersPage() {
                         {!loading && !error && cards.length === 0 && (
                           <div className="orders-empty-panel">
                             <div className="orders-empty-text">No order has been made yet.</div>
-                            <Link className="orders-empty-cta" href="/shop">Browse Products</Link>
+                            <Link className="btn-view-product btn-view-product--inline" href="/shop">Browse Products</Link>
                           </div>
                         )}
 
@@ -516,11 +184,11 @@ export default function OrdersPage() {
                                   </div>
                                   <div className="orders-actions">
                                     {showPendingActions && (
-                                      <Link href={`/orders/${order.id}`} className="orders-action-btn">Pay</Link>
+                                      <Link href={`/orders/${order.id}`} className="btn-view-product">Pay</Link>
                                     )}
-                                    <Link href={`/orders/${order.id}`} className="orders-action-btn">View</Link>
+                                    <Link href={`/orders/${order.id}`} className="btn-view-product">View</Link>
                                     {showPendingActions && (
-                                      <Link href={`/orders/${order.id}`} className="orders-action-btn">Cancel</Link>
+                                      <Link href={`/orders/${order.id}`} className="btn-view-product">Cancel</Link>
                                     )}
                                   </div>
                                 </div>

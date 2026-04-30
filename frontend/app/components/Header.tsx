@@ -441,8 +441,8 @@ export default function Header() {
                   </>
                 )}
                 <div className="nh-cart-actions">
-                  <Link href="/cart" className="nh-cart-action view" onClick={closeOverlays}>View Cart</Link>
-                  <Link href="/checkout" className="nh-cart-action checkout" onClick={closeOverlays}>Checkout</Link>
+                  <Link href="/cart" className="btn-view-product" onClick={closeOverlays}>View Cart</Link>
+                  <Link href="/checkout" className="btn-view-product" onClick={closeOverlays}>Checkout</Link>
                 </div>
               </div>
             </div>

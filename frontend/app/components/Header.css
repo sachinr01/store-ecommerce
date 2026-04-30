@@ -55,9 +55,6 @@
 .nh-cart-empty { margin: 8px 0 16px; font-size: 13px; color: #777; text-align: center; }
 .nh-cart-subtotal { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; font-size: 14px; font-weight: 700; }
 .nh-cart-actions { display: grid; gap: 8px; }
-.nh-cart-action { display: block; padding: 12px; text-align: center; text-decoration: none; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; font-weight: 700; }
-.nh-cart-action.view { background: #f1f1f1; color: #111; }
-.nh-cart-action.checkout { background: #111; color: #fff; }
 
 /* ─── SEARCH OVERLAY ─── */
 .nh-search-overlay, .nh-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1100; }

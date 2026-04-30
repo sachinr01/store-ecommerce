@@ -162,7 +162,7 @@ export default function MyAccountPage() {
                       </div>
                       {loginErr && <p className="account-err">{loginErr}</p>}
                       <div className="field last">
-                        <button type="submit" className="button small fill uppercase" disabled={loginLoading}>
+                        <button type="submit" className="btn-view-product btn-view-product--inline" disabled={loginLoading}>
                           {loginLoading ? 'Logging in...' : 'Login'}
                         </button>
                       </div>
@@ -193,7 +193,7 @@ export default function MyAccountPage() {
                       {regErr && <p className="account-err">{regErr}</p>}
                       {regSuccess && <p className="account-success">{regSuccess}</p>}
                       <div className="field last">
-                        <button type="submit" className="button small fill uppercase" disabled={regLoading}>
+                        <button type="submit" className="btn-view-product btn-view-product--inline" disabled={regLoading}>
                           {regLoading ? 'Registering...' : 'Register'}
                         </button>
                       </div>

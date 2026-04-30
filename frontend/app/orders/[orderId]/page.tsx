@@ -130,7 +130,7 @@ export default function OrderDetailPage() {
             <div className="order-detail-empty">
               Please log in to view this order.
               <div>
-                <Link className="orders-cta" href="/my-account">Login / Register</Link>
+                <Link className="orders-cta btn-view-product btn-view-product--inline" href="/my-account">Login / Register</Link>
               </div>
             </div>
           )}

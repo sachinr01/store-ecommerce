@@ -126,7 +126,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
           </svg>
         </button>
         <div className={`csp-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
-          <Link href={href} className="csp-quick-view">View Product</Link>
+          <Link href={href} className="csp-quick-view btn-view-product">View Product</Link>
         </div>
       </div>
       <div className="csp-info">

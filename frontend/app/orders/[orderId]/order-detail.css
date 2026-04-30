@@ -193,18 +193,8 @@
 }
 .order-summary-grid strong { color: #111; }
 
-.orders-cta {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 10px 24px;
-  background: #111;
-  color: #fff;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
+/* visual style from btn-view-product; only layout override here */
+.orders-cta { margin-top: 12px; }
 
 @media (max-width: 768px) {
   .order-detail-grid { grid-template-columns: 1fr; }

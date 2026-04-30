@@ -817,26 +817,7 @@
   backdrop-filter: blur(4px);
 }
 .csp-overlay.show { transform: translateY(0); }
-.csp-quick-view {
-  display: block;
-  text-align: center;
-  height: 34px;
-  line-height: 34px;
-  border: 1.5px solid var(--cs-brand);
-  border-radius: 7px;
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--cs-brand);
-  text-decoration: none;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  transition: all var(--transition-fast);
-}
-.csp-quick-view:hover {
-  background: var(--cs-brand);
-  color: #fff;
-}
+.csp-quick-view { /* styles in styles-shop.css as .btn-view-product */ }
 .csp-info {
   padding: 12px 14px 14px;
   display: flex;

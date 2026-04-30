@@ -198,7 +198,7 @@ export default function EditAccountPage() {
                         </div>
 
                         <div className="account-edit-actions">
-                          <button type="submit" className="account-edit-save" disabled={saving}>
+                          <button type="submit" className="btn-view-product btn-view-product--inline" disabled={saving}>
                             {saving ? 'Saving...' : 'Save Changes'}
                           </button>
                         </div>

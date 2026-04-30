@@ -134,8 +134,8 @@ export default function NewArrivals() {
   return (
     <section className="na-outer na-outer-top">
       <ProductGrid title="Newly Launched" products={products} loading={loading} />
-      <div className="na-view-all-wrap">
-        <Link href="/shop" className="na-view-all-btn">View All Products</Link>
+      <div className="na-view-all-wrap btn-view-product-wrap">
+        <Link href="/shop" className="na-view-all-btn btn-view-product btn-view-product--inline">View All Products</Link>
       </div>
     </section>
   );
@@ -155,8 +155,8 @@ export function BestSellers() {
   return (
     <section className="na-outer na-outer-bs">
       <ProductGrid title="Best Sellers" products={products} loading={loading} />
-      <div className="na-view-all-wrap">
-        <Link href="/shop" className="na-view-all-btn">View All Products</Link>
+      <div className="na-view-all-wrap btn-view-product-wrap">
+        <Link href="/shop" className="na-view-all-btn btn-view-product btn-view-product--inline">View All Products</Link>
       </div>
     </section>
   );
