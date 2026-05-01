@@ -489,7 +489,9 @@ const placeOrder = async (req, res) => {
         [checkId],
       );
 
-      const stockStatus = stockStatusRow ? stockStatusRow.stock_status : "instock";
+      const stockStatus = stockStatusRow
+        ? stockStatusRow.stock_status
+        : "instock";
       const stockQty = stockQtyRow ? stockQtyRow.stock : 0;
 
       if (stockStatus === "outofstock") {
@@ -532,13 +534,11 @@ const placeOrder = async (req, res) => {
       await conn.rollback();
       delete req.sessionData.appliedCoupon;
       req.touchSession();
-      return res
-        .status(400)
-        .json({
-          success: false,
-          coupon_error: true,
-          message: couponCheck.message,
-        });
+      return res.status(400).json({
+        success: false,
+        coupon_error: true,
+        message: couponCheck.message,
+      });
     }
     const discount = couponCheck.discount || 0;
 
@@ -976,16 +976,12 @@ const placeOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    await conn.rollback();
-    console.error("placeOrder error:", {
-  message: err.message,
-  stack: err.stack,
-  sqlMessage: err.sqlMessage,
-  code: err.code,
-});
-    res
-      .status(500)
-      .json({ success: false, message: "Order placement failed." });
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   } finally {
     conn.release();
   }
