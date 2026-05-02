@@ -136,7 +136,7 @@
 }
 
 .blog-detail-page .blog-hero-image img {
-  object-fit: cover;
+  object-fit: fill;
 }
 
 .blog-detail-page .sidebar {
