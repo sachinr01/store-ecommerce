@@ -30,8 +30,7 @@ function sanitizeHtml(raw: string): string {
     .replace(/(href|src|action|formaction)\s*=\s*(?:"[^"]*"|'[^']*')/gi, (match) =>
       /javascript:|data:/i.test(match) ? '' : match
     )
-    .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
-    .replace(/<img[^>]*\/?>/gi, '');
+    .replace(/\s+srcdoc\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 }
 
 export default function BlogDetailView({

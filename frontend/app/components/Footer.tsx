@@ -106,12 +106,12 @@ const fetchLatestPosts = async (): Promise<FooterPost[]> => {
   }
 };
 
-const resolvePageHref = (pages: FooterPage[], matchers: string[], fallback: string) => {
+const resolvePageHref = (pages: FooterPage[], matchers: string[]): string | null => {
   const page = pages.find((item) => {
     const title = normalize(item.title);
     return matchers.some((matcher) => title.includes(normalize(matcher)));
   });
-  return `/${page?.slug || fallback}`;
+  return page ? `/${page.slug}` : null;
 };
 
 export default function Footer() {
@@ -131,12 +131,12 @@ export default function Footer() {
     return () => { active = false; };
   }, []);
 
-  const aboutHref   = resolvePageHref(pages, ['about us'], 'about-us');
-  const contactHref = resolvePageHref(pages, ['contact us', 'contact'], 'contact-us');
-  const returnsHref = resolvePageHref(pages, ['refund', 'return'], 'refund_returns');
-  const privacyHref = resolvePageHref(pages, ['privacy'], 'privacy-policy');
-  const termsHref   = resolvePageHref(pages, ['terms', 'conditions'], 'terms-conditions');
-  const b2bHref     = resolvePageHref(pages, ['b2b', 'b2b connect'], 'b2b-connect');
+  const aboutHref   = resolvePageHref(pages, ['about us']);
+  const contactHref = resolvePageHref(pages, ['contact us', 'contact']);
+  const returnsHref = resolvePageHref(pages, ['refund', 'return']);
+  const privacyHref = resolvePageHref(pages, ['privacy']);
+  const termsHref   = resolvePageHref(pages, ['terms', 'conditions']);
+  const b2bHref     = resolvePageHref(pages, ['b2b', 'b2b connect']);
 
   return (
     <footer className="okab-footer">
@@ -148,18 +148,18 @@ export default function Footer() {
           <div>
             <h4>About Us</h4>
             <ul className="footer-nav-list" role="list">
-              <li><Link href={b2bHref} className="link-faded">B2B Connect</Link></li>
-              <li><Link href={aboutHref} className="link-faded">About Us</Link></li>
-              <li><Link href={contactHref} className="link-faded">Contact Us</Link></li>
+              {b2bHref && <li><Link href={b2bHref} className="link-faded">B2B Connect</Link></li>}
+              {aboutHref && <li><Link href={aboutHref} className="link-faded">About Us</Link></li>}
+              {contactHref && <li><Link href={contactHref} className="link-faded">Contact Us</Link></li>}
               <li><a href="/orders" className="link-faded">Track Order</a></li>
             </ul>
           </div>
           <div>
             <h4>Quick Links</h4>
             <ul className="footer-nav-list" role="list">
-              <li><Link href={returnsHref} className="link-faded">Return & Exchange</Link></li>
-              <li><Link href={privacyHref} className="link-faded">Privacy Policy</Link></li>
-              <li><Link href={termsHref} className="link-faded">Terms Of Use</Link></li>
+              {returnsHref && <li><Link href={returnsHref} className="link-faded">Return & Exchange</Link></li>}
+              {privacyHref && <li><Link href={privacyHref} className="link-faded">Privacy Policy</Link></li>}
+              {termsHref && <li><Link href={termsHref} className="link-faded">Terms Of Use</Link></li>}
             </ul>
           </div>
           <div>
@@ -283,19 +283,19 @@ export default function Footer() {
         <h4>Popular Search</h4>
         <p className="popular_search--p">
           {[
-            'Glassware',
-            'Drinkware',
-            'Jars and containers',
-            'Tumbler with straw',
-            'Whiskey glasses',
-            'Set of 6',
-            'Mug set',
-            'Crystal glasses',
-            'Beer mug',
-            'Storage jars',
-          ].map((term, i, arr) => (
-            <span key={term}>
-              <Link href={`/shop?search=${encodeURIComponent(term)}`} className="link-faded">{term}</Link>
+            { label: 'Glassware',          href: '/shop/glassware' },
+            { label: 'Drinkware',          href: '/shop/drinkware' },
+            { label: 'Jars and containers', href: '/shop/jars-and-containers' },
+            { label: 'Tumbler with straw', href: `/shop?search=${encodeURIComponent('Tumbler with straw')}` },
+            { label: 'Whiskey glasses',    href: `/shop?search=${encodeURIComponent('Whiskey glasses')}` },
+            { label: 'Set of 6',           href: `/shop?search=${encodeURIComponent('Set of 6')}` },
+            { label: 'Mug set',            href: `/shop?search=${encodeURIComponent('Mug set')}` },
+            { label: 'Crystal glasses',    href: `/shop?search=${encodeURIComponent('Crystal glasses')}` },
+            { label: 'Beer mug',           href: `/shop?search=${encodeURIComponent('Beer mug')}` },
+            { label: 'Storage jars',       href: `/shop?search=${encodeURIComponent('Storage jars')}` },
+          ].map(({ label, href }, i, arr) => (
+            <span key={label}>
+              <Link href={href} className="link-faded">{label}</Link>
               {i < arr.length - 1 && ' | '}
             </span>
           ))}
