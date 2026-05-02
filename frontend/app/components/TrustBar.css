@@ -15,7 +15,6 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0 100px;
-  max-width: 1200px;
   margin: 0 auto;
   padding: 20px 35px 0;
 }
@@ -26,15 +25,6 @@
   padding: 18px 10px 22px;
   position: relative;
   background: #fff;
-}
-.tb-item::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 20%;
-  height: 60%;
-  width: 1px;
-  background: #efefef;
 }
 .tb-item:last-child::after { display: none; }
 .tb-stripe-bar { display: none; }

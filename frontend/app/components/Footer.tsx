@@ -10,11 +10,34 @@ type FooterPage = {
   title: string;
 };
 
+type FooterPost = {
+  slug: string;
+  title: string;
+  date: string;
+};
+
+type FooterProduct = {
+  slug: string;
+  title: string;
+};
+
+type FooterCategory = {
+  slug: string;
+  name: string;
+};
+
 const normalize = (value: string) =>
   String(value || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+
+const toSlug = (value: string) =>
+  String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 const fetchFooterPages = async (): Promise<FooterPage[]> => {
   try {
@@ -23,6 +46,61 @@ const fetchFooterPages = async (): Promise<FooterPage[]> => {
     const data = await res.json();
     if (!data?.success || !Array.isArray(data.data)) return [];
     return data.data;
+  } catch {
+    return [];
+  }
+};
+
+const fetchCategories = async (): Promise<FooterCategory[]> => {
+  try {
+    const res = await fetch('/store/api/product-categories', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return [];
+    return data.data
+      .filter((c: { category_slug: string; category_name: string; parent_id: number | null }) =>
+        !c.parent_id || c.parent_id === 0
+      )
+      .map((c: { category_slug: string; category_name: string }) => ({
+      slug: c.category_slug,
+      name: c.category_name,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const fetchPopularProducts = async (): Promise<FooterProduct[]> => {
+  try {
+    const res = await fetch('/store/api/products/featured?limit=4', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return [];
+    return data.data.slice(0, 4).map((p: FooterProduct) => ({ slug: p.slug, title: p.title }));
+  } catch {
+    return [];
+  }
+};
+
+const fetchLatestProducts = async (): Promise<FooterProduct[]> => {
+  try {
+    const res = await fetch('/store/api/products?sort_by=newest&limit=4', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return [];
+    return data.data.slice(0, 4).map((p: FooterProduct) => ({ slug: p.slug, title: p.title }));
+  } catch {
+    return [];
+  }
+};
+
+const fetchLatestPosts = async (): Promise<FooterPost[]> => {
+  try {
+    const res = await fetch('/store/api/blogs?limit=4', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return [];
+    return data.data.slice(0, 4);
   } catch {
     return [];
   }
@@ -38,18 +116,27 @@ const resolvePageHref = (pages: FooterPage[], matchers: string[], fallback: stri
 
 export default function Footer() {
   const [pages, setPages] = useState<FooterPage[]>([]);
+  const [posts, setPosts] = useState<FooterPost[]>([]);
+  const [latestProducts, setLatestProducts] = useState<FooterProduct[]>([]);
+  const [popularProducts, setPopularProducts] = useState<FooterProduct[]>([]);
+  const [categories, setCategories] = useState<FooterCategory[]>([]);
 
   useEffect(() => {
     let active = true;
     fetchFooterPages().then((nextPages) => { if (active) setPages(nextPages); });
+    fetchLatestPosts().then((nextPosts) => { if (active) setPosts(nextPosts); });
+    fetchLatestProducts().then((products) => { if (active) setLatestProducts(products); });
+    fetchPopularProducts().then((products) => { if (active) setPopularProducts(products); });
+    fetchCategories().then((cats) => { if (active) setCategories(cats); });
     return () => { active = false; };
   }, []);
 
-  const aboutHref   = resolvePageHref(pages, ['about us', 'our story'], 'about-us');
+  const aboutHref   = resolvePageHref(pages, ['about us'], 'about-us');
   const contactHref = resolvePageHref(pages, ['contact us', 'contact'], 'contact-us');
   const returnsHref = resolvePageHref(pages, ['refund', 'return'], 'refund_returns');
   const privacyHref = resolvePageHref(pages, ['privacy'], 'privacy-policy');
   const termsHref   = resolvePageHref(pages, ['terms', 'conditions'], 'terms-conditions');
+  const b2bHref     = resolvePageHref(pages, ['b2b', 'b2b connect'], 'b2b-connect');
 
   return (
     <footer className="okab-footer">
@@ -61,25 +148,34 @@ export default function Footer() {
           <div>
             <h4>About Us</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#" className="link-faded">B2B Connect</a></li>
-              <li><Link href={aboutHref} className="link-faded">Our Story</Link></li>
-              <li><a href="#" className="link-faded">FAQs</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Need Help</h4>
-            <ul className="footer-nav-list" role="list">
+              <li><Link href={b2bHref} className="link-faded">B2B Connect</Link></li>
+              <li><Link href={aboutHref} className="link-faded">About Us</Link></li>
               <li><Link href={contactHref} className="link-faded">Contact Us</Link></li>
-              <li><Link href="/orders" className="link-faded">Track Order</Link></li>
-              <li><a href="#" className="link-faded">Site Map</a></li>
+              <li><a href="/orders" className="link-faded">Track Order</a></li>
             </ul>
           </div>
           <div>
-            <h4>Company</h4>
+            <h4>Quick Links</h4>
             <ul className="footer-nav-list" role="list">
-              <li><Link href={returnsHref} className="link-faded">Return &amp; Exchange</Link></li>
+              <li><Link href={returnsHref} className="link-faded">Return & Exchange</Link></li>
               <li><Link href={privacyHref} className="link-faded">Privacy Policy</Link></li>
               <li><Link href={termsHref} className="link-faded">Terms Of Use</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Shop by Categories</h4>
+            <ul className="footer-nav-list" role="list">
+              {categories.length > 0 ? categories.map((cat) => (
+                <li key={cat.slug}>
+                  <Link href={`/shop/${cat.slug}`} className="link-faded">{cat.name.toUpperCase()}</Link>
+                </li>
+              )) : (
+                <>
+                  <li><Link href='/shop/drinkware' className="link-faded">DRINKWARE</Link></li>
+                  <li><Link href='/shop/glassware' className="link-faded">GLASSWARE</Link></li>
+                  <li><Link href='/shop/jars-and-containers' className="link-faded">JARS AND CONTAINERS</Link></li>
+                </>
+              )}
             </ul>
           </div>
           <div>
@@ -129,29 +225,54 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4>Shop by Categories</h4>
-            <ul className="footer-nav-list" role="list">
-              <li><a href="/store/shop/glassware" className="link-faded">GLASSWARE</a></li>
-              <li><a href="/store/shop/drinkware" className="link-faded">DRINKWARE</a></li>
-              <li><a href="/store/shop/jars-and-containers" className="link-faded">JARS AND CONTAINERS</a></li>
-            </ul>
-          </div>
-          <div>
             <h4>Popular Products</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#" className="link-faded">Product 1 here</a></li>
-              <li><a href="#" className="link-faded">Product 2 here</a></li>
-              <li><a href="#" className="link-faded">Product 3 here</a></li>
-              <li><a href="#" className="link-faded">Product 4 here</a></li>
+              {popularProducts.length > 0 ? popularProducts.map((product) => (
+                <li key={product.slug}>
+                  <Link href={`/shop/product/${toSlug(product.slug || product.title)}`} className="link-faded">{product.title}</Link>
+                </li>
+              )) : (
+                <>
+                  <li><a href="#" className="link-faded">Product 1 here</a></li>
+                  <li><a href="#" className="link-faded">Product 2 here</a></li>
+                  <li><a href="#" className="link-faded">Product 3 here</a></li>
+                  <li><a href="#" className="link-faded">Product 4 here</a></li>
+                </>
+              )}
             </ul>
           </div>
           <div>
             <h4>Latest Products</h4>
             <ul className="footer-nav-list" role="list">
-              <li><a href="#" className="link-faded">Product 1 here</a></li>
-              <li><a href="#" className="link-faded">Product 2 here</a></li>
-              <li><a href="#" className="link-faded">Product 3 here</a></li>
-              <li><a href="#" className="link-faded">Product 4 here</a></li>
+              {latestProducts.length > 0 ? latestProducts.map((product) => (
+                <li key={product.slug}>
+                  <Link href={`/shop/product/${toSlug(product.slug || product.title)}`} className="link-faded">{product.title}</Link>
+                </li>
+              )) : (
+                <>
+                  <li><a href="#" className="link-faded">Product 1 here</a></li>
+                  <li><a href="#" className="link-faded">Product 2 here</a></li>
+                  <li><a href="#" className="link-faded">Product 3 here</a></li>
+                  <li><a href="#" className="link-faded">Product 4 here</a></li>
+                </>
+              )}
+            </ul>
+          </div>
+          <div>
+            <h4>Latest Posts</h4>
+            <ul className="footer-nav-list" role="list">
+              {posts.length > 0 ? posts.map((post) => (
+                <li key={post.slug}>
+                  <Link href={`/blog/${post.slug}`} className="link-faded footer-post-title">{post.title}</Link>
+                </li>
+              )) : (
+                <>
+                  <li><a href="#" className="link-faded">Post 1</a></li>
+                  <li><a href="#" className="link-faded">Post 2</a></li>
+                  <li><a href="#" className="link-faded">Post 3</a></li>
+                  <li><a href="#" className="link-faded">Post 4</a></li>
+                </>
+              )}
             </ul>
           </div>
         </div>
@@ -161,7 +282,23 @@ export default function Footer() {
       <div className="footer-bottom2">
         <h4>Popular Search</h4>
         <p className="popular_search--p">
-          Gifts Under 1000 | Gifts for Women | Low Price Gift Items | Laptop Backpack for Women | Laptop Handbags for Women | Laptop Backpack | Laptop Cover | Small Handbags for Women | Handbags for Women | Office Handbags for Womens | Luggage Trolley Bags | Travel Bag for Women | Women&apos;s Clutch Wallet | Ladies Clutch Wallet | Stainless Steel Watch | Stainless Steel Watch Strap | Metal Strap Watches | Passport Holder | Passport Holder for Women | Crockery Set | Dining Table Accessories | Table Decoration Items | Home Decor Items | Home Decor Products | Home Decor | Wall Decor Items | Wrist Watches for Women | Smart Watch for Women | Ladies Smart Watch | Traveling Bags
+          {[
+            'Glassware',
+            'Drinkware',
+            'Jars and containers',
+            'Tumbler with straw',
+            'Whiskey glasses',
+            'Set of 6',
+            'Mug set',
+            'Crystal glasses',
+            'Beer mug',
+            'Storage jars',
+          ].map((term, i, arr) => (
+            <span key={term}>
+              <Link href={`/shop?search=${encodeURIComponent(term)}`} className="link-faded">{term}</Link>
+              {i < arr.length - 1 && ' | '}
+            </span>
+          ))}
         </p>
       </div>
     </footer>

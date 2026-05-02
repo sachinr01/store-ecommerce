@@ -89,9 +89,6 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="ann-bar">
-        FREE SHIPPING ON ORDERS ABOVE $99 &nbsp;|&nbsp; ✦ SPRING SUMMER 2026: NOW LIVE ✦
-      </div>
       <Header />
       <Slider />
       <CuratedGifting />

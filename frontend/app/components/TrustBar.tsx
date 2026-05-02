@@ -53,7 +53,7 @@ export default function TrustBar() {
     <>
       <div className="tb-wrap">
         <div className="tb-tagline">
-          <span className="tb-heart">♥</span> Ours is a culture where madness and data co-exist. <span className="tb-heart">♥</span>
+          <span className="tb-heart"></span> Trend-Driven Design. Quality-First Craftsmanship. <span className="tb-heart"></span>
         </div>
         <div className="tb-grid">
           {features.map((f, i) => (
