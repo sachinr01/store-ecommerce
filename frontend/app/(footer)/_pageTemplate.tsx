@@ -182,9 +182,6 @@ export async function renderStaticPage(slug: string) {
                   featuredPages.map((p) => (
                     <li key={p.slug} className="featured-item">
                       <Link href={`/${p.slug}`} className="featured-title">{p.title}</Link>
-                      <span className="featured-meta">
-                        By Admin <span>/</span> {p.date || '-'}
-                      </span>
                     </li>
                   ))
                 ) : (
