@@ -146,7 +146,7 @@ export async function renderStaticPage(slug: string) {
             </nav>
 
             <h1 className="static-title">{page?.title || 'Page'}</h1>
-            {page?.date && <div className="static-date">{page.date}</div>}
+
 
             {/* Page image — uploaded via admin Page Image section, stored in tbl_media */}
             {page?.image && (

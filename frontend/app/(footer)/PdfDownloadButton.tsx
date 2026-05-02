@@ -217,8 +217,8 @@ export default function PdfDownloadButton({ page }: Props) {
   };
 
   return (
-    <button type="button" className="static-download-btn" onClick={handleDownload}>
-      Download Page
+    <button type="button" className="btn-view-product btn-view-product--inline" onClick={handleDownload}>
+      Download {page.title}
     </button>
   );
 }
