@@ -7,7 +7,7 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { getMyOrderById, getImageUrl, type OrderDetailResponse } from '../../lib/api';
 import { formatPrice } from '../../lib/price';
-import './order-detail.css';
+import '../orders.css';
 
 function formatDate(value: string) {
   const d = new Date(value);

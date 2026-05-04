@@ -161,23 +161,25 @@ export default function Header() {
     }, 280);
   };
 
-  const [aboutHref, setAboutHref] = useState("/about-us");
-  const [b2bHref, setB2bHref] = useState("/b2b-connect");
+  const [aboutHref, setAboutHref] = useState("#");
+  const [b2bHref, setB2bHref] = useState("#");
 
   useEffect(() => {
-    fetch('/store/api/pages?limit=25', { cache: 'no-store' })
+    fetch('/store/api/pages?limit=100', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data?.success || !Array.isArray(data.data)) return;
         const normalize = (v: string) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-        const aboutPage = data.data.find((p: { title: string; slug: string }) =>
-          ['about us'].some(m => normalize(p.title).includes(m))
-        );
-        if (aboutPage?.slug) setAboutHref(`/${aboutPage.slug}`);
-        const b2bPage = data.data.find((p: { title: string; slug: string }) =>
-          ['b2b connect' ].some(m => normalize(p.title).includes(m))
-        );
-        if (b2bPage?.slug) setB2bHref(`/${b2bPage.slug}`);
+        const resolve = (matchers: string[]) => {
+          const page = data.data.find((p: { title: string; slug: string }) =>
+            matchers.some(m => normalize(p.title).includes(normalize(m)))
+          );
+          return page?.slug ? `/${page.slug}` : null;
+        };
+        const about = resolve(['about us', 'our story', 'about']);
+        if (about) setAboutHref(about);
+        const b2b = resolve(['b2b connect', 'b2b-connect', 'b2b']);
+        if (b2b) setB2bHref(b2b);
       })
       .catch(() => {});
   }, []);
