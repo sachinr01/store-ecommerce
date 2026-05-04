@@ -475,6 +475,7 @@ const placeOrder = async (req, res) => {
         `SELECT meta_value AS stock_status
          FROM tbl_productmeta
          WHERE product_id = ? AND meta_key = '_stock_status'
+         ORDER BY meta_id DESC
          LIMIT 1
          FOR UPDATE`,
         [checkId],
@@ -484,6 +485,7 @@ const placeOrder = async (req, res) => {
         `SELECT CAST(meta_value AS SIGNED) AS stock
          FROM tbl_productmeta
          WHERE product_id = ? AND meta_key = '_stock'
+         ORDER BY meta_id DESC
          LIMIT 1
          FOR UPDATE`,
         [checkId],
@@ -743,6 +745,7 @@ const placeOrder = async (req, res) => {
         `SELECT CAST(meta_value AS SIGNED) AS stock
          FROM tbl_productmeta
          WHERE product_id = ? AND meta_key = '_stock'
+         ORDER BY meta_id DESC
          LIMIT 1`,
         [stockProductId],
       );
