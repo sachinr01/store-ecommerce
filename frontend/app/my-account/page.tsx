@@ -285,7 +285,7 @@ export default function MyAccountPage() {
           <div className="page-section-content overflow-hidden">
             <div className="container">
               {isLoading ? (
-                <p style={{ padding: '24px 0', color: '#888', fontSize: 14 }}>Loading...</p>
+                <p className="account-loading">Loading...</p>
               ) : isLoggedIn && user ? (
                 <div className="account-shell">
                   <div className="account-layout">
@@ -351,12 +351,12 @@ export default function MyAccountPage() {
                         {googleNotice && <p className="account-err">{googleNotice}</p>}
                       </div>
 
-                      <p style={{ marginTop: '14px', fontSize: '13px', color: '#555' }}>
+                      <p className="account-switch-hint">
                         Don&apos;t have an account?{' '}
                         <button
                           type="button"
                           onClick={() => setShowRegister(true)}
-                          style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit' }}
+                          className="account-switch-btn"
                         >
                           Create New Account
                         </button>
@@ -393,12 +393,12 @@ export default function MyAccountPage() {
                         {googleNotice && <p className="account-err">{googleNotice}</p>}
                       </div>
 
-                      <p style={{ marginTop: '14px', fontSize: '13px', color: '#555' }}>
+                      <p className="account-switch-hint">
                         Already have an account?{' '}
                         <button
                           type="button"
                           onClick={() => setShowRegister(false)}
-                          style={{ background: 'none', border: 'none', padding: 0, color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit' }}
+                          className="account-switch-btn"
                         >
                           Back to Login
                         </button>
