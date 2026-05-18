@@ -15,6 +15,7 @@ export default function ContactForm() {
     const form = e.currentTarget;
     const data = {
       name: (form.elements.namedItem("name") as HTMLInputElement).value.trim(),
+      business: (form.elements.namedItem("business") as HTMLInputElement).value.trim(),
       email: (form.elements.namedItem("email") as HTMLInputElement).value.trim(),
       phone: (form.elements.namedItem("phone") as HTMLInputElement).value.trim(),
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value.trim(),
@@ -42,32 +43,40 @@ export default function ContactForm() {
 
   return (
     <form className="contact-form" onSubmit={handleSubmit} noValidate>
-      <label>
-        <span>Name</span>
-        <input type="text" name="name" placeholder="Name" required />
-      </label>
-      <label>
-        <span>Email Address</span>
-        <input type="email" name="email" placeholder="Email Address" required />
-      </label>
-      <label>
-        <span>Phone Number</span>
-        <input type="tel" name="phone" placeholder="Phone Number" />
-      </label>
+      <div className="contact-form-row">
+        <label>
+          <span>Name</span>
+          <input type="text" name="name" placeholder="Your Name" required />
+        </label>
+        <label>
+          <span>Business Name</span>
+          <input type="text" name="business" placeholder="Business Name" />
+        </label>
+      </div>
+      <div className="contact-form-row">
+        <label>
+          <span>Email Address</span>
+          <input type="email" name="email" placeholder="Email Address" required />
+        </label>
+        <label>
+          <span>Phone Number</span>
+          <input type="tel" name="phone" placeholder="Phone Number" />
+        </label>
+      </div>
       <label>
         <span>Message</span>
-        <textarea name="message" placeholder="Message" required />
+        <textarea name="message" placeholder="Tell us about your requirements" required />
       </label>
 
       {status === "success" && (
-        <p className="form-success" role="status">Message sent successfully. We&apos;ll get back to you soon.</p>
+        <p className="form-success" role="status">Request sent successfully. Our team will get in touch with you.</p>
       )}
       {status === "error" && (
         <p className="form-error" role="alert">{errorMsg}</p>
       )}
 
-      <button type="submit" disabled={status === "loading"}>
-        {status === "loading" ? "Sending…" : "Send Message"}
+      <button className="b2b-button" type="submit" disabled={status === "loading"}>
+        {status === "loading" ? "Sending…" : <>Request Callback <i className="fa fa-arrow-right" aria-hidden="true" /></>}
       </button>
     </form>
   );

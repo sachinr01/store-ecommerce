@@ -122,7 +122,7 @@ export default async function B2BConnectPage() {
                 <div className="b2b-benefit-icon">
                   <i className={`fa ${benefit.iconClass}`} aria-hidden="true" />
                 </div>
-                <h3>{benefit.title}</h3>
+                <h4>{benefit.title}</h4>
                 <p>{benefit.copy}</p>
               </article>
             ))}
