@@ -1324,14 +1324,15 @@ const getMyOrderById = async (req, res) => {
   try {
     const [orderRows] = await db.query(
       `SELECT o.order_id,
-              MAX(o.order_status)      AS order_status,
-              MAX(o.order_date)        AS order_date,
-              MAX(om_total.meta_value) AS total,
-              MAX(om_sub.meta_value)   AS subtotal,
-              MAX(om_ship.meta_value)  AS shipping,
-              MAX(om_pay.meta_value)   AS payment_method,
-              MAX(u.display_name)      AS user_display_name,
-              MAX(u.user_email)        AS user_email,
+              MAX(o.order_status)         AS order_status,
+              MAX(o.order_date)           AS order_date,
+              MAX(om_total.meta_value)    AS total,
+              MAX(om_sub.meta_value)      AS subtotal,
+              MAX(om_ship.meta_value)     AS shipping,
+              MAX(om_pay.meta_value)      AS payment_method,
+              MAX(om_coupon.meta_value)   AS coupon_code,
+              MAX(om_discount.meta_value) AS coupon_discount,
+              MAX(u.user_email)           AS user_email,
               MAX(ub.first_name)       AS billing_first_name,
               MAX(ub.last_name)        AS billing_last_name,
               MAX(ub.phone)            AS billing_phone,
@@ -1388,6 +1389,10 @@ const getMyOrderById = async (req, res) => {
          ON o.order_id = om_ship.order_id AND om_ship.meta_key = '_order_shipping'
        LEFT JOIN tbl_ordermeta om_pay
          ON o.order_id = om_pay.order_id AND om_pay.meta_key = '_payment_method'
+       LEFT JOIN tbl_ordermeta om_coupon
+         ON o.order_id = om_coupon.order_id AND om_coupon.meta_key = '_coupon_code'
+       LEFT JOIN tbl_ordermeta om_discount
+         ON o.order_id = om_discount.order_id AND om_discount.meta_key = '_coupon_discount'
        WHERE o.order_id = ? AND o.user_id = ? AND o.order_type = 'shop_order'
        GROUP BY o.order_id`,
       [orderId, user.id],
