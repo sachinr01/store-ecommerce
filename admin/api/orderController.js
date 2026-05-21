@@ -28,7 +28,200 @@ const BREVO_SENDER_EMAIL =
   process.env.BREVO_SENDER_EMAIL ;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const DEFAULT_COUNTRY = process.env.DEFAULT_COUNTRY || "India";
+const axios = require("axios");
+const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL;
+const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD;
 
+// ================================
+// GET SHIPROCKET TOKEN
+// ================================
+
+async function getShiprocketToken() {
+  try {
+    const response = await axios.post(
+      "https://apiv2.shiprocket.in/v1/external/auth/login",
+      {
+        email: SHIPROCKET_EMAIL,
+        password: SHIPROCKET_PASSWORD,
+      },
+    );
+
+    return response.data.token;
+  } catch (error) {
+    console.log(
+      "Shiprocket Auth Error:",
+      error.response?.data || error.message,
+    );
+
+    throw new Error("Unable to authenticate Shiprocket");
+  }
+}
+
+// ================================
+// CREATE SHIPROCKET ORDER
+// ================================
+
+async function createShiprocketOrder(orderData) {
+  try {
+    const token = await getShiprocketToken();
+
+    const response = await axios.post(
+      "https://apiv2.shiprocket.in/v1/external/orders/create/adhoc",
+      orderData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log(
+      "Shiprocket Order Error:",
+      error.response?.data || error.message,
+    );
+
+    throw new Error("Failed to create Shiprocket order");
+  }
+}
+
+// ================================
+// ASSIGN COURIER + GENERATE AWB
+// ================================
+
+async function generateAWB(shipment_id) {
+  try {
+    const token = await getShiprocketToken();
+
+    const response = await axios.post(
+      "https://apiv2.shiprocket.in/v1/external/courier/assign/awb",
+      {
+        shipment_id,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log("Shiprocket AWB Error:", error.response?.data || error.message);
+
+    throw new Error("Failed to generate AWB");
+  }
+}
+
+
+async function getShippingRate(req, res) {
+  try {
+    const token = await getShiprocketToken();
+
+    const {
+      pincode,
+      cod = 0,
+      weight,
+      length,
+      breadth,
+      height,
+      declared_value = 599
+    } = req.body;
+
+    const response = await axios.get(
+      "https://apiv2.shiprocket.in/v1/external/courier/serviceability",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          pickup_postcode: "411017",
+          delivery_postcode: pincode,
+          cod: cod ? 1 : 0,
+          weight,
+          length: length || 10,
+          breadth: breadth || 10,
+          height: height || 10,
+          declared_value
+        }
+      }
+    );
+
+    const couriers =
+      response.data?.data?.available_courier_companies || [];
+
+    if (!couriers.length) {
+      return res.json({
+        success:false,
+        message:"No courier available"
+      });
+    }
+
+    // Prefer Shiprocket recommended courier
+let selected =
+    couriers.find(
+        c => c.recommended_by_shiprocket === true
+    );
+
+if (!selected) {
+    couriers.sort((a,b)=>
+        Number(
+            a.courier_charge ||
+            a.rate ||
+            a.freight_charge
+        )
+        -
+        Number(
+            b.courier_charge ||
+            b.rate ||
+            b.freight_charge
+        )
+    );
+
+    selected = couriers[0];
+}
+
+const finalRate =
+    Number(
+        selected.courier_charge ||
+        selected.rate ||
+        selected.freight_charge ||
+        0
+    );
+
+return res.json({
+    success:true,
+    rate: finalRate,
+    courier_name:selected.courier_name,
+    etd:selected.etd,
+
+    all_rates:couriers.map(c=>({
+        courier:c.courier_name,
+        rate:Number(
+            c.courier_charge ||
+            c.rate ||
+            c.freight_charge ||
+            0
+        ),
+        etd:c.etd
+    }))
+});
+
+  } catch(error){
+
+    console.log(
+      error.response?.data || error.message
+    );
+
+    return res.status(500).json({
+      success:false,
+      message:"Unable to get shipping rate"
+    });
+  }
+}
 let cachedLogoDataUri = "";
 
 function formatMoney(amount) {
