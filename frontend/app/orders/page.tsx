@@ -15,7 +15,7 @@ type OrderCard = {
   statusLabel: string;
   dateLabel: string;
   totalLabel: string;
-  items: string[];
+  itemCount: number;
 };
 
 function formatDate(value: string) {
@@ -81,16 +81,17 @@ export default function OrdersPage() {
   const cards: OrderCard[] = useMemo(() => (
     (orders || []).map((o) => {
       const status = normalizeStatus(o.order_status || '');
+      const fallbackCount = (o.items || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean).length;
       return {
         id: Number(o.order_id),
         status,
         statusLabel: toTitleCase(status),
         dateLabel: formatDate(o.order_date || ''),
         totalLabel: o.total ? formatPrice(Number(o.total)) : formatPrice(0),
-        items: (o.items || '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        itemCount: Number(o.item_count || 0) || fallbackCount || 1,
       };
     })
   ), [orders]);
@@ -160,7 +161,7 @@ export default function OrdersPage() {
                                   <div className="orders-row-value">{order.dateLabel}</div>
                                   <div className={`orders-row-status ${order.status}`}>{order.statusLabel}</div>
                                   <div className="orders-row-value">
-                                    {order.totalLabel} for {order.items.length || 1} item{order.items.length === 1 ? '' : 's'}
+                                    {order.totalLabel} for {order.itemCount} item{order.itemCount === 1 ? '' : 's'}
                                   </div>
                                   <div className="orders-actions">
                                     {showPendingActions && (

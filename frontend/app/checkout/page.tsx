@@ -797,6 +797,7 @@ export default function CheckoutPage() {
           payment_method: paymentMethod,
           shipping_cost: shippingCost,
           notes,
+          cart_item_ids: items.map((item) => item.cartItemId),
         }),
       });
 
@@ -828,6 +829,7 @@ export default function CheckoutPage() {
                 payment_method: 'razorpay',
                 shipping_cost: 0,
                 notes,
+                cart_item_ids: items.map((item) => item.cartItemId),
 
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,

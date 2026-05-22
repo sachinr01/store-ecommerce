@@ -22,6 +22,49 @@ const toInt = (val, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const MONEY_EPSILON = 0.01;
+
+function normalizeOrderLineItems(items) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      ...item,
+      order_item_id: Number(item.order_item_id || 0),
+      line_total: toAmount(item.line_total),
+    }))
+    .sort((a, b) => a.order_item_id - b.order_item_id);
+}
+
+// Some legacy orders have older line items left behind before the final
+// checkout snapshot was saved. We keep the newest contiguous suffix whose
+// sum matches the stored subtotal so the order view reflects what was paid.
+function selectEffectiveOrderItems(items, targetSubtotal) {
+  const sorted = normalizeOrderLineItems(items);
+  if (!sorted.length) return [];
+
+  const target = toAmount(targetSubtotal);
+  if (target > 0) {
+    let runningTotal = 0;
+    for (let start = sorted.length - 1; start >= 0; start -= 1) {
+      runningTotal += sorted[start].line_total;
+      if (Math.abs(runningTotal - target) <= MONEY_EPSILON) {
+        return sorted.slice(start);
+      }
+    }
+  }
+
+  return sorted;
+}
+
+function buildOrderItemMap(items) {
+  const map = new Map();
+  for (const item of normalizeOrderLineItems(items)) {
+    const key = Number(item.order_id || 0);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  }
+  return map;
+}
+
 const BREVO_API_KEY =
   process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "";
 const BREVO_SENDER_EMAIL =
@@ -577,6 +620,13 @@ const placeOrder = async (req, res) => {
   const user = getSessionUser(req);
   const userId = user ? user.id : 0;
   const { key, value, cookieId, sessionId } = getCartIdentity(req);
+  const requestedCartItemIds = Array.isArray(req.body.cart_item_ids)
+    ? [...new Set(
+        req.body.cart_item_ids
+          .map((id) => Number.parseInt(id, 10))
+          .filter((id) => Number.isFinite(id) && id > 0),
+      )]
+    : [];
 
   const billing = sanitizeBilling(req.body.billing);
   const shipping = sanitizeShipping(req.body.shipping, billing);
@@ -619,6 +669,19 @@ const placeOrder = async (req, res) => {
         "SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL ORDER BY created_at DESC",
         [value],
       );
+    }
+
+    if (requestedCartItemIds.length > 0) {
+      const requestedSet = new Set(requestedCartItemIds);
+      cartItems = cartItems.filter((item) => requestedSet.has(Number(item.id)));
+
+      if (cartItems.length !== requestedCartItemIds.length) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Your cart changed before checkout. Please refresh the page and try again.",
+        });
+      }
     }
 
     if (!cartItems.length) {
@@ -1567,18 +1630,59 @@ const getMyOrders = async (req, res) => {
               MAX(o.courier_name) AS courier_name,
               MAX(o.shipping_status) AS shipping_status,
               MAX(o.order_date)        AS order_date,
-              MAX(om_total.meta_value) AS total,
-              GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS total,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS subtotal
        FROM tbl_orders o
-       LEFT JOIN tbl_ordermeta om_total
-         ON o.order_id = om_total.order_id AND om_total.meta_key = '_order_total'
-       LEFT JOIN tbl_order_items oi
-         ON o.order_id = oi.order_id AND oi.order_item_type = 'line_item'
        WHERE o.user_id = ? AND o.order_type = 'shop_order'
        GROUP BY o.order_id
        ORDER BY MAX(o.order_date) DESC`,
       [user.id],
     );
+
+    const orderIds = orders.map((order) => Number(order.order_id)).filter(Boolean);
+    if (!orderIds.length) {
+      return res.json({ success: true, data: orders });
+    }
+
+    const [lineItems] = await db.query(
+      `SELECT oi.order_id,
+              oi.order_item_id,
+              oi.order_item_name,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS line_total
+       FROM tbl_order_items oi
+       WHERE oi.order_id IN (?) AND oi.order_item_type = 'line_item'
+       ORDER BY oi.order_id ASC, oi.order_item_id ASC`,
+      [orderIds],
+    );
+
+    const itemsByOrderId = buildOrderItemMap(lineItems);
+    for (const order of orders) {
+      const effectiveItems = selectEffectiveOrderItems(
+        itemsByOrderId.get(Number(order.order_id)) || [],
+        order.subtotal ? Number(order.subtotal) : 0,
+      );
+      order.item_count = effectiveItems.length;
+      order.items = effectiveItems.map((item) => item.order_item_name).filter(Boolean).join(", ");
+    }
+
     res.json({ success: true, data: orders });
   } catch (err) {
     console.error("getMyOrders error:", err);
@@ -1596,14 +1700,18 @@ const getAllOrders = async (_req, res) => {
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
               MAX(o.order_date)        AS order_date,
-              MAX(om_total.meta_value) AS total,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS total,
               MAX(u.user_email)        AS billing_email,
               MAX(u.display_name)      AS customer_name,
               GROUP_CONCAT(oi.order_item_name SEPARATOR ', ') AS items
        FROM tbl_orders o
        LEFT JOIN tbl_users u ON u.ID = o.user_id
-       LEFT JOIN tbl_ordermeta om_total
-         ON o.order_id = om_total.order_id AND om_total.meta_key = '_order_total'
        LEFT JOIN tbl_order_items oi
          ON o.order_id = oi.order_id AND oi.order_item_type = 'line_item'
        WHERE o.order_type = 'shop_order'
@@ -1641,10 +1749,48 @@ const getMyOrderById = async (req, res) => {
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
               MAX(o.order_date)        AS order_date,
-              MAX(om_total.meta_value) AS total,
-              MAX(om_sub.meta_value)   AS subtotal,
-              MAX(om_ship.meta_value)  AS shipping,
-              MAX(om_pay.meta_value)   AS payment_method,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS total,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS subtotal,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS shipping,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS payment_method,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS coupon_code,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_discount'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS coupon_discount,
               MAX(u.display_name)      AS user_display_name,
               MAX(u.user_email)        AS user_email,
               MAX(ub.first_name)       AS billing_first_name,
@@ -1695,18 +1841,6 @@ const getMyOrderById = async (req, res) => {
          WHERE address_billing = 'no'
          GROUP BY order_id
        ) us ON us.order_id = o.order_id
-       LEFT JOIN tbl_ordermeta om_total
-         ON o.order_id = om_total.order_id AND om_total.meta_key = '_order_total'
-       LEFT JOIN tbl_ordermeta om_sub
-         ON o.order_id = om_sub.order_id AND om_sub.meta_key = '_order_subtotal'
-       LEFT JOIN tbl_ordermeta om_ship
-         ON o.order_id = om_ship.order_id AND om_ship.meta_key = '_order_shipping'
-       LEFT JOIN tbl_ordermeta om_pay
-         ON o.order_id = om_pay.order_id AND om_pay.meta_key = '_payment_method'
-       LEFT JOIN tbl_ordermeta om_coupon
-         ON o.order_id = om_coupon.order_id AND om_coupon.meta_key = '_coupon_code'
-       LEFT JOIN tbl_ordermeta om_discount
-         ON o.order_id = om_discount.order_id AND om_discount.meta_key = '_coupon_discount'
        WHERE o.order_id = ? AND o.user_id = ? AND o.order_type = 'shop_order'
        GROUP BY o.order_id`,
       [orderId, user.id],
@@ -1724,11 +1858,41 @@ const getMyOrderById = async (req, res) => {
       `SELECT oi.order_item_id,
               oi.order_item_name,
               oi.product_id,
-              MAX(CASE WHEN oim.meta_key = '_variation_id' THEN oim.meta_value END) AS variation_id,
-              MAX(CASE WHEN oim.meta_key = '_qty'        THEN oim.meta_value END) AS qty,
-              MAX(CASE WHEN oim.meta_key = '_line_total' THEN oim.meta_value END) AS line_total,
-              MAX(CASE WHEN oim.meta_key = 'pa_color'    THEN oim.meta_value END) AS color,
-              MAX(CASE WHEN oim.meta_key = 'pa_size'     THEN oim.meta_value END) AS size,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_variation_id'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS variation_id,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS qty,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS line_total,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = 'pa_color'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS color,
+              (
+                SELECT oim.meta_value
+                FROM tbl_order_itemmeta oim
+                WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = 'pa_size'
+                ORDER BY oim.meta_id DESC
+                LIMIT 1
+              ) AS size,
               (
                 SELECT COALESCE(
                   -- 1. Image saved at order time (Amazon/Flipkart pattern)
@@ -1753,13 +1917,14 @@ const getMyOrderById = async (req, res) => {
                 )
               ) AS thumbnail_url
        FROM tbl_order_items oi
-       LEFT JOIN tbl_order_itemmeta oim ON oim.order_item_id = oi.order_item_id
        WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
        GROUP BY oi.order_item_id, oi.order_item_name, oi.product_id`,
       [orderId],
     );
 
-    res.json({ success: true, data: { order, items } });
+    const effectiveItems = selectEffectiveOrderItems(items, order.subtotal ? Number(order.subtotal) : 0);
+
+    res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
     console.error("getMyOrderById error:", err);
     res.status(500).json({ success: false, message: "Failed to load order." });
