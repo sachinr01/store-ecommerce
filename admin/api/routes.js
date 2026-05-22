@@ -89,7 +89,8 @@ router.post  ('/wishlist/sync',               requireLogin, wishlist.syncWishlis
 // ── Orders ────────────────────────────────────────────────────────────────────
 // NOTE: /orders/my MUST come before /orders/:orderId to avoid route conflict
 router.post('/orders/place',      orders.placeOrder);
-router.post('/shipping-rate',      orders.getShippingRate);
+router.post('/shipping-rate',     orders.getShippingRate);
+router.get('/tracking/:awb',      orders.getTrackingStatus);
 router.get('/orders/my',          requireLogin, orders.getMyOrders);
 router.get('/orders/:orderId',    requireLogin, orders.getMyOrderById);
 

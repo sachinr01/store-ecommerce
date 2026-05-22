@@ -224,6 +224,81 @@ return res.json({
   }
 }
 
+async function getTrackingStatus(req,res){
+    try{
+
+        const token = await getShiprocketToken();
+
+        const {awb} = req.params;
+
+        const response = await axios.get(
+            `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+            {
+                headers:{
+                    Authorization:`Bearer ${token}`
+                }
+            }
+        );
+
+        const tracking =
+            response.data?.tracking_data;
+
+        const shiprocketStatus =
+            tracking?.shipment_track?.[0]
+            ?.current_status || "Pending";
+
+        // Map Shiprocket statuses
+        const statusMap = {
+            "NEW":"Order Confirmed",
+            "PICKUP SCHEDULED":"Packed",
+            "PICKED UP":"Shipped",
+            "IN TRANSIT":"In Transit",
+            "OUT FOR DELIVERY":"Out for Delivery",
+            "DELIVERED":"Delivered",
+            "CANCELLED":"Cancelled",
+            "RTO INITIATED":"Return Initiated",
+            "RTO DELIVERED":"Returned"
+        };
+
+        const finalStatus =
+            statusMap[shiprocketStatus] ||
+            shiprocketStatus;
+
+        // update order table
+        await db.query(
+            `
+            UPDATE orders
+            SET
+                order_status=?
+            WHERE awb_code=?
+            `,
+            [
+                finalStatus,
+                awb
+            ]
+        );
+
+        return res.json({
+            success:true,
+            current_status:finalStatus,
+            activities:
+                tracking?.shipment_track_activities || []
+        });
+
+    }catch(error){
+
+        console.log(
+            "Tracking Error:",
+            error.response?.data ||
+            error.message
+        );
+
+        return res.status(500).json({
+            success:false
+        });
+    }
+}
+
 function formatMoney(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return "0.00";
@@ -1870,4 +1945,5 @@ module.exports = {
   getProfileAddresses,
   updateProfileAddress,
   getShippingRate,
+  getTrackingStatus,
 };
