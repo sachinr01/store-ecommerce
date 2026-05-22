@@ -238,6 +238,7 @@ export interface OrderSummary {
   order_status: string;
   order_date: string;
   total: string | number | null;
+  item_count?: string | number | null;
   items: string | null;
 }
 

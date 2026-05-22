@@ -61,6 +61,25 @@ export default function OrderDetailPage() {
   const summary = useMemo(() => {
     if (!data?.order) return null;
     const order = data.order;
+    const itemsSubtotal = (data.items || []).reduce(
+      (sum, item) => sum + Number(item.line_total || 0),
+      0,
+    );
+    const storedSubtotal = Number(order.subtotal || 0);
+    const storedShipping = Number(order.shipping || 0);
+    const storedTotal = Number(order.total || 0);
+    const storedDiscount = Number(order.coupon_discount || 0);
+    const subtotalValue =
+      Number.isFinite(storedSubtotal) && storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
+        ? storedSubtotal
+        : itemsSubtotal || storedSubtotal;
+    const totalValue = (() => {
+      const derived = Math.max(0, subtotalValue - storedDiscount) + storedShipping;
+      if (Number.isFinite(storedTotal) && storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01) {
+        return storedTotal;
+      }
+      return derived || storedTotal;
+    })();
     const shipNameRaw = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
     const billingNameRaw = [order.billing_first_name, order.billing_last_name].filter(Boolean).join(' ').trim();
     const name = shipNameRaw || billingNameRaw || order.user_display_name || '';
@@ -86,12 +105,12 @@ export default function OrderDetailPage() {
       id: Number(order.order_id),
       status: normalizeStatus(order.order_status || ''),
       dateLabel: formatDate(order.order_date || ''),
-      totalLabel: order.total ? formatPrice(Number(order.total)) : formatPrice(0),
-      subtotalLabel: order.subtotal ? formatPrice(Number(order.subtotal)) : formatPrice(0),
-      shippingLabel: order.shipping ? formatPrice(Number(order.shipping)) : formatPrice(0),
+      totalLabel: formatPrice(totalValue || 0),
+      subtotalLabel: formatPrice(subtotalValue || 0),
+      shippingLabel: formatPrice(storedShipping || 0),
       payment: order.payment_method || 'cod',
       couponCode: order.coupon_code || null,
-      discountLabel: order.coupon_discount ? formatPrice(Number(order.coupon_discount)) : null,
+      discountLabel: storedDiscount ? formatPrice(storedDiscount) : null,
       name,
       email,
       phone,
@@ -218,6 +237,12 @@ export default function OrderDetailPage() {
                     <h3 className="order-detail-subtitle">Price details</h3>
                     <div className="order-summary-grid">
                       <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
+                      {summary.couponCode && (
+                        <div><strong>Coupon:</strong> {summary.couponCode}</div>
+                      )}
+                      {summary.discountLabel && (
+                        <div><strong>Discount:</strong> -{summary.discountLabel}</div>
+                      )}
                       <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
                       <div><strong>Total:</strong> {summary.totalLabel}</div>
                       <div><strong>Payment:</strong> {summary.payment}</div>
