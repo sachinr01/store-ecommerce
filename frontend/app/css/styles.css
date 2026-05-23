@@ -1718,7 +1718,7 @@ input[type="checkbox"] {
   margin: 0 auto;
   padding: 24px 48px 28px;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 300px;
   gap: 24px;
   align-items: stretch;
 }
@@ -1834,8 +1834,9 @@ input[type="checkbox"] {
 .nh-km-promos {
   display: flex;
   gap: 8px;
-  align-self: stretch;
-  height: 100%;
+  align-self: center;
+  height: 300px;
+  width: 300px;
 }
 
 .nh-km-promo {
@@ -1844,20 +1845,20 @@ input[type="checkbox"] {
   display: block;
   text-decoration: none;
   background: #f5ede4;
-  width: 100%;
+  width: 300px;
   flex-shrink: 0;
-  height: 100%;
+  height: 300px;
   min-height: 0;
 }
 
 .nh-km-promo img {
-  position: absolute;
-  inset: 0;
+  /* position: absolute;
+  inset: 0; */
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  /* object-fit: fill;
   object-position: left top;
-  display: block;
+  display: block; */
   transition: transform 0.4s ease;
 }
 
@@ -2518,6 +2519,7 @@ input[type="checkbox"] {
   max-width: inherit;
   max-height: inherit;
   display: block;
+  border-radius: 4px;
 }
 
 .footer-legal-divider {
@@ -3716,10 +3718,10 @@ input[type="checkbox"] {
   background: #f4f0eb;
 }
 .featured-panel img {
-  display: block;
+  /* display: block; */
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* object-fit: cover; */
   transition: transform 0.5s ease;
 }
 .featured-panel:hover img {
@@ -3982,20 +3984,20 @@ input[type="checkbox"] {
 /* ========================================== FULL-WIDTH BANNER ================================== */
 .video-banner {
   width: 100%;
-  height: 654px;
+  /* height: 654px; */
   position: relative;
   overflow: hidden;
 }
 
 .video-banner-bg {
-  position: absolute;
+  /* position: absolute; */
   width: 100%;
-  left: 0;
+  /* left: 0;
   top: 0;
   right: 0;
   bottom: 0;
   object-fit: fill;
-  color: transparent;
+  color: transparent; */
 }
 
 .video-banner-overlay {
@@ -4203,9 +4205,9 @@ input[type="checkbox"] {
     grid-row: span 2;
   }
 
-  .video-banner {
+  /* .video-banner {
     height: 473px;
-  }
+  } */
 }
 
 /* ======================================= MOBILE (640px) ======================================== */
@@ -4254,9 +4256,9 @@ input[type="checkbox"] {
     grid-row: span 1;
   }
 
-  .video-banner {
+  /* .video-banner {
     height: 198px;
-  }
+  } */
 
   .video-banner-btn {
     padding: 10px 28px;
@@ -4294,9 +4296,9 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 
-  .video-banner {
+  /* .video-banner {
     height: 199px;
-  }
+  } */
 
   .gifting-collage {
     grid-template-rows: 220px 180px 180px;
@@ -13053,8 +13055,8 @@ input[type="checkbox"] {
 
 .b2b-category-image img {
   width: 100%;
-  display: block;
-  object-fit: contain;
+  /* display: block;
+  object-fit: contain; */
   transition: transform 0.35s ease;
 }
 
