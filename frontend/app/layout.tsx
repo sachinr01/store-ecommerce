@@ -4,9 +4,9 @@ import { CartProvider } from "./lib/cartContext";
 import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
+import { SITE_URL } from "./lib/helpers/siteUrl";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Nestcase';
-const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
 
 export const viewport: Viewport = {
   width: 'device-width',
