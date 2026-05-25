@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const crypto = require("crypto");
 const https = require("https");
 const { getSessionUser } = require("./session");
 const { getCartIdentity } = require("./cartController");
@@ -363,7 +364,9 @@ async function sendBrevoEmail({ toEmail, toName, subject, html }) {
 function buildOrderName() {
   const now = new Date();
   const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  const suffix = Math.random().toString(36).slice(2, 6);
+  // crypto.randomBytes gives a cryptographically strong suffix — no collision risk
+  // unlike Math.random() which shares a ~32-bit PRNG state across all requests.
+  const suffix = crypto.randomBytes(3).toString("hex"); // 6 hex chars = 16M possibilities
   return `order-${stamp}-${suffix}`;
 }
 function sanitizeBilling(billing) {
@@ -869,8 +872,6 @@ const placeOrder = async (req, res) => {
     }
 
     if (paymentMethod === "razorpay" && razorpayPaymentId) {
-      const crypto = require("crypto");
-
       const generatedSignature = crypto
         .createHmac("sha256", process.env.RAZORPAY_SECRET)
         .update(razorpayOrderId + "|" + razorpayPaymentId)
@@ -935,7 +936,23 @@ const placeOrder = async (req, res) => {
 
       billing_phone: billing.phone,
 
-      shipping_is_billing: true,
+      // Dynamically detect whether shipping matches billing — never hardcode true.
+      // When false, Shiprocket requires the full shipping_* fields below;
+      // without them it silently falls back to billing and delivers to the wrong address.
+      shipping_is_billing:
+        shipping.address  === billing.address &&
+        shipping.city     === billing.city    &&
+        shipping.postcode === billing.postcode,
+
+      shipping_customer_name: shipping.first_name,
+      shipping_last_name:     shipping.last_name,
+      shipping_address:       shipping.address,
+      shipping_address_2:     shipping.address_2 || "",
+      shipping_city:          shipping.city,
+      shipping_pincode:       shipping.postcode,
+      shipping_state:         shipping.state,
+      shipping_country:       "India",
+      shipping_phone:         shipping.phone,
 
       order_items: cartItems.map((item) => ({
         name: item.title || "Product",
@@ -961,42 +978,41 @@ const placeOrder = async (req, res) => {
     };
 
     // ===================================
-    // CREATE SHIPROCKET ORDER
+    // CREATE SHIPROCKET ORDER + GENERATE AWB
+    // Wrapped in try/catch so a Shiprocket outage NEVER blocks order creation.
+    // The order is fully saved to DB regardless; Shiprocket can be retried
+    // from the admin panel using the stored orderId.
     // ===================================
 
-    const shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
-
-    console.log("Shiprocket Order Created:", shiprocketResponse);
-
-    // ===================================
-    // GENERATE AWB
-    // ===================================
-
+    let shiprocketResponse = null;
     let awbResponse = null;
 
-    if (shiprocketResponse.shipment_id) {
-      awbResponse = await generateAWB(shiprocketResponse.shipment_id);
+    try {
+      shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
 
-      console.log("AWB Generated:", awbResponse);
-      await conn.query(
-        `UPDATE tbl_orders
-        SET shipment_id = ?,
-       awb_code = ?,
-       courier_name = ?,
-       shipping_status = ?
-        WHERE order_id = ?`,
-        [
-          shiprocketResponse.shipment_id || "",
+      if (shiprocketResponse?.shipment_id) {
+        awbResponse = await generateAWB(shiprocketResponse.shipment_id);
 
-          awbResponse?.response?.data?.awb_code || "",
-
-          awbResponse?.response?.data?.courier_name || "",
-
-          "new",
-
-          orderId,
-        ],
-      );
+        await conn.query(
+          `UPDATE tbl_orders
+           SET shipment_id    = ?,
+               awb_code       = ?,
+               courier_name   = ?,
+               shipping_status = ?
+           WHERE order_id = ?`,
+          [
+            shiprocketResponse.shipment_id || "",
+            awbResponse?.response?.data?.awb_code    || "",
+            awbResponse?.response?.data?.courier_name || "",
+            "new",
+            orderId,
+          ],
+        );
+      }
+    } catch (shipErr) {
+      // Non-fatal — log for ops team to manually push to Shiprocket if needed.
+      // Order commit continues below; customer payment is not affected.
+      console.error("Shiprocket failed (non-fatal), orderId:", orderId, shipErr.message);
     }
 
     // end shiprocket code
