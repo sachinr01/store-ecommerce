@@ -1121,7 +1121,14 @@ const placeOrder = async (req, res) => {
     // CREATE SHIPROCKET ORDER
     // ===================================
 
-    const shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
+    let shiprocketResponse = {};
+      try {
+        shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
+      } catch (shipErr) {
+        console.error("Shiprocket order creation failed:", shipErr.message);
+        // Don't block the order — just skip shiprocket
+      }
+
 
     console.log(
       "Shiprocket Order Created:",
