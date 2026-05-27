@@ -67,8 +67,7 @@ function buildOrderItemMap(items) {
 
 const BREVO_API_KEY =
   process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "";
-const BREVO_SENDER_EMAIL =
-  process.env.BREVO_SENDER_EMAIL ;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const DEFAULT_COUNTRY = process.env.DEFAULT_COUNTRY || "India";
 
@@ -135,45 +134,102 @@ async function createShiprocketOrder(orderData) {
 // ASSIGN COURIER + GENERATE AWB
 // ================================
 
-async function generateAWB(shipment_id) {
-  try {
-    const token = await getShiprocketToken();
+async function generateAWB(shipment_id, courierId) {
+  const token = await getShiprocketToken();
 
-    const response = await axios.post(
-      "https://apiv2.shiprocket.in/v1/external/courier/assign/awb",
-      {
-        shipment_id,
+  const response = await axios.post(
+    "https://apiv2.shiprocket.in/v1/external/courier/assign/awb",
+    {
+      shipment_id,
+      courier_id: courierId,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
+    },
+  );
 
-    return response.data;
-  } catch (error) {
-    console.log("Shiprocket AWB Error:", error.response?.data || error.message);
-
-    throw new Error("Failed to generate AWB");
-  }
+  return response.data;
 }
-
 
 async function getShippingRate(req, res) {
   try {
     const token = await getShiprocketToken();
 
-    const {
-      pincode,
-      cod = 0,
-      weight,
-      length,
-      breadth,
-      height,
-      declared_value = 599
-    } = req.body;
+    const user = getSessionUser(req);
+    const userId = user ? user.id : 0;
+    const { key, value } = getCartIdentity(req);
+
+    const { pincode, cod = 0, declared_value = 599 } = req.body;
+
+    // Fetch cart items
+    let cartItems = [];
+
+    if (userId) {
+      [cartItems] = await db.query(
+        "SELECT * FROM cart_items WHERE user_id = ?",
+        [userId],
+      );
+    } else if (key === "cookie_id") {
+      [cartItems] = await db.query(
+        "SELECT * FROM cart_items WHERE cookie_id = ? AND user_id IS NULL",
+        [value],
+      );
+    } else {
+      [cartItems] = await db.query(
+        "SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL",
+        [value],
+      );
+    }
+
+    // Same logic as placeOrder()
+    let totalWeight = 0;
+    let maxLength = 1;
+    let maxBreadth = 1;
+    let totalHeight = 1;
+
+    for (const item of cartItems) {
+      const checkId =
+        item.variation_id && Number(item.variation_id) > 0
+          ? item.variation_id
+          : item.product_id;
+
+      const [metaRows] = await db.query(
+        `SELECT meta_key, meta_value
+         FROM tbl_productmeta
+         WHERE product_id = ?
+         AND meta_key IN ('length','breadth','height','weight')`,
+        [checkId],
+      );
+
+      const meta = {};
+
+      metaRows.forEach((row) => {
+        meta[row.meta_key] = Number(row.meta_value || 0);
+      });
+
+      const qty = Number(item.quantity || 1);
+
+      const length = meta.length || 10;
+      const breadth = meta.breadth || 10;
+      const height = meta.height || 2;
+      const weight = meta.weight || 0.5;
+
+      totalWeight += weight * qty;
+      totalHeight += height * qty;
+
+      maxLength = Math.max(maxLength, length);
+      maxBreadth = Math.max(maxBreadth, breadth);
+    }
+
+    console.log({
+      weight: totalWeight,
+      length: maxLength,
+      breadth: maxBreadth,
+      height: totalHeight,
+    });
 
     const response = await axios.get(
       "https://apiv2.shiprocket.in/v1/external/courier/serviceability",
@@ -182,164 +238,121 @@ async function getShippingRate(req, res) {
           Authorization: `Bearer ${token}`,
         },
         params: {
-          pickup_postcode: "411017",
+          pickup_postcode: process.env.SHIPROCKET_PICKUP_PINCODE,
+
           delivery_postcode: pincode,
+
           cod: cod ? 1 : 0,
-          weight,
-          length: length || 10,
-          breadth: breadth || 10,
-          height: height || 10,
-          declared_value
-        }
-      }
+
+          weight: totalWeight,
+          length: maxLength,
+          breadth: maxBreadth,
+          height: totalHeight,
+
+          declared_value: Number(declared_value),
+        },
+      },
     );
 
-    const couriers =
-      response.data?.data?.available_courier_companies || [];
+    const couriers = response.data?.data?.available_courier_companies || [];
 
     if (!couriers.length) {
       return res.json({
-        success:false,
-        message:"No courier available"
+        success: false,
+        message: "No courier available",
       });
     }
 
-    // Prefer Shiprocket recommended courier
-let selected =
-    couriers.find(
-        c => c.recommended_by_shiprocket === true
-    );
+    const getRate = (c) =>
+      Number(c.freight_charge ?? c.rate ?? c.courier_charge ?? 0);
 
-if (!selected) {
-    couriers.sort((a,b)=>
-        Number(
-            a.courier_charge ||
-            a.rate ||
-            a.freight_charge
-        )
-        -
-        Number(
-            b.courier_charge ||
-            b.rate ||
-            b.freight_charge
-        )
-    );
+    couriers.sort((a, b) => getRate(a) - getRate(b));
 
-    selected = couriers[0];
-}
-
-const finalRate =
-    Number(
-        selected.courier_charge ||
-        selected.rate ||
-        selected.freight_charge ||
-        0
-    );
-
-return res.json({
-    success:true,
-    rate: finalRate,
-    courier_name:selected.courier_name,
-    etd:selected.etd,
-
-    all_rates:couriers.map(c=>({
-        courier:c.courier_name,
-        rate:Number(
-            c.courier_charge ||
-            c.rate ||
-            c.freight_charge ||
-            0
-        ),
-        etd:c.etd
-    }))
-});
-
-  } catch(error){
+    const selected = couriers[0];
 
     console.log(
-      error.response?.data || error.message
+      "Selected courier:",
+      selected.courier_company_id,
+      selected.courier_name,
+      getRate(selected),
     );
 
+    return res.json({
+      success: true,
+      rate: getRate(selected),
+      courier_company_id: selected.courier_company_id,
+      courier_name: selected.courier_name,
+      etd: selected.etd,
+      is_surface: Boolean(selected.is_surface),
+    });
+  } catch (error) {
+    console.log(error.response?.data || error.message);
+
     return res.status(500).json({
-      success:false,
-      message:"Unable to get shipping rate"
+      success: false,
+      message: "Unable to get shipping rate",
     });
   }
 }
 
-async function getTrackingStatus(req,res){
-    try{
+async function getTrackingStatus(req, res) {
+  try {
+    const token = await getShiprocketToken();
 
-        const token = await getShiprocketToken();
+    const { awb } = req.params;
 
-        const {awb} = req.params;
+    const response = await axios.get(
+      `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
 
-        const response = await axios.get(
-            `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
-            {
-                headers:{
-                    Authorization:`Bearer ${token}`
-                }
-            }
-        );
+    const tracking = response.data?.tracking_data;
 
-        const tracking =
-            response.data?.tracking_data;
+    const shiprocketStatus =
+      tracking?.shipment_track?.[0]?.current_status || "Pending";
 
-        const shiprocketStatus =
-            tracking?.shipment_track?.[0]
-            ?.current_status || "Pending";
+    // Map Shiprocket statuses
+    const statusMap = {
+      NEW: "Order Confirmed",
+      "PICKUP SCHEDULED": "Packed",
+      "PICKED UP": "Shipped",
+      "IN TRANSIT": "In Transit",
+      "OUT FOR DELIVERY": "Out for Delivery",
+      DELIVERED: "Delivered",
+      CANCELLED: "Cancelled",
+      "RTO INITIATED": "Return Initiated",
+      "RTO DELIVERED": "Returned",
+    };
 
-        // Map Shiprocket statuses
-        const statusMap = {
-            "NEW":"Order Confirmed",
-            "PICKUP SCHEDULED":"Packed",
-            "PICKED UP":"Shipped",
-            "IN TRANSIT":"In Transit",
-            "OUT FOR DELIVERY":"Out for Delivery",
-            "DELIVERED":"Delivered",
-            "CANCELLED":"Cancelled",
-            "RTO INITIATED":"Return Initiated",
-            "RTO DELIVERED":"Returned"
-        };
+    const finalStatus = statusMap[shiprocketStatus] || shiprocketStatus;
 
-        const finalStatus =
-            statusMap[shiprocketStatus] ||
-            shiprocketStatus;
-
-        // update order table
-        await db.query(
-            `
+    // update order table
+    await db.query(
+      `
             UPDATE orders
             SET
                 order_status=?
             WHERE awb_code=?
             `,
-            [
-                finalStatus,
-                awb
-            ]
-        );
+      [finalStatus, awb],
+    );
 
-        return res.json({
-            success:true,
-            current_status:finalStatus,
-            activities:
-                tracking?.shipment_track_activities || []
-        });
+    return res.json({
+      success: true,
+      current_status: finalStatus,
+      activities: tracking?.shipment_track_activities || [],
+    });
+  } catch (error) {
+    console.log("Tracking Error:", error.response?.data || error.message);
 
-    }catch(error){
-
-        console.log(
-            "Tracking Error:",
-            error.response?.data ||
-            error.message
-        );
-
-        return res.status(500).json({
-            success:false
-        });
-    }
+    return res.status(500).json({
+      success: false,
+    });
+  }
 }
 
 function formatMoney(amount) {
@@ -696,11 +709,13 @@ const placeOrder = async (req, res) => {
   const userId = user ? user.id : 0;
   const { key, value, cookieId, sessionId } = getCartIdentity(req);
   const requestedCartItemIds = Array.isArray(req.body.cart_item_ids)
-    ? [...new Set(
-        req.body.cart_item_ids
-          .map((id) => Number.parseInt(id, 10))
-          .filter((id) => Number.isFinite(id) && id > 0),
-      )]
+    ? [
+        ...new Set(
+          req.body.cart_item_ids
+            .map((id) => Number.parseInt(id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      ]
     : [];
 
   const billing = sanitizeBilling(req.body.billing);
@@ -754,7 +769,8 @@ const placeOrder = async (req, res) => {
         await conn.rollback();
         return res.status(400).json({
           success: false,
-          message: "Your cart changed before checkout. Please refresh the page and try again.",
+          message:
+            "Your cart changed before checkout. Please refresh the page and try again.",
         });
       }
     }
@@ -954,7 +970,64 @@ const placeOrder = async (req, res) => {
     // SHIPROCKET ORDER PAYLOAD
     // ===================================
 
+    // ===================================
+    // CALCULATE PACKAGE DIMENSIONS
+    // ===================================
+
+    let totalWeight = 0;
+    let maxLength = 10;
+    let maxBreadth = 10;
+    let totalHeight = 0;
+
+    for (const item of cartItems) {
+      const checkId =
+        item.variation_id && Number(item.variation_id) > 0
+          ? item.variation_id
+          : item.product_id;
+
+      const [metaRows] = await conn.query(
+        `SELECT meta_key, meta_value
+     FROM tbl_productmeta
+     WHERE product_id = ?
+     AND meta_key IN ('length','breadth','height','weight')`,
+        [checkId],
+      );
+
+      const meta = {};
+
+      metaRows.forEach((row) => {
+        meta[row.meta_key] = Number(row.meta_value || 0);
+      });
+
+      const qty = Number(item.quantity || 1);
+
+      const length = meta.length || 10;
+      const breadth = meta.breadth || 10;
+      const height = meta.height || 2;
+      const weight = meta.weight || 0.5;
+
+      // package calculation
+      maxLength = Math.max(maxLength, length);
+      maxBreadth = Math.max(maxBreadth, breadth);
+
+      totalHeight += height * qty;
+      totalWeight += weight * qty;
+    }
+
+    console.log({
+      length: maxLength,
+      breadth: maxBreadth,
+      height: totalHeight,
+      weight: totalWeight,
+    });
+
     const orderIdShiprocket = "ORD_" + orderId;
+
+    // Standardize fallback metrics to match your rate calculator defaults
+    const finalLength = maxLength || 10;
+    const finalBreadth = maxBreadth || 10;
+    const finalHeight = totalHeight || 10;
+    const finalWeight = totalWeight || 0.5; // Always provide a safe minimum weight (e.g., 0.5kg)
 
     const shiprocketPayload = {
       order_id: orderIdShiprocket,
@@ -988,24 +1061,30 @@ const placeOrder = async (req, res) => {
       order_items: cartItems.map((item) => ({
         name: item.title || "Product",
 
-        sku: item.product_id,
+        sku: String(item.product_id),
 
         units: Number(item.quantity),
 
         selling_price: Number(item.price),
+
+        discount: 0,
       })),
 
-      payment_method: paymentMethod === "cod" ? "COD" : "Prepaid",
+      payment_method: paymentMethod.toLowerCase() === "cod" ? "COD" : "Prepaid",
 
-      sub_total: total,
+      sub_total: Number(subtotal - discount),
 
-      length: 10,
+      shipping_charges: Number(shippingCost),
 
-      breadth: 10,
+      total_discount: Number(discount),
 
-      height: 10,
+      length: finalLength,
 
-      weight: 0.5,
+      breadth: finalBreadth,
+
+      height: finalHeight,
+
+      weight: finalWeight,
     };
 
     // ===================================
@@ -1014,7 +1093,11 @@ const placeOrder = async (req, res) => {
 
     const shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
 
-    console.log("Shiprocket Order Created:", shiprocketResponse);
+    console.log(
+      "Shiprocket Order Created:",
+      shiprocketResponse,
+      Number(req.body.courier_company_id),
+    );
 
     // ===================================
     // GENERATE AWB
@@ -1023,7 +1106,18 @@ const placeOrder = async (req, res) => {
     let awbResponse = null;
 
     if (shiprocketResponse.shipment_id) {
-      awbResponse = await generateAWB(shiprocketResponse.shipment_id);
+      const courierCompanyId = Number(req.body.courier_company_id);
+
+      awbResponse = await generateAWB(
+        shiprocketResponse.shipment_id,
+        courierCompanyId,
+      );
+      console.log(
+        "Assigned courier:",
+        awbResponse?.response?.data?.courier_name,
+        "Charges:",
+        awbResponse?.response?.data?.freight_charges,
+      );
 
       console.log("AWB Generated:", awbResponse);
       await conn.query(
@@ -1075,13 +1169,31 @@ const placeOrder = async (req, res) => {
     }
 
     if (shiprocketResponse.shipment_id) {
-       metaEntries.push(["_shiprocket_order_id", shiprocketResponse.order_id]);
-       metaEntries.push(["_shiprocket_shipment_id", shiprocketResponse.shipment_id]);
-       metaEntries.push(["_awb_code", awbResponse?.response?.data?.awb_code || ""]);
-       metaEntries.push(["_courier_id", awbResponse?.response?.data?.courier_company_id || ""]);
-       metaEntries.push(["_courier_name", awbResponse?.response?.data?.courier_name || ""]);
-       metaEntries.push(["_tracking_number", awbResponse?.response?.data?.awb_code || ""]);
-       metaEntries.push(["_freight_charges", awbResponse?.response?.data?.freight_charges || ""]);
+      metaEntries.push(["_shiprocket_order_id", shiprocketResponse.order_id]);
+      metaEntries.push([
+        "_shiprocket_shipment_id",
+        shiprocketResponse.shipment_id,
+      ]);
+      metaEntries.push([
+        "_awb_code",
+        awbResponse?.response?.data?.awb_code || "",
+      ]);
+      metaEntries.push([
+        "_courier_id",
+        awbResponse?.response?.data?.courier_company_id || "",
+      ]);
+      metaEntries.push([
+        "_courier_name",
+        awbResponse?.response?.data?.courier_name || "",
+      ]);
+      metaEntries.push([
+        "_tracking_number",
+        awbResponse?.response?.data?.awb_code || "",
+      ]);
+      metaEntries.push([
+        "_freight_charges",
+        awbResponse?.response?.data?.freight_charges || "",
+      ]);
     }
 
     for (const [metaKey, metaValue] of metaEntries) {
@@ -1431,9 +1543,10 @@ const placeOrder = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: process.env.NODE_ENV === 'production'
-        ? 'Something went wrong. Please try again.'
-        : err.message,
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Something went wrong. Please try again."
+          : err.message,
     });
   } finally {
     conn.release();
@@ -1726,7 +1839,9 @@ const getMyOrders = async (req, res) => {
       [user.id],
     );
 
-    const orderIds = orders.map((order) => Number(order.order_id)).filter(Boolean);
+    const orderIds = orders
+      .map((order) => Number(order.order_id))
+      .filter(Boolean);
     if (!orderIds.length) {
       return res.json({ success: true, data: orders });
     }
@@ -1755,7 +1870,10 @@ const getMyOrders = async (req, res) => {
         order.subtotal ? Number(order.subtotal) : 0,
       );
       order.item_count = effectiveItems.length;
-      order.items = effectiveItems.map((item) => item.order_item_name).filter(Boolean).join(", ");
+      order.items = effectiveItems
+        .map((item) => item.order_item_name)
+        .filter(Boolean)
+        .join(", ");
     }
 
     res.json({ success: true, data: orders });
@@ -1997,7 +2115,10 @@ const getMyOrderById = async (req, res) => {
       [orderId],
     );
 
-    const effectiveItems = selectEffectiveOrderItems(items, order.subtotal ? Number(order.subtotal) : 0);
+    const effectiveItems = selectEffectiveOrderItems(
+      items,
+      order.subtotal ? Number(order.subtotal) : 0,
+    );
 
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {

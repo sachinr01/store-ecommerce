@@ -227,6 +227,7 @@ export default function CheckoutPage() {
 
   // added by sumit
   const [shippingCost, setShippingCost] = useState(0);
+  const [shippingCourierId, setCourierId] = useState(0);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [deliveryDays, setDeliveryDays] = useState("");
 
@@ -728,6 +729,9 @@ export default function CheckoutPage() {
         setDeliveryDays(
             data.etd || ""
         );
+        setCourierId (
+            data.courier_company_id || ""
+        );
 
       } else {
         setShippingCost(0);
@@ -796,6 +800,7 @@ export default function CheckoutPage() {
           shipping,
           payment_method: paymentMethod,
           shipping_cost: shippingCost,
+          courier_company_id: shippingCourierId,
           notes,
           cart_item_ids: items.map((item) => item.cartItemId),
         }),
@@ -827,7 +832,8 @@ export default function CheckoutPage() {
                 billing,
                 shipping,
                 payment_method: 'razorpay',
-                shipping_cost: 0,
+                shipping_cost: shippingCost,
+                courier_company_id: shippingCourierId,
                 notes,
                 cart_item_ids: items.map((item) => item.cartItemId),
 
