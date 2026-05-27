@@ -963,6 +963,8 @@ const placeOrder = async (req, res) => {
     }
 
     if (paymentMethod === "razorpay" && razorpayPaymentId) {
+      const crypto = require("crypto");
+
       const generatedSignature = crypto
         .createHmac("sha256", process.env.RAZORPAY_SECRET)
         .update(razorpayOrderId + "|" + razorpayPaymentId)
@@ -1084,23 +1086,7 @@ const placeOrder = async (req, res) => {
 
       billing_phone: billing.phone,
 
-      // Dynamically detect whether shipping matches billing — never hardcode true.
-      // When false, Shiprocket requires the full shipping_* fields below;
-      // without them it silently falls back to billing and delivers to the wrong address.
-      shipping_is_billing:
-        shipping.address === billing.address &&
-        shipping.city === billing.city &&
-        shipping.postcode === billing.postcode,
-
-      shipping_customer_name: shipping.first_name,
-      shipping_last_name: shipping.last_name,
-      shipping_address: shipping.address,
-      shipping_address_2: shipping.address_2 || "",
-      shipping_city: shipping.city,
-      shipping_pincode: shipping.postcode,
-      shipping_state: shipping.state,
-      shipping_country: "India",
-      shipping_phone: shipping.phone,
+      shipping_is_billing: true,
 
       order_items: cartItems.map((item) => ({
         name: item.title || "Product",
@@ -1132,10 +1118,7 @@ const placeOrder = async (req, res) => {
     };
 
     // ===================================
-    // CREATE SHIPROCKET ORDER + GENERATE AWB
-    // Wrapped in try/catch so a Shiprocket outage NEVER blocks order creation.
-    // The order is fully saved to DB regardless; Shiprocket can be retried
-    // from the admin panel using the stored orderId.
+    // CREATE SHIPROCKET ORDER
     // ===================================
 
     const shiprocketResponse = await createShiprocketOrder(shiprocketPayload);
@@ -1159,25 +1142,24 @@ const placeOrder = async (req, res) => {
         shiprocketResponse.shipment_id,
         courierCompanyId,
       );
-      console.log(
-        "Assigned courier:",
-        awbResponse?.response?.data?.courier_name,
-        "Charges:",
-        awbResponse?.response?.data?.freight_charges,
-      );
 
+      console.log("AWB Generated:", awbResponse);
       await conn.query(
         `UPDATE tbl_orders
-           SET shipment_id    = ?,
-               awb_code       = ?,
-               courier_name   = ?,
-               shipping_status = ?
-           WHERE order_id = ?`,
+        SET shipment_id = ?,
+       awb_code = ?,
+       courier_name = ?,
+       shipping_status = ?
+        WHERE order_id = ?`,
         [
           shiprocketResponse.shipment_id || "",
+
           awbResponse?.response?.data?.awb_code || "",
+
           awbResponse?.response?.data?.courier_name || "",
+
           "new",
+
           orderId,
         ],
       );
@@ -1592,7 +1574,7 @@ const placeOrder = async (req, res) => {
     });
   } finally {
     conn.release();
-  }
+  } 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
