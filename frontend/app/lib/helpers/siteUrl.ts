@@ -43,5 +43,5 @@ export const resolveSeoCanonical = resolveSeoField;
 export function productCanonicalUrl(slug: string, seoCanonicalTag?: string | null): string {
   const custom = resolveSeoCanonical(seoCanonicalTag);
   if (custom) return absoluteUrl(custom);
-  return absoluteUrl(`/store/shop/product/${slug}`);
+  return absoluteUrl(`/shop/product/${slug}`);
 }

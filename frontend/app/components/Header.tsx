@@ -197,9 +197,9 @@ export default function Header() {
       .filter(l => l.mega?.categorySlug)
       .map(l => l.mega!.categorySlug!);
     categorySlugs.forEach(slug => {
-      fetch(`/store/api/product-categories/${slug}/products`, { headers: { Accept: 'application/json' } })
+      fetch(`/api/product-categories/${slug}/products`, { headers: { Accept: 'application/json' } })
         .then(r => r.json()).then(json => setCatProducts(prev => ({ ...prev, [slug]: mapProducts(json.data ?? json ?? []) }))).catch(() => {});
-      fetch(`/store/api/products/best-sellers?category=${slug}&limit=2`, { headers: { Accept: 'application/json' } })
+      fetch(`/api/products/best-sellers?category=${slug}&limit=2`, { headers: { Accept: 'application/json' } })
         .then(r => r.json()).then(json => setCatBestSellers(prev => ({ ...prev, [slug]: mapProducts(json.data ?? []) }))).catch(() => {});
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

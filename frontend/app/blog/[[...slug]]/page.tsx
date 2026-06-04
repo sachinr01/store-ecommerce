@@ -28,12 +28,12 @@ export async function generateMetadata({
       title: 'Blog – Home Decor & Lifestyle',
       description:
         'Explore home decor tips, interior styling inspiration, and the latest updates from our team.',
-      alternates: { canonical: '/store/blog' },
+      alternates: { canonical: '/blog' },
       openGraph: {
         title: 'Blog – Home Decor & Lifestyle',
         description:
           'Explore home decor tips, interior styling inspiration, and the latest updates from our team.',
-        url: '/store/blog',
+        url: '/blog',
         type: 'website',
       },
     };
