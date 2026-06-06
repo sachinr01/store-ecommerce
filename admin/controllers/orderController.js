@@ -159,67 +159,6 @@ const showOrders = async (req, res) => {
   }
 };
 
-// const showOrders = async (req, res) => {
-//   try {
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 20;
-//     const offset = (page - 1) * limit;
-//     const status = req.query.status || "";
-//     const search = req.query.search || "";
-
-//     let where = "WHERE o.order_type = 'shop_order' AND o.parent_id = 0";
-//     const params = [];
-
-//     if (status) {
-//       where += " AND o.order_status = ?";
-//       params.push(status);
-//     }
-//     if (search) {
-//       where += " AND (o.order_title LIKE ? OR o.order_name LIKE ?)";
-//       params.push("%" + search + "%", "%" + search + "%");
-//     }
-
-//     const [[{ total }]] = await db.query(
-//       `SELECT COUNT(*) AS total FROM tbl_orders o ${where}`,
-//       params,
-//     );
-
-//     const [orders] = await db.query(
-//       `SELECT o.*,
-//           MAX(CASE WHEN om.meta_key = '_billing_first_name'   THEN om.meta_value END) AS billing_first_name,
-//           MAX(CASE WHEN om.meta_key = '_billing_last_name'    THEN om.meta_value END) AS billing_last_name,
-//           MAX(CASE WHEN om.meta_key = '_billing_email'        THEN om.meta_value END) AS billing_email,
-//           MAX(CASE WHEN om.meta_key = '_billing_phone'        THEN om.meta_value END) AS billing_phone,
-//           MAX(CASE WHEN om.meta_key = '_order_total'          THEN om.meta_value END) AS order_total,
-//           MAX(CASE WHEN om.meta_key = '_payment_method_title' THEN om.meta_value END) AS payment_method,
-//           MAX(CASE WHEN om.meta_key = '_customer_user'        THEN om.meta_value END) AS customer_user_id
-//        FROM tbl_orders o
-//        LEFT JOIN tbl_ordermeta om ON om.order_id = o.order_id
-//        ${where}
-//        GROUP BY o.order_id
-//        ORDER BY o.order_date DESC
-//        LIMIT ? OFFSET ?`,
-//       [...params, limit, offset],
-//     );
-
-//     res.render("orders/index", {
-//       title: "Orders",
-//       orders,
-//       statusBadge,
-//       total,
-//       page,
-//       limit,
-//       totalPages: Math.ceil(total / limit),
-//       status,
-//       search,
-//       success: req.query.success || null,
-//       error: req.query.error || null,
-//     });
-//   } catch (err) {
-//     console.error("showOrders error:", err.message);
-//     res.status(500).send("Server Error: " + err.message);
-//   }
-// };
 
 // ─── SHOW ORDER DETAIL ────────────────────────────────────────────────────────
 // const showOrder = async (req, res) => {
@@ -294,54 +233,6 @@ const showOrders = async (req, res) => {
 //            LIMIT 1`,
 //           [productId, productId],
 //         );
-//         if (thumbMeta) item.thumbnail = "/uploads/" + thumbMeta.file_path;
-//       }
-//       item.attributes = [];
-//       Object.entries(item.meta).forEach(([key, val]) => {
-//         if (key.startsWith("pa_") && val) {
-//           const label = key.replace("pa_", "");
-//           item.attributes.push(
-//             label.charAt(0).toUpperCase() + label.slice(1) + ": " + val,
-//           );
-//         }
-//       });
-//     }
-
-//     const [refunds] = await db.query(
-//       "SELECT * FROM tbl_orders WHERE parent_id = ? AND order_type = 'shop_order_refund' ORDER BY order_date DESC",
-//       [id],
-//     );
-
-//     let customer = null;
-//     if (order.customer_user_id && order.customer_user_id !== "0") {
-//       const [[cu]] = await db.query(
-//         "SELECT ID, user_login, user_email, display_name FROM tbl_users WHERE ID = ?",
-//         [order.customer_user_id],
-//       );
-//       customer = cu || null;
-//     }
-
-//     const statuses = Object.entries(statusBadge).map(([value, info]) => ({
-//       value,
-//       label: info.label,
-//       class: info.class,
-//     }));
-
-//     res.render("orders/show", {
-//       title: "Order #" + id,
-//       order,
-//       refunds,
-//       customer,
-//       statuses,
-//       statusBadge,
-//       success: req.query.success || null,
-//       error: req.query.error || null,
-//     });
-//   } catch (err) {
-//     console.error("showOrder error:", err.message);
-//     res.status(500).send("Server Error: " + err.message);
-//   }
-// };
 
 // ─── SHOW ORDER DETAIL ────────────────────────────────────────────────────────
 const showOrder = async (req, res) => {
@@ -444,7 +335,11 @@ const showOrder = async (req, res) => {
 
       if (productId) {
         const [[thumbMeta]] = await db.query(
-          `SELECT media_path AS file_path FROM tbl_media WHERE parent_id = 3 LIMIT 1`,
+          `SELECT m.media_path AS file_path
+           FROM tbl_productmeta pm
+           JOIN tbl_media m ON m.media_id = CAST(pm.meta_value AS UNSIGNED)
+           WHERE pm.product_id = ? AND pm.meta_key = '_thumbnail_id'
+           ORDER BY pm.meta_id DESC LIMIT 1`,
           [productId],
         );
 
