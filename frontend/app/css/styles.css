@@ -4445,7 +4445,7 @@ input[type="checkbox"] {
 }
 
 .csp-breadcrumb {
-  padding: 12px 60px;
+  padding: 12px 40px;
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--cs-text-muted);
@@ -4599,6 +4599,175 @@ input[type="checkbox"] {
   align-items: flex-start;
   background: var(--cs-white);
   min-height: 60vh;
+}
+
+/* ── Top-filter layout (replaces sidebar layout) ─────────────────────────── */
+.csp-body-top {
+  padding: 24px 50px 80px;
+  background: var(--cs-white);
+  min-height: 60vh;
+}
+
+.csp-top-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--cs-border);
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.csp-top-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.csp-filter-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cs-text);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.csp-top-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Dropdown filter button */
+.csp-filter-drop-wrap {
+  position: relative;
+}
+
+.csp-filter-drop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--cs-border);
+  border-radius: 8px;
+  background: var(--cs-white);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cs-text);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.csp-filter-drop-btn:hover,
+.csp-filter-drop-btn.open {
+  border-color: var(--cs-brand);
+  color: var(--cs-brand);
+  background: var(--cs-brand-light);
+}
+
+.csp-filter-drop-btn.active {
+  border-color: var(--cs-brand);
+  background: var(--cs-brand-light);
+  color: var(--cs-brand);
+}
+
+.csp-filter-drop-chevron {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.csp-filter-drop-btn.open .csp-filter-drop-chevron {
+  transform: rotate(180deg);
+}
+
+.csp-filter-drop-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: var(--cs-white);
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+  min-width: 220px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.csp-filter-drop-options {
+  padding: 8px 0;
+}
+
+.csp-filter-drop-options .nf-option {
+  padding: 7px 16px;
+}
+
+.csp-top-clear-btn {
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cs-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.csp-top-clear-btn:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+  background: #fff5f5;
+}
+
+/* Full-width main (no sidebar) */
+.csp-main-full {
+  width: 100%;
+  overflow: hidden;
+}
+
+.csp-main-full .csp-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .csp-body-top {
+    padding: 24px 40px 60px;
+  }
+  .csp-main-full .csp-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .csp-body-top {
+    padding: 20px 24px 60px;
+  }
+  .csp-main-full .csp-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .csp-top-filterbar {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .csp-main-full .csp-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 }
 
 .csp-sidebar {
