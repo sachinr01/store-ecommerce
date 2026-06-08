@@ -3315,11 +3315,11 @@ input[type="checkbox"] {
 
 @media (max-width: 768px) {
   .featured-collections-section {
-    padding: 30px 0 30px;
+    padding: 15px 0 15px;
   }
 
   .featured-collections-section .section-title {
-    padding-bottom: 30px;
+    padding-bottom: 15px;
   }
 
   .featured-collections {
@@ -3366,8 +3366,12 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 480px) {
+  .na-section-title {
+    margin: 0 0 15px;
+  }
+  
   .featured-collections-section {
-    padding: 30px 0;
+    padding: 15px 0;
   }
 
   .featured-mobile-grid {
@@ -3515,7 +3519,7 @@ input[type="checkbox"] {
 .gw-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  gap: 20px;
   max-width: 940px;
   margin: 0 auto;
   padding: 0 19px;
@@ -3566,22 +3570,8 @@ input[type="checkbox"] {
 
 @media (max-width: 768px) {
   .gw-section {
-    padding: 30px 0;
+    padding: 15px 0;
   }
-
-  /* .gw-grid {
-    gap: 40px;
-    padding: 0 45px;
-  } */
-/*  */
-  /* .gw-panel {
-    height: 360px;
-  } */
-/*  */
-  /* .gw-title {
-    font-size: 15px;
-    margin-bottom: 24px;
-  } */
 }
 
 @media (max-width: 480px) {
@@ -3798,7 +3788,6 @@ input[type="checkbox"] {
 .featured-collection-row {
   display: grid;
   gap: 19px;
-  /* height: 420px; */
 }
 
 .featured-collection-row-static-left {
@@ -3822,9 +3811,11 @@ input[type="checkbox"] {
   width: 100%;
   height: 100%;
   /* object-fit: cover; */
+}
+.featured-panel-static img {
   transition: transform 0.5s ease;
 }
-.featured-panel:hover img {
+.featured-panel-static:hover img {
   transform: scale(1.025);
 }
 .featured-rail {
@@ -3832,6 +3823,7 @@ input[type="checkbox"] {
   height: 100%;
   overflow: hidden;
   background: #f4f0eb;
+  isolation: isolate;
 }
 .featured-rail-track {
   position: relative;
@@ -3842,8 +3834,11 @@ input[type="checkbox"] {
   inset: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(18px);
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  /* Removed translateX — horizontal offset causes background to show through during cross-fade */
+  transform: translateX(0);
+  transition: opacity 0.4s ease;
+  will-change: opacity;
+  backface-visibility: hidden;
 }
 .featured-panel-rail.active {
   opacity: 1;
@@ -4031,6 +4026,19 @@ input[type="checkbox"] {
   font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
+}
+
+@media (max-width: 480px) {
+  .featured-collections-section{
+    padding: 15px 0 15px;
+    padding-bottom: 15px;
+  }
+  .featured-collections{
+    gap: 12px;
+  }
+  .featured-collection-row {
+    gap: 12px;
+  }
 }
 
 /* ===== PRODUCT GRIDS ===== */

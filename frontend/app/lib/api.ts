@@ -207,7 +207,12 @@ export interface ProductCategory {
 
 export const getProductCategories = () => apiFetch<ProductCategory[]>('/product-categories');
 export const getCategoryChildren = (slug: string) => apiFetch<ProductCategory[]>(`/product-categories/${slug}/children`);
-export const getCategoryProducts = (slug: string) => apiFetch<Product[]>(`/product-categories/${slug}/products`);
+export const getCategoryProducts = async (slug: string): Promise<Product[]> => {
+  const products = await apiFetch<Product[]>(`/product-categories/${slug}/products`);
+  // Deduplicate by ID in case the backend returns a product linked to multiple subcategories
+  const seen = new Set<number>();
+  return products.filter(p => { if (seen.has(p.ID)) return false; seen.add(p.ID); return true; });
+};
 
 export const authLogin    = (username: string, password: string) =>
   apiPost<AuthUserResponse>('/auth/login', { username, password });

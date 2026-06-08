@@ -1051,8 +1051,6 @@ const getCategoryProducts = async (req, res) => {
                 p.product_short_desc AS short_description,
                 p.menu_order,
                 p.product_date_added AS date_added,
-                c.category_slug  AS category_slug,
-                c.category_name  AS category_name,
                 (
                     SELECT m.media_path
                     FROM tbl_productmeta pm
@@ -1113,7 +1111,6 @@ const getCategoryProducts = async (req, res) => {
                 ) AS stock_qty
              FROM tbl_products p
              JOIN tbl_products_category_link l ON l.product_id = p.ID
-             JOIN tbl_products_category c ON c.category_id = l.category_id
              WHERE l.category_id IN (${ph})
                AND p.product_type   = 'product'
                AND p.product_status = 'publish'
