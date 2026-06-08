@@ -3584,7 +3584,7 @@ input[type="checkbox"] {
   } */
 /*  */
   .gw-title{
-    margin: 0 0 30px;
+    margin: 0 0 15px;
   }
 }
 
@@ -5617,6 +5617,7 @@ input[type="checkbox"] {
   /* object-fit: fill; */
   /* object-position: center; */
   transition: transform 500ms ease;
+  aspect-ratio: 1;
 }
 
 .csp-img.zoomed,
