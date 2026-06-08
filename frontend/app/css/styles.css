@@ -828,6 +828,7 @@ input[type="checkbox"] {
   background: #fff;
   border-bottom: 1px solid #ececec;
   overflow: visible;
+  position: relative;
 }
 
 .nh-announcement {
@@ -1503,6 +1504,9 @@ input[type="checkbox"] {
 /* ===== MEGA MENU ===== */
 .nh-mega-wrap {
   position: static;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
 }
 
 .nh-mega-trigger {
@@ -1547,6 +1551,25 @@ input[type="checkbox"] {
   transform: translateY(-6px);
   transition: opacity 0.22s ease, transform 0.22s ease;
   z-index: 900;
+}
+
+/* Dropdown-style panel for subcategory-only menus */
+.nh-mega-panel.nh-dropdown-panel {
+  /* left is set dynamically via inline style */
+  right: auto;
+  top: 100%;
+  transform: translateY(-6px);
+  width: auto;
+  min-width: 160px;
+  max-width: 220px;
+  border-top: 3px solid #22311D;
+  border-bottom: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+}
+
+.nh-mega-panel.nh-dropdown-panel.open {
+  transform: translateY(0);
 }
 
 .nh-mega-panel.open {
@@ -1721,6 +1744,41 @@ input[type="checkbox"] {
   grid-template-columns: 1fr 300px;
   gap: 24px;
   align-items: stretch;
+}
+
+.nh-km-layout-subcats {
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Subcategory list in mega menu */
+.nh-km-subcats {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nh-km-subcat-item {
+  display: block;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #333;
+  text-decoration: none;
+  white-space: nowrap;
+  margin: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nh-km-subcat-item:hover {
+  background: #f5f5f5;
+  color: #22311D;
 }
 
 .nh-km-products {
@@ -1946,6 +2004,10 @@ input[type="checkbox"] {
   .nh-km-layout {
     grid-template-columns: 1fr 280px;
     padding: 20px 28px 24px;
+  }
+
+  .nh-km-layout-subcats {
+    padding: 28px 0 44px;
   }
 
   .nh-km-img-wrap {
@@ -3421,6 +3483,21 @@ input[type="checkbox"] {
   color: #22311d;
 }
 
+@media (max-width: 480px) {
+  .na-outer-bs {
+    padding-left: 19px;
+    padding-right: 19px;
+  }
+
+  .na-outer-top {
+    padding-top: 0px;
+    padding-left: 19px;
+    padding-right: 19px;
+  }
+}
+
+
+
 /* ===== frontend/app/components/GiftingWorld.css ===== */
 .gw-section {
   padding: 30px 0;
@@ -3441,7 +3518,7 @@ input[type="checkbox"] {
   gap: 40px;
   max-width: 940px;
   margin: 0 auto;
-  padding: 0 45px;
+  padding: 0 19px;
 }
 
 .gw-panel {
@@ -5949,10 +6026,10 @@ input[type="checkbox"] {
   transform: translateY(-50%);
   background: rgba(255, 255, 255, .85);
   border: none;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 15px;
   cursor: pointer;
   z-index: 10;
   align-items: center;
@@ -6799,7 +6876,7 @@ input[type="checkbox"] {
   background: #f3f4f6;
   padding: 1px 5px;
   border-radius: 3px;
-  color: #c0392b;
+  color: #22311D;
 }
 
 .cpd-acc-body pre {
@@ -7234,8 +7311,8 @@ input[type="checkbox"] {
 
   .cpd-img-arrow {
     display: flex;
-    width: 40px;
-    height: 40px;
+    width: 26px;
+    height: 26px;
   }
 
   .cpd-img-dots {
@@ -11203,7 +11280,7 @@ input[type="checkbox"] {
   text-align: center;
   margin-top: 16px;
   font-size: 13px;
-  color: #c0392b;
+  color: #22311D;
 }
 
 .blog-detail-page {
@@ -12674,7 +12751,7 @@ input[type="checkbox"] {
   margin-left: auto;
   display: inline-block;
   padding: 12px 28px;
-  background: #c0392b;
+  background: #22311D;
   color: #fff !important;
   text-decoration: none !important;
   font-weight: 600;

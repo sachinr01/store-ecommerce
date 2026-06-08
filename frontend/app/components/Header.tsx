@@ -174,6 +174,7 @@ export default function Header() {
     { label: "B2B Connect",        href: "/b2b-connect" },
   ];
 
+  const [catSubcategories, setCatSubcategories] = useState<Record<string, Array<{ id: number; name: string; slug: string }>>>({});
   const [catProducts, setCatProducts] = useState<Record<string, Array<{ id: number; title: string; price: string; image: string; slug: string }>>>({});
   const [catBestSellers, setCatBestSellers] = useState<Record<string, Array<{ id: number; title: string; price: string; image: string; slug: string }>>>({});
 
@@ -197,6 +198,11 @@ export default function Header() {
       .filter(l => l.mega?.categorySlug)
       .map(l => l.mega!.categorySlug!);
     categorySlugs.forEach(slug => {
+      fetch(`/api/product-categories/${slug}/children`, { headers: { Accept: 'application/json' } })
+        .then(r => r.json()).then(json => {
+          const children = (json.data ?? json ?? []).map((c: any) => ({ id: c.category_id ?? c.id, name: c.category_name ?? c.name, slug: c.category_slug ?? c.slug }));
+          setCatSubcategories(prev => ({ ...prev, [slug]: children }));
+        }).catch(() => {});
       fetch(`/api/product-categories/${slug}/products`, { headers: { Accept: 'application/json' } })
         .then(r => r.json()).then(json => setCatProducts(prev => ({ ...prev, [slug]: mapProducts(json.data ?? json ?? []) }))).catch(() => {});
       fetch(`/api/products/best-sellers?category=${slug}&limit=2`, { headers: { Accept: 'application/json' } })
@@ -205,16 +211,28 @@ export default function Header() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const closeOverlays = () => { setCartOpen(false); setSearchOpen(false); setMobileSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); };
-  const openMega = (label: string) => { if (megaLeaveTimer.current) clearTimeout(megaLeaveTimer.current); setActiveMenu(label); };
+  const [dropdownLeft, setDropdownLeft] = useState<Record<string, number>>({});
+  const triggerRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+
+  const openMega = (label: string) => {
+    if (megaLeaveTimer.current) clearTimeout(megaLeaveTimer.current);
+    const trigger = triggerRefs.current[label];
+    if (trigger && headerRef.current) {
+      const triggerRect = trigger.getBoundingClientRect();
+      const headerRect = headerRef.current.getBoundingClientRect();
+      setDropdownLeft(prev => ({ ...prev, [label]: triggerRect.left - headerRect.left }));
+    }
+    setActiveMenu(label);
+  };
   const closeMega = () => { megaLeaveTimer.current = setTimeout(() => setActiveMenu(null), 120); };
   const keepMega = () => { if (megaLeaveTimer.current) clearTimeout(megaLeaveTimer.current); };
+  const closeOverlays = () => { setCartOpen(false); setSearchOpen(false); setMobileSearchOpen(false); setMobileMenuOpen(false); setActiveMenu(null); };
 
   return (
     <>
       <div className="nh-sticky-wrap">
         <div className="nh-announcement">
-          Trend-Driven Design. Quality-First Craftsmanship.
+          Welcome Offer: Extra 10% Off on Your First Order | Use Code NEST10
         </div>
         <header className="nh-header" ref={headerRef}>
         <div className="nh-inner">
@@ -343,60 +361,44 @@ export default function Header() {
                 <li key={link.label} className={link.mega ? 'nh-mega-wrap' : ''}>
                   {link.mega ? (
                     <>
-                      <Link href={link.href} className={`nh-mega-trigger${activeMenu === link.label ? ' open' : ''}`}
-                        onMouseEnter={() => openMega(link.label)} onMouseLeave={closeMega} onClick={closeOverlays}>
-                        {link.label}
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                      </Link>
-                      <div className={`nh-mega-panel${activeMenu === link.label ? ' open' : ''}`} onMouseEnter={keepMega} onMouseLeave={closeMega}>
+                      {(() => {
+                        const slug = link.mega.categorySlug ?? null;
+                        const hasSubs = slug ? (catSubcategories[slug]?.length ?? 0) > 0 : link.mega.columns.length > 0 || link.mega.featured.length > 0;
+                        return (
+                          <Link href={link.href} className={`nh-mega-trigger${activeMenu === link.label ? ' open' : ''}`}
+                            ref={(el) => { triggerRefs.current[link.label] = el; }}
+                            onMouseEnter={() => hasSubs && openMega(link.label)} onMouseLeave={closeMega} onClick={closeOverlays}>
+                            {link.label}
+                            {hasSubs && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>}
+                          </Link>
+                        );
+                      })()}
+                      {(() => {
+                        const slug = link.mega.categorySlug
+                          ?? (link.mega.isKitchen ? 'jars-and-containers' : link.mega.isDrinkware ? 'drinkware' : link.mega.isGlassware ? 'glassware' : null);
+                        const hasSubs = slug ? (catSubcategories[slug]?.length ?? 0) > 0 : link.mega.columns.length > 0 || link.mega.featured.length > 0;
+                        const isOpen = activeMenu === link.label && hasSubs;
+                        const isDropdown = !!(link.mega.isKitchen || link.mega.isDrinkware || link.mega.isGlassware || link.mega.categorySlug);
+                        return (
+                      <div
+                        className={`nh-mega-panel${isOpen ? ' open' : ''}${isDropdown ? ' nh-dropdown-panel' : ''}`}
+                        style={isDropdown && dropdownLeft[link.label] != null ? { left: dropdownLeft[link.label] } : undefined}
+                        onMouseEnter={keepMega} onMouseLeave={closeMega}>
                         {(link.mega.isKitchen || link.mega.isDrinkware || link.mega.isGlassware || link.mega.categorySlug) ? (() => {
                           const slug = link.mega.categorySlug
                             ?? (link.mega.isKitchen ? 'jars-and-containers' : link.mega.isDrinkware ? 'drinkware' : 'glassware');
-                          const products = catProducts[slug] ?? [];
-                          const bestSellers = catBestSellers[slug] ?? [];
-                          const shopHref = link.href;
-                          const promos = [
-                            { img: `/images/category_images/CC_${slug.toUpperCase().replace(/-/g, '_')}.png`, title: `OUR ${link.label} COLLECTION`, sub: '150+ Products Available' },
-                          ];
-                          const placeholder = <span className="nh-km-placeholder"><svg viewBox="0 0 48 48" fill="none"><rect width="48" height="48" fill="#e8e8e8"/><path d="M14 34l8-10 6 7 4-5 6 8H14z" fill="#bbb"/><circle cx="30" cy="20" r="4" fill="#bbb"/></svg></span>;
+                          const subcategories = catSubcategories[slug] ?? [];
                           return (
-                            <div className="nh-km-layout">
-                              <div className="nh-km-products">
-                                <div className="nh-km-section">
-                                  <h5 className="nh-km-section-title">NEW ARRIVALS</h5>
-                                  <div className="nh-km-grid">
-                                    {(products.length ? products.slice(0, 2) : Array(2).fill(null)).map((p, i) => (
-                                      <Link key={p?.id ?? i} href={p ? `/shop/product/${p.slug}` : shopHref} className="nh-km-card" onClick={closeOverlays}>
-                                        <div className="nh-km-img-wrap">{p?.image ? <img src={p.image} alt={p.title} loading="lazy" /> : placeholder}</div>
-                                        <p className="nh-km-name">{p?.title ?? ''}</p>
-                                        <p className="nh-km-price">{p?.price ?? ''}</p>
-                                        <span className="nh-km-shop">Shop Now</span>
-                                      </Link>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="nh-km-section">
-                                  <h5 className="nh-km-section-title">BEST SELLER</h5>
-                                  <div className="nh-km-grid">
-                                    {(bestSellers.length ? bestSellers.slice(0, 2) : Array(2).fill(null)).map((p, i) => (
-                                      <Link key={p?.id ?? i} href={p ? `/shop/product/${p.slug}` : shopHref} className="nh-km-card" onClick={closeOverlays}>
-                                        <div className="nh-km-img-wrap">{p?.image ? <img src={p.image} alt={p.title} loading="lazy" /> : placeholder}</div>
-                                        <p className="nh-km-name">{p?.title ?? ''}</p>
-                                        <p className="nh-km-price">{p?.price ?? ''}</p>
-                                        <span className="nh-km-shop">Shop Now</span>
-                                      </Link>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="nh-km-promos">
-                                {promos.map(promo => (
-                                  <Link key={promo.title} href={shopHref} className="nh-km-promo" onClick={closeOverlays}>
-                                    <img src={promo.img} alt={promo.title} loading="lazy" />
-                                    <span className="nh-km-promo-overlay">
-                                      <span className="nh-km-promo-title">{promo.title}</span>
-                                      <span className="nh-km-promo-sub">{promo.sub}</span>
-                                    </span>
+                            <div className="nh-km-layout nh-km-layout-subcats">
+                              <div className="nh-km-subcats">
+                                {subcategories.map(sub => (
+                                  <Link
+                                    key={sub.id}
+                                    href={`/shop/${sub.slug}`}
+                                    className="nh-km-subcat-item"
+                                    onClick={closeOverlays}
+                                  >
+                                    {sub.name}
                                   </Link>
                                 ))}
                               </div>
@@ -431,6 +433,8 @@ export default function Header() {
                           </div>
                         )}
                       </div>
+                        );
+                      })()}
                     </>
                   ) : (
                     <Link href={link.href}>{link.label}</Link>
