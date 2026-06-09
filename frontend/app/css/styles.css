@@ -2621,8 +2621,8 @@ input[type="checkbox"] {
   .footer-bottom,
   .footer-bottom2,
   .footer-legal {
-    padding-left: 45px;
-    padding-right: 45px;
+    padding-left: 19px;
+    padding-right: 19px;
   }
 
   .footer-payment-row,
@@ -2848,7 +2848,7 @@ input[type="checkbox"] {
 @media (max-width: 480px) {
   .tb-grid {
     grid-template-columns: 1fr;
-    padding: 12px 45px 12px;
+    padding: 12px 19px 12px;
   }
 
   .tb-item::after {
@@ -3734,6 +3734,12 @@ input[type="checkbox"] {
 
   .blog-section-title {
     font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .blog-section-inner {
+    padding: 0 19px;
   }
 }
 
