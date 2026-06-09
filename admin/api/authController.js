@@ -449,12 +449,23 @@ async function verifyGoogleCredential(credential) {
 
 // POST /api/auth/register
 const register = async (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Username, email and password are required.' });
+  const { email, password } = req.body;
+  // Accept legacy username field but it is no longer required from the frontend.
+  let username = req.body.username;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required.' });
   }
   if (!VALID_EMAIL_RE.test(String(email).trim())) {
     return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+  }
+  // Auto-generate a unique username from the email local-part if not supplied.
+  if (!username || !String(username).trim()) {
+    const base = toSlug(String(email).trim().split('@')[0]) || 'user';
+    username = base;
+    const [[taken]] = await db.query('SELECT ID FROM tbl_users WHERE user_login = ? LIMIT 1', [username]);
+    if (taken) {
+      username = `${base}_${Date.now()}`;
+    }
   }
 
   try {

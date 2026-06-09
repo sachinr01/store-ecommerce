@@ -187,7 +187,6 @@ export default function CheckoutPage() {
 
   // ─── Register modal state ────────────────────────────────────────────────────
   const [showRegister, setShowRegister] = useState(false);
-  const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regLoading, setRegLoading] = useState(false);
@@ -273,7 +272,7 @@ export default function CheckoutPage() {
   const handleRegister = async () => {
     setRegError('');
     setRegSuccess('');
-    if (!regUsername.trim() || !regEmail.trim() || !regPassword.trim()) {
+    if (!regEmail.trim() || !regPassword.trim()) {
       setRegError('All fields are required.');
       return;
     }
@@ -287,7 +286,7 @@ export default function CheckoutPage() {
     }
     setRegLoading(true);
     try {
-      const res = await authRegister(regUsername.trim(), regEmail.trim(), regPassword);
+      const res = await authRegister(regEmail.trim(), regPassword);
       if (res.success) {
         // Fetch the actual session user so AuthContext reflects the new login
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json());
@@ -296,7 +295,6 @@ export default function CheckoutPage() {
         }
         await refresh();
         setRegSuccess('Account created! You are now logged in.');
-        setRegUsername('');
         setRegEmail('');
         setRegPassword('');
         setTimeout(() => {
@@ -1477,15 +1475,11 @@ export default function CheckoutPage() {
         </section>
       </div>
       {showRegister && (
-        <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); } }}>
+        <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegEmail(''); setRegPassword(''); } }}>
           <div className="register-modal">
-            <button type="button" className="register-modal-close" onClick={() => { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); }} aria-label="Close">&#x2715;</button>
+            <button type="button" className="register-modal-close" onClick={() => { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegEmail(''); setRegPassword(''); }} aria-label="Close">&#x2715;</button>
             <p className="register-modal-title">Register</p>
             <p className="register-modal-sub">Create your account to save details and track orders.</p>
-            <div className="register-modal-field">
-              <label className="register-modal-label">Username <span>*</span></label>
-              <input className="register-modal-input" type="text" placeholder="Username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} autoComplete="username" />
-            </div>
             <div className="register-modal-field">
               <label className="register-modal-label">Email <span>*</span></label>
               <input className="register-modal-input" type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" />
