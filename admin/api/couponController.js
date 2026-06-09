@@ -382,6 +382,29 @@ const apply = async (req, res) => {
 
     const userId = req.sessionData?.user?.id || 0;
 
+    // ── Guest: resolve userId by email so per-user coupon limits are
+    // enforced at apply time, not just at order placement.
+    // Without this, a guest who already used NEST10 would see the discount
+    // applied successfully, then get a confusing block error at Place Order.
+    // billing_email is sent by the checkout page when the guest types their
+    // contact email before applying the coupon.
+    let resolvedUserId = userId;
+    if (!resolvedUserId) {
+      const billingEmail = String(req.body.billing_email || '').toLowerCase().trim();
+      if (billingEmail) {
+        try {
+          const [[guestRow]] = await db.query(
+            `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
+            [billingEmail]
+          );
+          if (guestRow) resolvedUserId = guestRow.ID;
+        } catch (_) {
+          // Non-fatal — if lookup fails, proceed with resolvedUserId=0
+          // (per-user check will be skipped, caught at order time instead)
+        }
+      }
+    }
+
     // Read cart for spend + product eligibility checks
     let cartItems = [];
     try {
@@ -396,7 +419,7 @@ const apply = async (req, res) => {
     const cartTotal  = cartItems.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
     const productIds = cartItems.map((i) => Number(i.product_id)).filter(Boolean);
 
-    const result = await validateCouponRules(coupon, userId, cartTotal, productIds, db, cartItems);
+    const result = await validateCouponRules(coupon, resolvedUserId, cartTotal, productIds, db, cartItems);
     if (!result.ok) {
       return res.status(result.status).json({ success: false, message: result.message });
     }

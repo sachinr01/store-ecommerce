@@ -125,7 +125,7 @@ export default function MyAccountPage() {
     setRegLoading(true);
 
     try {
-      const res = await authRegister(reg.email, reg.password);
+      const res = await authRegister(reg.email.split('@')[0], reg.email, reg.password);
       if (res.success) {
         setReg({ email: '', password: '' });
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.json());
@@ -363,8 +363,8 @@ export default function MyAccountPage() {
                       <h4 className="box-titel">Login</h4>
                       <form className="form-small form" onSubmit={handleLogin} noValidate>
                         <div className="field">
-                          <label className="required">Email or Username</label>
-                          <input type="text" placeholder="Email or Username" value={login.username} onChange={setL('username')} />
+                          <label className="required">Email</label>
+                          <input type="text" placeholder="Email" value={login.username} onChange={setL('username')} />
                         </div>
                         <div className="field">
                           <label className="required">Password</label>

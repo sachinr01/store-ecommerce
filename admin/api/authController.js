@@ -449,35 +449,44 @@ async function verifyGoogleCredential(credential) {
 
 // POST /api/auth/register
 const register = async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) {
+    return res.status(400).json({ success: false, message: 'Username, email and password are required.' });
   }
   if (!VALID_EMAIL_RE.test(String(email).trim())) {
     return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
   }
 
-  // Derive a username from the email local-part, ensure uniqueness
-  const baseUsername = String(email).trim().split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'user';
-
   try {
-    const [[existingEmail]] = await db.query(
-      'SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1',
+    // ── Check 1: does this email already exist? ──────────────────────────────
+    // We look up by email first so we can detect the guest-upgrade path.
+    const [[existingByEmail]] = await db.query(
+      'SELECT ID, user_type, user_pass FROM tbl_users WHERE user_email = ? LIMIT 1',
       [email]
     );
-    if (existingEmail) {
+
+    const isGuestRow = existingByEmail && existingByEmail.user_type === 4 && !existingByEmail.user_pass;
+
+    if (existingByEmail && !isGuestRow) {
+      // A real registered account already owns this email → block.
       return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
     }
 
-    // Make username unique by appending a suffix if needed
-    let username = baseUsername;
-    const [[nameConflict]] = await db.query(
-      'SELECT ID FROM tbl_users WHERE user_login = ? LIMIT 1',
-      [username]
+    // ── Check 2: is the chosen username already taken by ANY other user? ─────
+    // This must always run — including the guest-upgrade path — because the
+    // guest row's user_login is their email, not the username they're choosing now.
+    // Without this check, a guest upgrade could silently overwrite another user's
+    // user_login, violating the UNIQUE KEY constraint (or causing a DB error).
+    const [[existingByUsername]] = await db.query(
+      'SELECT ID FROM tbl_users WHERE user_login = ? AND (? IS NULL OR ID != ?) LIMIT 1',
+      [username, existingByEmail ? existingByEmail.ID : null, existingByEmail ? existingByEmail.ID : null]
     );
-    if (nameConflict) {
-      username = `${baseUsername}${Date.now()}`;
+
+    if (existingByUsername) {
+      return res.status(409).json({ success: false, message: 'That username is already taken. Please choose another.' });
     }
+
+    const existing = existingByEmail; // alias for upgrade path below
 
     const passwordLengthError = validateBcryptPasswordLength(password);
     if (passwordLengthError) {
@@ -487,14 +496,34 @@ const register = async (req, res) => {
     const hashed = await bcrypt.hash(password, 12);
     const nicename = toSlug(username);
 
-    const [result] = await db.query(
-      `INSERT INTO tbl_users
-       (user_type, user_login, user_email, user_pass, user_nicename, display_name, user_registered)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [3, username, email, hashed, nicename, username]
-    );
+    let newUserId;
 
-    const newUserId = result.insertId;
+    if (isGuestRow) {
+      // ── Guest upgrade path ─────────────────────────────────────────────────
+      // The guest placed orders before registering. Promote their existing row
+      // to a full customer account so all past orders remain linked to this ID.
+      await db.query(
+        `UPDATE tbl_users
+         SET user_type      = 3,
+             user_login     = ?,
+             user_pass      = ?,
+             user_nicename  = ?,
+             display_name   = ?,
+             user_registered = NOW()
+         WHERE ID = ?`,
+        [username, hashed, nicename, username, existing.ID]
+      );
+      newUserId = existing.ID;
+    } else {
+      // ── Normal registration path ────────────────────────────────────────────
+      const [result] = await db.query(
+        `INSERT INTO tbl_users
+         (user_type, user_login, user_email, user_pass, user_nicename, display_name, user_registered)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        [3, username, email, hashed, nicename, username]
+      );
+      newUserId = result.insertId;
+    }
 
     const oldSessionId = req.sessionId;
     const guestCookieId = req.guestId || null;
@@ -541,12 +570,21 @@ const login = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Incorrect email or password.' });
+      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+    }
+
+    // Guest rows (user_type=4, user_pass='') cannot log in directly.
+    // Direct them to register instead — their order history will be preserved.
+    if (user.user_type === 4 && !user.user_pass) {
+      return res.status(401).json({
+        success: false,
+        message: 'No account found with these credentials. Please register to access your order history.',
+      });
     }
 
     const { ok, needsRehash } = await verifyPassword(password, user.user_pass);
     if (!ok) {
-      return res.status(401).json({ success: false, message: 'Incorrect email or password.' });
+      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
 
     if (needsRehash) {
@@ -601,14 +639,32 @@ const googleLogin = async (req, res) => {
       const displayName = googleUser.name || googleUser.email;
       const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
 
-      const [result] = await db.query(
-        `INSERT INTO tbl_users
-         (user_type, user_login, user_pass, user_nicename, user_email, user_url, user_registered, user_activation_key, user_status, display_name)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), '', 0, ?)`,
-        [3, googleUser.email, randomPassword, nicename, googleUser.email, googleUser.picture || '', displayName]
+      // If a guest row exists for this email, upgrade it instead of inserting a duplicate.
+      // This preserves all past guest orders (same user_id on tbl_orders).
+      const [[existingGuest]] = await db.query(
+        `SELECT ID FROM tbl_users WHERE user_email = ? AND user_type = 4 LIMIT 1`,
+        [googleUser.email]
       );
 
-      userId = result.insertId;
+      if (existingGuest) {
+        await db.query(
+          `UPDATE tbl_users
+           SET user_type = 3, user_login = ?, user_pass = ?, user_nicename = ?,
+               display_name = ?, user_registered = NOW()
+           WHERE ID = ?`,
+          [googleUser.email, randomPassword, nicename, displayName, existingGuest.ID]
+        );
+        userId = existingGuest.ID;
+      } else {
+        const [result] = await db.query(
+          `INSERT INTO tbl_users
+           (user_type, user_login, user_pass, user_nicename, user_email, user_url, user_registered, user_activation_key, user_status, display_name)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), '', 0, ?)`,
+          [3, googleUser.email, randomPassword, nicename, googleUser.email, googleUser.picture || '', displayName]
+        );
+        userId = result.insertId;
+      }
+
       user = await getAuthUserById(userId);
     } else {
       if (matchedBy === 'sub' && user.user_email !== googleUser.email) {
@@ -834,6 +890,11 @@ const requestPasswordReset = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
+    // Guest rows (user_type=4) have no password — direct to register instead.
+    if (user.user_type === 4) {
+      return res.status(400).json({ success: false, message: 'No account exists for this email. Please register to create an account and view your order history.' });
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = sha256(rawToken);
     const expiresAt = String(Date.now() + RESET_TOKEN_TTL_MS);
@@ -978,7 +1039,7 @@ const resetPassword = async (req, res) => {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
-      await conn.query('UPDATE tbl_users SET user_pass = ? WHERE ID = ?', [hashedPassword, record.ID]);
+      await conn.query('UPDATE tbl_users SET user_pass = ?, user_type = CASE WHEN user_type = 4 THEN 3 ELSE user_type END WHERE ID = ?', [hashedPassword, record.ID]);
       await clearPasswordResetTokenInConn(conn, record.ID);
       await conn.commit();
     } catch (txErr) {

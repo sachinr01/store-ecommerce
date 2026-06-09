@@ -220,8 +220,8 @@ export const authLogin    = (username: string, password: string) =>
 export const authGoogleLogin = (credential: string) =>
   apiPost<AuthUserResponse>('/auth/google', { credential });
 
-export const authRegister = (email: string, password: string) =>
-  apiPost<{ userId: number }>('/auth/register', { email, password });
+export const authRegister = (username: string, email: string, password: string) =>
+  apiPost<{ userId: number }>('/auth/register', { username, email, password });
 
 export const authForgotPassword = (identifier: string) =>
   apiPost('/auth/forgot-password', { identifier });
@@ -361,8 +361,8 @@ export const getActiveCoupon = async (): Promise<AppliedCoupon | null> => {
   return json.coupon ?? null;
 };
 
-export const applyCoupon = (coupon_code: string) =>
-  apiPost<AppliedCoupon>('/coupon/apply', { coupon_code });
+export const applyCoupon = (coupon_code: string, billing_email?: string) =>
+  apiPost<AppliedCoupon>('/coupon/apply', { coupon_code, ...(billing_email ? { billing_email } : {}) });
 
 export const removeCoupon = () =>
   apiPost<null>('/coupon/remove', {});
