@@ -127,7 +127,7 @@ export default function Footer() {
               <li><a href="#" className="link-faded">Mon-Sat 10AM - 6PM IST</a></li>
               <li><a href="mailto:support@nestcase.in" className="link-faded">Email: support@nestcase.in</a></li>
               <li className="footer-social-list">
-                <a href="#" className="footer-social-icon footer-social-icon--instagram" aria-label="Instagram">
+                <a href="https://www.instagram.com/nestcase.in/" className="footer-social-icon footer-social-icon--instagram" aria-label="Instagram">
                   <Image src="/images/icons/instagram.png" alt="Instagram" width={24} height={24} />
                 </a>
                 {/* https://wa.me/+919876543210 */}
@@ -137,7 +137,7 @@ export default function Footer() {
                 <a href="mailto:support@nestcase.in" className="footer-social-icon footer-social-icon--email" aria-label="Email">
                   <Image src="/images/icons/gmail.png" alt="Email" width={24} height={24} />
                 </a>
-                <a href="#" className="footer-social-icon footer-social-icon--pinterest" aria-label="pinterest">
+                <a href="https://in.pinterest.com/nestcaseofficial/" className="footer-social-icon footer-social-icon--pinterest" aria-label="pinterest">
                   <Image src="/images/icons/pinterest.png" alt="pinterest" width={24} height={24} />
                 </a>
                 <a href="https://www.linkedin.com/company/nestcase" className="footer-social-icon footer-social-icon--linkedin" aria-label="LinkedIn">

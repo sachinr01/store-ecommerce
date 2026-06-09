@@ -45,8 +45,8 @@ export default function RootLayout({
         <link rel="stylesheet" type="text/css" href="/js/specific/revolution-slider/css/settings.css" media="screen" />
         <link href="https://fonts.googleapis.com/css?family=Open+Sans:100,400,600,700,300" rel="stylesheet" type="text/css" />
         <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
-        <link rel="shortcut icon" href="/images/favicon.png" type="image/x-icon" />
-        <link rel="apple-touch-icon" href="/images/favicon.png" type="image/x-icon" />
+        <link rel="shortcut icon" href="/images/favicon.jpeg" type="image/jpeg" />
+        <link rel="apple-touch-icon" href="/images/favicon.jpeg" type="image/jpeg" />
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
         <div className="all_content" suppressHydrationWarning>

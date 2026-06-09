@@ -40,7 +40,7 @@ export default function MyAccountPage() {
   const registerGoogleRef = useRef<HTMLDivElement | null>(null);
 
   const [login, setLogin] = useState({ username: '', password: '', remember: false });
-  const [reg, setReg] = useState({ username: '', email: '', password: '' });
+  const [reg, setReg] = useState({ email: '', password: '' });
   const [loginErr, setLoginErr] = useState('');
   const [regErr, setRegErr] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -85,7 +85,7 @@ export default function MyAccountPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!login.username || !login.password) {
-      setLoginErr('Please enter username and password.');
+      setLoginErr('Please enter e-mail and password.');
       return;
     }
 
@@ -108,7 +108,7 @@ export default function MyAccountPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!reg.username || !reg.email || !reg.password) {
+    if (!reg.email || !reg.password) {
       setRegErr('All fields are required.');
       return;
     }
@@ -125,9 +125,9 @@ export default function MyAccountPage() {
     setRegLoading(true);
 
     try {
-      const res = await authRegister(reg.username, reg.email, reg.password);
+      const res = await authRegister(reg.email, reg.password);
       if (res.success) {
-        setReg({ username: '', email: '', password: '' });
+        setReg({ email: '', password: '' });
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.json());
         if (me.success && me.data?.isLoggedIn && me.data.user) {
           setUser(me.data.user);
@@ -300,7 +300,7 @@ export default function MyAccountPage() {
   const handleForgotPassword = async () => {
     const value = forgotIdentifier.trim();
     if (!value) {
-      setForgotError('Please enter your username or email address.');
+      setForgotError('Please enter your email address.');
       return;
     }
     setForgotLoading(true);
@@ -469,7 +469,7 @@ export default function MyAccountPage() {
               <input
                 className="register-modal-input"
                 type="text"
-                placeholder="Username or email"
+                placeholder="email"
                 value={forgotIdentifier}
                 onChange={(e) => setForgotIdentifier(e.target.value)}
                 autoComplete="username"

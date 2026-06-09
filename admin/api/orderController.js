@@ -745,7 +745,6 @@ async function insertAddress(
 // ─────────────────────────────────────────────────────────────────────────────
 const placeOrder = async (req, res) => {
   const user = getSessionUser(req);
-  const userId = user ? user.id : 0;
   const { key, value, cookieId, sessionId } = getCartIdentity(req);
   const requestedCartItemIds = Array.isArray(req.body.cart_item_ids)
     ? [
@@ -777,13 +776,70 @@ const placeOrder = async (req, res) => {
     });
   }
 
+  // ── 0. Resolve userId — guest checkout gets a real row in tbl_users ─────────
+  // Logged-in users keep their existing ID.
+  // Guests are upserted by email so:
+  //   (a) per-user coupon limits work for guests, and
+  //   (b) when a guest later registers/logs in with the same email their
+  //       full order history is automatically visible (same user_id on tbl_orders).
+  // user_pass stays '' so the guest row can never be used to log in directly —
+  // verifyPassword() returns { ok: false } whenever storedHash is falsy.
+  // user_type = 4 (Guests) distinguishes these rows from real customers (type 3).
+  let userId = user ? user.id : 0;
+
+  if (!user) {
+    // ── Guest: store details from billing info (first_name, last_name, email) ─
+    // Email comes from the Contact Info section on checkout (contactEmail state),
+    // which is injected into resolvedBilling.email before the order is sent.
+    // first_name + last_name come from the Shipping/Billing address form.
+    // We use INSERT IGNORE so that if two orders arrive at the exact same
+    // millisecond with the same email (race condition), only one row is created
+    // and both orders correctly resolve to the same user_id via the re-fetch.
+    // UNIQUE KEY uq_user_email on tbl_users is required for INSERT IGNORE to work
+    // — see migration in comments below.
+    const guestEmail   = billing.email.toLowerCase().trim();
+    const guestDisplay = `${billing.first_name} ${billing.last_name}`.trim();
+
+    try {
+      // INSERT IGNORE: silently skips if email already exists (duplicate key).
+      // Works only when tbl_users has: UNIQUE KEY `uq_user_email` (`user_email`)
+      // Run once on DB: ALTER TABLE tbl_users ADD UNIQUE KEY `uq_user_email` (`user_email`);
+      await db.query(
+        `INSERT IGNORE INTO tbl_users
+         (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
+         VALUES (4, ?, '', ?, ?, ?, NOW())`,
+        [guestEmail, guestEmail, guestEmail, guestDisplay]
+      );
+
+      // Always re-fetch after INSERT IGNORE — whether we just inserted
+      // or the IGNORE fired (row already existed), this gives the correct ID.
+      const [[guestRow]] = await db.query(
+        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
+        [guestEmail]
+      );
+      userId = guestRow ? guestRow.ID : 0;
+
+    } catch (guestErr) {
+      // Non-fatal fallback — order still placed with userId=0 so checkout
+      // is never blocked by a DB issue on this upsert.
+      console.error("Guest user upsert failed (order will use userId=0):", guestErr.message);
+      userId = 0;
+    }
+  }
+
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
 
     // ── 1. Fetch cart items ───────────────────────────────────────────────────
+    // Logged-in users: cart rows are stored with user_id.
+    // Guests: we just created/found a userId above, but their cart rows are still
+    // stored anonymously (user_id IS NULL) under cookie_id or session_id.
+    // So for guests we fetch by cookie/session first, and fall back to user_id
+    // only for proper logged-in customers.
     let cartItems;
-    if (userId) {
+    if (user) {
+      // Real logged-in user — cart rows carry user_id
       [cartItems] = await conn.query(
         "SELECT * FROM cart_items WHERE user_id = ? ORDER BY created_at DESC",
         [userId],
@@ -1412,7 +1468,10 @@ const placeOrder = async (req, res) => {
     }
 
     // ── 8. Clear cart ─────────────────────────────────────────────────────────
-    if (userId) {
+    // Logged-in users: cart rows are keyed by user_id.
+    // Guests: even though we now have a userId (from upsert), their cart rows
+    // are still stored anonymously (user_id IS NULL) under cookie/session.
+    if (user) {
       await conn.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
     } else if (key === "cookie_id") {
       await conn.query(

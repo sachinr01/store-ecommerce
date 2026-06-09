@@ -12,6 +12,53 @@ const { guestCookieMiddleware } = require('./guestCookie');
 const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddleware');
 const contact = require('./contactController');
 
+// ── In-memory rate limiter (no extra package needed) ──────────────────────────
+// Tracks request counts per IP in a plain Map.
+// The Map is wiped every `windowMs` to reset all counters.
+// This is suitable for single-process Node servers (standard setup).
+// For multi-process / clustered deployments, replace with express-rate-limit
+// + a Redis store (npm i express-rate-limit rate-limit-redis).
+function makeRateLimiter({ windowMs, max, message }) {
+  const hits = new Map();          // ip → count
+  setInterval(() => hits.clear(), windowMs).unref(); // unref so it won't block process exit
+
+  return function rateLimiter(req, res, next) {
+    // Use X-Forwarded-For if behind a reverse proxy (nginx), else req.ip
+    const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
+    const count = (hits.get(ip) || 0) + 1;
+    hits.set(ip, count);
+
+    if (count > max) {
+      return res.status(429).json({ success: false, message });
+    }
+    next();
+  };
+}
+
+// Coupon apply: max 10 attempts per IP per 10 minutes
+// Reason: stops brute-force guessing of coupon codes (e.g. NEST01, NEST02…)
+const couponApplyLimiter = makeRateLimiter({
+  windowMs: 10 * 60 * 1000,   // 10 minutes
+  max: 10,
+  message: 'Too many coupon attempts. Please wait a few minutes and try again.',
+});
+
+// Login: max 10 attempts per IP per 15 minutes
+// Reason: stops credential stuffing / password brute-force
+const loginLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,   // 15 minutes
+  max: 10,
+  message: 'Too many login attempts. Please wait a few minutes and try again.',
+});
+
+// Forgot password: max 5 attempts per IP per 15 minutes
+// Reason: stops email enumeration and spam
+const forgotPasswordLimiter = makeRateLimiter({
+  windowMs: 15 * 60 * 1000,   // 15 minutes
+  max: 5,
+  message: 'Too many password reset requests. Please wait a few minutes and try again.',
+});
+
 router.use(guestCookieMiddleware());
 router.use(sessionMiddleware());
 
@@ -60,17 +107,17 @@ router.get('/product-categories/:slug/products',   ctrl.getCategoryProducts);
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 router.post('/auth/register', auth.register);
-router.post('/auth/login',    auth.login);
+router.post('/auth/login',    loginLimiter, auth.login);
 router.post('/auth/google',   auth.googleLogin);
 router.post('/auth/logout',   auth.logout);
-router.post('/auth/forgot-password', auth.requestPasswordReset);
+router.post('/auth/forgot-password', forgotPasswordLimiter, auth.requestPasswordReset);
 router.post('/auth/reset-password',  auth.resetPassword);
 router.get('/auth/me',        auth.me);
 router.put('/auth/profile',   requireLogin, auth.updateProfile);
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
 router.get('/coupon/active',   coupon.active);
-router.post('/coupon/apply',   coupon.apply);
+router.post('/coupon/apply',   couponApplyLimiter, coupon.apply);
 router.post('/coupon/remove',  coupon.remove);
 
 // ── Cart ──────────────────────────────────────────────────────────────────────

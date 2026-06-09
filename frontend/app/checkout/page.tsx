@@ -187,7 +187,6 @@ export default function CheckoutPage() {
 
   // ─── Register modal state ────────────────────────────────────────────────────
   const [showRegister, setShowRegister] = useState(false);
-  const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regLoading, setRegLoading] = useState(false);
@@ -273,7 +272,7 @@ export default function CheckoutPage() {
   const handleRegister = async () => {
     setRegError('');
     setRegSuccess('');
-    if (!regUsername.trim() || !regEmail.trim() || !regPassword.trim()) {
+    if (!regEmail.trim() || !regPassword.trim()) {
       setRegError('All fields are required.');
       return;
     }
@@ -287,7 +286,7 @@ export default function CheckoutPage() {
     }
     setRegLoading(true);
     try {
-      const res = await authRegister(regUsername.trim(), regEmail.trim(), regPassword);
+      const res = await authRegister(regEmail.trim(), regPassword);
       if (res.success) {
         // Fetch the actual session user so AuthContext reflects the new login
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json());
@@ -296,7 +295,6 @@ export default function CheckoutPage() {
         }
         await refresh();
         setRegSuccess('Account created! You are now logged in.');
-        setRegUsername('');
         setRegEmail('');
         setRegPassword('');
         setTimeout(() => {
@@ -558,7 +556,7 @@ export default function CheckoutPage() {
     if (!couponInput.trim()) return;
     setCouponLoading(true);
     setCouponMsg(null);
-    const data = await applyCoupon(couponInput.trim());
+    const data = await applyCoupon(couponInput.trim(), contactEmail.trim() || undefined);
     setCouponLoading(false);
     if (data.success && data.data) {
       setAppliedCoupon(data.data);
@@ -760,6 +758,7 @@ export default function CheckoutPage() {
   // ─── Place order ────────────────────────────────────────────────────────────
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (placing) return;
     if (!validate()) return;
 
     setPlacing(true);
@@ -954,6 +953,84 @@ export default function CheckoutPage() {
             </div>
           </section>
         </div>
+        {showForgotRecovery && (
+          <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeForgotRecovery(); } }}>
+            <div className="register-modal">
+              <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
+              <p className="register-modal-title">Lost Password?</p>
+              <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
+              <div className="register-modal-field">
+                <label className="register-modal-label">Email <span>*</span></label>
+                <input
+                  className="register-modal-input"
+                  type="email"
+                  placeholder="Email address"
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  autoComplete="email"
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleForgotRecovery(); }}
+                />
+              </div>
+              {forgotError && <p className="register-modal-err">{forgotError}</p>}
+              {forgotSuccess && <p className="register-modal-success">{forgotSuccess}</p>}
+              <button type="button" className="btn-view-product checkout-recovery-submit" onClick={() => void handleForgotRecovery()} disabled={forgotLoading}>
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <div className="reset-password-foot">
+                <button type="button" className="reset-password-foot-link" onClick={closeForgotRecovery}>Back to checkout login</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showResetRecovery && (
+          <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeResetRecovery(); } }}>
+            <div className="register-modal">
+              <button type="button" className="register-modal-close" onClick={closeResetRecovery} aria-label="Close">&#x2715;</button>
+              <p className="register-modal-title">Set a new password</p>
+              <p className="register-modal-sub">Choose a strong password and confirm it below. Once saved, you can log in with the new password.</p>
+              {!resetToken ? (
+                <div className="reset-password-alert">
+                  This reset link is invalid or incomplete. Please request a new password reset from the checkout page.
+                </div>
+              ) : (
+                <div>
+                  <div className="register-modal-field">
+                    <label className="register-modal-label">New Password <span>*</span></label>
+                    <input
+                      className="register-modal-input"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      autoComplete="new-password"
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleResetRecovery(); }}
+                    />
+                  </div>
+                  <div className="register-modal-field">
+                    <label className="register-modal-label">Confirm Password <span>*</span></label>
+                    <input
+                      className="register-modal-input"
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleResetRecovery(); }}
+                    />
+                  </div>
+                  {resetError && <p className="register-modal-err">{resetError}</p>}
+                  {resetSuccess && <p className="register-modal-success">{resetSuccess}</p>}
+                  <button type="button" className="btn-view-product checkout-recovery-submit" onClick={() => void handleResetRecovery()} disabled={resetLoading}>
+                    {resetLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              )}
+              <div className="reset-password-foot">
+                <button type="button" className="reset-password-foot-link" onClick={closeResetRecovery}>Back to checkout login</button>
+              </div>
+            </div>
+          </div>
+        )}
         <Footer />
       </>
     );
@@ -1476,15 +1553,11 @@ export default function CheckoutPage() {
         </section>
       </div>
       {showRegister && (
-        <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); } }}>
+        <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegEmail(''); setRegPassword(''); } }}>
           <div className="register-modal">
-            <button type="button" className="register-modal-close" onClick={() => { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegUsername(''); setRegEmail(''); setRegPassword(''); }} aria-label="Close">&#x2715;</button>
+            <button type="button" className="register-modal-close" onClick={() => { setShowRegister(false); setRegError(''); setRegSuccess(''); setRegEmail(''); setRegPassword(''); }} aria-label="Close">&#x2715;</button>
             <p className="register-modal-title">Register</p>
             <p className="register-modal-sub">Create your account to save details and track orders.</p>
-            <div className="register-modal-field">
-              <label className="register-modal-label">Username <span>*</span></label>
-              <input className="register-modal-input" type="text" placeholder="Username" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} autoComplete="username" />
-            </div>
             <div className="register-modal-field">
               <label className="register-modal-label">Email <span>*</span></label>
               <input className="register-modal-input" type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} autoComplete="email" />

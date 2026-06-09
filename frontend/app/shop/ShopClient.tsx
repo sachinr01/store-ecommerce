@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { ShopGridSkeleton, ShopSidebarSkeleton } from './ShopSkeleton';
+import { ShopGridSkeleton } from './ShopSkeleton';
 import { getProducts, getAllAttributeGroups, type Product, type AttributeGroup, getProductCategories, getCategoryProducts, type ProductCategory } from '../lib/api';
 import { formatPrice, formatPriceRange, CURRENCY } from '../lib/price';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
@@ -37,11 +37,9 @@ function DualRangeSlider({
   onChangeMin: (v: number) => void;
   onChangeMax: (v: number) => void;
 }) {
-  // Local state for immediate visual feedback; parent state updates after debounce
   const [localMin, setLocalMin] = useState(valueMin);
   const [localMax, setLocalMax] = useState(valueMax);
 
-  // Sync when parent resets (e.g. clear all)
   useEffect(() => { setLocalMin(valueMin); }, [valueMin]);
   useEffect(() => { setLocalMax(valueMax); }, [valueMax]);
 
@@ -90,38 +88,32 @@ function DualRangeSlider({
   );
 }
 
-/* Filter Accordion */
-function FilterSection({
-  idBase,
+/* Dropdown Filter Panel */
+function FilterDropdown({
   label,
   isOpen,
   onToggle,
+  isActive,
   children,
 }: {
-  idBase: string;
   label: string;
   isOpen: boolean;
   onToggle: () => void;
+  isActive?: boolean;
   children: ReactNode;
 }) {
-  const safeBase = idBase.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-  const panelId = `filter-panel-${safeBase}`;
-  const btnId = `filter-btn-${safeBase}`;
-
   return (
-    <div className="nf-section">
+    <div className="csp-filter-drop-wrap">
       <button
-        id={btnId}
         type="button"
-        className={`nf-section-btn${isOpen ? ' open' : ''}`}
-        aria-expanded={isOpen}
-        aria-controls={panelId}
+        className={`csp-filter-drop-btn${isOpen ? ' open' : ''}${isActive ? ' active' : ''}`}
         onClick={onToggle}
+        aria-expanded={isOpen}
       >
-        <h3 className="nf-section-label">{label}</h3>
+        {label}
         <svg
-          className="nf-chevron"
-          width="12" height="12" viewBox="0 0 12 12"
+          className="csp-filter-drop-chevron"
+          width="10" height="10" viewBox="0 0 12 12"
           fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           aria-hidden="true"
@@ -129,16 +121,11 @@ function FilterSection({
           <polyline points="2,4 6,8 10,4" />
         </svg>
       </button>
-      <div
-        id={panelId}
-        role="region"
-        aria-labelledby={btnId}
-        className={`nf-panel${isOpen ? ' open' : ''}`}
-      >
-        <div className="nf-panel-inner">
+      {isOpen && (
+        <div className="csp-filter-drop-panel">
           {children}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -152,7 +139,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [openFilters, setOpenFilters] = useState<Record<string, boolean>>({ ...DEFAULT_OPEN_FILTERS });
 
   const router = useRouter();
@@ -161,22 +148,19 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const queryMax = queryMaxRaw ? Number.parseFloat(queryMaxRaw) : Number.NaN;
   const searchTerm = (searchParams.get('search') ?? '').trim().toLowerCase();
   const appliedQueryRef = useRef<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Category filter — initialised from URL ?category=slug1,slug2
   const urlCategories = (searchParams.get('category') ?? '')
     .split(',').map(s => s.trim()).filter(Boolean);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(urlCategories);
-  // product IDs that belong to selected categories (from tbl_products_category_link)
   const [categoryProductIds, setCategoryProductIds] = useState<Set<number> | null>(null);
 
-  // Dynamic selected values: { taxonomy -> string[] }
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string[]>>({});
   const [absoluteMax, setAbsoluteMax] = useState(200);
   const [sliderMin, setSliderMin] = useState(0);
   const [sliderMax, setSliderMax] = useState(200);
   const absoluteMin = 0;
 
-  // Sync selectedCategories → URL
   const updateCategoryUrl = useCallback((cats: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
     if (cats.length > 0) params.set('category', cats.join(','));
@@ -184,7 +168,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     router.replace(`/shop?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  // Load all attribute groups dynamically in one call
   useEffect(() => {
     let active = true;
     getAllAttributeGroups().then(groups => {
@@ -228,7 +211,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     appliedQueryRef.current = queryMax;
   }, [queryMax, absoluteMax, absoluteMin, loading]);
 
-  // When categories are selected, fetch their product IDs via tbl_products_category_link
   useEffect(() => {
     if (selectedCategories.length === 0) {
       setCategoryProductIds(null);
@@ -244,18 +226,16 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     return () => { active = false; };
   }, [selectedCategories]);
 
+  // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && sidebarOpen) setSidebarOpen(false);
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [sidebarOpen]);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const priceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handlePriceChange = useCallback((gte: number, lte: number) => {
@@ -297,11 +277,9 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
-
     return haystack.includes(term);
   };
 
-  // Map taxonomy → product field key
   const taxonomyToField: Record<string, keyof Product> = {
     pa_color:    'color_slugs',
     pa_material: 'material_slugs',
@@ -346,8 +324,6 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     setSliderMax(absoluteMax);
   };
 
-
-  // Build label maps per taxonomy for chips
   const labelMaps: Record<string, Map<string, string>> = {};
   for (const group of attrGroups) {
     labelMaps[group.taxonomy] = new Map(
@@ -355,150 +331,9 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     );
   }
 
-  const SidebarContent = (
-    <>
-      <div className="nf-sidebar-head">
-        <h3 className="nf-sidebar-title">Filters</h3>
-        {hasActive && (
-          <button className="nf-clear-all" onClick={allClear}>Clear all ({totalActive})</button>
-        )}
-      </div>
-
-      {/* Price range — always first */}
-      <FilterSection
-        idBase="price"
-        label={isPriceActive ? 'Price Range (Active)' : 'Price Range'}
-        isOpen={!!openFilters['price']}
-        onToggle={() => setOpenFilters(p => ({ ...p, price: !p.price }))}
-      >
-        <DualRangeSlider
-          min={absoluteMin}
-          max={absoluteMax > 0 ? absoluteMax : 200}
-          valueMin={sliderMin}
-          valueMax={sliderMax}
-          onChangeMin={v => handlePriceChange(Math.min(v, sliderMax - 1), sliderMax)}
-          onChangeMax={v => handlePriceChange(sliderMin, Math.max(v, sliderMin + 1))}
-        />
-      </FilterSection>
-
-      {/* Category filter — below price */}
-      <FilterSection
-        idBase="category"
-        label={selectedCategories.length > 0 ? `Category (${selectedCategories.length})` : 'Category'}
-        isOpen={!!openFilters['category']}
-        onToggle={() => setOpenFilters(p => ({ ...p, category: !p.category }))}
-      >
-        <div className="nf-options-list">
-          {productCategories
-            .filter(c => c.parent_id === 0)
-            .map(parent => {
-              const children = productCategories.filter(c => c.parent_id === parent.category_id);
-              const isExpanded = !!openFilters[`cat_${parent.category_id}`];
-              const renderOption = (cat: typeof productCategories[0], isChild: boolean) => {
-                const checked = selectedCategories.includes(cat.category_slug);
-                return (
-                  <label key={cat.category_id}
-                    className={`nf-option${checked ? ' checked' : ''}`}
-                    style={isChild ? { paddingLeft: 20 } : undefined}>
-                    <span className="nf-checkbox" aria-hidden="true">
-                      {checked && (
-                        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-                          <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <input type="checkbox" className="nf-hidden-input" checked={checked}
-                      onChange={() => {
-                        setOpenFilters(p => ({ ...p, category: true }));
-                        const next = selectedCategories.includes(cat.category_slug)
-                          ? selectedCategories.filter(c => c !== cat.category_slug)
-                          : [...selectedCategories, cat.category_slug];
-                        setSelectedCategories(next);
-                        updateCategoryUrl(next);
-                      }}
-                      aria-label={cat.category_name} />
-                    <span className="nf-option-text" style={isChild ? { fontSize: 12, color: '#6b7280' } : undefined}>
-                      {cat.category_name}
-                    </span>
-                  </label>
-                );
-              };
-              return (
-                <div key={parent.category_id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ flex: 1 }}>{renderOption(parent, false)}</div>
-                    {children.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenFilters(p => ({ ...p, [`cat_${parent.category_id}`]: !p[`cat_${parent.category_id}`] }))}
-                        aria-label={isExpanded ? 'Collapse subcategories' : 'Expand subcategories'}
-                        aria-expanded={isExpanded}
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px 4px', color: '#9ca3af', flexShrink: 0 }}>
-                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                          style={{ transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                          <polyline points="2,4 6,8 10,4"/>
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  {isExpanded && children.map(child => renderOption(child, true))}
-                </div>
-              );
-            })}
-        </div>
-      </FilterSection>
-
-      {/* Dynamic attribute filters — one section per taxonomy */}
-      {attrGroups.map(group => {
-        const selected = selectedAttrs[group.taxonomy] ?? [];
-        const label = selected.length > 0 ? `${group.label} (${selected.length})` : group.label;
-        return (
-          <FilterSection
-            key={group.taxonomy}
-            idBase={group.taxonomy}
-            label={label}
-            isOpen={!!openFilters[group.taxonomy]}
-            onToggle={() => setOpenFilters(p => ({ ...p, [group.taxonomy]: !p[group.taxonomy] }))}
-          >
-            {group.options.length === 0 ? (
-              <div className="nf-empty">No options available</div>
-            ) : (
-              <div className="nf-options-list">
-                {group.options.map(opt => {
-                  const val = toSlugLocal(opt.attr_slug || opt.attr_name);
-                  const checked = selected.includes(val);
-                  return (
-                    <label key={val} className={`nf-option${checked ? ' checked' : ''}`}>
-                      <span className="nf-checkbox" aria-hidden="true">
-                        {checked && (
-                          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-                            <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </span>
-                      <input
-                        type="checkbox"
-                        className="nf-hidden-input"
-                        checked={checked}
-                        onChange={() => {
-                          setOpenFilters(p => ({ ...p, [group.taxonomy]: true }));
-                          toggleAttr(group.taxonomy, val);
-                        }}
-                        aria-label={opt.attr_name}
-                      />
-                      <span className="nf-option-text">{opt.attr_name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </FilterSection>
-        );
-      })}
-
-    </>
-  );
+  const toggleDropdown = (key: string) => {
+    setOpenDropdown(prev => prev === key ? null : key);
+  };
 
   return (
     <>
@@ -516,158 +351,182 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
         </div>
       </nav>
 
-
-
-      <div className="csp-body">
-        <aside className="csp-sidebar" aria-label="Product filters">
-          {loading ? <ShopSidebarSkeleton /> : SidebarContent}
-        </aside>
-
-        {sidebarOpen && (
-          <div
-            className="csp-sidebar-overlay"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-        <div
-          className={`csp-sidebar-drawer${sidebarOpen ? ' open' : ''}`}
-          aria-label="Product filters"
-          aria-hidden={!sidebarOpen}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="csp-drawer-head">
-            <h3 className="csp-drawer-title">Filters</h3>
-            <button
-              className="csp-drawer-close"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close filters"
+      <div className="csp-body-top">
+        {/* Top Filter Bar */}
+        <div className="csp-top-filterbar" ref={dropdownRef}>
+          <div className="csp-top-filter-left">
+            <span className="csp-filter-label">Filter:</span>
+            {/* Price Dropdown */}
+            <FilterDropdown
+              label={isPriceActive ? `Price (Active)` : 'Price'}
+              isOpen={openDropdown === 'price'}
+              onToggle={() => toggleDropdown('price')}
+              isActive={isPriceActive}
             >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="2" y1="2" x2="16" y2="16" />
-                <line x1="16" y1="2" x2="2" y2="16" />
-              </svg>
-            </button>
-          </div>
-          <div className="csp-drawer-body">
-            {SidebarContent}
-          </div>
-          <div className="csp-drawer-foot">
-            <button
-              className="csp-apply-btn"
-              onClick={() => setSidebarOpen(false)}
+              <div style={{ padding: '16px', minWidth: 260 }}>
+                <DualRangeSlider
+                  min={absoluteMin}
+                  max={absoluteMax > 0 ? absoluteMax : 200}
+                  valueMin={sliderMin}
+                  valueMax={sliderMax}
+                  onChangeMin={v => handlePriceChange(Math.min(v, sliderMax - 1), sliderMax)}
+                  onChangeMax={v => handlePriceChange(sliderMin, Math.max(v, sliderMin + 1))}
+                />
+              </div>
+            </FilterDropdown>
+
+            {/* Category Dropdown */}
+            <FilterDropdown
+              label={selectedCategories.length > 0 ? `Category (${selectedCategories.length})` : 'Category'}
+              isOpen={openDropdown === 'category'}
+              onToggle={() => toggleDropdown('category')}
+              isActive={selectedCategories.length > 0}
             >
-              View {sorted.length} Result{sorted.length !== 1 ? 's' : ''}
-            </button>
+              <div className="csp-filter-drop-options">
+                {productCategories
+                  .filter(c => c.parent_id === 0)
+                  .map(parent => {
+                    const children = productCategories.filter(c => c.parent_id === parent.category_id);
+                    const isExpanded = !!openFilters[`cat_${parent.category_id}`];
+                    const renderOption = (cat: typeof productCategories[0], isChild: boolean) => {
+                      const checked = selectedCategories.includes(cat.category_slug);
+                      return (
+                        <label key={cat.category_id}
+                          className={`nf-option${checked ? ' checked' : ''}`}
+                          style={isChild ? { paddingLeft: 20 } : undefined}>
+                          <span className="nf-checkbox" aria-hidden="true">
+                            {checked && (
+                              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                                <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                          <input type="checkbox" className="nf-hidden-input" checked={checked}
+                            onChange={() => {
+                              const next = selectedCategories.includes(cat.category_slug)
+                                ? selectedCategories.filter(c => c !== cat.category_slug)
+                                : [...selectedCategories, cat.category_slug];
+                              setSelectedCategories(next);
+                              updateCategoryUrl(next);
+                            }}
+                            aria-label={cat.category_name} />
+                          <span className="nf-option-text" style={isChild ? { fontSize: 12, color: '#6b7280' } : undefined}>
+                            {cat.category_name}
+                          </span>
+                        </label>
+                      );
+                    };
+                    return (
+                      <div key={parent.category_id}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ flex: 1 }}>{renderOption(parent, false)}</div>
+                          {children.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setOpenFilters(p => ({ ...p, [`cat_${parent.category_id}`]: !p[`cat_${parent.category_id}`] }))}
+                              aria-label={isExpanded ? 'Collapse subcategories' : 'Expand subcategories'}
+                              aria-expanded={isExpanded}
+                              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '2px 4px', color: '#9ca3af', flexShrink: 0 }}>
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+                                stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                style={{ transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                <polyline points="2,4 6,8 10,4"/>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        {isExpanded && children.map(child => renderOption(child, true))}
+                      </div>
+                    );
+                  })}
+              </div>
+            </FilterDropdown>
+
+            {hasActive && (
+              <button className="csp-top-clear-btn" onClick={allClear}>
+                Clear all ({totalActive})
+              </button>
+            )}
+          </div>
+
+          <div className="csp-top-filter-right">
+            {!loading && (
+              <span className="csp-count">{sorted.length} product{sorted.length !== 1 ? 's' : ''}</span>
+            )}
+            <div className="csp-view-toggle" role="group" aria-label="View mode">
+              <button
+                className={`csp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="0" y="0" width="6" height="6" rx="1" />
+                  <rect x="10" y="0" width="6" height="6" rx="1" />
+                  <rect x="0" y="10" width="6" height="6" rx="1" />
+                  <rect x="10" y="10" width="6" height="6" rx="1" />
+                </svg>
+              </button>
+              <button
+                className={`csp-view-btn${viewMode === 'list' ? ' active' : ''}`}
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="0" y="1" width="16" height="3" rx="1" />
+                  <rect x="0" y="7" width="16" height="3" rx="1" />
+                  <rect x="0" y="13" width="16" height="3" rx="1" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
-        <main className="csp-main">
-          <div className="csp-toolbar">
-            <div className="csp-toolbar-left">
-              <button
-                className="csp-filter-toggle"
-                onClick={() => setSidebarOpen(true)}
-                aria-label={`Open filters${totalActive > 0 ? `, ${totalActive} active` : ''}`}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <line x1="8" y1="12" x2="20" y2="12" />
-                  <line x1="12" y1="18" x2="20" y2="18" />
-                </svg>
-                Filters
-                {totalActive > 0 && <span className="csp-filter-badge">{totalActive}</span>}
-              </button>
-              {!loading && <span className="csp-count">{sorted.length} product{sorted.length !== 1 ? 's' : ''}</span>}
-            </div>
-            <div className="csp-toolbar-right">
-              <div className="csp-view-toggle" role="group" aria-label="View mode">
-                <button
-                  className={`csp-view-btn${viewMode === 'grid' ? ' active' : ''}`}
-                  onClick={() => setViewMode('grid')}
-                  aria-label="Grid view"
-                  aria-pressed={viewMode === 'grid'}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="0" y="0" width="6" height="6" rx="1" />
-                    <rect x="10" y="0" width="6" height="6" rx="1" />
-                    <rect x="0" y="10" width="6" height="6" rx="1" />
-                    <rect x="10" y="10" width="6" height="6" rx="1" />
-                  </svg>
-                </button>
-                <button
-                  className={`csp-view-btn${viewMode === 'list' ? ' active' : ''}`}
-                  onClick={() => setViewMode('list')}
-                  aria-label="List view"
-                  aria-pressed={viewMode === 'list'}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <rect x="0" y="1" width="16" height="3" rx="1" />
-                    <rect x="0" y="7" width="16" height="3" rx="1" />
-                    <rect x="0" y="13" width="16" height="3" rx="1" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+        {/* Active filter chips */}
+        {(hasActive || searchTerm) && (
+          <div className="csp-chips-bar" role="group" aria-label="Active filters">
+            <button className="csp-chips-clear" onClick={() => { allClear(); if (searchTerm) router.push('/shop'); }}>Clear all</button>
+            {searchTerm && (
+              <span className="csp-chip">
+                Search: &ldquo;{searchTerm}&rdquo;
+                <button className="csp-chip-x" onClick={() => router.push('/shop')} aria-label="Remove search filter">x</button>
+              </span>
+            )}
+            {isPriceActive && (
+              <span className="csp-chip">
+                {CURRENCY}{sliderMin}-{CURRENCY}{sliderMax}
+                <button className="csp-chip-x" onClick={() => { setSliderMin(absoluteMin); setSliderMax(absoluteMax); }} aria-label="Remove price filter">x</button>
+              </span>
+            )}
+            {selectedCategories.map(slug => {
+              const cat = productCategories.find(c => c.category_slug === slug);
+              return cat ? (
+                <span key={slug} className="csp-chip">
+                  {cat.category_name}
+                  <button className="csp-chip-x"
+                    onClick={() => {
+                      const next = selectedCategories.filter(c => c !== slug);
+                      setSelectedCategories(next);
+                      updateCategoryUrl(next);
+                    }}
+                    aria-label={`Remove ${cat.category_name}`}>x</button>
+                </span>
+              ) : null;
+            })}
+            {Object.entries(selectedAttrs).flatMap(([taxonomy, values]) =>
+              values.map(val => (
+                <span key={`${taxonomy}-${val}`} className="csp-chip">
+                  {labelMaps[taxonomy]?.get(val) ?? val}
+                  <button className="csp-chip-x" onClick={() => toggleAttr(taxonomy, val)} aria-label={`Remove ${labelMaps[taxonomy]?.get(val) ?? val}`}>x</button>
+                </span>
+              ))
+            )}
           </div>
+        )}
 
-          {(hasActive || searchTerm) && (
-            <div className="csp-chips-bar" role="group" aria-label="Active filters">
-              <button className="csp-chips-clear" onClick={() => { allClear(); if (searchTerm) router.push('/shop'); }}>Clear all</button>
-              {searchTerm && (
-                <span className="csp-chip">
-                  Search: &ldquo;{searchTerm}&rdquo;
-                  <button
-                    className="csp-chip-x"
-                    onClick={() => router.push('/shop')}
-                    aria-label="Remove search filter"
-                  >x</button>
-                </span>
-              )}
-              {isPriceActive && (
-                <span className="csp-chip">
-                  {CURRENCY}{sliderMin}-{CURRENCY}{sliderMax}
-                  <button
-                    className="csp-chip-x"
-                    onClick={() => { setSliderMin(absoluteMin); setSliderMax(absoluteMax); }}
-                    aria-label="Remove price filter"
-                  >x</button>
-                </span>
-              )}
-              {selectedCategories.map(slug => {
-                const cat = productCategories.find(c => c.category_slug === slug);
-                return cat ? (
-                  <span key={slug} className="csp-chip">
-                    {cat.category_name}
-                    <button className="csp-chip-x"
-                      onClick={() => {
-                        const next = selectedCategories.filter(c => c !== slug);
-                        setSelectedCategories(next);
-                        updateCategoryUrl(next);
-                      }}
-                      aria-label={`Remove ${cat.category_name}`}>x</button>
-                  </span>
-                ) : null;
-              })}
-              {Object.entries(selectedAttrs).flatMap(([taxonomy, values]) =>
-                values.map(val => (
-                  <span key={`${taxonomy}-${val}`} className="csp-chip">
-                    {labelMaps[taxonomy]?.get(val) ?? val}
-                    <button
-                      className="csp-chip-x"
-                      onClick={() => toggleAttr(taxonomy, val)}
-                      aria-label={`Remove ${labelMaps[taxonomy]?.get(val) ?? val}`}
-                    >x</button>
-                  </span>
-                ))
-              )}
-            </div>
-          )}
-
-          {loading && (
-            <ShopGridSkeleton listMode={viewMode === 'list'} />
-          )}
+        {/* Products Grid */}
+        <main className="csp-main-full">
+          {loading && <ShopGridSkeleton listMode={viewMode === 'list'} />}
 
           {error && (
             <div className="csp-error-box" role="alert">
