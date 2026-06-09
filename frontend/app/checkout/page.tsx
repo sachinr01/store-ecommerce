@@ -953,6 +953,84 @@ export default function CheckoutPage() {
             </div>
           </section>
         </div>
+        {showForgotRecovery && (
+          <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeForgotRecovery(); } }}>
+            <div className="register-modal">
+              <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
+              <p className="register-modal-title">Lost Password?</p>
+              <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
+              <div className="register-modal-field">
+                <label className="register-modal-label">Email <span>*</span></label>
+                <input
+                  className="register-modal-input"
+                  type="email"
+                  placeholder="Email address"
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  autoComplete="email"
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleForgotRecovery(); }}
+                />
+              </div>
+              {forgotError && <p className="register-modal-err">{forgotError}</p>}
+              {forgotSuccess && <p className="register-modal-success">{forgotSuccess}</p>}
+              <button type="button" className="btn-view-product checkout-recovery-submit" onClick={() => void handleForgotRecovery()} disabled={forgotLoading}>
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <div className="reset-password-foot">
+                <button type="button" className="reset-password-foot-link" onClick={closeForgotRecovery}>Back to checkout login</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showResetRecovery && (
+          <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeResetRecovery(); } }}>
+            <div className="register-modal">
+              <button type="button" className="register-modal-close" onClick={closeResetRecovery} aria-label="Close">&#x2715;</button>
+              <p className="register-modal-title">Set a new password</p>
+              <p className="register-modal-sub">Choose a strong password and confirm it below. Once saved, you can log in with the new password.</p>
+              {!resetToken ? (
+                <div className="reset-password-alert">
+                  This reset link is invalid or incomplete. Please request a new password reset from the checkout page.
+                </div>
+              ) : (
+                <div>
+                  <div className="register-modal-field">
+                    <label className="register-modal-label">New Password <span>*</span></label>
+                    <input
+                      className="register-modal-input"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      autoComplete="new-password"
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleResetRecovery(); }}
+                    />
+                  </div>
+                  <div className="register-modal-field">
+                    <label className="register-modal-label">Confirm Password <span>*</span></label>
+                    <input
+                      className="register-modal-input"
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                      onKeyDown={(e) => { if (e.key === 'Enter') void handleResetRecovery(); }}
+                    />
+                  </div>
+                  {resetError && <p className="register-modal-err">{resetError}</p>}
+                  {resetSuccess && <p className="register-modal-success">{resetSuccess}</p>}
+                  <button type="button" className="btn-view-product checkout-recovery-submit" onClick={() => void handleResetRecovery()} disabled={resetLoading}>
+                    {resetLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
+              )}
+              <div className="reset-password-foot">
+                <button type="button" className="reset-password-foot-link" onClick={closeResetRecovery}>Back to checkout login</button>
+              </div>
+            </div>
+          </div>
+        )}
         <Footer />
       </>
     );
