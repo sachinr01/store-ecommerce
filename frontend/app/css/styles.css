@@ -3562,7 +3562,7 @@ input[type="checkbox"] {
   display: inline-block;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  /* letter-spacing: 0.12em; */
   text-transform: uppercase;
   color: #fff;
   text-decoration: underline;
@@ -3576,9 +3576,9 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 480px) {
-  .gw-grid {
+  /* .gw-grid {
     grid-template-columns: 1fr;
-  }
+  } */
 /*  */
   /* .gw-panel {
     height: 280px;
