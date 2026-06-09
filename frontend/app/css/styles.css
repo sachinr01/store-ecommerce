@@ -3114,6 +3114,7 @@ input[type="checkbox"] {
 .na-img {
   width: 100%;
   transition: transform 500ms ease;
+  aspect-ratio: 1;
 }
 
 .na-img.zoomed,

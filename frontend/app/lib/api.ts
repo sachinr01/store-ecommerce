@@ -220,8 +220,8 @@ export const authLogin    = (username: string, password: string) =>
 export const authGoogleLogin = (credential: string) =>
   apiPost<AuthUserResponse>('/auth/google', { credential });
 
-export const authRegister = (username: string, email: string, password: string) =>
-  apiPost<{ userId: number }>('/auth/register', { username, email, password });
+export const authRegister = (email: string, password: string) =>
+  apiPost<{ userId: number }>('/auth/register', { email, password });
 
 export const authForgotPassword = (identifier: string) =>
   apiPost('/auth/forgot-password', { identifier });

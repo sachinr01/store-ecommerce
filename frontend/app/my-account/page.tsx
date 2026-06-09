@@ -40,7 +40,7 @@ export default function MyAccountPage() {
   const registerGoogleRef = useRef<HTMLDivElement | null>(null);
 
   const [login, setLogin] = useState({ username: '', password: '', remember: false });
-  const [reg, setReg] = useState({ username: '', email: '', password: '' });
+  const [reg, setReg] = useState({ email: '', password: '' });
   const [loginErr, setLoginErr] = useState('');
   const [regErr, setRegErr] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -108,7 +108,7 @@ export default function MyAccountPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!reg.username || !reg.email || !reg.password) {
+    if (!reg.email || !reg.password) {
       setRegErr('All fields are required.');
       return;
     }
@@ -125,9 +125,9 @@ export default function MyAccountPage() {
     setRegLoading(true);
 
     try {
-      const res = await authRegister(reg.username, reg.email, reg.password);
+      const res = await authRegister(reg.email, reg.password);
       if (res.success) {
-        setReg({ username: '', email: '', password: '' });
+        setReg({ email: '', password: '' });
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.json());
         if (me.success && me.data?.isLoggedIn && me.data.user) {
           setUser(me.data.user);
@@ -363,8 +363,8 @@ export default function MyAccountPage() {
                       <h4 className="box-titel">Login</h4>
                       <form className="form-small form" onSubmit={handleLogin} noValidate>
                         <div className="field">
-                          <label className="required">Email</label>
-                          <input type="text" placeholder="Email" value={login.username} onChange={setL('username')} />
+                          <label className="required">Email or Username</label>
+                          <input type="text" placeholder="Email or Username" value={login.username} onChange={setL('username')} />
                         </div>
                         <div className="field">
                           <label className="required">Password</label>

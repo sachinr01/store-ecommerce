@@ -449,21 +449,34 @@ async function verifyGoogleCredential(credential) {
 
 // POST /api/auth/register
 const register = async (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Username, email and password are required.' });
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required.' });
   }
   if (!VALID_EMAIL_RE.test(String(email).trim())) {
     return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
   }
 
+  // Derive a username from the email local-part, ensure uniqueness
+  const baseUsername = String(email).trim().split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'user';
+
   try {
-    const [[existing]] = await db.query(
-      'SELECT ID FROM tbl_users WHERE user_login = ? OR user_email = ? LIMIT 1',
-      [username, email]
+    const [[existingEmail]] = await db.query(
+      'SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1',
+      [email]
     );
-    if (existing) {
-      return res.status(409).json({ success: false, message: 'Username or email already exists.' });
+    if (existingEmail) {
+      return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
+    }
+
+    // Make username unique by appending a suffix if needed
+    let username = baseUsername;
+    const [[nameConflict]] = await db.query(
+      'SELECT ID FROM tbl_users WHERE user_login = ? LIMIT 1',
+      [username]
+    );
+    if (nameConflict) {
+      username = `${baseUsername}${Date.now()}`;
     }
 
     const passwordLengthError = validateBcryptPasswordLength(password);
@@ -528,12 +541,12 @@ const login = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+      return res.status(401).json({ success: false, message: 'Incorrect email or password.' });
     }
 
     const { ok, needsRehash } = await verifyPassword(password, user.user_pass);
     if (!ok) {
-      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+      return res.status(401).json({ success: false, message: 'Incorrect email or password.' });
     }
 
     if (needsRehash) {
