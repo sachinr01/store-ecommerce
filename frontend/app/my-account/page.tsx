@@ -125,7 +125,7 @@ export default function MyAccountPage() {
     setRegLoading(true);
 
     try {
-      const res = await authRegister(reg.email.split('@')[0], reg.email, reg.password);
+      const res = await authRegister(reg.email, reg.password);
       if (res.success) {
         setReg({ email: '', password: '' });
         const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.json());
