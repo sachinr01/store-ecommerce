@@ -53,7 +53,7 @@ export default function CareersPage() {
               <span aria-hidden="true" />
             </div>
             <div className="careers-socials">
-              <a href="#" target="_blank" rel="noreferrer" aria-label="Instagram">
+              <a href="https://www.instagram.com/nestcase.in/" target="_blank" rel="noreferrer" aria-label="Instagram">
                 <i className="fa fa-instagram" aria-hidden="true" />
               </a>
               <a href="https://www.linkedin.com/company/nestcase/" target="_blank" rel="noreferrer" aria-label="LinkedIn">

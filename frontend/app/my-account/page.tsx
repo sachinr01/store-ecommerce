@@ -85,7 +85,7 @@ export default function MyAccountPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!login.username || !login.password) {
-      setLoginErr('Please enter username and password.');
+      setLoginErr('Please enter e-mail and password.');
       return;
     }
 
@@ -300,7 +300,7 @@ export default function MyAccountPage() {
   const handleForgotPassword = async () => {
     const value = forgotIdentifier.trim();
     if (!value) {
-      setForgotError('Please enter your username or email address.');
+      setForgotError('Please enter your email address.');
       return;
     }
     setForgotLoading(true);
@@ -469,7 +469,7 @@ export default function MyAccountPage() {
               <input
                 className="register-modal-input"
                 type="text"
-                placeholder="Username or email"
+                placeholder="email"
                 value={forgotIdentifier}
                 onChange={(e) => setForgotIdentifier(e.target.value)}
                 autoComplete="username"
