@@ -503,6 +503,8 @@ const showEditProduct = async (req, res) => {
       variations,
       attributeTypes,
       selectedAttributes,
+      success: req.query.success,
+      error: req.query.error,
       isEdit: true,
       errors: null,
     });
@@ -1584,7 +1586,9 @@ const updateProduct = async (req, res) => {
     }
 
     await conn.commit();
-    res.redirect("/admin/products?success=Product updated successfully");
+    return res.redirect(
+      `/admin/products/edit/${req.params.id}?success=Product updated successfully`
+    );
   } catch (err) {
     await conn.rollback();
     console.error("❌ Update Product Error:", err.message);
