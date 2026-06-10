@@ -11,7 +11,7 @@ const collectionRows = [
       title: 'Dinnerware',
       src: '/images/collection/dinner_set_main_bn.jpeg',
       alt: 'Dinnerware Collection',
-      href: '/shop/dinner-set',
+      href: '/shop/dinner-sets',
     },
     slides: [
       {
@@ -24,19 +24,19 @@ const collectionRows = [
         title: 'Bowls',
         src: '/images/collection/Dinner-Set-Bowls.png',
         alt: 'Bowls Collection',
-        href: '/shop/dinner-set',
+        href: '/shop/serving-bowls',
       },
       {
         title: 'Platters',
         src: '/images/collection/Dinner-Set-Platter.png',
         alt: 'Platters Collection',
-        href: '/shop/dinner-set',
+        href: 'shop/platters',
       },
       {
         title: 'Dinner-Sets',
         src: '/images/collection/Dinner-Sets-Dinner-Set.png',
         alt: 'Platters Collection',
-        href: '/shop/dinner-set',
+        href: '/shop/dinner-sets',
       },
     ],
   },
@@ -54,37 +54,37 @@ const collectionRows = [
         title: 'Cups & Mugs',
         src: '/images/collection/Drinkware-Cups-&-Mugs.png',
         alt: 'Cups & Mugs Collection',
-        href: '/shop/drinkware',
+        href: '/shop/cups-and-mugs',
       },
       {
         title: 'Whiskey Glass',
         src: '/images/collection/Drinkware-Whiskey-Glasses.png',
         alt: 'Whiskey Glass Collection',
-        href: '/shop/drinkware',
+        href: '/shop/whiskey-glasses',
       },
       {
         title: 'Beer Glass',
         src: '/images/collection/Drinkware-Beer-Glasses.png',
         alt: 'Beer Glass collection',
-        href: '/shop/drinkware',
+        href: '/shop/beer-mugs',
       },
       {
         title: 'Stemware',
         src: '/images/collection/Drinkware-Stemwares.png',
         alt: 'Stemware collection',
-        href: '/shop/drinkware',
+        href: '/shop/stemware',
       },
       {
         title: 'Tumblers',
         src: '/images/collection/Drinkware-Tumblers.png',
         alt: 'Tumblers collection',
-        href: '/shop/drinkware',
+        href: '/shop/tumblers',
       },
       {
         title: 'Insulated Mugs',
         src: '/images/collection/Drinkware-Insulated-Mugs.png',
         alt: 'Insulated Mugs collection',
-        href: '/shop/drinkware',
+        href: '/shop/insulated-mugs',
       },
     ],
   },
@@ -108,13 +108,13 @@ const collectionRows = [
         title: 'Spice Jars',
         src: '/images/collection/Container-Spice-Jar.png',
         alt: 'Spice Jars collection',
-        href: '/shop/kitchen-organisers',
+        href: '/shop/spice-jars',
       },
       {
         title: 'Spice Jars 2',
         src: '/images/collection/Container-Spice-Jars2.png',
         alt: 'Spice Jars 2 collection',
-        href: '/shop/kitchen-organisers',
+        href: '/shop/storage-jars',
       },
     ],
   },
@@ -166,25 +166,47 @@ function StaticPanel({ panel, priority }: { panel: CollectionPanel; priority: bo
 
 function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority: boolean }) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  const railSlides = slides.length > 1 ? [...slides, slides[0]] : slides;
+  const activeDot = activeSlide % slides.length;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % slides.length);
+      setIsTransitioning(true);
+      setActiveSlide((current) => current + 1);
     }, 3200);
 
     return () => window.clearInterval(timer);
   }, [slides.length]);
 
+  const handleTransitionEnd = () => {
+    if (activeSlide !== slides.length) return;
+
+    setIsTransitioning(false);
+    setActiveSlide(0);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setIsTransitioning(true));
+    });
+  };
+
   return (
     <div className="featured-rail" aria-label="More featured categories">
-      <div className="featured-rail-track">
-        {slides.map((slide, index) => (
+      <div
+        className={`featured-rail-track${isTransitioning ? '' : ' no-transition'}`}
+        style={{ transform: `translate3d(-${activeSlide * 100}%, 0, 0)` }}
+        onTransitionEnd={handleTransitionEnd}
+      >
+        {railSlides.map((slide, index) => {
+          const isClone = index === slides.length;
+          const isActive = index === activeSlide || (isClone && activeSlide === slides.length);
+
+          return (
           <Link
             href={slide.href}
-            className={`featured-panel featured-panel-rail ${index === activeSlide ? 'active' : ''}`}
-            key={slide.title}
-            aria-hidden={index === activeSlide ? undefined : true}
-            tabIndex={index === activeSlide ? undefined : -1}
+            className={`featured-panel featured-panel-rail ${isActive ? 'active' : ''}`}
+            key={`${slide.title}-${index}`}
+            aria-hidden={isActive && !isClone ? undefined : true}
+            tabIndex={isActive && !isClone ? undefined : -1}
           >
             <Image
               src={slide.src}
@@ -195,7 +217,8 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
               sizes="(max-width: 990px) 100vw, 40vw"
             />
           </Link>
-        ))}
+          );
+        })}
       </div>
       {slides.length > 1 && (
         <span className="featured-panel-dots">
@@ -203,9 +226,12 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
             <button
               type="button"
               key={slide.title}
-              className={index === activeSlide ? 'active' : ''}
+              className={index === activeDot ? 'active' : ''}
               aria-label={`Show ${slide.title}`}
-              onClick={() => setActiveSlide(index)}
+              onClick={() => {
+                setIsTransitioning(true);
+                setActiveSlide(index);
+              }}
             />
           ))}
         </span>

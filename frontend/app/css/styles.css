@@ -3842,24 +3842,24 @@ input[type="checkbox"] {
   isolation: isolate;
 }
 .featured-rail-track {
-  position: relative;
+  display: flex;
   height: 100%;
+  transition: transform 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+.featured-rail-track.no-transition {
+  transition: none;
 }
 .featured-panel-rail {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
+  flex: 0 0 100%;
   pointer-events: none;
-  /* Removed translateX — horizontal offset causes background to show through during cross-fade */
-  transform: translateX(0);
-  transition: opacity 0.4s ease;
-  will-change: opacity;
+  transform: translateZ(0);
+  transition: transform 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
   backface-visibility: hidden;
 }
 .featured-panel-rail.active {
-  opacity: 1;
   pointer-events: auto;
-  transform: translateX(0);
 }
 .featured-panel-shade {
   position: absolute;
@@ -15238,4 +15238,146 @@ input[type="checkbox"] {
 
 .form-success {
   color: #16a34a;
+}
+
+/* HOME BLOG CAROUSEL */
+.blog-section .blog-section-inner {
+  position: relative;
+}
+
+.blog-section .blog-carousel-shell {
+  position: relative;
+}
+
+.blog-section .blog-carousel-controls {
+  pointer-events: none;
+}
+
+.blog-section .blog-carousel-arrow {
+  pointer-events: auto;
+  top: 50%;
+}
+
+.blog-section .blog-carousel-arrow-prev {
+  left: -23px;
+}
+
+.blog-section .blog-carousel-arrow-next {
+  right: -23px;
+}
+
+.blog-section .blog-carousel-track {
+  display: flex;
+  grid-template-columns: none;
+  gap: 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 2px 18px;
+}
+
+.blog-section .blog-carousel-track.dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+}
+
+.blog-section .blog-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.blog-section .blog-carousel-track .blog-card {
+  flex: 0 0 calc((100% - 48px) / 3);
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.blog-section .swiper-scrollbar-horizontal.blog-carousel-scrollbar {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  display: block;
+  width: 100%;
+  height: 16px;
+  margin-top: 6px;
+  background: transparent;
+  border-radius: 999px;
+  cursor: grab;
+  overflow: visible;
+  touch-action: none;
+  user-select: none;
+}
+
+.blog-section .swiper-scrollbar-horizontal.blog-carousel-scrollbar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  border-radius: inherit;
+  background: #eee9df;
+  transform: translateY(-50%);
+}
+
+.blog-section .blog-carousel-scrollbar .swiper-scrollbar-drag {
+  position: absolute;
+  top: 50%;
+  bottom: auto;
+  display: block;
+  height: 3px;
+  min-width: 48px;
+  border-radius: inherit;
+  background: #22311D;
+  transform: translateY(-50%);
+  transition: width 180ms ease;
+}
+
+.blog-section .blog-carousel-scrollbar.dragging {
+  cursor: grabbing;
+}
+
+.blog-section .blog-carousel-scrollbar.dragging .swiper-scrollbar-drag {
+  transition: none;
+}
+
+@media (max-width: 1024px) {
+  .blog-section .blog-carousel-track .blog-card {
+    flex-basis: calc((100% - 24px) / 2);
+  }
+}
+
+@media (max-width: 680px) {
+  .blog-section .blog-carousel-arrow {
+    top: 38%;
+    width: 38px;
+    height: 38px;
+  }
+
+  .blog-section .blog-carousel-arrow-prev {
+    left: 6px;
+  }
+
+  .blog-section .blog-carousel-arrow-next {
+    right: 6px;
+  }
+
+  .blog-section .blog-carousel-track {
+    gap: 16px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .blog-section .blog-carousel-track .blog-card {
+    flex-basis: 100%;
+  }
+
+  .blog-section .swiper-scrollbar-horizontal.blog-carousel-scrollbar {
+    height: 18px;
+    margin-top: 4px;
+  }
 }
