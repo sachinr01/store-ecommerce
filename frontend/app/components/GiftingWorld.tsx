@@ -3,12 +3,12 @@ import Link from 'next/link';
 const panels = [
   {
     image: '/images/nestcase_gifting/gifting_1.png',
-    label: 'CORPORATE GIFTING',
+    label: 'Corporate Gifting',
     href: '/#',
   },
   {
     image: '/images/nestcase_gifting/gifting_2.png',
-    label: 'SHOP E-CARDS',
+    label: 'Gift Collections',
     href: '/#',
   },
 ];
@@ -16,7 +16,7 @@ const panels = [
 export default function GiftingWorld() {
   return (
     <section className="gw-section">
-        <h3 className="gw-title">NESTCASE GIFTING</h3>
+        <h3 className="gw-title">Gifting</h3>
         <div className="gw-grid">
           {panels.map((p, i) => (
             <Link key={i} href={p.href} className="gw-panel">

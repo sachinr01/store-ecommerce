@@ -167,9 +167,9 @@ export default function Header() {
     { label: "Drinkware",          href: "/shop/drinkware",           mega: { columns: [], featured: [], categorySlug: "drinkware" } },
     { label: "Glassware",          href: "/shop/glassware",           mega: { columns: [], featured: [], categorySlug: "glassware" } },
     { label: "Kitchen Organisers", href: "/shop/kitchen-organisers",  mega: { columns: [], featured: [], categorySlug: "kitchen-organisers" } },
-    { label: "Cup & Mugs",         href: "/shop/cup-and-mugs",        mega: { columns: [], featured: [], categorySlug: "cup-and-mugs" } },
-    { label: "Bowl & Platters",    href: "/shop/bowl-and-platters",   mega: { columns: [], featured: [], categorySlug: "bowl-and-platters" } },
-    { label: "Dinner Set",         href: "/shop/dinner-set",          mega: { columns: [], featured: [], categorySlug: "dinner-set" } },
+    { label: "Cups & Mugs",         href: "/shop/cups-and-mugs",        mega: { columns: [], featured: [], categorySlug: "cups-and-mugs" } },
+    { label: "Bowls & Platters",    href: "/shop/bowls-and-platters",   mega: { columns: [], featured: [], categorySlug: "bowls-and-platters" } },
+    { label: "Dinner Sets",         href: "/shop/dinner-sets",          mega: { columns: [], featured: [], categorySlug: "dinner-sets" } },
     { label: "About Us",           href: "/about-us" },
     { label: "B2B Connect",        href: "/b2b-connect" },
   ];

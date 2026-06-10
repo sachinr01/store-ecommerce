@@ -99,7 +99,7 @@ export default function NewArrivals() {
   return (
     <section className="na-outer na-outer-top">
       <ProductGrid
-        title="Newly Launched Products"
+        title="New Arrivals"
         products={products}
         loading={loading}
         placeholder={PLACEHOLDER}
@@ -129,7 +129,7 @@ export function BestSellers() {
   return (
     <section className="na-outer na-outer-bs">
       <ProductGrid
-        title="Best Sellers Products"
+        title="Bestsellers"
         products={products}
         loading={loading}
         placeholder={PLACEHOLDER}

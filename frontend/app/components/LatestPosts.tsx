@@ -14,8 +14,8 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
     <section className="blog-section" id="blog">
         <div className="blog-section-inner">
           <div className="blog-section-header">
-            <span className="blog-section-label">Latest Posts</span>
-            <h3 className="blog-section-title">From The Nestcase Blog</h3>
+            <span className="blog-section-label">Blogs</span>
+            <h3 className="blog-section-title">From The Nestcase Blogs</h3>
           </div>
           <div className="blog-grid">
             {visiblePosts.map((post) => (
