@@ -2043,7 +2043,7 @@ input[type="checkbox"] {
 @media (max-width: 991px) {
   .nh-announcement {
     font-size: 11px;
-    padding: 7px 12px;
+    padding: 7px 19px;
     white-space: normal;
   }
 
@@ -2076,7 +2076,7 @@ input[type="checkbox"] {
   }
 
   .nh-icon-btn {
-    width: 34px;
+    width: 20px;
     height: 34px;
   }
 
@@ -2102,7 +2102,7 @@ input[type="checkbox"] {
   }
 
   .nh-inner {
-    padding: 0 10px;
+    padding: 0 19px;
   }
 
   .nh-logo-image {
@@ -3520,7 +3520,7 @@ input[type="checkbox"] {
 .gw-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 12px;
   max-width: 940px;
   margin: 0 auto;
   padding: 0 19px;
@@ -3798,10 +3798,10 @@ input[type="checkbox"] {
 }
 
 .featured-collection-row-static-left {
-  grid-template-columns: 60% calc(40% - 19px);
+  grid-template-columns: 60% calc(40% - 8px);
 }
 .featured-collection-row-static-right {
-  grid-template-columns: calc(40% - 19px) 60%;
+  grid-template-columns: calc(40% - 8px) 60%;
 }
 .featured-panel {
   position: relative;
@@ -4041,10 +4041,10 @@ input[type="checkbox"] {
     padding-bottom: 15px;
   }
   .featured-collections{
-    gap: 12px;
+    gap: 7px;
   }
   .featured-collection-row {
-    gap: 12px;
+    gap: 7px;
   }
 }
 
@@ -4767,7 +4767,7 @@ input[type="checkbox"] {
 
 @media (max-width: 768px) {
   .csp-body-top {
-    padding: 20px 24px 60px;
+    padding: 20px 19px 60px;
   }
   .csp-main-full .csp-grid {
     grid-template-columns: repeat(2, 1fr);
