@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const collectionRows = [
   {
@@ -169,11 +169,18 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
   const [isTransitioning, setIsTransitioning] = useState(true);
   const railSlides = slides.length > 1 ? [...slides, slides[0]] : slides;
   const activeDot = activeSlide % slides.length;
+  const resetRailToStart = useCallback(() => {
+    setIsTransitioning(false);
+    setActiveSlide(0);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setIsTransitioning(true));
+    });
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setIsTransitioning(true);
-      setActiveSlide((current) => current + 1);
+      setActiveSlide((current) => Math.min(current + 1, slides.length));
     }, 3200);
 
     return () => window.clearInterval(timer);
@@ -182,12 +189,16 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
   const handleTransitionEnd = () => {
     if (activeSlide !== slides.length) return;
 
-    setIsTransitioning(false);
-    setActiveSlide(0);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setIsTransitioning(true));
-    });
+    resetRailToStart();
   };
+
+  useEffect(() => {
+    if (activeSlide !== slides.length) return;
+
+    const resetTimer = window.setTimeout(resetRailToStart, 850);
+
+    return () => window.clearTimeout(resetTimer);
+  }, [activeSlide, resetRailToStart, slides.length]);
 
   return (
     <div className="featured-rail" aria-label="More featured categories">
@@ -213,7 +224,8 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
               alt={slide.alt}
               width={760}
               height={620}
-              priority={priority && index === 0}
+              priority={priority || index === 0}
+              loading={priority || index === 0 ? undefined : 'eager'}
               sizes="(max-width: 990px) 100vw, 40vw"
             />
           </Link>

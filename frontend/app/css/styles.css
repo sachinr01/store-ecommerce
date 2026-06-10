@@ -3823,10 +3823,10 @@ input[type="checkbox"] {
   background: #f4f0eb;
 }
 .featured-panel img {
-  /* display: block; */
+  display: block;
   width: 100%;
   height: 100%;
-  /* object-fit: cover; */
+  object-fit: cover;
 }
 .featured-panel-static img {
   transition: transform 0.5s ease;
@@ -3843,6 +3843,7 @@ input[type="checkbox"] {
 }
 .featured-rail-track {
   display: flex;
+  width: 100%;
   height: 100%;
   transition: transform 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: transform;
@@ -3852,6 +3853,7 @@ input[type="checkbox"] {
 }
 .featured-panel-rail {
   flex: 0 0 100%;
+  min-width: 100%;
   pointer-events: none;
   transform: translateZ(0);
   transition: transform 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
