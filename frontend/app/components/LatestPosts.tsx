@@ -43,11 +43,11 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
   }, []);
 
   const goToPrevious = useCallback(() => {
-    slideTo((activeSlide - 1 + visiblePosts.length) % visiblePosts.length);
-  }, [activeSlide, slideTo, visiblePosts.length]);
+    if (activeSlide > 0) slideTo(activeSlide - 1);
+  }, [activeSlide, slideTo]);
 
   const goToNext = useCallback(() => {
-    slideTo((activeSlide + 1) % visiblePosts.length);
+    if (activeSlide < visiblePosts.length - 1) slideTo(activeSlide + 1);
   }, [activeSlide, slideTo, visiblePosts.length]);
 
   const handleTrackScroll = useCallback(() => {
