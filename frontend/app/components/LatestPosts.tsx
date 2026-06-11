@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Blog } from '../blog/types';
 import { BLOG_HOME_LIMIT } from '../blog/utils/config';
@@ -8,12 +8,8 @@ import { getBlogDetailHref } from '../blog/utils/links';
 
 export default function LatestPosts({ posts }: { posts: Blog[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const scrollbarRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef({ pointerX: 0, scrollLeft: 0 });
   const animationFrameRef = useRef<number | null>(null);
-  const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [scrollbar, setScrollbar] = useState({ left: 0, width: 42 });
   const visiblePosts = posts.slice(0, BLOG_HOME_LIMIT);
   const hasCarousel = visiblePosts.length > 1;
 
@@ -42,17 +38,8 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
       const closestDistance = Math.abs(slides[closest].offsetLeft - track.scrollLeft);
       return currentDistance < closestDistance ? index : closest;
     }, 0);
-    const maxScroll = track.scrollWidth - track.clientWidth;
-    const rawWidth = track.scrollWidth > 0
-      ? (track.clientWidth / track.scrollWidth) * 100
-      : 42;
-    const width = maxScroll > 0 ? Math.max(24, Math.min(42, rawWidth)) : 42;
-    const left = maxScroll > 0
-      ? (track.scrollLeft / maxScroll) * (100 - width)
-      : 0;
 
     setActiveSlide(closestIndex);
-    setScrollbar({ left, width });
   }, []);
 
   const goToPrevious = useCallback(() => {
@@ -62,64 +49,6 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
   const goToNext = useCallback(() => {
     slideTo((activeSlide + 1) % visiblePosts.length);
   }, [activeSlide, slideTo, visiblePosts.length]);
-
-  const scrollToScrollbarPosition = useCallback((clientX: number) => {
-    const track = trackRef.current;
-    const bar = scrollbarRef.current;
-    if (!track || !bar) return track?.scrollLeft ?? 0;
-
-    const rect = bar.getBoundingClientRect();
-    const maxScroll = track.scrollWidth - track.clientWidth;
-    if (maxScroll <= 0) return track.scrollLeft;
-
-    const dragWidth = rect.width * (scrollbar.width / 100);
-    const availableWidth = Math.max(1, rect.width - dragWidth);
-    const targetLeft = Math.min(
-      availableWidth,
-      Math.max(0, clientX - rect.left - dragWidth / 2)
-    );
-
-    const nextScrollLeft = (targetLeft / availableWidth) * maxScroll;
-    track.scrollLeft = nextScrollLeft;
-    return nextScrollLeft;
-  }, [scrollbar.width]);
-
-  const startScrollbarDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    setIsDraggingScrollbar(true);
-    event.preventDefault();
-    const nextScrollLeft = scrollToScrollbarPosition(event.clientX);
-    dragStartRef.current = {
-      pointerX: event.clientX,
-      scrollLeft: nextScrollLeft,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, [scrollToScrollbarPosition]);
-
-  const moveScrollbarDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    const track = trackRef.current;
-    const bar = scrollbarRef.current;
-    if (!isDraggingScrollbar || !track || !bar) return;
-    event.preventDefault();
-
-    const rect = bar.getBoundingClientRect();
-    const maxScroll = track.scrollWidth - track.clientWidth;
-    const dragWidth = rect.width * (scrollbar.width / 100);
-    const availableWidth = Math.max(1, rect.width - dragWidth);
-    const deltaX = event.clientX - dragStartRef.current.pointerX;
-    const scrollDelta = (deltaX / availableWidth) * maxScroll;
-
-    track.scrollLeft = dragStartRef.current.scrollLeft + scrollDelta;
-  }, [isDraggingScrollbar, scrollbar.width]);
-
-  const stopScrollbarDrag = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    setIsDraggingScrollbar(false);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
 
   const handleTrackScroll = useCallback(() => {
     if (animationFrameRef.current !== null) return;
@@ -180,7 +109,7 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
             <div
               ref={trackRef}
               id="home-blog-carousel"
-              className={`blog-grid blog-carousel-track${isDraggingScrollbar ? ' dragging' : ''}`}
+              className="blog-grid blog-carousel-track"
               onScroll={handleTrackScroll}
             >
               {visiblePosts.map((post) => (
@@ -205,31 +134,6 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
               ))}
             </div>
           </div>
-          {hasCarousel ? (
-            <div
-              ref={scrollbarRef}
-              className={`swiper-scrollbar swiper-scrollbar-horizontal blog-carousel-scrollbar${isDraggingScrollbar ? ' dragging' : ''}`}
-              role="scrollbar"
-              aria-label="Blog carousel scrollbar"
-              aria-controls="home-blog-carousel"
-              aria-valuemin={0}
-              aria-valuemax={Math.max(0, visiblePosts.length - 1)}
-              aria-valuenow={activeSlide}
-              tabIndex={0}
-              onPointerDown={startScrollbarDrag}
-              onPointerMove={moveScrollbarDrag}
-              onPointerUp={stopScrollbarDrag}
-              onPointerCancel={stopScrollbarDrag}
-            >
-              <span
-                className="swiper-scrollbar-drag"
-                style={{
-                  width: `${scrollbar.width}%`,
-                  left: `${scrollbar.left}%`,
-                }}
-              />
-            </div>
-          ) : null}
         </div>
       </section>
   );
