@@ -11,6 +11,7 @@ const { sessionMiddleware } = require('./session');
 const { guestCookieMiddleware } = require('./guestCookie');
 const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddleware');
 const contact = require('./contactController');
+const shiprocket = require('./shiprocketCheckoutController');
 
 // ── In-memory rate limiter (no extra package needed) ──────────────────────────
 // Tracks request counts per IP in a plain Map.
@@ -154,6 +155,26 @@ router.get('/address/saved',               requireLogin, orders.getSavedAddresse
 router.get('/address/recent',              requireLogin, orders.getRecentOrderAddresses);
 router.get('/address/profile',             requireLogin, orders.getProfileAddresses);
 router.put('/address/profile/:kind',       requireLogin, orders.updateProfileAddress);
+
+// ── Shiprocket Catalog Sync APIs ──────────────────────────────────────────────
+// Called by Shiprocket's backend to sync your product catalog.
+// Auth: X-Api-Key + X-Api-HMAC-SHA256 headers validated in shiprocketAuth.
+// Share these URLs with Shiprocket during onboarding:
+//   GET /api/shiprocket/products                         → Fetch Products
+//   GET /api/shiprocket/products/by-collection           → Fetch Products By Collection
+//   GET /api/shiprocket/collections                      → Fetch Collections
+
+router.get('/shiprocket/products', shiprocket.fetchProducts);
+
+router.get(
+  '/shiprocket/products/by-collection',
+  shiprocket.fetchProductsByCollection
+);
+
+router.get(
+  '/shiprocket/collections',
+  shiprocket.fetchCollections
+);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 router.get('/admin/orders',                     requireAdmin,        orders.getAllOrders);
