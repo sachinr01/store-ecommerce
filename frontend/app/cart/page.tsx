@@ -47,6 +47,45 @@ export default function CartPage() {
   const toSlug = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
+
+  const handleShiprocketCheckout = async () => {
+  try {
+
+    // Open Shiprocket Login / Address Vault
+
+    if ((window as any).ShiprocketCheckout) {
+
+      (window as any).ShiprocketCheckout.openLogin({
+        onSuccess: (user: any) => {
+
+          console.log("Logged In User", user);
+
+          // after login you can redirect if needed
+          window.location.href = "/checkout";
+
+        },
+
+        onAddressSelect: (address: any) => {
+
+          console.log("Selected Address", address);
+
+        }
+      });
+
+    } else {
+
+      alert("Shiprocket SDK not loaded");
+
+    }
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert("Unable to open Shiprocket Checkout");
+
+  }
+};
   return (
     <>
       <Header />
@@ -205,11 +244,26 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  <div className="cart-checkout-wrap">
-                      <Link href="/checkout" className="btn-view-product btn-view-product--inline cart-checkout-link">
-                        Proceed to Checkout
-                      </Link>
-                    </div>
+                 <div className="cart-checkout-wrap">
+
+  {/*
+  <Link
+    href="/checkout"
+    className="btn-view-product btn-view-product--inline cart-checkout-link"
+  >
+    Proceed to Checkout
+  </Link>
+  */}
+
+  <button
+    type="button"
+    className="btn-view-product btn-view-product--inline cart-checkout-link"
+    onClick={handleShiprocketCheckout}
+  >
+    Proceed to Checkout
+  </button>
+
+</div>
 
 
 

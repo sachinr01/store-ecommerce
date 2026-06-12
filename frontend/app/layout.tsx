@@ -5,6 +5,7 @@ import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
 import { SITE_URL } from "./lib/helpers/siteUrl";
+import Script from "next/script";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Nestcase';
 
@@ -35,7 +36,9 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}>) 
+
+{
   return (
     <html lang="en" className="no-js" suppressHydrationWarning>
       <head>
@@ -47,6 +50,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
         <link rel="shortcut icon" href="/images/favicon.jpeg" type="image/jpeg" />
         <link rel="apple-touch-icon" href="/images/favicon.jpeg" type="image/jpeg" />
+        <Script
+  src="https://checkout.shiprocket.in/js/sdk.js"
+  strategy="beforeInteractive"
+/>
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
         <div className="all_content" suppressHydrationWarning>
