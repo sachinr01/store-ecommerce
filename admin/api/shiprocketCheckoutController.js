@@ -1,4 +1,25 @@
 const db = require("../config/db");
+const axios = require("axios");
+
+const getCheckoutToken = async (req, res) => {
+  try {
+    const response = await axios.post(
+      "https://api.checkout.shiprocket.in/v1/auth/access-token",
+      {},
+      {
+        headers: {
+          "x-api-key": process.env.CHECKOUT_API_KEY,
+          "x-api-secret": process.env.CHECKOUT_API_SECRET,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    return res.json(response.data);
+  } catch (err) {
+    console.log(err.response?.data || err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
 
 /**
  * Helpers
@@ -19,7 +40,6 @@ const BASE_URL = "https://nestcase.in";
  */
 const fetchProducts = async (req, res) => {
   try {
-
     const page = Math.max(1, toInt(req.query.page, 1));
     const limit = Math.min(250, Math.max(1, toInt(req.query.limit, 100)));
     const offset = (page - 1) * limit;
@@ -64,11 +84,10 @@ const fetchProducts = async (req, res) => {
 
       LIMIT ? OFFSET ?
       `,
-      [limit, offset]
+      [limit, offset],
     );
 
     const products = rows.map((p) => ({
-
       id: p.ID,
 
       title: toStr(p.product_title),
@@ -81,9 +100,7 @@ const fetchProducts = async (req, res) => {
 
       handle: toStr(p.product_url),
 
-      status: p.product_status === "publish"
-        ? "active"
-        : "draft",
+      status: p.product_status === "publish" ? "active" : "draft",
 
       created_at: p.product_date_added
         ? new Date(p.product_date_added).toISOString()
@@ -107,8 +124,8 @@ const fetchProducts = async (req, res) => {
 
           inventory_management: "shopify",
 
-          requires_shipping: true
-        }
+          requires_shipping: true,
+        },
       ],
 
       images: p.image
@@ -116,11 +133,10 @@ const fetchProducts = async (req, res) => {
             {
               src: p.image.startsWith("http")
                 ? p.image
-                : `${BASE_URL}/${p.image.replace(/^\/+/, "")}`
-            }
+                : `${BASE_URL}/${p.image.replace(/^\/+/, "")}`,
+            },
           ]
-        : []
-
+        : [],
     }));
 
     return res.json({
@@ -129,18 +145,15 @@ const fetchProducts = async (req, res) => {
       limit,
       count: products.length,
       has_more: products.length === limit,
-      products
+      products,
     });
-
   } catch (err) {
-
     console.error("fetchProducts error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
-
   }
 };
 
@@ -150,15 +163,13 @@ const fetchProducts = async (req, res) => {
  * =========================================
  */
 const fetchProductsByCollection = async (req, res) => {
-
   try {
-
     const collectionId = toInt(req.query.collection_id, 0);
 
     if (!collectionId) {
       return res.status(400).json({
         success: false,
-        message: "collection_id is required"
+        message: "collection_id is required",
       });
     }
 
@@ -178,13 +189,13 @@ const fetchProductsByCollection = async (req, res) => {
       WHERE category_id = ?
       LIMIT 1
       `,
-      [collectionId]
+      [collectionId],
     );
 
     if (!categoryRows.length) {
       return res.status(404).json({
         success: false,
-        message: "Collection not found"
+        message: "Collection not found",
       });
     }
 
@@ -229,11 +240,10 @@ const fetchProductsByCollection = async (req, res) => {
 
       LIMIT ? OFFSET ?
       `,
-      [collectionId, limit, offset]
+      [collectionId, limit, offset],
     );
 
     const products = rows.map((p) => ({
-
       id: p.ID,
 
       title: toStr(p.product_title),
@@ -246,9 +256,7 @@ const fetchProductsByCollection = async (req, res) => {
 
       handle: toStr(p.product_url),
 
-      status: p.product_status === "publish"
-        ? "active"
-        : "draft",
+      status: p.product_status === "publish" ? "active" : "draft",
 
       created_at: p.product_date_added
         ? new Date(p.product_date_added).toISOString()
@@ -272,8 +280,8 @@ const fetchProductsByCollection = async (req, res) => {
 
           inventory_management: "shopify",
 
-          requires_shipping: true
-        }
+          requires_shipping: true,
+        },
       ],
 
       images: p.image
@@ -281,11 +289,10 @@ const fetchProductsByCollection = async (req, res) => {
             {
               src: p.image.startsWith("http")
                 ? p.image
-                : `${BASE_URL}/${p.image.replace(/^\/+/, "")}`
-            }
+                : `${BASE_URL}/${p.image.replace(/^\/+/, "")}`,
+            },
           ]
-        : []
-
+        : [],
     }));
 
     return res.json({
@@ -295,18 +302,15 @@ const fetchProductsByCollection = async (req, res) => {
       limit,
       count: products.length,
       has_more: products.length === limit,
-      products
+      products,
     });
-
   } catch (err) {
-
     console.error("fetchProductsByCollection error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
-
   }
 };
 
@@ -316,9 +320,7 @@ const fetchProductsByCollection = async (req, res) => {
  * =========================================
  */
 const fetchCollections = async (req, res) => {
-
   try {
-
     const page = Math.max(1, toInt(req.query.page, 1));
     const limit = Math.min(250, Math.max(1, toInt(req.query.limit, 100)));
     const offset = (page - 1) * limit;
@@ -345,11 +347,10 @@ const fetchCollections = async (req, res) => {
 
       LIMIT ? OFFSET ?
       `,
-      [limit, offset]
+      [limit, offset],
     );
 
     const collections = rows.map((c) => ({
-
       id: c.category_id,
 
       title: toStr(c.category_name),
@@ -360,10 +361,9 @@ const fetchCollections = async (req, res) => {
         ? {
             src: c.image.startsWith("http")
               ? c.image
-              : `${BASE_URL}/${c.image.replace(/^\/+/, "")}`
+              : `${BASE_URL}/${c.image.replace(/^\/+/, "")}`,
           }
-        : {}
-
+        : {},
     }));
 
     return res.json({
@@ -372,23 +372,21 @@ const fetchCollections = async (req, res) => {
       limit,
       count: collections.length,
       has_more: collections.length === limit,
-      collections
+      collections,
     });
-
   } catch (err) {
-
     console.error("fetchCollections error:", err);
 
     return res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
-
   }
 };
 
 module.exports = {
   fetchProducts,
   fetchProductsByCollection,
-  fetchCollections
+  fetchCollections,
+  getCheckoutToken,
 };

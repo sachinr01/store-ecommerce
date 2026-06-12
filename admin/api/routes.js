@@ -176,6 +176,11 @@ router.get(
   shiprocket.fetchCollections
 );
 
+router.get(
+  "/shiprocket/token",
+  shiprocket.getCheckoutToken
+);
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 router.get('/admin/orders',                     requireAdmin,        orders.getAllOrders);
 router.put('/admin/orders/:orderId/status',     requireAdmin,        orders.updateOrderStatus);

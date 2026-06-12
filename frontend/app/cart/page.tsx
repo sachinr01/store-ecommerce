@@ -60,160 +60,163 @@ export default function CartPage() {
         </nav>
 
         <div className="cart-content">
-            <div className="container">
-              {items.length === 0 ? (
-                <div className="cart-empty">
-                  <p>Your cart is empty.</p>
-                  <Link href="/shop" className="btn-view-product btn-view-product--inline">Continue Shopping</Link>
-                </div>
-              ) : (
-                <div className="cart-grid">
-                  <div>
-                    <div className="cart-list">
-                      {items.map((item) => (
-                        <article key={item.cartItemId} className="cart-item">
-                          <img
-                            src={getImageUrl(item.image, PLACEHOLDER)}
-                            alt={item.title}
-                            className="cart-item-thumb"
-                            onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
-                          />
+          <div className="container">
+            {items.length === 0 ? (
+              <div className="cart-empty">
+                <p>Your cart is empty.</p>
+                <Link href="/shop" className="btn-view-product btn-view-product--inline">Continue Shopping</Link>
+              </div>
+            ) : (
+              <div className="cart-grid">
+                <div>
+                  <div className="cart-list">
+                    {items.map((item) => (
+                      <article key={item.cartItemId} className="cart-item">
+                        <img
+                          src={getImageUrl(item.image, PLACEHOLDER)}
+                          alt={item.title}
+                          className="cart-item-thumb"
+                          onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}
+                        />
 
-                          <div className="cart-item-main">
-                            <div className="cart-item-top">
-                              <button
-                                type="button"
-                                className="cart-remove"
-                                title="Remove"
-                                aria-label={`Remove ${item.title}`}
-                                onClick={() => removeItem(item.cartItemId)}
-                              >
-                                ×
-                              </button>
+                        <div className="cart-item-main">
+                          <div className="cart-item-top">
+                            <button
+                              type="button"
+                              className="cart-remove"
+                              title="Remove"
+                              aria-label={`Remove ${item.title}`}
+                              onClick={() => removeItem(item.cartItemId)}
+                            >
+                              ×
+                            </button>
+                          </div>
+
+                          <div className="cart-item-details">
+                            <div className="cart-detail cart-detail--product">
+                              <h5 className="cart-item-title">
+                                <Link href={`/shop/product/${toSlug(item.title)}`} className="cart-item-title-link">
+                                  {item.title}
+                                </Link>
+                              </h5>
+                              {(item.color || item.size) && (
+                                <div className="cart-item-meta">
+                                  {item.color && <div>Color: {item.color}</div>}
+                                  {item.size && <div>Size: {item.size}</div>}
+                                </div>
+                              )}
+                              <h6 className="cart-detail-price">{formatPrice(item.price)}</h6>
                             </div>
 
-                            <div className="cart-item-details">
-                              <div className="cart-detail cart-detail--product">
-                                <h5 className="cart-item-title">
-                                  <Link href={`/shop/product/${toSlug(item.title)}`} className="cart-item-title-link">
-                                    {item.title}
-                                  </Link>
-                                </h5>
-                                {(item.color || item.size) && (
-                                  <div className="cart-item-meta">
-                                    {item.color && <div>Color: {item.color}</div>}
-                                    {item.size && <div>Size: {item.size}</div>}
-                                  </div>
-                                )}
-                                <h6 className="cart-detail-price">{formatPrice(item.price)}</h6>
+                            <div className="cart-detail cart-detail--qty">
+                              <div className="cart-qty">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQty(item.cartItemId, item.quantity - 1)}
+                                  aria-label={`Decrease quantity of ${item.title}`}
+                                >
+                                  −
+                                </button>
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  min={1}
+                                  onChange={(event) => updateQty(item.cartItemId, parseInt(event.target.value, 10) || 1)}
+                                  aria-label={`Quantity of ${item.title}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateQty(item.cartItemId, item.quantity + 1)}
+                                  aria-label={`Increase quantity of ${item.title}`}
+                                >
+                                  +
+                                </button>
                               </div>
+                            </div>
 
-                              <div className="cart-detail cart-detail--qty">
-                                <div className="cart-qty">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQty(item.cartItemId, item.quantity - 1)}
-                                    aria-label={`Decrease quantity of ${item.title}`}
-                                  >
-                                    −
-                                  </button>
-                                  <input
-                                    type="number"
-                                    value={item.quantity}
-                                    min={1}
-                                    onChange={(event) => updateQty(item.cartItemId, parseInt(event.target.value, 10) || 1)}
-                                    aria-label={`Quantity of ${item.title}`}
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQty(item.cartItemId, item.quantity + 1)}
-                                    aria-label={`Increase quantity of ${item.title}`}
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="cart-detail cart-detail--total">
-                                <span className="cart-detail-value">{formatPrice(item.price * item.quantity)}</span>
-                              </div>
+                            <div className="cart-detail cart-detail--total">
+                              <span className="cart-detail-value">{formatPrice(item.price * item.quantity)}</span>
                             </div>
                           </div>
-                        </article>
-                      ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="cart-actions">
+                    <Link href="/shop" className="btn-view-product btn-view-product--inline">
+                      ← Continue Shopping
+                    </Link>
+                  </div>
+                </div>
+
+                <aside className="cart-summary">
+                  <h4 className="cart-summary-title">Your Order</h4>
+
+                  <h5 className="cart-coupon-label">Have a coupon?</h5>
+                  <div className="cart-coupon">
+                    <input
+                      type="text"
+                      placeholder="Coupon code"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      disabled={!!appliedCoupon}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon(); } }}
+                    />
+                    {appliedCoupon ? (
+                      <button
+                        className="btn-view-product btn-view-product--inline cart-coupon-remove-btn"
+                        onClick={handleRemoveCoupon}
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-view-product btn-view-product--inline cart-coupon-apply-btn"
+                        onClick={() => void handleApplyCoupon()}
+                        disabled={couponLoading}
+                      >
+                        {couponLoading ? '...' : 'Apply'}
+                      </button>
+                    )}
+                  </div>
+                  {couponMsg && (
+                    <p className={`cart-coupon-msg ${couponMsg.ok ? 'success' : 'error'}`}>
+                      {couponMsg.text}
+                    </p>
+                  )}
+
+                  <div className="cart-summary-table">
+                    <div className="cart-summary-row">
+                      <span>Cart Subtotal</span>
+                      <span>{formatPrice(total)}</span>
                     </div>
 
-                    <div className="cart-actions">
-                      <Link href="/shop" className="btn-view-product btn-view-product--inline">
-                        ← Continue Shopping
-                      </Link>
+                    {discount > 0 && (
+                      <div className="cart-summary-row discount">
+                        <span>Discount ({appliedCoupon?.code})</span>
+                        <span>−{formatPrice(discount)}</span>
+                      </div>
+                    )}
+
+                    <div className="cart-summary-row total">
+                      <span>Order Total</span>
+                      <span>{formatPrice(orderTotal)}</span>
                     </div>
                   </div>
 
-                  <aside className="cart-summary">
-                    <h4 className="cart-summary-title">Your Order</h4>
-
-                    <h5 className="cart-coupon-label">Have a coupon?</h5>
-                    <div className="cart-coupon">
-                      <input
-                        type="text"
-                        placeholder="Coupon code"
-                        value={couponInput}
-                        onChange={(e) => setCouponInput(e.target.value)}
-                        disabled={!!appliedCoupon}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleApplyCoupon(); } }}
-                      />
-                      {appliedCoupon ? (
-                        <button
-                          className="btn-view-product btn-view-product--inline cart-coupon-remove-btn"
-                          onClick={handleRemoveCoupon}
-                        >
-                          Remove
-                        </button>
-                      ) : (
-                        <button
-                          className="btn-view-product btn-view-product--inline cart-coupon-apply-btn"
-                          onClick={() => void handleApplyCoupon()}
-                          disabled={couponLoading}
-                        >
-                          {couponLoading ? '...' : 'Apply'}
-                        </button>
-                      )}
-                    </div>
-                    {couponMsg && (
-                      <p className={`cart-coupon-msg ${couponMsg.ok ? 'success' : 'error'}`}>
-                        {couponMsg.text}
-                      </p>
-                    )}
-
-                    <div className="cart-summary-table">
-                      <div className="cart-summary-row">
-                        <span>Cart Subtotal</span>
-                        <span>{formatPrice(total)}</span>
-                      </div>
-
-                      {discount > 0 && (
-                        <div className="cart-summary-row discount">
-                          <span>Discount ({appliedCoupon?.code})</span>
-                          <span>−{formatPrice(discount)}</span>
-                        </div>
-                      )}
-
-                      <div className="cart-summary-row total">
-                        <span>Order Total</span>
-                        <span>{formatPrice(orderTotal)}</span>
-                      </div>
-                    </div>
-
-                    <div className="cart-checkout-wrap">
+                  <div className="cart-checkout-wrap">
                       <Link href="/checkout" className="btn-view-product btn-view-product--inline cart-checkout-link">
                         Proceed to Checkout
                       </Link>
                     </div>
-                  </aside>
-                </div>
-              )}
-            </div>
+
+
+
+                </aside>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <Footer />
