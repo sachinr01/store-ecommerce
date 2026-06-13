@@ -48,44 +48,60 @@ export default function CartPage() {
     text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 
-  const handleShiprocketCheckout = async () => {
+
+
+  const handleShiprocketLogin = async () => {
+
   try {
 
-    // Open Shiprocket Login / Address Vault
+    const res = await fetch(
+      "https://nestcase.in/api/shiprocket/token"
+    );
 
-    if ((window as any).ShiprocketCheckout) {
+    const data = await res.json();
 
-      (window as any).ShiprocketCheckout.openLogin({
-        onSuccess: (user: any) => {
-
-          console.log("Logged In User", user);
-
-          // after login you can redirect if needed
-          window.location.href = "/checkout";
-
-        },
-
-        onAddressSelect: (address: any) => {
-
-          console.log("Selected Address", address);
-
-        }
-      });
-
-    } else {
-
-      alert("Shiprocket SDK not loaded");
-
+    if (!data.access_token) {
+      alert("Unable to initialize checkout");
+      return;
     }
+
+    // @ts-ignore
+    window.ShiprocketCheckout.init({
+      accessToken: data.access_token
+    });
+
+    // @ts-ignore
+    window.ShiprocketCheckout.openLogin({
+      onSuccess: (user: any) => {
+
+        console.log("USER", user);
+
+        // redirect after login
+        window.location.href = "/checkout";
+
+      },
+
+      onAddressSelect: (address: any) => {
+
+        console.log("ADDRESS", address);
+
+      }
+
+    });
 
   } catch (err) {
 
-    console.error(err);
+    console.log(err);
 
-    alert("Unable to open Shiprocket Checkout");
+    alert("Checkout initialization failed");
 
   }
+
 };
+
+
+
+
   return (
     <>
       <Header />
@@ -258,7 +274,7 @@ export default function CartPage() {
   <button
     type="button"
     className="btn-view-product btn-view-product--inline cart-checkout-link"
-    onClick={handleShiprocketCheckout}
+    onClick={handleShiprocketLogin}
   >
     Proceed to Checkout
   </button>
