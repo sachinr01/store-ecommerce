@@ -2858,6 +2858,7 @@ input[type="checkbox"] {
   .tb-grid {
     grid-template-columns: 1fr;
     padding: 12px 19px 12px;
+    gap: 10px;
   }
 
   .tb-item::after {
@@ -6445,7 +6446,7 @@ input[type="checkbox"] {
   font-size: 14.5px;
   line-height: 1.75;
   color: #555;
-  margin: 0 0 20px;
+  /* margin: 0 0 20px; */
 }
 
 .cpd-short-desc p,
@@ -6877,7 +6878,7 @@ input[type="checkbox"] {
 
 /* Accordion */
 .cpd-accordion {
-  margin-top: 16px;
+  /* margin-top: 16px; */
   border-top: 1px solid var(--cpd-border);
 }
 
@@ -6911,6 +6912,8 @@ input[type="checkbox"] {
 .cpd-acc-body {
   padding: 0 0 18px;
   font-family: var(--font-body);
+  margin-left: 15px;
+  line-height: 1.75;
 }
 
 .cpd-acc-body p {
@@ -6954,7 +6957,7 @@ input[type="checkbox"] {
 .cpd-acc-body ul,
 .cpd-acc-body ol {
   margin: 0 0 10px !important;
-  padding-left: 22px !important;
+  /* padding-left: 22px !important; */
   font-size: 15px;
   line-height: 1.75;
   color: #555;
@@ -7196,7 +7199,7 @@ input[type="checkbox"] {
 
 .cpd-tabs-section-inline {
   max-width: none;
-  margin: 24px 0 20px;
+  margin: 24px 0 0;
   padding: 0;
 }
 
@@ -7210,7 +7213,7 @@ input[type="checkbox"] {
 }
 
 .cpd-tab-content {
-  padding: 36px 0;
+  padding: 14px 0 0;
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.8;
@@ -7521,8 +7524,7 @@ input[type="checkbox"] {
     display: flex;
   }
 
-  .cpd-breadcrumb,
-  .cpd-tabs-section {
+  .cpd-breadcrumb{
     padding-left: 20px;
     padding-right: 20px;
   }

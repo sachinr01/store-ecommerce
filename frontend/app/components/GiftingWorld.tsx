@@ -4,12 +4,12 @@ const panels = [
   {
     image: '/images/nestcase_gifting/gifting_1.png',
     label: 'Corporate Gifting',
-    href: '/#',
+    href: './b2b-connect',
   },
   {
     image: '/images/nestcase_gifting/gifting_2.png',
     label: 'Gift Collections',
-    href: '/#',
+    href: './b2b-connect',
   },
 ];
 
