@@ -158,7 +158,30 @@ router.put('/address/profile/:kind',       requireLogin, orders.updateProfileAdd
 
 // ── Shiprocket Catalog Sync APIs ──────────────────────────────────────────────
 // Called by Shiprocket's backend to sync your product catalog.
-// Auth: X-Api-Key + X-Api-HMAC-SHA256 headers validated in shiprocketAuth.
+// Currently OPEN (no auth) — Shiprocket fetches these by URL directly.
+//
+// To enable HMAC verification later (X-Api-Key + X-Api-HMAC-SHA256 headers):
+//   1. Set SHIPROCKET_CATALOG_API_KEY and SHIPROCKET_CATALOG_API_SECRET in .env
+//   2. Uncomment `shiprocketAuth` below and add it as middleware to each route,
+//      e.g. router.get('/shiprocket/products', shiprocketAuth, shiprocket.fetchProducts);
+//
+// const crypto = require('crypto');
+// function shiprocketAuth(req, res, next) {
+//   const apiKey = req.headers['x-api-key'];
+//   const hmac   = req.headers['x-api-hmac-sha256'];
+//   if (!apiKey || apiKey !== process.env.SHIPROCKET_CATALOG_API_KEY) {
+//     return res.status(401).json({ success: false, message: 'Invalid API key' });
+//   }
+//   const expected = crypto
+//     .createHmac('sha256', process.env.SHIPROCKET_CATALOG_API_SECRET)
+//     .update(JSON.stringify(req.body || ''))
+//     .digest('base64');
+//   if (hmac !== expected) {
+//     return res.status(401).json({ success: false, message: 'Invalid HMAC signature' });
+//   }
+//   next();
+// }
+//
 // Share these URLs with Shiprocket during onboarding:
 //   GET /api/shiprocket/products                         → Fetch Products
 //   GET /api/shiprocket/products/by-collection           → Fetch Products By Collection
@@ -179,6 +202,29 @@ router.get(
 router.get(
   "/shiprocket/token",
   shiprocket.getCheckoutToken
+);
+
+// ── Shiprocket Catalog Sync Webhooks (real-time push) ─────────────────────────
+// Call these whenever a product or collection is created/updated on the site,
+// to push the change to Shiprocket immediately instead of waiting for their
+// next full catalog fetch.
+//
+// In production, wire these into your product/category save handlers:
+//   const { sendProductUpdateWebhook } = require('./shiprocketWebhooks');
+//   await sendProductUpdateWebhook(productId);
+//
+// These admin routes let you trigger them manually (for testing, or for an
+// "Sync to Shiprocket" button in the admin panel).
+router.post(
+  '/admin/shiprocket/webhook/product/:productId',
+  requireAdmin,
+  shiprocket.triggerProductWebhook
+);
+
+router.post(
+  '/admin/shiprocket/webhook/collection/:categoryId',
+  requireAdmin,
+  shiprocket.triggerCollectionWebhook
 );
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
