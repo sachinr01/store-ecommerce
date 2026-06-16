@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const db    = require("../config/db");
 const axios = require("axios");
 const {
@@ -9,7 +10,7 @@ const {
    Helpers
 ───────────────────────────────────────────────────────────── */
 const toInt = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n) ? d : n; };
-const toStr = (v)        => (v == null ? "" : String(v));
+const toStr = (v)        => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v); return Number.isNaN(n) ? d : n; };
 
 const BASE_URL = "https://nestcase.in";
@@ -47,6 +48,15 @@ const mapProduct = (p) => {
   const updatedAt = p.product_date_modified
     ? new Date(p.product_date_modified).toISOString()
     : "";
+  const createdAt = p.product_date_added
+    ? new Date(p.product_date_added).toISOString()
+    : updatedAt;
+  const price = toFloat(p.price, 0);
+  const regularPrice = toFloat(p.regular_price, 0);
+  const salePrice = toFloat(p.sale_price, 0);
+  const compareAt = salePrice > 0 && regularPrice > 0 && salePrice < regularPrice ? regularPrice : 0;
+  const stockQty = toInt(p.stock, 0);
+  const weight = toFloat(p.weight, 0);
 
   return {
     id:           p.ID,
@@ -54,40 +64,35 @@ const mapProduct = (p) => {
     body_html:    toStr(p.product_content),
     vendor:       "Nestcase",
     product_type: toStr(p.category_name),
+    created_at: createdAt,
     handle:       toStr(p.product_url),
     status:       p.product_status === "publish" ? "active" : "draft",
-
-    created_at: p.product_date_added
-      ? new Date(p.product_date_added).toISOString()
-      : "",
+    tags:         "",
     updated_at: updatedAt,
-
     variants: [
       {
         id:                   p.ID,
         title:                "Default",
-        price:                toFloat(p.price, 0),          // ✅ real price from DB
+        price:                price.toFixed(2),
+        compare_at_price:     compareAt > 0 ? compareAt.toFixed(2) : "",
         sku:                  toStr(p.sku),                  // ✅ real SKU from DB
-        quantity:             toInt(p.stock, 0),             // ✅ real stock from DB
-        inventory_quantity:   toInt(p.stock, 0),
-        inventory_management: "",
-        requires_shipping:    true,
+        created_at:           createdAt,
+        updated_at:           updatedAt,                     // ✅ added per SR spec
+        taxable:              true,
+        quantity:             stockQty,                      // ✅ real stock from DB
+        option_values:        {},
+        grams:                Math.round(weight * 1000),
+        image: { src: imageSrc || "" },                      // ✅ variant-level image
         // ✅ weight: mandatory field per Shiprocket docs. Defaults to 0 if
         // _weight meta key is not set in DB.
-        weight:               toFloat(p.weight, 0),
-        updated_at:           updatedAt,                     // ✅ added per SR spec
-        // ✅ image: mandatory field per Shiprocket docs. Always an object,
-        // with src: "" if no image exists.
-        image: { src: imageSrc || "" },                      // ✅ variant-level image
+        weight:               weight,
+        weight_unit:          "kg",
       },
     ],
-
-    // ✅ images: mandatory array per Shiprocket docs. Empty array if no image.
-    images: imageSrc ? [{ src: imageSrc }] : [],
-
     // ✅ image: mandatory field per Shiprocket docs. Always an object,
     // with src: "" if no image exists.
     image: { src: imageSrc || "" },
+    options: [],
   };
 };
 
@@ -130,6 +135,49 @@ const PRODUCT_SELECT = `
   ${metaSubQuery("_weight",  "weight")}
 `;
 
+const countPublishedProducts = async (collectionId = null) => {
+  if (collectionId) {
+    const [rows] = await db.query(
+      `
+      SELECT COUNT(DISTINCT p.ID) AS total
+      FROM tbl_products p
+      INNER JOIN tbl_products_category_link pcl
+        ON pcl.product_id = p.ID
+      WHERE pcl.category_id = ?
+        AND p.product_status = 'publish'
+      `,
+      [collectionId],
+    );
+    return toInt(rows?.[0]?.total, 0);
+  }
+
+  const [rows] = await db.query(
+    `
+    SELECT COUNT(DISTINCT p.ID) AS total
+    FROM tbl_products p
+    WHERE p.product_status = 'publish'
+    `,
+  );
+  return toInt(rows?.[0]?.total, 0);
+};
+
+const countPublishedCollections = async () => {
+  const [rows] = await db.query(
+    `
+    SELECT COUNT(DISTINCT c.category_id) AS total
+    FROM tbl_products_category c
+    WHERE EXISTS (
+      SELECT 1
+      FROM   tbl_products_category_link pcl
+      JOIN   tbl_products p ON p.ID = pcl.product_id
+      WHERE  pcl.category_id  = c.category_id
+        AND  p.product_status = 'publish'
+    )
+    `,
+  );
+  return toInt(rows?.[0]?.total, 0);
+};
+
 /* ─────────────────────────────────────────────────────────────
    GET /api/shiprocket/products
    Fetch all published products (paginated)
@@ -163,13 +211,14 @@ const fetchProducts = async (req, res) => {
       [limit, offset],
     );
 
+    const total = await countPublishedProducts();
+    const products = rows.map(mapProduct);
+
     return res.json({
-      success:  true,
-      page,
-      limit,
-      count:    rows.length,
-      has_more: rows.length === limit,
-      products: rows.map(mapProduct),
+      data: {
+        total,
+        products,
+      },
     });
   } catch (err) {
     console.error("fetchProducts error:", err);
@@ -233,14 +282,14 @@ const fetchProductsByCollection = async (req, res) => {
       [collectionId, limit, offset],
     );
 
+    const total = await countPublishedProducts(collectionId);
+    const products = rows.map(mapProduct);
+
     return res.json({
-      success:       true,
-      collection_id: collectionId,
-      page,
-      limit,
-      count:         rows.length,
-      has_more:      rows.length === limit,
-      products:      rows.map(mapProduct),
+      data: {
+        total,
+        products,
+      },
     });
   } catch (err) {
     console.error("fetchProductsByCollection error:", err);
@@ -294,27 +343,29 @@ const fetchCollections = async (req, res) => {
       [limit, offset],
     );
 
+    const nowIso = new Date().toISOString();
     const collections = rows.map((c) => {
       const imageSrc = buildImageUrl(c.image);
       return {
         id:         c.category_id,
-        title:      toStr(c.category_name),
+        updated_at: nowIso, // collections have no modified timestamp in schema
         body_html:  toStr(c.category_desc),
         handle:     toStr(c.category_slug),
-        updated_at: new Date().toISOString(), // collections have no modified timestamp in schema
         // ✅ image: mandatory field per Shiprocket docs. Always an object,
         // with src: "" if no image exists.
         image:      { src: imageSrc || "" },
+        title:      toStr(c.category_name),
+        created_at: nowIso,
       };
     });
 
+    const total = await countPublishedCollections();
+
     return res.json({
-      success:     true,
-      page,
-      limit,
-      count:       collections.length,
-      has_more:    collections.length === limit,
-      collections,
+      data: {
+        total,
+        collections,
+      },
     });
   } catch (err) {
     console.error("fetchCollections error:", err);
@@ -328,13 +379,25 @@ const fetchCollections = async (req, res) => {
 ───────────────────────────────────────────────────────────── */
 const getCheckoutToken = async (req, res) => {
   try {
+    const payload = {
+      cart_data: req.body?.cart_data || { items: [] },
+      redirect_url: req.body?.redirect_url || "",
+      timestamp: req.body?.timestamp || new Date().toISOString(),
+    };
+    const bodyStr = JSON.stringify(payload);
+    const apiKey = process.env.CHECKOUT_API_KEY || "";
+    const apiSecret = process.env.CHECKOUT_API_SECRET || "";
+
     const response = await axios.post(
-      "https://api.checkout.shiprocket.in/v1/auth/access-token",
-      {},
+      "https://checkout-api.shiprocket.com/api/v1/access-token/checkout",
+      payload,
       {
         headers: {
-          "x-api-key":    process.env.CHECKOUT_API_KEY,
-          "x-api-secret": process.env.CHECKOUT_API_SECRET,
+          "X-Api-Key": apiKey,
+          "X-Api-HMAC-SHA256": crypto
+            .createHmac("sha256", apiSecret)
+            .update(bodyStr)
+            .digest("base64"),
           "Content-Type": "application/json",
         },
       },
@@ -342,7 +405,10 @@ const getCheckoutToken = async (req, res) => {
     return res.json(response.data);
   } catch (err) {
     console.error("getCheckoutToken error:", err.response?.data || err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.response?.status || 500).json({
+      success: false,
+      error: err.response?.data || err.message,
+    });
   }
 };
 

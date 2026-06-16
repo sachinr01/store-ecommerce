@@ -199,7 +199,7 @@ router.get(
   shiprocket.fetchCollections
 );
 
-router.get(
+router.post(
   "/shiprocket/token",
   shiprocket.getCheckoutToken
 );

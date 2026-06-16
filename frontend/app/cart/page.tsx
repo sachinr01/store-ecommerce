@@ -51,53 +51,58 @@ export default function CartPage() {
 
 
   const handleShiprocketLogin = async () => {
+    try {
+      const cartData = {
+        items: items.map((item) => ({
+          variant_id: String(item.variationId ?? item.productId),
+          quantity: item.quantity,
+        })),
+      };
 
-  try {
+      const redirectUrl = `${window.location.origin}/checkout`;
+      const timestamp = new Date().toISOString();
 
-    const res = await fetch(
-      "https://nestcase.in/api/shiprocket/token"
-    );
+      const res = await fetch('/api/shiprocket/token', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cart_data: cartData,
+          redirect_url: redirectUrl,
+          timestamp,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
+      const token = data?.token || data?.result?.token || data?.access_token;
 
-    if (!data.access_token) {
-      alert("Unable to initialize checkout");
-      return;
-    }
-
-    // @ts-ignore
-    window.ShiprocketCheckout.init({
-      accessToken: data.access_token
-    });
-
-    // @ts-ignore
-    window.ShiprocketCheckout.openLogin({
-      onSuccess: (user: any) => {
-
-        console.log("USER", user);
-
-        // redirect after login
-        window.location.href = "/checkout";
-
-      },
-
-      onAddressSelect: (address: any) => {
-
-        console.log("ADDRESS", address);
-
+      if (!token) {
+        alert(data?.message || 'Unable to initialize checkout');
+        return;
       }
 
-    });
+      // @ts-ignore
+      window.ShiprocketCheckout.init({
+        accessToken: token,
+      });
 
-  } catch (err) {
-
-    console.log(err);
-
-    alert("Checkout initialization failed");
-
-  }
-
-};
+      // @ts-ignore
+      window.ShiprocketCheckout.openLogin({
+        onSuccess: (user: any) => {
+          console.log('USER', user);
+          window.location.href = '/checkout';
+        },
+        onAddressSelect: (address: any) => {
+          console.log('ADDRESS', address);
+        },
+      });
+    } catch (err) {
+      console.log(err);
+      alert('Checkout initialization failed');
+    }
+  };
 
 
 
