@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import TrustBar from "./TrustBar";
@@ -63,6 +64,9 @@ const resolvePageHref = (pages: FooterPage[], matchers: string[]): string | null
 export default function Footer() {
   const [pages, setPages] = useState<FooterPage[]>([]);
   const [categories, setCategories] = useState<FooterCategory[]>([]);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState("");
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -77,6 +81,28 @@ export default function Footer() {
   const privacyHref = resolvePageHref(pages, ['privacy']);
   const termsHref   = resolvePageHref(pages, ['terms', 'conditions']);
   const b2bHref     = resolvePageHref(pages, ['b2b', 'b2b connect']);
+
+  const submitNewsletter = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setNewsletterStatus("");
+    setNewsletterLoading(true);
+
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsletterEmail }),
+      });
+      const data = await res.json();
+      setNewsletterStatus(data?.message || (res.ok ? 'Verification email sent.' : 'Please try again.'));
+      if (res.ok && data?.success) setNewsletterEmail("");
+    } catch {
+      setNewsletterStatus("Could not submit right now. Please try again.");
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
 
   return (
     <footer className="okab-footer">
@@ -145,6 +171,25 @@ export default function Footer() {
                 </a>
               </li>
             </ul>
+            <div className="footer-newsletter">
+              <h4>Signup for Newsletter</h4>
+              <form className="footer-newsletter-form" onSubmit={submitNewsletter}>
+                <input
+                  type="email"
+                  value={newsletterEmail}
+                  onChange={(event) => setNewsletterEmail(event.target.value)}
+                  placeholder="Email address"
+                  aria-label="Newsletter email address"
+                  required
+                />
+                <button type="submit" disabled={newsletterLoading}>
+                  {newsletterLoading ? "Sending..." : "Submit"}
+                </button>
+              </form>
+              {newsletterStatus && (
+                <p className="footer-newsletter-status" role="status">{newsletterStatus}</p>
+              )}
+            </div>
           </div>
         </div>
         <div className="footer-middle" />

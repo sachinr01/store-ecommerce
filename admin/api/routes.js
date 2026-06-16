@@ -11,6 +11,7 @@ const { sessionMiddleware } = require('./session');
 const { guestCookieMiddleware } = require('./guestCookie');
 const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddleware');
 const contact = require('./contactController');
+const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
 
 // ── In-memory rate limiter (no extra package needed) ──────────────────────────
@@ -68,6 +69,8 @@ router.get('/health', (_req, res) => res.json({ success: true, message: 'API is 
 
 // ── Contact Forms ─────────────────────────────────────────────────────────────
 router.post('/contact', contact.submitContact);
+router.post('/newsletter/subscribe', newsletter.subscribeNewsletter);
+router.get('/newsletter/verify/:token', newsletter.verifyNewsletter);
 
 // ── Products ──────────────────────────────────────────────────────────────────
 router.get('/products/featured',      ctrl.getFeaturedProducts);

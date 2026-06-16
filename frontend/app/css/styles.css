@@ -2547,6 +2547,62 @@ input[type="checkbox"] {
   color: #fff;
 }
 
+.footer-newsletter {
+  margin-top: 22px;
+}
+
+.footer-newsletter h4 {
+  margin-bottom: 10px;
+}
+
+.footer-newsletter-form {
+  display: flex;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.footer-newsletter-form input {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #22311d;
+  font-size: 14px;
+  padding: 0 10px;
+  outline: none;
+}
+
+.footer-newsletter-form input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.footer-newsletter-form button {
+  flex: 0 0 auto;
+  height: 38px;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  background: #22311d;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.footer-newsletter-form button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.footer-newsletter-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .popular_search--p {
   color: #fff !important;
   text-decoration: none;
@@ -2637,6 +2693,10 @@ input[type="checkbox"] {
   .footer-payment-row,
   .footer-legal p {
     font-size: 14px;
+  }
+
+  .footer-newsletter-form {
+    max-width: none;
   }
 
   .footer-payment-badge {
