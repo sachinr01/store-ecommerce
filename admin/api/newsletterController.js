@@ -10,40 +10,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 const NEWSLETTER_TABLE = "tbl_newsletter_subscribers";
-const LEGACY_NEWSLETTER_COLUMNS = ["status", "verification_token", "created_at", "updated_at"];
-
-let tableReadyPromise;
-
-async function ensureNewsletterTable() {
-  if (!tableReadyPromise) {
-    tableReadyPromise = (async () => {
-      await db.execute(`
-      CREATE TABLE IF NOT EXISTS ${NEWSLETTER_TABLE} (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        verified_at DATETIME NULL,
-        UNIQUE KEY uq_newsletter_email (email)
-      )
-    `);
-
-      const [columns] = await db.query(
-        `SELECT COLUMN_NAME
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE()
-           AND TABLE_NAME = ?
-           AND COLUMN_NAME IN (?, ?, ?, ?)`,
-        [NEWSLETTER_TABLE, ...LEGACY_NEWSLETTER_COLUMNS]
-      );
-
-      for (const column of columns) {
-        if (LEGACY_NEWSLETTER_COLUMNS.includes(column.COLUMN_NAME)) {
-          await db.execute(`ALTER TABLE ${NEWSLETTER_TABLE} DROP COLUMN ${column.COLUMN_NAME}`);
-        }
-      }
-    })();
-  }
-  return tableReadyPromise;
-}
 
 function base64UrlEncode(value) {
   return Buffer.from(value, "utf8").toString("base64url");
@@ -143,7 +109,6 @@ async function subscribeNewsletter(req, res) {
   }
 
   try {
-    await ensureNewsletterTable();
     const [[subscriber]] = await db.query(
       `SELECT id FROM tbl_newsletter_subscribers WHERE email = ? LIMIT 1`,
       [email]
@@ -183,13 +148,27 @@ async function verifyNewsletter(req, res) {
     const verified = Boolean(verifiedToken);
 
     if (verifiedToken) {
-      await ensureNewsletterTable();
-      await db.execute(
-        `INSERT INTO tbl_newsletter_subscribers (email, verified_at)
-         VALUES (?, NOW())
-         ON DUPLICATE KEY UPDATE verified_at = COALESCE(verified_at, NOW())`,
+  
+      // Check first — avoids burning AUTO_INCREMENT on duplicate key
+      const [[existing]] = await db.query(
+        `SELECT id, verified_at FROM tbl_newsletter_subscribers WHERE email = ? LIMIT 1`,
         [verifiedToken.email]
       );
+
+      if (!existing) {
+        // New subscriber — insert only after email is verified
+        await db.execute(
+          `INSERT INTO tbl_newsletter_subscribers (email, verified_at) VALUES (?, NOW())`,
+          [verifiedToken.email]
+        );
+      } else if (!existing.verified_at) {
+        // Edge case: row exists but not yet verified — mark it now
+        await db.execute(
+          `UPDATE tbl_newsletter_subscribers SET verified_at = NOW() WHERE id = ?`,
+          [existing.id]
+        );
+      }
+      // Already verified — do nothing, no AUTO_INCREMENT burned
     }
 
     res.status(verified ? 200 : 400).send(`
