@@ -957,7 +957,7 @@ export default function CheckoutPage() {
           <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeForgotRecovery(); } }}>
             <div className="register-modal">
               <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
-              <p className="register-modal-title">Lost Password?</p>
+              <p className="register-modal-title">Forgot Password?</p>
               <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
               <div className="register-modal-field">
                 <label className="register-modal-label">Email <span>*</span></label>
@@ -1136,7 +1136,7 @@ export default function CheckoutPage() {
                         openForgotRecovery();
                       }}
                     >
-                      Lost Password?
+                      Forgot Password?
                     </button>
                   </div>
                   {loginError && <p className="checkout-auth-feedback error">{loginError}</p>}
@@ -1590,7 +1590,7 @@ export default function CheckoutPage() {
         <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { closeForgotRecovery(); } }}>
           <div className="register-modal">
             <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
-            <p className="register-modal-title">Lost Password?</p>
+            <p className="register-modal-title">Forgot Password?</p>
             <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
 
             <div className="register-modal-field">

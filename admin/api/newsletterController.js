@@ -1,10 +1,8 @@
 const crypto = require("crypto");
 const https = require("https");
 const db = require("../config/db");
+const { sendEmail: sendBrevoEmail } = require('./mailer');
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
-const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "";
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3001").replace(/\/+$/, "");
 const NEWSLETTER_TOKEN_SECRET = process.env.NEWSLETTER_TOKEN_SECRET || process.env.SESSION_SECRET || "newsletter-secret";
 
@@ -12,40 +10,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 const NEWSLETTER_TABLE = "tbl_newsletter_subscribers";
-const LEGACY_NEWSLETTER_COLUMNS = ["status", "verification_token", "created_at", "updated_at"];
-
-let tableReadyPromise;
-
-async function ensureNewsletterTable() {
-  if (!tableReadyPromise) {
-    tableReadyPromise = (async () => {
-      await db.execute(`
-      CREATE TABLE IF NOT EXISTS ${NEWSLETTER_TABLE} (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        verified_at DATETIME NULL,
-        UNIQUE KEY uq_newsletter_email (email)
-      )
-    `);
-
-      const [columns] = await db.query(
-        `SELECT COLUMN_NAME
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE()
-           AND TABLE_NAME = ?
-           AND COLUMN_NAME IN (?, ?, ?, ?)`,
-        [NEWSLETTER_TABLE, ...LEGACY_NEWSLETTER_COLUMNS]
-      );
-
-      for (const column of columns) {
-        if (LEGACY_NEWSLETTER_COLUMNS.includes(column.COLUMN_NAME)) {
-          await db.execute(`ALTER TABLE ${NEWSLETTER_TABLE} DROP COLUMN ${column.COLUMN_NAME}`);
-        }
-      }
-    })();
-  }
-  return tableReadyPromise;
-}
 
 function base64UrlEncode(value) {
   return Buffer.from(value, "utf8").toString("base64url");
@@ -103,48 +67,52 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function sendBrevoEmail({ toEmail, subject, html }) {
+
+function subscribeBrevoContact(email) {
   return new Promise((resolve) => {
-    if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
-      console.warn("Brevo newsletter email not configured.");
+    if (!BREVO_API_KEY) {
+      console.warn("Brevo newsletter contact sync not configured.");
       return resolve(false);
     }
 
-    const payload = JSON.stringify({
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: [{ email: toEmail, name: toEmail }],
-      subject,
-      htmlContent: html,
-    });
+    const payload = {
+      email,
+      updateEnabled: true,
+    };
 
+    if (Number.isInteger(BREVO_NEWSLETTER_LIST_ID) && BREVO_NEWSLETTER_LIST_ID > 0) {
+      payload.listIds = [BREVO_NEWSLETTER_LIST_ID];
+    }
+
+    const body = JSON.stringify(payload);
     const req = https.request(
       {
         method: "POST",
         hostname: "api.brevo.com",
         port: 443,
-        path: "/v3/smtp/email",
+        path: "/v3/contacts",
         headers: {
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
-          "content-length": Buffer.byteLength(payload),
+          "content-length": Buffer.byteLength(body),
         },
       },
       (res) => {
-        let body = "";
-        res.on("data", (chunk) => (body += chunk));
+        let responseBody = "";
+        res.on("data", (chunk) => (responseBody += chunk));
         res.on("end", () => {
           if (res.statusCode >= 200 && res.statusCode < 300) return resolve(true);
-          console.error("Brevo newsletter send failed:", res.statusCode, body);
+          console.error("Brevo newsletter contact sync failed:", res.statusCode, responseBody);
           resolve(false);
         });
       }
     );
 
     req.on("error", (err) => {
-      console.error("Brevo newsletter send error:", err);
+      console.error("Brevo newsletter contact sync error:", err);
       resolve(false);
     });
-    req.write(payload);
+    req.write(body);
     req.end();
   });
 }
@@ -161,13 +129,13 @@ function verificationTemplate(email, verifyUrl) {
             <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="max-width:620px; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #eadfce;">
               <tr>
                 <td style="background:#22311d; color:#ffffff; padding:24px 28px; font-family:Arial, sans-serif; font-size:22px; font-weight:700; letter-spacing:1px;">
-                  NESTCASE
+                  NESTCASE.IN
                 </td>
               </tr>
               <tr>
                 <td style="padding:28px; font-family:Arial, sans-serif; color:#1b1b1b; line-height:1.6;">
-                  <h2 style="margin:0 0 12px; font-size:24px; color:#22311d;">Verify your newsletter signup</h2>
-                  <p style="margin:0 0 18px;">Please confirm that ${safeEmail} should receive Nestcase updates.</p>
+                  <p style="margin:0 0 18px;">Just one more step!
+                    Please verify your email address so we can send you updates.</p>
                   <p style="margin:0 0 22px;">
                     <a href="${safeUrl}" style="background:#22311d; color:#ffffff; display:inline-block; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:700;">Verify Email</a>
                   </p>
@@ -190,20 +158,19 @@ async function subscribeNewsletter(req, res) {
   }
 
   try {
-    await ensureNewsletterTable();
     const [[subscriber]] = await db.query(
       `SELECT id FROM tbl_newsletter_subscribers WHERE email = ? LIMIT 1`,
       [email]
     );
 
     if (subscriber) {
-      return res.json({ success: true, message: "This email is already subscribed." });
+      return res.json({ success: true, message: "You're already on the list!" });
     }
 
     const verifyUrl = `${FRONTEND_URL.replace(/\/+$/, "")}/api/newsletter/verify/${createVerificationToken(email)}`;
     const sent = await sendBrevoEmail({
       toEmail: email,
-      subject: "Verify your Nestcase newsletter signup",
+      subject: "Verify your NESTCASE.IN newsletter subscription",
       html: verificationTemplate(email, verifyUrl),
     });
 
@@ -211,7 +178,7 @@ async function subscribeNewsletter(req, res) {
       return res.status(500).json({ success: false, message: "Could not send verification email. Please try again." });
     }
 
-    return res.json({ success: true, message: "Verification email sent. Please check your inbox." });
+    return res.json({ success: true, message: "We've sent a verification email. Please check your inbox and click the link to confirm your account. Don't see it? Check your spam folder or resend email." });
   } catch (err) {
     console.error("Newsletter subscribe failed:", err);
     return res.status(500).json({ success: false, message: "Could not subscribe right now. Please try again." });
@@ -230,13 +197,27 @@ async function verifyNewsletter(req, res) {
     const verified = Boolean(verifiedToken);
 
     if (verifiedToken) {
-      await ensureNewsletterTable();
-      await db.execute(
-        `INSERT INTO tbl_newsletter_subscribers (email, verified_at)
-         VALUES (?, NOW())
-         ON DUPLICATE KEY UPDATE verified_at = COALESCE(verified_at, NOW())`,
+  
+      // Check first — avoids burning AUTO_INCREMENT on duplicate key
+      const [[existing]] = await db.query(
+        `SELECT id, verified_at FROM tbl_newsletter_subscribers WHERE email = ? LIMIT 1`,
         [verifiedToken.email]
       );
+
+      if (!existing) {
+        // New subscriber — insert only after email is verified
+        await db.execute(
+          `INSERT INTO tbl_newsletter_subscribers (email, verified_at) VALUES (?, NOW())`,
+          [verifiedToken.email]
+        );
+      } else if (!existing.verified_at) {
+        // Edge case: row exists but not yet verified — mark it now
+        await db.execute(
+          `UPDATE tbl_newsletter_subscribers SET verified_at = NOW() WHERE id = ?`,
+          [existing.id]
+        );
+      }
+      // Already verified — do nothing, no AUTO_INCREMENT burned
     }
 
     res.status(verified ? 200 : 400).send(`
@@ -249,9 +230,9 @@ async function verifyNewsletter(req, res) {
         </head>
         <body style="font-family:Arial,sans-serif; background:#f5efe8; color:#22311d; display:grid; min-height:100vh; place-items:center; margin:0;">
           <main style="background:#fff; border:1px solid #eadfce; border-radius:12px; padding:32px; max-width:520px; text-align:center;">
-            <h1 style="margin:0 0 12px;">${verified ? "Email verified" : "Verification link expired"}</h1>
-            <p style="margin:0 0 20px; color:#333;">${verified ? "You have been added to the Nestcase newsletter." : "Please submit the newsletter form again to receive a fresh link."}</p>
-            <a href="${escapeHtml(FRONTEND_URL)}" style="color:#22311d; font-weight:700;">Back to Nestcase</a>
+            <h1 style="margin:0 0 12px;">${verified ? "You're in!" : "Verification link expired"}</h1>
+            <p style="margin:0 0 20px; color:#333;">${verified ? "Thanks for subscribing to NESTCASE.IN updates." : "Please submit the newsletter form again to receive a fresh link."}</p>
+            <a href="${escapeHtml(FRONTEND_URL)}" style="color:#22311d; font-weight:700;">Back to NESTCASE.IN</a>
           </main>
         </body>
       </html>

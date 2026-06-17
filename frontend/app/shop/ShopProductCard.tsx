@@ -73,7 +73,7 @@ export default function ShopProductCard({
         </Link>
 
         <div className="csp-badges">
-          {isOnSale && <span className="csp-badge sale">Sale</span>}
+          {!isOutOfStock && isOnSale && <span className="csp-badge sale">Sale</span>}
           {isOutOfStock && <span className="csp-badge oos">Sold Out</span>}
         </div>
 

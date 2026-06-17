@@ -216,7 +216,7 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
               </>
             )}
 
-            {displaySalePrice && <span className="cpd-sale-badge">Sale</span>}
+            {inStock && displaySalePrice && <span className="cpd-sale-badge">Sale</span>}
 
             <button className="cpd-img-wishlist" onClick={toggleWishlist} title="Add to Wishlist">
               <svg width="18" height="18" viewBox="0 0 24 24"

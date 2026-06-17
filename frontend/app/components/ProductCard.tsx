@@ -58,7 +58,7 @@ export default function ProductCard({
           </div>
 
           {/* ── SALE badge ── */}
-          {onSale && <span className="onsale"><span>SALE</span></span>}
+          {!isOutOfStock && onSale && <span className="onsale"><span>SALE</span></span>}
           {/* ── OUT OF STOCK badge ── */}
           {isOutOfStock && <span className="pc-oos-badge">Sold Out</span>}
         </div>

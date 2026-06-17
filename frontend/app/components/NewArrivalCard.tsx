@@ -49,7 +49,7 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
           />
         </Link>
         <div className="na-badges">
-          {isOnSale && <span className="na-badge sale">Sale</span>}
+          {!isOutOfStock && isOnSale && <span className="na-badge sale">Sale</span>}
           {isOutOfStock && <span className="na-badge oos">Sold Out</span>}
         </div>
         {/* Client island — only this button ships JS */}

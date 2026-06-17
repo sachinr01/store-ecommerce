@@ -20,12 +20,12 @@ const supportItems = [
     href: "mailto:support@nestcase.in",
     iconClass: "fa-envelope",
   },
-  {
-    label: "WhatsApp",
-    value: "+91 98765 43210",
-    href: "https://wa.me/919876543210",
-    iconClass: "fa-whatsapp",
-  },
+  // {
+  //   label: "WhatsApp",
+  //   value: "+91 98765 43210",
+  //   href: "https://wa.me/919876543210",
+  //   iconClass: "fa-whatsapp",
+  // },
   {
     label: "Address",
     value: `nestcase.in Pune, 
@@ -43,11 +43,33 @@ const supportItems = [
     href: "mailto:business@nestcase.in",
     iconClass: "fa-clock-o",
   },
+];
+
+const socialLinks = [
   {
-    label: "Socials",
-    value: "Instagram @nestcase.in\nLinkedIn nestcase\nPinterest @nestcase.in",
-    iconClass: "fa-clock-o",
+    label: "Instagram",
+    href: "https://www.instagram.com/nestcase.in/",
+    handle: "@nestcase.in",
+    iconClass: "fa-instagram",
   },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/nestcase",
+    handle: "nestcase",
+    iconClass: "fa-linkedin",
+  },
+  {
+    label: "Pinterest",
+    href: "https://in.pinterest.com/nestcaseofficial/",
+    handle: "@nestcaseofficial",
+    iconClass: "fa-pinterest",
+  },
+  // {
+  //   label: "WhatsApp",
+  //   href: "https://wa.me/919876543210",
+  //   handle: "+91 98765 43210",
+  //   iconClass: "fa-whatsapp",
+  // },
 ];
 
 function ContactIcon({ iconClass }: { iconClass: string }) {
@@ -93,6 +115,27 @@ export default function ContactUsPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Socials */}
+              <div className="contact-row">
+                <ContactIcon iconClass="fa-share-alt" />
+                <div>
+                  <strong className="contact-item-label">Socials</strong>
+                  <div>
+                  <ul className="contact-socials-list">
+                    {socialLinks.map((s) => (
+                      <li key={s.label}>
+                        <a href={s.href} target="_blank" rel="noopener noreferrer" className="contact-social-link">
+                          {/* <i className={`fa ${s.iconClass}`} aria-hidden="true" /> */}
+                          <span>{s.label}</span>
+                          <span className="contact-social-handle">{s.handle}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
