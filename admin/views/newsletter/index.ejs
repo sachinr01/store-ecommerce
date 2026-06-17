@@ -1,0 +1,162 @@
+<%- include('../partials/head') %>
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<div class="page-wrapper">
+
+    <div class="page-breadcrumb">
+        <div class="row">
+            <div class="col-7 align-self-center">
+                <h4 class="page-title">
+                    Newsletter Subscribers
+                    <span class="badge bg-primary rounded-pill ms-1">
+                        <%= total %>
+                    </span>
+                </h4>
+
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="/admin/dashboard">Home</a>
+                        </li>
+                        <li class="breadcrumb-item active">
+                            Newsletter Subscribers
+                        </li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+
+        <% if(error){ %>
+            <div class="alert alert-danger">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <div class="card">
+            <div class="card-body">
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="subscriberTable">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Subscribed On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <% if(subscribers.length === 0){ %>
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        No subscribers found
+                                    </td>
+                                </tr>
+                            <% } %>
+
+                            <% subscribers.forEach(function(subscriber){ %>
+
+                                <tr>
+
+                                    <td>
+                                        <strong>#<%= subscriber.id %></strong>
+                                    </td>
+
+                                    <td>
+                                        <%= subscriber.email %>
+                                    </td>
+
+                                    <td>
+                                        <% if(subscriber.verified_at){ %>
+                                            <span class="badge bg-success">
+                                                Verified
+                                            </span>
+                                        <% } else { %>
+                                            <span class="badge bg-warning">
+                                                Pending
+                                            </span>
+                                        <% } %>
+                                    </td>
+
+                                    <td>
+                                        <%= subscriber.verified_at
+                                            ? new Date(subscriber.verified_at).toLocaleString('en-IN')
+                                            : '-' %>
+                                    </td>
+
+                                    <td>
+                                         <div class="d-flex gap-1"> 
+                                        <button
+                                            class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 delete-btn"
+                                            data-id="<%= subscriber.id %>"
+                                            data-url="/admin/newsletter-subscribers/">
+
+                                            <i data-feather="trash-2"></i>
+
+                                        </button>
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            <% }) %>
+
+                        </tbody>
+
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<%- include('../partials/scripts') %>
+
+<script>
+$(document).ready(function(){
+
+    $('#subscriberTable').DataTable({
+        responsive: true,
+        autoWidth: false,
+        order: [[0, 'desc']],
+        pageLength: 10
+    });
+
+    $(document).on('click', '.delete-btn', function(){
+
+        let id = $(this).data('id');
+
+        if(!confirm('Delete this subscriber?')){
+            return;
+        }
+
+        $.ajax({
+            url: '/admin/newsletter-subscribers/' + id,
+            type: 'DELETE',
+            success: function(res){
+
+                if(res.success){
+                    location.reload();
+                }
+            }
+        });
+
+    });
+
+    feather.replace();
+
+});
+</script>
+
+<%- include('../partials/footer') %>
