@@ -134,7 +134,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
             onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
         </Link>
         <div className="csp-badges">
-          {isOnSale && <span className="csp-badge sale">Sale</span>}
+          {!isOutOfStock && isOnSale && <span className="csp-badge sale">Sale</span>}
           {isOutOfStock && <span className="csp-badge oos">Sold Out</span>}
         </div>
         <button className={`csp-wishlist${inWishlist ? ' active' : ''}`}

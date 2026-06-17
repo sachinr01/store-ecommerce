@@ -376,7 +376,7 @@ export default function MyAccountPage() {
                             {loginLoading ? 'Logging in...' : 'Login'}
                           </button>
                           <button type="button" className="lost-pass" onClick={openForgotModal}>
-                            Lost Password?
+                            Forgot Password?
                           </button>
                         </div>
                       </form>
@@ -462,7 +462,7 @@ export default function MyAccountPage() {
         <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeForgotModal(); }}>
           <div className="register-modal">
             <button type="button" className="register-modal-close" onClick={closeForgotModal} aria-label="Close">&#x2715;</button>
-            <p className="register-modal-title">Lost Password?</p>
+            <p className="register-modal-title">Forgot Password?</p>
             <p className="register-modal-sub">Enter your Email address and we&apos;ll send a secure reset link to your registered email.</p>
             <div className="register-modal-field">
               <label className="register-modal-label">Email <span>*</span></label>

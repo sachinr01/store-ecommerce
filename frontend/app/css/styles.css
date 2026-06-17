@@ -10263,7 +10263,8 @@ input[type="checkbox"] {
 
 .account-auth-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 700px);
+  justify-content: center;
   gap: 28px;
   padding: 48px 0;
 }
@@ -12735,6 +12736,41 @@ input[type="checkbox"] {
 
 .contact-socials {
   gap: 20px;
+}
+
+.contact-socials-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contact-social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #444;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.contact-social-link:hover {
+  color: #111;
+}
+
+.contact-social-link .fa {
+  font-family: FontAwesome !important;
+  font-size: 16px;
+  width: 18px;
+  text-align: center;
+}
+
+.contact-social-handle {
+  color: #888;
+  font-size: 12px;
 }
 
 .contact-form-section p {

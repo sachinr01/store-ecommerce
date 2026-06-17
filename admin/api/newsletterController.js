@@ -68,6 +68,55 @@ function escapeHtml(value) {
 }
 
 
+function subscribeBrevoContact(email) {
+  return new Promise((resolve) => {
+    if (!BREVO_API_KEY) {
+      console.warn("Brevo newsletter contact sync not configured.");
+      return resolve(false);
+    }
+
+    const payload = {
+      email,
+      updateEnabled: true,
+    };
+
+    if (Number.isInteger(BREVO_NEWSLETTER_LIST_ID) && BREVO_NEWSLETTER_LIST_ID > 0) {
+      payload.listIds = [BREVO_NEWSLETTER_LIST_ID];
+    }
+
+    const body = JSON.stringify(payload);
+    const req = https.request(
+      {
+        method: "POST",
+        hostname: "api.brevo.com",
+        port: 443,
+        path: "/v3/contacts",
+        headers: {
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let responseBody = "";
+        res.on("data", (chunk) => (responseBody += chunk));
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) return resolve(true);
+          console.error("Brevo newsletter contact sync failed:", res.statusCode, responseBody);
+          resolve(false);
+        });
+      }
+    );
+
+    req.on("error", (err) => {
+      console.error("Brevo newsletter contact sync error:", err);
+      resolve(false);
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
 function verificationTemplate(email, verifyUrl) {
   const safeEmail = escapeHtml(email);
   const safeUrl = escapeHtml(verifyUrl);
@@ -80,13 +129,13 @@ function verificationTemplate(email, verifyUrl) {
             <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="max-width:620px; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #eadfce;">
               <tr>
                 <td style="background:#22311d; color:#ffffff; padding:24px 28px; font-family:Arial, sans-serif; font-size:22px; font-weight:700; letter-spacing:1px;">
-                  NESTCASE
+                  NESTCASE.IN
                 </td>
               </tr>
               <tr>
                 <td style="padding:28px; font-family:Arial, sans-serif; color:#1b1b1b; line-height:1.6;">
-                  <h2 style="margin:0 0 12px; font-size:24px; color:#22311d;">Verify your newsletter signup</h2>
-                  <p style="margin:0 0 18px;">Please confirm that ${safeEmail} should receive Nestcase updates.</p>
+                  <p style="margin:0 0 18px;">Just one more step!
+                    Please verify your email address so we can send you updates.</p>
                   <p style="margin:0 0 22px;">
                     <a href="${safeUrl}" style="background:#22311d; color:#ffffff; display:inline-block; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:700;">Verify Email</a>
                   </p>
@@ -115,13 +164,13 @@ async function subscribeNewsletter(req, res) {
     );
 
     if (subscriber) {
-      return res.json({ success: true, message: "This email is already subscribed." });
+      return res.json({ success: true, message: "You're already on the list!" });
     }
 
     const verifyUrl = `${FRONTEND_URL.replace(/\/+$/, "")}/api/newsletter/verify/${createVerificationToken(email)}`;
     const sent = await sendBrevoEmail({
       toEmail: email,
-      subject: "Verify your Nestcase newsletter signup",
+      subject: "Verify your NESTCASE.IN newsletter subscription",
       html: verificationTemplate(email, verifyUrl),
     });
 
@@ -129,7 +178,7 @@ async function subscribeNewsletter(req, res) {
       return res.status(500).json({ success: false, message: "Could not send verification email. Please try again." });
     }
 
-    return res.json({ success: true, message: "Verification email sent. Please check your inbox." });
+    return res.json({ success: true, message: "We've sent a verification email. Please check your inbox and click the link to confirm your account. Don't see it? Check your spam folder or resend email." });
   } catch (err) {
     console.error("Newsletter subscribe failed:", err);
     return res.status(500).json({ success: false, message: "Could not subscribe right now. Please try again." });
@@ -181,9 +230,9 @@ async function verifyNewsletter(req, res) {
         </head>
         <body style="font-family:Arial,sans-serif; background:#f5efe8; color:#22311d; display:grid; min-height:100vh; place-items:center; margin:0;">
           <main style="background:#fff; border:1px solid #eadfce; border-radius:12px; padding:32px; max-width:520px; text-align:center;">
-            <h1 style="margin:0 0 12px;">${verified ? "Email verified" : "Verification link expired"}</h1>
-            <p style="margin:0 0 20px; color:#333;">${verified ? "You have been added to the Nestcase newsletter." : "Please submit the newsletter form again to receive a fresh link."}</p>
-            <a href="${escapeHtml(FRONTEND_URL)}" style="color:#22311d; font-weight:700;">Back to Nestcase</a>
+            <h1 style="margin:0 0 12px;">${verified ? "You're in!" : "Verification link expired"}</h1>
+            <p style="margin:0 0 20px; color:#333;">${verified ? "Thanks for subscribing to NESTCASE.IN updates." : "Please submit the newsletter form again to receive a fresh link."}</p>
+            <a href="${escapeHtml(FRONTEND_URL)}" style="color:#22311d; font-weight:700;">Back to NESTCASE.IN</a>
           </main>
         </body>
       </html>
