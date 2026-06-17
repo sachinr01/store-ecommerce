@@ -1,9 +1,7 @@
 const https = require("https");
 const db = require("../config/db");
+const { sendEmail: sendBrevoEmail } = require('./mailer');
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
-const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "";
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const RECEIVED_EMAIL = process.env.RECEIVED_EMAIL || "";
 
 function escapeHtml(value) {
@@ -15,51 +13,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function sendBrevoEmail({ toEmail, toName, subject, html }) {
-  return new Promise((resolve) => {
-    if (!BREVO_API_KEY) {
-      console.warn("Brevo API key missing.");
-      return resolve(false);
-    }
-    const payload = JSON.stringify({
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: [{ email: toEmail, name: toName || toEmail }],
-      subject,
-      htmlContent: html,
-    });
-    const req = https.request(
-      {
-        method: "POST",
-        hostname: "api.brevo.com",
-        port: 443,
-        path: "/v3/smtp/email",
-        headers: {
-          "api-key": BREVO_API_KEY,
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(payload),
-        },
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (c) => (body += c));
-        res.on("end", () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(true);
-          } else {
-            console.error("Brevo send failed:", res.statusCode, body);
-            resolve(false);
-          }
-        });
-      }
-    );
-    req.on("error", (err) => {
-      console.error("Brevo send error:", err);
-      resolve(false);
-    });
-    req.write(payload);
-    req.end();
-  });
-}
 
 function emailTemplate(title, rows) {
   const rowsHtml = rows

@@ -1,10 +1,8 @@
 const crypto = require("crypto");
 const https = require("https");
 const db = require("../config/db");
+const { sendEmail: sendBrevoEmail } = require('./mailer');
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
-const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "";
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:3001").replace(/\/+$/, "");
 const NEWSLETTER_TOKEN_SECRET = process.env.NEWSLETTER_TOKEN_SECRET || process.env.SESSION_SECRET || "newsletter-secret";
 
@@ -103,51 +101,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function sendBrevoEmail({ toEmail, subject, html }) {
-  return new Promise((resolve) => {
-    if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
-      console.warn("Brevo newsletter email not configured.");
-      return resolve(false);
-    }
-
-    const payload = JSON.stringify({
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: [{ email: toEmail, name: toEmail }],
-      subject,
-      htmlContent: html,
-    });
-
-    const req = https.request(
-      {
-        method: "POST",
-        hostname: "api.brevo.com",
-        port: 443,
-        path: "/v3/smtp/email",
-        headers: {
-          "api-key": BREVO_API_KEY,
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(payload),
-        },
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (chunk) => (body += chunk));
-        res.on("end", () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) return resolve(true);
-          console.error("Brevo newsletter send failed:", res.statusCode, body);
-          resolve(false);
-        });
-      }
-    );
-
-    req.on("error", (err) => {
-      console.error("Brevo newsletter send error:", err);
-      resolve(false);
-    });
-    req.write(payload);
-    req.end();
-  });
-}
 
 function verificationTemplate(email, verifyUrl) {
   const safeEmail = escapeHtml(email);

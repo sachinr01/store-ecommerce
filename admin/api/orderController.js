@@ -93,13 +93,10 @@ function buildOrderItemMap(items) {
   return map;
 }
 
-const BREVO_API_KEY =
-  process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "";
-const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "NESTCASE";
 const DEFAULT_COUNTRY = process.env.DEFAULT_COUNTRY || "India";
 
 const axios = require("axios");
+const { sendEmail: sendBrevoEmail } = require('./mailer');
 const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL;
 const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD;
 
@@ -407,56 +404,6 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-async function sendBrevoEmail({ toEmail, toName, subject, html }) {
-  if (!BREVO_API_KEY) {
-    console.warn("Brevo API key missing. Set BREVO_API_KEY in environment.");
-    return false;
-  }
-
-  const payload = JSON.stringify({
-    sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-    to: [{ email: toEmail, name: toName || toEmail }],
-    subject,
-    htmlContent: html,
-  });
-
-  return new Promise((resolve) => {
-    const req = https.request(
-      {
-        method: "POST",
-        hostname: "api.brevo.com",
-        path: "/v3/smtp/email",
-        headers: {
-          "api-key": BREVO_API_KEY,
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(payload),
-        },
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (chunk) => {
-          body += chunk;
-        });
-        res.on("end", () => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(true);
-          } else {
-            console.error("Brevo send failed:", res.statusCode, body);
-            resolve(false);
-          }
-        });
-      },
-    );
-
-    req.on("error", (err) => {
-      console.error("Brevo send error:", err);
-      resolve(false);
-    });
-
-    req.write(payload);
-    req.end();
-  });
-}
 
 function buildOrderName() {
   const now = new Date();

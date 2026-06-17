@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const https = require('https');
 const db = require('../config/db');
 const { mergeGuestCart } = require('./cartController');
+const { sendEmail } = require('./mailer');
 
 const GOOGLE_CLIENT_ID =
   process.env.GOOGLE_CLIENT_ID;
@@ -14,11 +15,6 @@ const requireGoogleClientId = () => {
 };
 const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo?id_token=';
 const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const BREVO_API_KEY =
-  process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '';
-const BREVO_SENDER_EMAIL =
-  process.env.BREVO_SENDER_EMAIL ;
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'NESTCASE';
 const RESET_TOKEN_HASH_META = 'password_reset_token_hash';
 const RESET_TOKEN_EXPIRES_META = 'password_reset_token_expires';
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -295,56 +291,9 @@ function getResetCheckoutBaseUrl() {
   return `${getFrontendBaseUrl()}/checkout`;
 }
 
-async function sendBrevoEmail({ toEmail, toName, subject, html }) {
-  if (!BREVO_API_KEY) {
-    console.warn('Brevo API key missing. Set BREVO_API_KEY in environment.');
-    return false;
-  }
+// sendBrevoEmail is now provided by ./mailer (SMTP-based)
+const sendBrevoEmail = sendEmail;
 
-  const payload = JSON.stringify({
-    sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-    to: [{ email: toEmail, name: toName || toEmail }],
-    subject,
-    htmlContent: html,
-  });
-
-  return new Promise((resolve) => {
-    const req = https.request(
-      {
-        method: 'POST',
-        hostname: 'api.brevo.com',
-        path: '/v3/smtp/email',
-        headers: {
-          'api-key': BREVO_API_KEY,
-          'content-type': 'application/json',
-          'content-length': Buffer.byteLength(payload),
-        },
-      },
-      (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(true);
-          } else {
-            console.error('Brevo send failed:', res.statusCode, body);
-            resolve(false);
-          }
-        });
-      },
-    );
-
-    req.on('error', (err) => {
-      console.error('Brevo send error:', err);
-      resolve(false);
-    });
-
-    req.write(payload);
-    req.end();
-  });
-}
 
 async function findUserByIdentifier(identifier) {
   const value = String(identifier ?? '').trim();
