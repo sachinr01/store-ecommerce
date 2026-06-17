@@ -3,22 +3,22 @@ export default function TrustBar() {
     {
       icon: "fa-refresh",
       title: "Easy returns",
-      desc: "Return within 15 days of order delivery.",
+      desc: "Eligible returns within 7 days.",
     },
     {
       icon: "fa-truck",
-      title: "We ship worldwide",
-      desc: "Fast and reliable international delivery.",
+      title: "Pan India Shipping",
+      desc: "Safe & reliable delivery across India.",
     },
     {
       icon: "fa-clock-o",
       title: "Free shipping",
-      desc: "Free shipping on orders above Rs 1,000.",
+      desc: "Free shipping across India on prepaid orders.",
     },
     {
       icon: "fa-certificate",
-      title: "Cash on delivery",
-      desc: "COD available.",
+      title: "Secure Payments",
+      desc: "Trusted & secure checkout",
     },
   ];
 
