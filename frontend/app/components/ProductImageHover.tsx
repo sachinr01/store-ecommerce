@@ -23,9 +23,15 @@ export default function ProductImageHover({
 }: ProductImageHoverProps) {
   const [imgHovered, setImgHovered] = useState(false);
   const [mobileShow, setMobileShow] = useState(false);
+  const [galleryFailed, setGalleryFailed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const hasGallery = !!gallerySrc && gallerySrc !== featuredSrc;
+  const hasGallery = !!gallerySrc && gallerySrc !== featuredSrc && !galleryFailed;
+
+  // Reset gallery failure state when gallerySrc changes
+  useEffect(() => {
+    setGalleryFailed(false);
+  }, [gallerySrc]);
 
   // On touch devices, auto-cycle gallery image at a set interval
   useEffect(() => {
@@ -34,7 +40,6 @@ export default function ProductImageHover({
     const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
     if (!isTouchDevice) return;
 
-    // Start cycling: show gallery image for 1.5s, hide for 1.5s
     timerRef.current = setInterval(() => {
       setMobileShow(prev => !prev);
     }, 1500);
@@ -44,11 +49,15 @@ export default function ProductImageHover({
     };
   }, [hasGallery]);
 
-  const onErr = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const onFeaturedErr = (e: React.SyntheticEvent<HTMLImageElement>) => {
     (e.target as HTMLImageElement).src = fallback;
   };
 
-  // desktop: use hover state; mobile: use cycle state
+  // If gallery image fails to load, hide it entirely rather than showing placeholder
+  const onGalleryErr = () => {
+    setGalleryFailed(true);
+  };
+
   const hovered = imgHovered || cardHovered;
   const showGallery = hovered || mobileShow;
 
@@ -65,7 +74,7 @@ export default function ProductImageHover({
         alt={alt}
         className={className}
         loading={loading}
-        onError={onErr}
+        onError={onFeaturedErr}
         style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
       />
 
@@ -76,7 +85,7 @@ export default function ProductImageHover({
           alt={alt}
           className={className}
           loading="lazy"
-          onError={onErr}
+          onError={onGalleryErr}
           style={{
             position: 'absolute',
             inset: 0,
@@ -84,12 +93,11 @@ export default function ProductImageHover({
             height: '100%',
             objectFit: 'cover',
             opacity: showGallery ? 1 : 0,
-            transition: 'opacity 0.4s ease',
+            transition: 'opacity 0.35s ease',
+            transform: 'none',
           }}
         />
       )}
-
-
     </div>
   );
 }
