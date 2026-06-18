@@ -117,6 +117,55 @@ function subscribeBrevoContact(email) {
   });
 }
 
+function subscribeBrevoContact(email) {
+  return new Promise((resolve) => {
+    if (!BREVO_API_KEY) {
+      console.warn("Brevo newsletter contact sync not configured.");
+      return resolve(false);
+    }
+
+    const payload = {
+      email,
+      updateEnabled: true,
+    };
+
+    if (Number.isInteger(BREVO_NEWSLETTER_LIST_ID) && BREVO_NEWSLETTER_LIST_ID > 0) {
+      payload.listIds = [BREVO_NEWSLETTER_LIST_ID];
+    }
+
+    const body = JSON.stringify(payload);
+    const req = https.request(
+      {
+        method: "POST",
+        hostname: "api.brevo.com",
+        port: 443,
+        path: "/v3/contacts",
+        headers: {
+          "api-key": BREVO_API_KEY,
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let responseBody = "";
+        res.on("data", (chunk) => (responseBody += chunk));
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) return resolve(true);
+          console.error("Brevo newsletter contact sync failed:", res.statusCode, responseBody);
+          resolve(false);
+        });
+      }
+    );
+
+    req.on("error", (err) => {
+      console.error("Brevo newsletter contact sync error:", err);
+      resolve(false);
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
 function verificationTemplate(email, verifyUrl) {
   const safeEmail = escapeHtml(email);
   const safeUrl = escapeHtml(verifyUrl);
