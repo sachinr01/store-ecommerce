@@ -2906,13 +2906,13 @@ input[type="checkbox"] {
     display: none;
   }
 
-  .tb-item:nth-child(3) {
+  /* .tb-item:nth-child(3) {
     border-top: 1px solid #efefef;
-  }
+  } */
 
-  .tb-item:nth-child(4) {
+  /* .tb-item:nth-child(4) {
     border-top: 1px solid #efefef;
-  }
+  } */
 
   .tb-item:nth-child(4)::after {
     display: none;
@@ -2931,7 +2931,7 @@ input[type="checkbox"] {
   }
 
   .tb-item {
-    border-top: 1px solid #efefef;
+    /* border-top: 1px solid #efefef; */
     padding: 14px 8px 18px;
   }
 
@@ -3110,8 +3110,8 @@ input[type="checkbox"] {
   position: absolute;
   top: 45%;
   z-index: 25;
-  width: 46px;
-  height: 46px;
+  width: 30px;
+  height: 30px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -3141,11 +3141,11 @@ input[type="checkbox"] {
 }
 
 .na-scroll-btn-prev {
-  left: 12px;
+  left: -45px;
 }
 
 .na-scroll-btn-next {
-  right: 12px;
+  right: -45px;
 }
 
 .na-card {
@@ -3490,8 +3490,8 @@ input[type="checkbox"] {
   }
 
   .na-scroll-btn {
-    width: 36px;
-    height: 36px;
+    width: 25px;
+    height: 25px;
   }
 
   .na-price {
