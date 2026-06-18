@@ -23,6 +23,7 @@ import { useCart } from '../lib/cartContext';
 import { useWishlist } from '../lib/wishlistContext';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import StarRating from './StarRating';
+import YouMayAlsoLike from './YouMayAlsoLike';
 
 
 
@@ -429,6 +430,9 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
 
         </div>
       </div>
+
+      {/* ── You May Also Like ── */}
+      <YouMayAlsoLike product={product} />
 
       {/* ── Sticky bar ── */}
       {pinned && (

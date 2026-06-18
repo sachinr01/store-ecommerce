@@ -15525,3 +15525,409 @@ input[type="checkbox"] {
     margin-top: 4px;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   YOU MAY ALSO LIKE SECTION - Matches Bestsellers Design
+   ══════════════════════════════════════════════════════════════════════ */
+
+.ymal-section {
+  width: 100%;
+  background: #fff;
+  padding: 50px 0 40px;
+  margin-top: 40px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.ymal-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 45px;
+}
+
+.ymal-heading {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  color: #22311d;
+  letter-spacing: 0.5px;
+  margin: 0 0 30px;
+  text-transform: uppercase;
+}
+
+.ymal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 24px;
+}
+
+.ymal-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  color: inherit;
+  cursor: pointer;
+  transition: box-shadow 240ms ease, transform 240ms ease;
+  animation: ymalFadeIn 0.4s ease both;
+  will-change: transform;
+}
+
+.ymal-card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+  transform: translateY(-3px);
+}
+
+@keyframes ymalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ymal-img-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #f3f4f6;
+  aspect-ratio: 1 / 1;
+}
+
+.ymal-img {
+  width: 100%;
+  transition: transform 500ms ease;
+  aspect-ratio: 1;
+}
+
+.ymal-card:hover .ymal-img {
+  transform: scale(1.05);
+}
+
+.ymal-badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+.ymal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 7px;
+}
+
+.ymal-badge.sale {
+  background: #22311d;
+  color: #fff;
+}
+
+.ymal-badge.oos {
+  background: #6b7280;
+  color: #fff;
+}
+
+.ymal-wishlist {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, .9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+  opacity: 0;
+  backdrop-filter: blur(4px);
+}
+
+.ymal-card:hover .ymal-wishlist {
+  opacity: 1;
+}
+
+.ymal-wishlist:hover,
+.ymal-wishlist.active {
+  color: #dc2626;
+  background: #fff;
+  transform: scale(1.05);
+}
+
+.ymal-info {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ymal-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  line-height: 1.3;
+  color: inherit;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 150ms ease;
+}
+
+.ymal-name:hover {
+  color: #1a8a6e;
+}
+
+.ymal-price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ymal-price {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #22311d;
+  white-space: nowrap;
+}
+
+.ymal-price.sale {
+  color: #22311d;
+}
+
+.ymal-old-price {
+  font-size: 12px;
+  color: #9ca3af;
+  text-decoration: line-through;
+  white-space: nowrap;
+}
+
+.ymal-save-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: red;
+  white-space: nowrap;
+}
+
+.ymal-stock-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.ymal-stock-label.out {
+  color: #6b7280;
+}
+
+.ymal-skeleton {
+  pointer-events: none;
+}
+
+.ymal-skel-img {
+  aspect-ratio: 1;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: ymalSkel 1.4s infinite;
+}
+
+.ymal-skel-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: ymalSkel 1.4s infinite;
+}
+
+.ymal-skel-w70 {
+  width: 70%;
+}
+
+.ymal-skel-w40 {
+  width: 40%;
+}
+
+.ymal-skel-w30 {
+  width: 30%;
+}
+
+.ymal-skel-mt6 {
+  margin-top: 6px;
+}
+
+.ymal-skel-mt10 {
+  margin-top: 10px;
+}
+
+@keyframes ymalSkel {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.ymal-view-all-wrap {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.ymal-view-all-btn {
+  display: inline-block;
+  padding: 12px 32px;
+  background: #22311d;
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.ymal-view-all-btn:hover {
+  background: #1a8a6e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Responsive: Laptop (4 columns) ── */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .ymal-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+  
+  .ymal-heading {
+    font-size: 20px;
+  }
+}
+
+/* ── Responsive: Tablet (3 columns) ── */
+@media (min-width: 768px) and (max-width: 991px) {
+  .ymal-section {
+    padding: 40px 0 35px;
+  }
+
+  .ymal-container {
+    padding: 0 30px;
+  }
+
+  .ymal-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  
+  .ymal-heading {
+    font-size: 20px;
+    margin-bottom: 25px;
+  }
+
+  .ymal-grid .ymal-card:nth-child(5) {
+    display: none;
+  }
+}
+
+/* ── Responsive: Mobile (2 columns) ── */
+@media (max-width: 767px) {
+  .ymal-section {
+    padding: 35px 0 30px;
+    margin-top: 30px;
+  }
+
+  .ymal-container {
+    padding: 0 20px;
+  }
+
+  .ymal-heading {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .ymal-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .ymal-grid .ymal-card:nth-child(n+5) {
+    display: none;
+  }
+
+  .ymal-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .ymal-wishlist {
+    opacity: 1;
+  }
+
+  .ymal-name {
+    font-size: 14px;
+  }
+
+  .ymal-price {
+    font-size: 14px;
+  }
+
+  .ymal-old-price {
+    font-size: 11px;
+  }
+
+  .ymal-view-all-wrap {
+    margin-top: 20px;
+  }
+
+  .ymal-view-all-btn {
+    padding: 10px 24px;
+    font-size: 13px;
+  }
+}
+
+/* ── Responsive: Small Mobile ── */
+@media (max-width: 480px) {
+  .ymal-container {
+    padding: 0 16px;
+  }
+
+  .ymal-heading {
+    font-size: 16px;
+    margin-bottom: 18px;
+  }
+
+  .ymal-grid {
+    gap: 14px;
+  }
+
+  .ymal-name {
+    font-size: 13px;
+  }
+
+  .ymal-price {
+    font-size: 13px;
+  }
+}
