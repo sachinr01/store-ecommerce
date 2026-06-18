@@ -78,7 +78,6 @@ export default async function B2BConnectPage() {
 
         <section className="b2b-section b2b-categories" aria-labelledby="b2b-categories-title">
           <div className="b2b-section-heading">
-            <p className="b2b-eyebrow">Explore Our Collections</p>
             <h2 id="b2b-categories-title">Our Product Categories</h2>
           </div>
           {categories.length > 0 && (
@@ -113,7 +112,6 @@ export default async function B2BConnectPage() {
 
         <section className="b2b-section b2b-benefits" aria-labelledby="b2b-benefits-title">
           <div className="b2b-section-heading">
-            <p className="b2b-eyebrow">Why Partner With Nestcase</p>
             <h2 id="b2b-benefits-title">Why Partner With Us?</h2>
           </div>
           <div className="b2b-benefit-grid">

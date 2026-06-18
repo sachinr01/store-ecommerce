@@ -5687,15 +5687,16 @@ input[type="checkbox"] {
   transform: translateY(-3px);
 }
 
+/* Entrance animation uses only opacity to avoid conflicting with the
+   hover transform: translateY(-3px) — mixing animation and :hover on the
+   same transform property causes hover to be ignored on most cards. */
 @keyframes fadeUpCard {
   from {
     opacity: 0;
-    transform: translateY(14px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -13404,10 +13405,10 @@ input[type="checkbox"] {
 }
 
 .b2b-category-grid {
-  max-width: 1180px;
+  max-width: 900px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(16px, 2vw, 24px);
 }
 
@@ -13625,10 +13626,6 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 1100px) {
-  .b2b-category-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .b2b-benefit-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 28px 0;

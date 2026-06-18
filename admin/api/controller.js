@@ -213,7 +213,7 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
                     WHERE m3.parent_id = p.ID
                       AND m3.media_type = 'product_image'
                       AND m3.media_id != COALESCE(
-                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                           0
                       )
                     ORDER BY m3.media_id ASC
@@ -225,12 +225,12 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
                     FROM tbl_media m4
                     WHERE m4.media_id = CAST(
                         SUBSTRING_INDEX(
-                            (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' LIMIT 1),
+                            (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' ORDER BY meta_id DESC LIMIT 1),
                             ',', 1
                         ) AS UNSIGNED
                     )
                       AND m4.media_id != COALESCE(
-                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                           0
                       )
                     LIMIT 1
@@ -633,7 +633,7 @@ const getBestSellerProducts = async (req, res) => {
                         WHERE m3.parent_id = p.ID
                           AND m3.media_type = 'product_image'
                           AND m3.media_id != COALESCE(
-                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                               0
                           )
                         ORDER BY m3.media_id ASC
@@ -645,12 +645,12 @@ const getBestSellerProducts = async (req, res) => {
                         FROM tbl_media m4
                         WHERE m4.media_id = CAST(
                             SUBSTRING_INDEX(
-                                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' LIMIT 1),
+                                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' ORDER BY meta_id DESC LIMIT 1),
                                 ',', 1
                             ) AS UNSIGNED
                         )
                           AND m4.media_id != COALESCE(
-                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                               0
                           )
                         LIMIT 1
@@ -1129,7 +1129,7 @@ const getCategoryProducts = async (req, res) => {
                         WHERE m3.parent_id = p.ID
                           AND m3.media_type = 'product_image'
                           AND m3.media_id != COALESCE(
-                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                               0
                           )
                         ORDER BY m3.media_id ASC
@@ -1141,12 +1141,12 @@ const getCategoryProducts = async (req, res) => {
                         FROM tbl_media m4
                         WHERE m4.media_id = CAST(
                             SUBSTRING_INDEX(
-                                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' LIMIT 1),
+                                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' ORDER BY meta_id DESC LIMIT 1),
                                 ',', 1
                             ) AS UNSIGNED
                         )
                           AND m4.media_id != COALESCE(
-                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                              CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' ORDER BY meta_id DESC LIMIT 1) AS UNSIGNED),
                               0
                           )
                         LIMIT 1
