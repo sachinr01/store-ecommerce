@@ -2399,10 +2399,6 @@ input[type="checkbox"] {
 }
 
 /* ===== frontend/app/components/Footer.css ===== */
-.okab-footer {
-  border-top: 2px solid #22311d;
-}
-
 .footer-top {
   background: #3a4841;
   padding: 40px 4.7% 0px;

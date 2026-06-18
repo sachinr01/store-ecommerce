@@ -226,7 +226,7 @@ export default function Footer() {
 
       <div className="footer-legal">
         <div className="footer-legal-bottom">
-          <p>Copyright © 2026 Nestcase.in. All rights reserved.</p>
+          <p>© 2026 GROWBIZZ MEDIA PRIVATE LIMITED. All rights reserved. <br /> Registered Address: Shop No. 2, Survey No. 320/1/3320/2, Waghere Colony, Pimpri, Pune – 411017</p>
           <div className="footer-payment-row" aria-label="Accepted payment methods">
             <p>We Accept</p>
             <span className="footer-payment-badge footer-payment-image">
