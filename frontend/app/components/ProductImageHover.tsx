@@ -89,14 +89,7 @@ export default function ProductImageHover({
         />
       )}
 
-      {/* gallery hint label */}
-      {hasGallery && (
-        <span className="pih-gallery-label" aria-hidden="true">
-          {hovered
-            ? 'Featured Image replace with Product Gallery fast'
-            : 'Featured Image & Product Gallery fast'}
-        </span>
-      )}
+
     </div>
   );
 }
