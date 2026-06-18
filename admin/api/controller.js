@@ -205,6 +205,18 @@ async function queryProductList(extraWhere = '', orderBy = 'p.menu_order ASC', l
                 ORDER BY pm.meta_id DESC
                 LIMIT 1
             ) AS thumbnail_url,
+            (
+                SELECT m3.media_path
+                FROM tbl_media m3
+                WHERE m3.parent_id = p.ID
+                  AND m3.media_type = 'product_image'
+                  AND m3.media_id != COALESCE(
+                      CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                      0
+                  )
+                ORDER BY m3.media_id ASC
+                LIMIT 1
+            ) AS gallery_image_url,
             (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_product_image_gallery' LIMIT 1) AS gallery_ids,
             (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_sku'           LIMIT 1) AS sku,
             (
@@ -593,7 +605,19 @@ const getBestSellerProducts = async (req, res) => {
                     SELECT pm6.meta_value FROM tbl_productmeta pm6
                     WHERE pm6.product_id = p.ID AND pm6.meta_key = '_stock_status'
                     ORDER BY pm6.meta_id DESC LIMIT 1
-                ), 'instock') AS stock_status
+                ), 'instock') AS stock_status,
+                (
+                    SELECT m3.media_path
+                    FROM tbl_media m3
+                    WHERE m3.parent_id = p.ID
+                      AND m3.media_type = 'product_image'
+                      AND m3.media_id != COALESCE(
+                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                          0
+                      )
+                    ORDER BY m3.media_id ASC
+                    LIMIT 1
+                ) AS gallery_image_url
             FROM tbl_order_itemmeta oim
             INNER JOIN tbl_order_items oi ON oi.order_item_id = oim.order_item_id
             INNER JOIN tbl_orders o ON o.order_id = oi.order_id
@@ -612,19 +636,20 @@ const getBestSellerProducts = async (req, res) => {
         `, [...params, limit]);
 
         const data = rows.map(r => ({
-            ID:             r.ID,
-            title:          r.title,
-            slug:           r.slug,
-            date_added:     r.date_added,
-            total_sales:    r.total_sales,
-            thumbnail_url:  r.thumbnail_url || null,
-            price_min:      r.price_min,
-            price_max:      r.price_min,
-            _regular_price: r._regular_price,
-            _sale_price:    r._sale_price,
+            ID:                r.ID,
+            title:             r.title,
+            slug:              r.slug,
+            date_added:        r.date_added,
+            total_sales:       r.total_sales,
+            thumbnail_url:     r.thumbnail_url     || null,
+            gallery_image_url: r.gallery_image_url || null,
+            price_min:         r.price_min,
+            price_max:         r.price_min,
+            _regular_price:    r._regular_price,
+            _sale_price:       r._sale_price,
             _sale_price_dates_from: r._sale_price_dates_from || null,
             _sale_price_dates_to:   r._sale_price_dates_to   || null,
-            stock_status:   r.stock_status,
+            stock_status:      r.stock_status,
         }));
 
         res.json({ success: true, count: data.length, data });
@@ -1058,6 +1083,18 @@ const getCategoryProducts = async (req, res) => {
                     WHERE pm.product_id = p.ID AND pm.meta_key = '_thumbnail_id'
                     ORDER BY pm.meta_id DESC LIMIT 1
                 ) AS thumbnail_url,
+                (
+                    SELECT m3.media_path
+                    FROM tbl_media m3
+                    WHERE m3.parent_id = p.ID
+                      AND m3.media_type = 'product_image'
+                      AND m3.media_id != COALESCE(
+                          CAST((SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_thumbnail_id' LIMIT 1) AS UNSIGNED),
+                          0
+                      )
+                    ORDER BY m3.media_id ASC
+                    LIMIT 1
+                ) AS gallery_image_url,
                 (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_regular_price' ORDER BY pm.meta_id DESC LIMIT 1) AS _regular_price,
                 (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_sale_price'    ORDER BY pm.meta_id DESC LIMIT 1) AS _sale_price,
                 (SELECT pm.meta_value FROM tbl_productmeta pm WHERE pm.product_id = p.ID AND pm.meta_key = '_sku'           ORDER BY pm.meta_id DESC LIMIT 1) AS sku,

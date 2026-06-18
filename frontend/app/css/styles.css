@@ -2852,11 +2852,13 @@ input[type="checkbox"] {
 
 .tb-item {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 10px 10px;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 28px 20px 28px;
   position: relative;
-  background: #efefef;
+  background: #fff;
 }
 
 .tb-item:last-child::after {
@@ -2867,29 +2869,36 @@ input[type="checkbox"] {
   display: none;
 }
 
-.tb-icon {
+.tb-icon-circle {
   flex-shrink: 0;
-  width: 38px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #f5f0ea;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #bbb;
+  margin-bottom: 14px;
 }
 
-.tb-icon i {
-    font-size: 22px;
-    line-height: 22px;
-    color: #22311d;
+.tb-icon-svg {
+  width: 30px !important;
+  height: 30px !important;
+  color: #22311d;
 }
 
 .tb-text h4 {
-  margin: 0 0 0px;
-  font-size: 13px;
-  text-transform: uppercase;
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: none;
 }
 
 .tb-text h6 {
-    font-size: 11px;
+    font-size: 13px;
+    color: #666;
+    font-weight: 400;
+    line-height: 1.5;
 }
 
 @media (max-width: 900px) {
@@ -2916,7 +2925,7 @@ input[type="checkbox"] {
 
 @media (max-width: 480px) {
   .tb-grid {
-    grid-template-columns: 1fr;
+    /* grid-template-columns: 1fr; */
     padding: 12px 19px 12px;
     gap: 10px;
   }
@@ -5788,6 +5797,24 @@ input[type="checkbox"] {
 .csp-overlay.show,
 .csp-card:hover .csp-overlay {
   transform: translateY(0);
+}
+
+/* Gallery hint label inside ProductImageHover */
+.pih-gallery-label {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.70);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 30;
+  transition: opacity 200ms ease;
 }
 
 .csp-quick-view {

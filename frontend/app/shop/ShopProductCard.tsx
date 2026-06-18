@@ -3,7 +3,8 @@
 
 import Link from 'next/link';
 import WishlistButton from '../components/WishlistButton';
-import ProductImage from '../components/ProductImage';
+import ProductImageHover from '../components/ProductImageHover';
+import ProductCardHoverWrapper from '../components/ProductCardHoverWrapper';
 import { formatPrice, formatPriceRange } from '../lib/price';
 import { getDiscountPercent, isSaleDateActive } from '../lib/helpers/pricing';
 import { getImageUrl, type Product } from '../lib/api';
@@ -54,21 +55,25 @@ export default function ShopProductCard({
     ? formatPrice(displayPrice)
     : '';
   const discountPercent = showRange ? null : getDiscountPercent(salePrice, regularPrice);
-  const imgSrc = getImageUrl(product.thumbnail_url, placeholder);
+  const featuredSrc = getImageUrl(product.thumbnail_url, placeholder);
+  const gallerySrc = product.gallery_image_url ? getImageUrl(product.gallery_image_url, placeholder) : null;
 
   return (
-    <div
+    <ProductCardHoverWrapper
       className="csp-card"
       style={{ animationDelay: `${Math.min(idx * 40, 400)}ms` }}
     >
+      {(cardHovered) => (<>
       <div className="csp-img-wrap">
-        <Link href={productHref} tabIndex={-1} aria-hidden="true">
-          <ProductImage
-            src={imgSrc}
+        <Link href={productHref} tabIndex={-1} aria-hidden="true" style={{ display: 'block', height: '100%' }}>
+          <ProductImageHover
+            featuredSrc={featuredSrc}
+            gallerySrc={gallerySrc}
             alt={product.title}
             className="csp-img"
             loading={idx < 8 ? 'eager' : 'lazy'}
             fallback={placeholder}
+            cardHovered={cardHovered}
           />
         </Link>
 
@@ -82,7 +87,7 @@ export default function ShopProductCard({
           productId={product.ID}
           title={product.title}
           price={displayPrice ?? 0}
-          image={imgSrc}
+          image={featuredSrc}
           inStock={!isOutOfStock}
           className="csp-wishlist"
         />
@@ -116,6 +121,7 @@ export default function ShopProductCard({
           </p>
         )}
       </div>
-    </div>
+      </>)}
+    </ProductCardHoverWrapper>
   );
 }

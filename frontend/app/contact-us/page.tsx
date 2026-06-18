@@ -20,12 +20,12 @@ const supportItems = [
     href: "mailto:support@nestcase.in",
     iconClass: "fa-envelope",
   },
-  // {
-  //   label: "WhatsApp",
-  //   value: "+91 98765 43210",
-  //   href: "https://wa.me/919876543210",
-  //   iconClass: "fa-whatsapp",
-  // },
+  {
+    label: "WhatsApp",
+    value: "+91 90110 38200",
+    href: "https://wa.me/919011038200",
+    iconClass: "fa-whatsapp",
+  },
   {
     label: "Address",
     value: `nestcase.in Pune, 
@@ -66,8 +66,8 @@ const socialLinks = [
   },
   // {
   //   label: "WhatsApp",
-  //   href: "https://wa.me/919876543210",
-  //   handle: "+91 98765 43210",
+  //   href: "https://wa.me/919011038200",
+  //   handle: "+91 90110 38200",
   //   iconClass: "fa-whatsapp",
   // },
 ];

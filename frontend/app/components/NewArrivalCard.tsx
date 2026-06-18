@@ -3,7 +3,8 @@
 
 import Link from 'next/link';
 import WishlistButton from './WishlistButton';
-import ProductImage from './ProductImage';
+import ProductImageHover from './ProductImageHover';
+import ProductCardHoverWrapper from './ProductCardHoverWrapper';
 import { formatPrice, formatPriceRange } from '../lib/price';
 import { getDiscountPercent, isSaleDateActive } from '../lib/helpers/pricing';
 import { getImageUrl, type Product } from '../lib/api';
@@ -34,18 +35,25 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
     salePrice !== null &&
     isSaleDateActive(p._sale_price_dates_from, p._sale_price_dates_to);
   const href = `/shop/product/${toSlug(p.slug || p.title)}`;
-  const imgSrc = getImageUrl(p.thumbnail_url, placeholder);
+  const featuredSrc = getImageUrl(p.thumbnail_url, placeholder);
+  const gallerySrc = p.gallery_image_url ? getImageUrl(p.gallery_image_url, placeholder) : null;
 
   return (
-    <div className="na-card" style={{ animationDelay: `${idx * 60}ms` }}>
+    <ProductCardHoverWrapper
+      className="na-card"
+      style={{ animationDelay: `${idx * 60}ms` }}
+    >
+      {(cardHovered) => (<>
       <div className="na-img-wrap">
-        <Link href={href} tabIndex={-1} aria-hidden="true">
-          <ProductImage
-            src={imgSrc}
+        <Link href={href} tabIndex={-1} aria-hidden="true" style={{ display: 'block', height: '100%' }}>
+          <ProductImageHover
+            featuredSrc={featuredSrc}
+            gallerySrc={gallerySrc}
             alt={p.title}
             loading={idx < 4 ? 'eager' : 'lazy'}
             className="na-img"
             fallback={placeholder}
+            cardHovered={cardHovered}
           />
         </Link>
         <div className="na-badges">
@@ -57,7 +65,7 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
           productId={p.ID}
           title={p.title}
           price={displayPrice}
-          image={imgSrc}
+          image={featuredSrc}
           inStock={!isOutOfStock}
           className="na-wishlist"
         />
@@ -84,6 +92,7 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
         </div>
         {isOutOfStock && <span className="na-stock-label out">Out of Stock</span>}
       </div>
-    </div>
+      </>)}
+    </ProductCardHoverWrapper>
   );
 }

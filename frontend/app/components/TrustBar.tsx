@@ -1,24 +1,39 @@
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faBoxOpen,
+  faTruckFast,
+  faTag,
+  faShieldHalved,
+} from "@fortawesome/free-solid-svg-icons";
+import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+
+interface Feature {
+  icon: IconDefinition;
+  title: string;
+  desc: string;
+}
+
 export default function TrustBar() {
-  const features = [
+  const features: Feature[] = [
     {
-      icon: "fa-refresh",
-      title: "Easy returns",
+      icon: faBoxOpen,
+      title: "Easy Returns",
       desc: "Eligible returns within 7 days.",
     },
     {
-      icon: "fa-truck",
+      icon: faTruckFast,
       title: "Pan India Shipping",
       desc: "Safe & reliable delivery across India.",
     },
     {
-      icon: "fa-clock-o",
-      title: "Free shipping",
+      icon: faTag,
+      title: "Free Shipping",
       desc: "Free shipping across India on prepaid orders.",
     },
     {
-      icon: "fa-certificate",
+      icon: faShieldHalved,
       title: "Secure Payments",
-      desc: "Trusted & secure checkout",
+      desc: "Trusted & secure checkout.",
     },
   ];
 
@@ -30,8 +45,8 @@ export default function TrustBar() {
       <div className="tb-grid">
         {features.map((f, i) => (
           <div key={i} className="tb-item">
-            <div className="tb-icon">
-              <i className={`fa ${f.icon}`} aria-hidden="true" />
+            <div className="tb-icon-circle">
+              <FontAwesomeIcon icon={f.icon} className="tb-icon-svg" />
             </div>
             <div className="tb-text">
               <h4>{f.title}</h4>

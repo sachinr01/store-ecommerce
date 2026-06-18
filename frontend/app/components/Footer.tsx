@@ -156,8 +156,7 @@ export default function Footer() {
                 <a href="https://www.instagram.com/nestcase.in/" className="footer-social-icon footer-social-icon--instagram" aria-label="Instagram">
                   <Image src="/images/icons/instagram.png" alt="Instagram" width={24} height={24} />
                 </a>
-                {/* https://wa.me/+919876543210 */}
-                <a href="#" className="footer-social-icon footer-social-icon--whatsapp" aria-label="WhatsApp">
+                <a href="https://wa.me/919011038200" className="footer-social-icon footer-social-icon--whatsapp" aria-label="WhatsApp">
                   <Image src="/images/icons/whatsapp.png" alt="WhatsApp" width={24} height={24} />
                 </a>
                 <a href="mailto:support@nestcase.in" className="footer-social-icon footer-social-icon--email" aria-label="Email">

@@ -11,6 +11,7 @@ import { formatPrice, formatPriceRange, CURRENCY } from '../../lib/price';
 import { getDiscountPercent, isSaleDateActive } from '../../lib/helpers/pricing';
 import { useWishlist } from '../../lib/wishlistContext';
 import { usePlaceholderImage } from '../../lib/siteSettingsContext';
+import ProductImageHover from '../../components/ProductImageHover';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>
@@ -105,10 +106,10 @@ function CheckOption({ label, checked, onChange }: { label: string; checked: boo
 
 /* ── Product Card ──────────────────────────────────────────────────────────── */
 function ProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
-  const [hovered, setHovered] = useState(false);
   const { hasItem, addItem, removeItem } = useWishlist();
   const PLACEHOLDER = usePlaceholderImage();
   const inWishlist = hasItem(product.ID);
+  const [cardHovered, setCardHovered] = useState(false);
   const href = `/shop/product/${toSlug(product.slug || product.title)}`;
   const isOutOfStock =
     (product.stock_status !== 'instock' && product.stock_status !== 'onbackorder') ||
@@ -124,14 +125,23 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
   const discount  = showRange ? null : getDiscountPercent(salePrice, regularPrice);
 
   return (
-    <div className="csp-card" style={{ animationDelay: `${Math.min(idx * 40, 400)}ms` }}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <div
+      className="csp-card"
+      style={{ animationDelay: `${Math.min(idx * 40, 400)}ms` }}
+      onMouseEnter={() => setCardHovered(true)}
+      onMouseLeave={() => setCardHovered(false)}
+    >
       <div className="csp-img-wrap">
-        <Link href={href} tabIndex={-1} aria-hidden="true">
-          <img src={getImageUrl(product.thumbnail_url, PLACEHOLDER)} alt={product.title}
-            className={`csp-img${hovered ? ' zoomed' : ''}`}
+        <Link href={href} tabIndex={-1} aria-hidden="true" style={{ display: 'block', height: '100%' }}>
+          <ProductImageHover
+            featuredSrc={getImageUrl(product.thumbnail_url, PLACEHOLDER)}
+            gallerySrc={product.gallery_image_url ? getImageUrl(product.gallery_image_url, PLACEHOLDER) : null}
+            alt={product.title}
+            className="csp-img"
             loading={idx < 8 ? 'eager' : 'lazy'}
-            onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER; }}/>
+            fallback={PLACEHOLDER}
+            cardHovered={cardHovered}
+          />
         </Link>
         <div className="csp-badges">
           {!isOutOfStock && isOnSale && <span className="csp-badge sale">Sale</span>}
@@ -145,7 +155,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
-        <div className={`csp-overlay${hovered ? ' show' : ''}`} aria-hidden={!hovered}>
+        <div className="csp-overlay" aria-hidden="true">
           <Link href={href} className="csp-quick-view btn-view-product">View Product</Link>
         </div>
       </div>

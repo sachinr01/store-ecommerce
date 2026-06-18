@@ -23,6 +23,7 @@ export interface Product {
   _sale_price_dates_to: string | null;
   thumbnail_id: string | null;
   thumbnail_url: string | null;
+  gallery_image_url: string | null;
   gallery_ids: string | null;
   sku: string | null;
   stock_status: string | null;
