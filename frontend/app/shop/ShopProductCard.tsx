@@ -92,11 +92,7 @@ export default function ShopProductCard({
           className="csp-wishlist"
         />
 
-        <div className="csp-overlay">
-          <Link href={productHref} className="csp-quick-view btn-view-product">
-            View Product
-          </Link>
-        </div>
+
       </div>
 
       <div className="csp-info">

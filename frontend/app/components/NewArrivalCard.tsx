@@ -69,11 +69,7 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
           inStock={!isOutOfStock}
           className="na-wishlist"
         />
-        <div className="na-overlay">
-          <Link href={href} className="na-quick-view btn-view-product">
-            View Product
-          </Link>
-        </div>
+
       </div>
       <div className="na-info">
         <Link href={href} className="na-name">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ProductImageHoverProps {
   featuredSrc: string;
@@ -22,9 +22,7 @@ export default function ProductImageHover({
   cardHovered = false,
 }: ProductImageHoverProps) {
   const [imgHovered, setImgHovered] = useState(false);
-  const [mobileShow, setMobileShow] = useState(false);
   const [galleryFailed, setGalleryFailed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasGallery = !!gallerySrc && gallerySrc !== featuredSrc && !galleryFailed;
 
@@ -33,33 +31,16 @@ export default function ProductImageHover({
     setGalleryFailed(false);
   }, [gallerySrc]);
 
-  // On touch devices, auto-cycle gallery image at a set interval
-  useEffect(() => {
-    if (!hasGallery) return;
-
-    const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-    if (!isTouchDevice) return;
-
-    timerRef.current = setInterval(() => {
-      setMobileShow(prev => !prev);
-    }, 1500);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [hasGallery]);
-
   const onFeaturedErr = (e: React.SyntheticEvent<HTMLImageElement>) => {
     (e.target as HTMLImageElement).src = fallback;
   };
 
-  // If gallery image fails to load, hide it entirely rather than showing placeholder
   const onGalleryErr = () => {
     setGalleryFailed(true);
   };
 
   const hovered = imgHovered || cardHovered;
-  const showGallery = hovered || mobileShow;
+  const showGallery = hovered;
 
   return (
     <div

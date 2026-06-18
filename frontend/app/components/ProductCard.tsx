@@ -49,14 +49,6 @@ export default function ProductCard({
             />
           </figure>
 
-          {/* ── View Product overlay ── */}
-          <div className={`pc-overlay${hovered ? " hovered" : ""}`}>
-            <div className={`pc-border-frame${hovered ? " hovered" : ""}`} />
-            <div className={`pc-icon-grid${hovered ? " hovered" : ""}`}>
-              <a href="#" className="btn-view-product" style={{ gridColumn: 'span 2' }}>View Product</a>
-            </div>
-          </div>
-
           {/* ── SALE badge ── */}
           {!isOutOfStock && onSale && <span className="onsale"><span>SALE</span></span>}
           {/* ── OUT OF STOCK badge ── */}

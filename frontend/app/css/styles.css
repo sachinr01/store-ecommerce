@@ -2399,10 +2399,6 @@ input[type="checkbox"] {
 }
 
 /* ===== frontend/app/components/Footer.css ===== */
-.okab-footer {
-  border-top: 2px solid #22311d;
-}
-
 .footer-top {
   background: #3a4841;
   padding: 40px 4.7% 0px;
@@ -2910,13 +2906,13 @@ input[type="checkbox"] {
     display: none;
   }
 
-  .tb-item:nth-child(3) {
+  /* .tb-item:nth-child(3) {
     border-top: 1px solid #efefef;
-  }
+  } */
 
-  .tb-item:nth-child(4) {
+  /* .tb-item:nth-child(4) {
     border-top: 1px solid #efefef;
-  }
+  } */
 
   .tb-item:nth-child(4)::after {
     display: none;
@@ -2925,9 +2921,11 @@ input[type="checkbox"] {
 
 @media (max-width: 480px) {
   .tb-grid {
-    /* grid-template-columns: 1fr; */
-    padding: 12px 19px 12px;
-    gap: 10px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    padding: 10px 8px;
+    gap: 0;
   }
 
   .tb-item::after {
@@ -2935,12 +2933,32 @@ input[type="checkbox"] {
   }
 
   .tb-item {
-    border-top: 1px solid #efefef;
-    padding: 14px 8px 18px;
+    flex: 1 1 0;
+    padding: 10px 4px;
+    gap: 6px;
   }
 
-  .tb-item:first-child {
-    border-top: none;
+  .tb-icon-circle {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 6px;
+  }
+
+  .tb-icon-svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .tb-text h4 {
+    font-size: 10px;
+    margin: 0;
+  }
+
+  .tb-text h6 {
+    display: none;
+  }
+  .tb-text h4{
+    line-height: 11px;
   }
 }
 
@@ -3114,8 +3132,8 @@ input[type="checkbox"] {
   position: absolute;
   top: 45%;
   z-index: 25;
-  width: 46px;
-  height: 46px;
+  width: 30px;
+  height: 30px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -3145,11 +3163,11 @@ input[type="checkbox"] {
 }
 
 .na-scroll-btn-prev {
-  left: 12px;
+  left: -45px;
 }
 
 .na-scroll-btn-next {
-  right: 12px;
+  right: -45px;
 }
 
 .na-card {
@@ -3494,8 +3512,8 @@ input[type="checkbox"] {
   }
 
   .na-scroll-btn {
-    width: 36px;
-    height: 36px;
+    width: 25px;
+    height: 25px;
   }
 
   .na-price {
@@ -13932,17 +13950,17 @@ input[type="checkbox"] {
 
 .static-content .terms_pages .policy_intro {
   max-width: 820px;
-  margin: 0 auto 34px;
+  margin: 0 auto 8px;
   text-align: center;
 }
 
 .static-content .terms_pages.terms_conditions .policy_intro {
-  max-width: 640px;
+  max-width: 760px;
 }
 
 .static-content .terms_pages .policy_section {
   display: flex;
-  gap: 18px;
+  gap: 5px;
   align-items: flex-start;
   padding: 24px 0;
   border-top: 1px solid #ece7df;
@@ -13959,6 +13977,18 @@ input[type="checkbox"] {
   gap: 0;
   border-top: 1px solid #ece7df;
   border-left: 1px solid #ece7df;
+}
+.static-content .terms_pages .policy_provider {
+  max-width: 820px;
+  margin: 0 auto 34px;
+  text-align: center;
+  font-style: italic;
+  font-weight: 600;
+  color: inherit;
+}
+
+.static-content .terms_pages.terms_conditions .policy_provider {
+  max-width: 640px;
 }
 
 .static-content .terms_pages .terms_grid_item {
