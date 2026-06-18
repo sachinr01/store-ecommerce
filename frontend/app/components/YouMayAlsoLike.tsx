@@ -35,12 +35,6 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
     const NEED = 5;
     const exclude = new Set([product.ID]);
 
-    const pick = (list: Product[], n: number): Product[] => {
-      const filtered = list.filter(p => !exclude.has(p.ID));
-      filtered.forEach(p => exclude.add(p.ID));
-      return filtered.slice(0, n);
-    };
-
     const pickRandom = (list: Product[], n: number): Product[] => {
       const filtered = list.filter(p => !exclude.has(p.ID));
       filtered.sort(() => Math.random() - 0.5);
@@ -67,11 +61,11 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
       try {
         const result: Product[] = [];
 
-        // Step 1 — primary source
+        // Step 1 — primary source (random pick from same category)
         if (primaryUrl) {
           const json = await fetchJson(primaryUrl);
           if (json.success && Array.isArray(json.data)) {
-            result.push(...pick(json.data, NEED));
+            result.push(...pickRandom(json.data, NEED));
           }
         }
 
