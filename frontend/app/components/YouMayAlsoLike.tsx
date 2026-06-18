@@ -49,7 +49,7 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
     };
 
     const primaryUrl = product.category_slug
-      ? `/api/product-categories/${product.category_slug}/products?limit=20`
+      ? `/api/product-categories/${product.category_slug}/products`
       : (() => {
           const price = Number(product.price_min ?? 0);
           if (price > 0) {
