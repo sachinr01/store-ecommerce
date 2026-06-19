@@ -2,7 +2,10 @@ const https = require("https");
 const db = require("../config/db");
 const { sendEmail: sendBrevoEmail } = require('./mailer');
 
-const RECEIVED_EMAIL = process.env.RECEIVED_EMAIL || "";
+const RECEIVED_EMAILS = (process.env.RECEIVED_EMAIL || "")
+  .split(",")
+  .map(e => e.trim())
+  .filter(Boolean);
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -57,7 +60,7 @@ async function submitContact(req, res) {
   if (!name || !email || !phone || !message) {
     return res.status(400).json({ success: false, message: "Name, email, phone and message are required." });
   }
-  if (!RECEIVED_EMAIL) {
+  if (!RECEIVED_EMAILS.length) {
     return res.status(500).json({ success: false, message: "Recipient email not configured." });
   }
 
@@ -86,12 +89,12 @@ async function submitContact(req, res) {
     ["Message", message],
   ]);
 
-  const sent = await sendBrevoEmail({
-    toEmail: RECEIVED_EMAIL,
-    toName: "Store Admin",
-    subject,
-    html,
-  });
+  const results = await Promise.all(
+    RECEIVED_EMAILS.map(email =>
+      sendBrevoEmail({ toEmail: email, toName: "Store Admin", subject, html })
+    )
+  );
+  const sent = results.some(Boolean);
 
   if (!sent) {
     return res.status(500).json({ success: false, message: "Failed to send email. Please try again." });
