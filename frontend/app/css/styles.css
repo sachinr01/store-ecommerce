@@ -3169,11 +3169,11 @@ input[type="checkbox"] {
   stroke-linejoin: round;
 }
 
-.na-scroll-btn:hover {
+/* .na-scroll-btn:hover {
   color: #1a8a6e;
   box-shadow: 0 8px 22px rgba(0,0,0,0.2);
   transform: translateY(-50%) scale(1.04);
-}
+} */
 
 .na-scroll-btn-prev {
   left: -45px;
@@ -3471,10 +3471,8 @@ input[type="checkbox"] {
   }
 
   .na-scroll-btn:hover {
-    background: rgba(255, 255, 255, 0.55);
-    color: #fff;
-    box-shadow: none;
-    transform: translateY(-50%);
+    background: transparent;
+    color: #000;
   }
 
   .na-scroll-btn-prev {
@@ -3541,16 +3539,24 @@ input[type="checkbox"] {
   .na-scroll-btn {
     width: 28px;
     height: 28px;
-    background: rgba(255, 255, 255, 0.35);
+    background: transparent;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    box-shadow: none;
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: #000;
+    border: 1px solid transparent;
   }
 
   .na-price {
     font-size: 13.5px;
+  }
+
+  .na-info {
+    padding: 10px 10px 10px;
+    gap: 6px;
+  }
+
+  .na-name {
+    font-size: 13px;
   }
 
   .na-overlay {
@@ -6153,6 +6159,43 @@ input[type="checkbox"] {
   
   .csp-atc-btn:hover:not(:disabled) {
     transform: none;
+  }
+}
+
+/* Touch devices — disable hover state flip so button stays filled after tap */
+@media (hover: none) {
+  .csp-atc-btn:hover:not(:disabled):not(.loading) {
+    background: #22311d !important;
+    color: #fff !important;
+    border-color: #22311d !important;
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .csp-atc-btn.added:hover {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+  }
+}
+
+/* Mobile — compact button for narrow 2-col grid */
+@media (max-width: 480px) {
+  .csp-atc-btn {
+    padding: 9px 8px !important;
+    font-size: 10.5px !important;
+    gap: 4px;
+    border-radius: 6px !important;
+  }
+
+  .csp-atc-btn .csp-atc-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .csp-atc-btn.disabled,
+  .csp-atc-btn:disabled {
+    padding: 9px 8px !important;
+    font-size: 10.5px !important;
   }
 }
 

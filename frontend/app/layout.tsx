@@ -7,7 +7,7 @@ import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
 import { SITE_URL } from "./lib/helpers/siteUrl";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Nestcase';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'nestcase';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,11 +20,11 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    'Discover Nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories. Shop health-friendly dinnerware at Nestcase for a stylish and healthy lifestyle.',
+    'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories. Shop health-friendly dinnerware at nestcase for a stylish and healthy lifestyle.',
   metadataBase: new URL(SITE_URL),
   icons: {
     icon:     '/images/favicon1.jpeg',
-    shortcut: '/favicon.ico',
+    shortcut: '/images/favicon1.jpeg',
     apple:    '/images/favicon1.jpeg',
   },
   openGraph: {
