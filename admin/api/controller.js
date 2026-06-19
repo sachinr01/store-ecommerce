@@ -875,12 +875,43 @@ const getProduct = async (req, res) => {
             product.stock_status = anyVarInStock ? 'instock' : 'outofstock';
         }
 
+        // Fetch primary category for this product (used by YMAL section)
+        // If the product belongs to a child category (e.g. Tumblers under Drinkware),
+        // walk up to the top-level parent so YMAL covers the full parent category pool.
+        let category_slug = null;
+        let category_name = null;
+        const [[primaryCat]] = await withRetry(() => db.query(
+            `SELECT c.category_id, c.category_slug, c.category_name, c.parent_id
+             FROM tbl_products_category_link l
+             JOIN tbl_products_category c ON c.category_id = l.category_id
+             WHERE l.product_id = ?
+             ORDER BY l.category_id ASC
+             LIMIT 1`,
+            [id]
+        ));
+        if (primaryCat) {
+            if (primaryCat.parent_id && primaryCat.parent_id !== 0) {
+                // Child category — walk up to parent (e.g. Tumblers → Drinkware)
+                const [[parentCat]] = await withRetry(() => db.query(
+                    `SELECT category_slug, category_name FROM tbl_products_category WHERE category_id = ? LIMIT 1`,
+                    [primaryCat.parent_id]
+                ));
+                category_slug = parentCat ? parentCat.category_slug : primaryCat.category_slug;
+                category_name = parentCat ? parentCat.category_name : primaryCat.category_name;
+            } else {
+                category_slug = primaryCat.category_slug;
+                category_name = primaryCat.category_name;
+            }
+        }
+
         res.json({
             success: true,
             data: {
                 ...product,
                 price_min,
                 price_max,
+                category_slug,
+                category_name,
                 gallery_urls,
                 variations,
                 attributes: { colors, sizes }
