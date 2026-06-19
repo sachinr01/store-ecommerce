@@ -2,9 +2,14 @@ const crypto = require("crypto");
 const db     = require("../config/db");
 const axios  = require("axios");
 const {
+  validateAndLockCoupon,
+  recordCouponUsage,
+} = require("./couponController");
+const {
   sendProductUpdateWebhook,
   sendCollectionUpdateWebhook,
 } = require("./shiprocketWebhooks");
+const { fetchSROrderDetails } = require("./shiprocketorderwebhook");
 
 /* ─────────────────────────────────────────────────────────────
    Helpers
@@ -199,6 +204,279 @@ const countPublishedCollections = async () => {
   return toInt(rows?.[0]?.total, 0);
 };
 
+const persistCheckoutContext = async (context) => {
+  if (!context?.checkout_ref && !context?.sr_order_id) return;
+
+  await db.query(
+    `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value)
+     VALUES (0, '_shiprocket_checkout_ctx', ?)`,
+    [JSON.stringify(context)],
+  );
+};
+
+const findCheckoutContext = async ({ checkout_ref = "", sr_order_id = "" }) => {
+  const ref = toStr(checkout_ref);
+  const orderId = toStr(sr_order_id);
+  const where = [];
+  const params = [];
+  if (ref) {
+    where.push(`meta_value LIKE ?`);
+    params.push(`%"checkout_ref":"${ref.replace(/"/g, '\\"')}"%`);
+  }
+  if (orderId) {
+    where.push(`meta_value LIKE ?`);
+    params.push(`%"sr_order_id":"${orderId.replace(/"/g, '\\"')}"%`);
+  }
+  if (!where.length) return null;
+
+  const [rows] = await db.query(
+    `SELECT meta_value
+     FROM tbl_ordermeta
+     WHERE meta_key = '_shiprocket_checkout_ctx'
+       AND (${where.join(" OR ")})
+     ORDER BY meta_id DESC
+     LIMIT 1`,
+    params,
+  );
+
+  if (!rows.length) return null;
+  try {
+    return JSON.parse(rows[0].meta_value);
+  } catch {
+    return null;
+  }
+};
+
+const resolveShiprocketCheckoutItems = async (cartItems = []) => {
+  const resolved = [];
+  for (const item of cartItems) {
+    const variantId = toInt(item?.variant_id, 0);
+    const quantity = Math.max(1, toInt(item?.quantity, 1));
+    if (!variantId) continue;
+
+    const [[priceRow]] = await db.query(
+      `SELECT
+         p.ID,
+         p.product_title,
+         CAST(pm.meta_value AS DECIMAL(10,2)) AS price,
+         sku_meta.meta_value AS sku
+       FROM tbl_products p
+       LEFT JOIN tbl_productmeta pm       ON pm.product_id = p.ID AND pm.meta_key = '_price'
+       LEFT JOIN tbl_productmeta sku_meta ON sku_meta.product_id = p.ID AND sku_meta.meta_key = '_sku'
+       WHERE p.ID = ?
+       LIMIT 1`,
+      [variantId],
+    );
+
+    if (priceRow) {
+      resolved.push({
+        product_id: priceRow.ID,
+        title: priceRow.product_title || "Product",
+        price: Number(priceRow.price || 0),
+        sku: priceRow.sku || "",
+        quantity,
+      });
+    }
+  }
+  return resolved;
+};
+
+const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email, phone }) => {
+  const cartData = checkoutContext?.cart_data || {};
+  const cartItems = Array.isArray(cartData.items) ? cartData.items : [];
+  const resolvedItems = await resolveShiprocketCheckoutItems(cartItems);
+  if (!resolvedItems.length) {
+    return { success: false, message: "No cart items found in checkout context" };
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const subtotal = resolvedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const paymentMethod = toStr(checkoutContext?.payment_method || "prepaid");
+    const orderName = `#SR-${Date.now()}`;
+    const orderTitle = `Order - ${new Date().toLocaleString()}`;
+
+    let discount = toFloat(checkoutContext?.coupon_discount, 0);
+    let appliedCouponRow = null;
+    const checkoutCouponCode = toStr(checkoutContext?.coupon_code || "");
+    if (checkoutCouponCode) {
+      const [[couponRow]] = await conn.query(
+        `SELECT *
+         FROM tbl_coupons
+         WHERE LOWER(coupon_code) = LOWER(?)
+         LIMIT 1`,
+        [checkoutCouponCode],
+      );
+      if (couponRow) {
+        appliedCouponRow = couponRow;
+        if (discount <= 0) {
+          const couponCheck = await validateAndLockCoupon(
+            conn,
+            { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
+            userId,
+            subtotal,
+            resolvedItems.map((item) => item.product_id),
+            resolvedItems,
+          );
+          if (couponCheck.ok) discount = couponCheck.discount || 0;
+        }
+      }
+    }
+
+    const shippingCost = Math.max(0, toFloat(checkoutContext?.shipping_cost, 0));
+    const grandTotal = Math.max(0, subtotal - discount + shippingCost);
+
+    const [orderResult] = await conn.query(
+      `INSERT INTO tbl_orders
+       (parent_id, user_id, order_name, order_title, order_content,
+        order_status, order_type, order_date, order_modified)
+       VALUES (0, ?, ?, ?, '', 'pending', 'shop_order', NOW(), NOW())`,
+      [userId, orderName, orderTitle],
+    );
+    const orderId = orderResult.insertId;
+
+    for (const item of resolvedItems) {
+      const [itemResult] = await conn.query(
+        `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
+         VALUES (?, 'line_item', ?, ?)`,
+        [item.title || "Product", orderId, item.product_id],
+      );
+      const orderItemId = itemResult.insertId;
+      const lineTotal = item.price * item.quantity;
+      const itemMeta = [
+        ["_product_id", item.product_id],
+        ["_variation_id", item.product_id],
+        ["_qty", item.quantity],
+        ["_line_subtotal", lineTotal.toFixed(2)],
+        ["_line_total", lineTotal.toFixed(2)],
+        ["_line_tax", "0"],
+        ["_line_subtotal_tax", "0"],
+        ["_item_sku", item.sku || ""],
+      ];
+
+      for (const [metaKey, metaValue] of itemMeta) {
+        await conn.query(
+          "INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)",
+          [orderItemId, metaKey, metaValue],
+        );
+      }
+    }
+
+    if (shippingCost > 0) {
+      const [shipResult] = await conn.query(
+        `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
+         VALUES ('Shipping', 'shipping', ?, 0)`,
+        [orderId],
+      );
+      await conn.query(
+        "INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)",
+        [shipResult.insertId, "cost", shippingCost.toFixed(2)],
+      );
+    }
+
+    const metaEntries = [
+      ["_payment_method", paymentMethod],
+      ["_order_total", String(grandTotal)],
+      ["_order_subtotal", String(subtotal)],
+      ["_order_shipping", shippingCost.toFixed(2)],
+      ["_billing_phone", toStr(phone)],
+      ["_billing_email", toStr(email)],
+      ["_sr_checkout_order_id", toStr(srOrderId)],
+      ["_shiprocket_checkout_ref", toStr(checkoutContext?.checkout_ref || "")],
+      ["_order_source", "shiprocket_checkout"],
+    ];
+    if (checkoutCouponCode) {
+      metaEntries.push(["_coupon_code", checkoutCouponCode]);
+      metaEntries.push(["_coupon_discount", discount.toFixed(2)]);
+    }
+
+    await conn.query(
+      `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES ?`,
+      [metaEntries.map(([k, v]) => [orderId, k, v])],
+    );
+
+    if (appliedCouponRow) {
+      await recordCouponUsage(
+        conn,
+        { coupon_id: appliedCouponRow.coupon_id, coupon_code: appliedCouponRow.coupon_code },
+        orderId,
+        userId,
+      );
+    }
+
+    await conn.commit();
+    return { success: true, orderId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * The Order Webhook (shiprocketorderwebhook.js) is the ONLY place that
+ * should decide a checkout is genuinely complete — it inserts this meta
+ * row exclusively when Shiprocket's webhook payload says status === "SUCCESS".
+ *
+ * If a row exists here, the order is real. If it doesn't, all we know is
+ * that a checkout was *initiated* — NOT that the customer finished paying.
+ */
+const findOrderBySrOrderId = async (srOrderId) => {
+  const orderId = toStr(srOrderId);
+  if (!orderId) return null;
+  const [rows] = await db.query(
+    `SELECT order_id FROM tbl_ordermeta
+     WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
+     LIMIT 1`,
+    [orderId],
+  );
+  return rows.length ? rows[0].order_id : null;
+};
+
+const bindCheckoutContextToOrder = async ({ checkout_ref, sr_order_id }) => {
+  const ref = toStr(checkout_ref);
+  const orderId = toStr(sr_order_id);
+  if (!ref || !orderId) {
+    return { success: false, message: "checkout_ref and sr_order_id are required" };
+  }
+
+  const [rows] = await db.query(
+    `SELECT meta_id, meta_value
+     FROM tbl_ordermeta
+     WHERE meta_key = '_shiprocket_checkout_ctx'
+       AND meta_value LIKE ?
+     ORDER BY meta_id DESC
+     LIMIT 1`,
+    [`%\"checkout_ref\":\"${ref.replace(/"/g, '\\"')}\"%`],
+  );
+
+  if (!rows.length) {
+    return { success: false, message: "Checkout context not found" };
+  }
+
+  let context;
+  try {
+    context = JSON.parse(rows[0].meta_value);
+  } catch {
+    context = { checkout_ref: ref };
+  }
+
+  context.checkout_ref = ref;
+  context.sr_order_id = orderId;
+
+  await db.query(
+    `UPDATE tbl_ordermeta
+     SET meta_value = ?
+     WHERE meta_id = ?`,
+    [JSON.stringify(context), rows[0].meta_id],
+  );
+
+  return { success: true };
+};
+
 /* ─────────────────────────────────────────────────────────────
    GET /api/shiprocket/products
    Share with Shiprocket: https://nestcase.in/api/shiprocket/products?page=1&limit=100
@@ -340,46 +618,222 @@ const fetchCollections = async (req, res) => {
 
 /* ─────────────────────────────────────────────────────────────
    POST /api/shiprocket/token
-   Generate Shiprocket checkout access token
+   Called by the frontend cart page when the user clicks
+   "Proceed to Checkout".
 ───────────────────────────────────────────────────────────── */
 const getCheckoutToken = async (req, res) => {
   try {
+    const apiKey    = process.env.CHECKOUT_API_KEY    || "";
+    const apiSecret = process.env.CHECKOUT_API_SECRET || "";
+
+    if (!apiKey || !apiSecret) {
+      console.error("getCheckoutToken: CHECKOUT_API_KEY or CHECKOUT_API_SECRET not set in env");
+      return res.status(500).json({
+        success: false,
+        message: "Checkout not configured. Contact support.",
+      });
+    }
+
     const payload = {
       cart_data:    req.body?.cart_data    || { items: [] },
       redirect_url: req.body?.redirect_url || "",
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
     };
-    const bodyStr   = JSON.stringify(payload);
-    const apiKey    = process.env.CHECKOUT_API_KEY    || "";
-    const apiSecret = process.env.CHECKOUT_API_SECRET || "";
+
+    const sessionUser = req.sessionData?.user || null;
+
+    // HMAC must be computed over the exact JSON string sent as the body.
+    // Shiprocket verifies this on their end.
+    const bodyStr = JSON.stringify(payload);
+    const hmac    = crypto
+      .createHmac("sha256", apiSecret)
+      .update(bodyStr)
+      .digest("base64");
 
     const response = await axios.post(
       "https://checkout-api.shiprocket.com/api/v1/access-token/checkout",
       payload,
       {
         headers: {
+          // NOTE: No "Bearer" prefix — just the raw key value
           "X-Api-Key":         apiKey,
-          "X-Api-HMAC-SHA256": crypto
-            .createHmac("sha256", apiSecret)
-            .update(bodyStr)
-            .digest("base64"),
-          "Content-Type": "application/json",
+          "X-Api-HMAC-SHA256": hmac,
+          "Content-Type":      "application/json",
         },
       },
     );
-    return res.json(response.data);
-  } catch (err) {
-    console.error("getCheckoutToken error:", err.response?.data || err.message);
-    return res.status(err.response?.status || 500).json({
-      success: false,
-      error: err.response?.data || err.message,
+
+    const responseData = response.data || {};
+    const srOrderId =
+      toStr(responseData?.order_id) ||
+      toStr(responseData?.result?.order_id) ||
+      toStr(responseData?.result?.data?.order_id) ||
+      toStr(responseData?.data?.order_id);
+
+    await persistCheckoutContext({
+      sr_order_id: srOrderId,
+      checkout_ref: toStr(req.body?.checkout_ref || ""),
+      coupon_code: toStr(req.body?.coupon_code || ""),
+      coupon_discount: toFloat(req.body?.coupon_discount, 0),
+      cart_data: payload.cart_data,
+      redirect_url: payload.redirect_url,
+      timestamp: payload.timestamp,
+      user_id: sessionUser?.id || 0,
+      user_email: toStr(sessionUser?.email || ""),
+      user_name: toStr(sessionUser?.name || sessionUser?.display_name || ""),
     });
+
+    return res.json({
+      ...responseData,
+      order_id: srOrderId || responseData?.order_id || responseData?.result?.order_id || "",
+    });
+  } catch (err) {
+    const status  = err.response?.status  || 500;
+    const errData = err.response?.data    || err.message;
+    console.error("getCheckoutToken error:", errData);
+    return res.status(status).json({
+      success: false,
+      error: errData,
+    });
+  }
+};
+
+const completeCheckoutFromShiprocket = async (req, res) => {
+  try {
+    const checkout_ref = toStr(req.body?.checkout_ref || "");
+    const sr_order_id = toStr(req.body?.sr_order_id || req.body?.order_id || "");
+
+    if (!sr_order_id) {
+      return res.status(400).json({ success: false, message: "order_id is required" });
+    }
+
+    // ── 1. Has the Order Webhook already created this order? ───────────────
+    // receiveOrderWebhook() ONLY inserts the _sr_checkout_order_id meta row
+    // when Shiprocket's webhook explicitly reports status === "SUCCESS".
+    // If we find it here, the checkout is genuinely, verifiably complete.
+    const existingOrderId = await findOrderBySrOrderId(sr_order_id);
+    if (existingOrderId) {
+      return res.json({ success: true, order_id: existingOrderId });
+    }
+
+    // ── 2. Webhook hasn't arrived yet — fall back to asking Shiprocket. ────
+    // This mirrors the documented fallback path in Shiprocket's integration
+    // guide ("Order Webhook Not Received" → "Call Order Details API using
+    // Order ID"). Crucially: we do NOT treat the mere existence of a
+    // checkout context as proof of payment — that context is written the
+    // instant the customer clicks "Proceed to Checkout", before the iframe
+    // even opens, so it proves nothing about whether they actually paid.
+    let confirmed = false;
+    try {
+      const srDetails = await fetchSROrderDetails(sr_order_id);
+      // NOTE: confirm the exact field name against your Shiprocket sandbox
+      // response (log it below) and adjust if it differs — defaulting to
+      // "not confirmed" on any unrecognized shape is intentional, since a
+      // false negative just means "keep polling," while a false positive
+      // means creating an order nobody paid for.
+      const srStatus = toStr(
+        srDetails?.status ??
+        srDetails?.order_status ??
+        srDetails?.payment_status ??
+        srDetails?.data?.status ??
+        srDetails?.result?.status ??
+        ""
+      ).toUpperCase();
+
+      if (srDetails) {
+        console.log(`[SR Complete-Checkout] order ${sr_order_id} details:`, JSON.stringify(srDetails).slice(0, 500));
+      }
+
+      confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
+    } catch (e) {
+      console.error("[SR Complete-Checkout] fetchSROrderDetails failed:", e.message);
+    }
+
+    if (!confirmed) {
+      // Not verified yet — keep polling. Do NOT create an order.
+      return res.status(202).json({ success: false, status: "PENDING" });
+    }
+
+    // ── 3. Shiprocket confirms the order — safe to create it now. ──────────
+    const checkoutContext = await findCheckoutContext({ checkout_ref, sr_order_id });
+    if (!checkoutContext) {
+      return res.status(404).json({ success: false, message: "Checkout context not found" });
+    }
+
+    const sessionUser = req.sessionData?.user || null;
+    let userId = toInt(checkoutContext.user_id || sessionUser?.id || 0, 0);
+    let email = toStr(checkoutContext.user_email || sessionUser?.email || "");
+    let phone = toStr(checkoutContext.user_phone || "");
+
+    if (!userId && email) {
+      const [guestRows] = await db.query(
+        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
+        [email],
+      );
+      if (guestRows.length) {
+        userId = toInt(guestRows[0].ID, 0);
+      }
+    }
+
+    if (!userId && email) {
+      const display = toStr(checkoutContext.user_name || email);
+      await db.query(
+        `INSERT IGNORE INTO tbl_users
+         (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
+         VALUES (4, ?, '', ?, ?, ?, NOW())`,
+        [email, email, email, display],
+      );
+      const [[newUser]] = await db.query(
+        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
+        [email],
+      );
+      userId = newUser ? toInt(newUser.ID, 0) : 0;
+    }
+
+    if (!userId) {
+      userId = 0;
+    }
+
+    const result = await insertShiprocketOrder({
+      checkoutContext,
+      srOrderId: sr_order_id,
+      userId,
+      email,
+      phone,
+    });
+
+    if (!result.success) {
+      return res.status(202).json({ success: false, status: "PENDING", message: result.message });
+    }
+
+    await bindCheckoutContextToOrder({ checkout_ref, sr_order_id });
+    return res.json({ success: true, order_id: result.orderId });
+  } catch (err) {
+    console.error("completeCheckoutFromShiprocket error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const finalizeCheckoutContext = async (req, res) => {
+  try {
+    const checkout_ref = toStr(req.body?.checkout_ref || "");
+    const sr_order_id = toStr(req.body?.sr_order_id || req.body?.order_id || "");
+
+    const result = await bindCheckoutContextToOrder({ checkout_ref, sr_order_id });
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error("finalizeCheckoutContext error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 /* ─────────────────────────────────────────────────────────────
    POST /api/admin/shiprocket/webhook/product/:productId
-   Manually trigger Product Update webhook (or use for testing)
+   Manually trigger Product Update webhook to Shiprocket.
+   Protected by requireAdmin middleware in routes.js.
 ───────────────────────────────────────────────────────────── */
 const triggerProductWebhook = async (req, res) => {
   try {
@@ -400,7 +854,8 @@ const triggerProductWebhook = async (req, res) => {
 
 /* ─────────────────────────────────────────────────────────────
    POST /api/admin/shiprocket/webhook/collection/:categoryId
-   Manually trigger Collection Update webhook (or use for testing)
+   Manually trigger Collection Update webhook to Shiprocket.
+   Protected by requireAdmin middleware in routes.js.
 ───────────────────────────────────────────────────────────── */
 const triggerCollectionWebhook = async (req, res) => {
   try {
@@ -424,6 +879,8 @@ module.exports = {
   fetchProductsByCollection,
   fetchCollections,
   getCheckoutToken,
+  completeCheckoutFromShiprocket,
+  finalizeCheckoutContext,
   triggerProductWebhook,
   triggerCollectionWebhook,
 };

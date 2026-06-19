@@ -5,9 +5,8 @@ import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
 import { SITE_URL } from "./lib/helpers/siteUrl";
-import Script from "next/script";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'nestcase';
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'Nestcase';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,12 +19,12 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories. Shop health-friendly dinnerware at nestcase for a stylish and healthy lifestyle.',
+    'Discover Nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories. Shop health-friendly dinnerware at Nestcase for a stylish and healthy lifestyle.',
   metadataBase: new URL(SITE_URL),
   icons: {
-    icon: '/images/favicon1.jpeg',
+    icon:     '/images/favicon1.jpeg',
     shortcut: '/favicon.ico',
-    apple: '/images/favicon1.jpeg',
+    apple:    '/images/favicon1.jpeg',
   },
   openGraph: {
     siteName: SITE_NAME,
@@ -41,9 +40,7 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) 
-
-{
+}>) {
   return (
     <html lang="en" className="no-js" suppressHydrationWarning>
       <head>
@@ -53,15 +50,18 @@ export default function RootLayout({
         <link rel="stylesheet" type="text/css" href="/js/specific/revolution-slider/css/settings.css" media="screen" />
         <link href="https://fonts.googleapis.com/css?family=Open+Sans:100,400,600,700,300" rel="stylesheet" type="text/css" />
         <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/images/favicon1.jpeg" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon1.jpeg" />
-        <Script
-  src="https://checkout.shiprocket.in/js/sdk.js"
-  strategy="beforeInteractive"
-/>
+        <link rel="shortcut icon" href="/images/favicon1.jpeg" type="image/jpeg" />
+        <link rel="apple-touch-icon" href="/images/favicon1.jpeg" type="image/jpeg" />
+
+        
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
+        {/*
+          #sellerDomain REMOVED from here.
+          It is now rendered only inside app/cart/page.tsx so Shiprocket's
+          script does not auto-init on every page of the site.
+        */}
+
         <div className="all_content" suppressHydrationWarning>
           <CartProvider>
             <AuthProvider>
@@ -74,7 +74,6 @@ export default function RootLayout({
           </CartProvider>
         </div>
 
-        {/* Load scripts in the same order as original */}
         <script src="/js/core/jquery-2.1.1.min.js"></script>
         <script src="/js/core/load.js"></script>
         <script src="/js/core/jquery.easing.1.3.js"></script>
@@ -85,17 +84,11 @@ export default function RootLayout({
         <script src="/js/specific/bigvideo.js"></script>
         <script dangerouslySetInnerHTML={{
           __html: `
-            // Override any revolution slider calls to prevent errors
             if (typeof jQuery !== 'undefined') {
               (function($) {
-                // Store original revolution function if it exists
                 var originalRevolution = $.fn.revolution;
-                
-                // Override to safely handle missing slider
                 $.fn.revolution = function(options) {
-                  if (this.length === 0) {
-                    return this;
-                  }
+                  if (this.length === 0) return this;
                   if (typeof originalRevolution === 'function') {
                     try {
                       return originalRevolution.call(this, options);

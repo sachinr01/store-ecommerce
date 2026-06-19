@@ -3,7 +3,11 @@ const crypto = require("crypto");
 const db     = require("../config/db");
 
 /* ─────────────────────────────────────────────────────────────
-   Catalog Sync Webhooks (Shiprocket Checkout Guide, Section 2)*/
+   Catalog Sync Webhooks (Shiprocket Checkout Guide, Section 2)
+   
+   These push product/collection changes to Shiprocket in real-time
+   so their checkout iframe always shows correct prices and stock.
+───────────────────────────────────────────────────────────── */
 
 const PRODUCT_WEBHOOK_URL =
   process.env.SHIPROCKET_PRODUCT_WEBHOOK_URL ||
@@ -24,17 +28,6 @@ const buildImageUrl = (path) => {
   return path.startsWith("http") ? path : `${BASE_URL}/${path.replace(/^\/+/, "")}`;
 };
 
-/**
- * Meta sub-query: fetches latest non-empty value for a given meta_key.
- *
- * DB-confirmed meta keys:
- *   _price          → selling price
- *   _regular_price  → MRP / original price (compare-at)
- *   _sku            → SKU
- *   _stock          → stock quantity
- *   weight          → weight in kg (NO underscore — confirmed in tbl_productmeta)
- *                     e.g. product 61: meta_key='weight', meta_value='7'
- */
 const metaSubQuery = (key, alias) => `
   (
     SELECT meta_value
@@ -50,16 +43,27 @@ const metaSubQuery = (key, alias) => `
 
 /* ─────────────────────────────────────────────────────────────
    HMAC helpers
+   
+   FIX: Was reading SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET
+   which don't exist in .env.
+   
+   The actual env vars set during Shiprocket onboarding are:
+     CHECKOUT_API_KEY    (X-Api-Key header)
+     CHECKOUT_API_SECRET (HMAC signing secret)
+   
+   These are the same credentials used by shiprocketCheckoutController.js
+   for the access-token endpoint — one key pair for all Shiprocket calls.
 ───────────────────────────────────────────────────────────── */
 const computeHmac = (bodyStr) =>
   crypto
-    .createHmac("sha256", process.env.SHIPROCKET_API_SECRET || "")
+    .createHmac("sha256", process.env.CHECKOUT_API_SECRET || "")
     .update(bodyStr)
     .digest("base64");
 
 const shiprocketHeaders = (bodyStr) => ({
   "Content-Type":      "application/json",
-  "X-Api-Key":         process.env.SHIPROCKET_API_KEY || "",
+  // FIX: was process.env.SHIPROCKET_API_KEY (undefined) → now CHECKOUT_API_KEY
+  "X-Api-Key":         process.env.CHECKOUT_API_KEY || "",
   "X-Api-HMAC-SHA256": computeHmac(bodyStr),
 });
 
@@ -88,15 +92,10 @@ const buildProductPayload = async (productId) => {
          LIMIT 1
        ) AS image,
 
-       /* selling price */
        ${metaSubQuery("_price",         "price")},
-       /* MRP / original price → compare_at_price */
        ${metaSubQuery("_regular_price", "regular_price")},
-       /* SKU */
        ${metaSubQuery("_sku",           "sku")},
-       /* stock */
        ${metaSubQuery("_stock",         "stock")},
-       /* weight in kg (key = 'weight', no underscore — confirmed in DB) */
        ${metaSubQuery("weight",         "weight")}
 
      FROM tbl_products p
@@ -120,13 +119,10 @@ const buildProductPayload = async (productId) => {
     ? new Date(p.product_date_added).toISOString()
     : updatedAt;
 
-  // ── Prices ──────────────────────────────────────────────────────
-  const sellingPrice = toFloat(p.price,         0); // _price
-  const regularPrice = toFloat(p.regular_price, 0); // _regular_price (MRP)
+  const sellingPrice = toFloat(p.price,         0);
+  const regularPrice = toFloat(p.regular_price, 0);
   const compareAt    = regularPrice > 0 && regularPrice > sellingPrice ? regularPrice : 0;
-
-  // ── Weight ──────────────────────────────────────────────────────
-  const weight = toFloat(p.weight, 0); // meta_key='weight', value in kg e.g. 7
+  const weight       = toFloat(p.weight, 0);
 
   return {
     id:           p.ID,
@@ -142,18 +138,16 @@ const buildProductPayload = async (productId) => {
       {
         id:               p.ID,
         title:            "Default",
-        price:            sellingPrice.toFixed(2),      // ✅ string "999.00"
-        compare_at_price: compareAt > 0
-                            ? compareAt.toFixed(2)      // ✅ string "1499.00" (MRP)
-                            : "",                       // ✅ "" when no discount
+        price:            sellingPrice.toFixed(2),
+        compare_at_price: compareAt > 0 ? compareAt.toFixed(2) : "",
         sku:              toStr(p.sku),
         quantity:         toInt(p.stock, 0),
         updated_at:       updatedAt,
         taxable:          true,
         option_values:    {},
-        grams:            Math.round(weight * 1000),    // e.g. 7 kg → 7000 grams
+        grams:            Math.round(weight * 1000),
         image:            { src: imageSrc },
-        weight:           weight,                       // real value from DB e.g. 7
+        weight:           weight,
         weight_unit:      "kg",
       },
     ],
@@ -164,7 +158,7 @@ const buildProductPayload = async (productId) => {
 
 /**
  * Send the Product Update webhook to Shiprocket.
- * Call this after any product create or update.
+ * Call this after any product create or update in your admin.
  * Returns { success, status, data } or { success: false, error }.
  */
 const sendProductUpdateWebhook = async (productId) => {
@@ -223,7 +217,7 @@ const buildCollectionPayload = async (categoryId) => {
 
 /**
  * Send the Collection Update webhook to Shiprocket.
- * Call this after any category create or update.
+ * Call this after any category create or update in your admin.
  * Returns { success, status, data } or { success: false, error }.
  */
 const sendCollectionUpdateWebhook = async (categoryId) => {

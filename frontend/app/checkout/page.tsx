@@ -164,6 +164,43 @@ export default function CheckoutPage() {
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const regGoogleRef = useRef<HTMLDivElement | null>(null);
 
+  // ─── Shiprocket Checkout success state ─────────────────────────────────────
+  // Populated when Shiprocket redirects back to /checkout?order_id=XXX
+  //
+  // IMPORTANT: this is read SYNCHRONOUSLY via a lazy useState initializer
+  // (not in a useEffect) so it is available on the very first render.
+  // Previously this was set inside a useEffect, which runs AFTER the first
+  // paint — for that one frame the component would render the normal
+  // checkout form (or the "cart is empty" message, since the cart hadn't
+  // been cleared yet either), which is exactly the "shows the site's own
+  // checkout instead of the success screen" bug. Reading it eagerly here
+  // closes that gap.
+  const [srRedirectOrderId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      // The integration guide doesn't pin down the exact query-param name
+      // Shiprocket appends on a successful redirect, so check the common
+      // variants defensively rather than only "order_id".
+      const v =
+        sp.get('order_id') ??
+        sp.get('orderId') ??
+        sp.get('sr_order_id') ??
+        sp.get('order') ??
+        null;
+      return v && v.trim() ? v.trim() : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Verified DB order id, populated only once our backend has actually
+  // confirmed + persisted the order (see verification effect below).
+  const [srVerifiedOrderId, setSrVerifiedOrderId] = useState<string | null>(null);
+  const [srVerifyStatus, setSrVerifyStatus] = useState<'idle' | 'verifying' | 'confirmed' | 'failed'>(
+    srRedirectOrderId ? 'verifying' : 'idle',
+  );
+
   // ─── UI state ───────────────────────────────────────────────────────────────
   const [showLogin, setShowLogin] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
@@ -402,8 +439,84 @@ export default function CheckoutPage() {
     }
   };
 
+  // ── Shiprocket Checkout redirect verification ───────────────────────────────
+  // After a checkout attempt Shiprocket redirects the top-level page back to
+  // /checkout?order_id=<SR_ORDER_ID> — for BOTH a genuine success and certain
+  // edge cases, so the mere presence of the param is not proof of payment.
+  //
+  // Previously this just trusted the URL param, cleared the cart, and showed
+  // "Order Confirmed" immediately. That meant:
+  //   • if the async order webhook from Shiprocket never arrived (HMAC
+  //     misconfig, webhook not registered, server downtime, etc.) the order
+  //     was NEVER written to the database, even though the customer saw a
+  //     success page and their cart was wiped — a silent data-loss bug.
+  //   • if the redirect fired for a non-success reason, the customer would
+  //     see a false "Order Confirmed" screen.
+  //
+  // Now we call the SAME verify-and-create endpoint the /cart page polls
+  // (/api/shiprocket/complete-checkout), which:
+  //   1. checks whether the order webhook already created the order,
+  //   2. if not, asks Shiprocket directly for the order status and creates
+  //      the order itself if (and only if) Shiprocket confirms payment.
+  // Only once that succeeds do we clear the cart and show the success card.
+  // This guarantees the order is actually in the DB before we ever tell the
+  // customer it succeeded, and it means we never fall through to the normal
+  // checkout form / "cart is empty" view while a redirect is being resolved.
+  const clearCartRef = useRef(clearCart);
+  clearCartRef.current = clearCart;
+
+  useEffect(() => {
+    if (!srRedirectOrderId) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 40; // ~40 x 3s = 2 min
+
+    const verify = async (): Promise<boolean> => {
+      try {
+        const res = await fetch('/api/shiprocket/complete-checkout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: srRedirectOrderId }),
+        });
+
+        if (res.status === 202) return false; // Shiprocket hasn't confirmed yet
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.success) return false;
+
+        if (cancelled) return true;
+        setSrVerifiedOrderId(String(data?.order_id ?? srRedirectOrderId));
+        setSrVerifyStatus('confirmed');
+        try { await clearCartRef.current(); } catch { /* non-fatal */ }
+        return true;
+      } catch {
+        return false; // network error — keep polling
+      }
+    };
+
+    const tick = async () => {
+      attempts += 1;
+      const done = await verify();
+      if (cancelled) return;
+      if (done) return;
+      if (attempts >= MAX_ATTEMPTS) {
+        setSrVerifyStatus('failed');
+        return;
+      }
+      setTimeout(() => void tick(), 3000);
+    };
+
+    void tick();
+    return () => { cancelled = true; };
+  }, [srRedirectOrderId]);
+
+  // ── Existing URL param handling (login, reset, forgot) ──────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (srRedirectOrderId) return; // handled above
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('login') === '1') {
       setShowLogin(true);
@@ -420,7 +533,7 @@ export default function CheckoutPage() {
       setShowLogin(true);
       setShowForgotRecovery(true);
     }
-  }, []);
+  }, [srRedirectOrderId]);
 
   const handleGoogleLogin = useCallback(async (credential: string) => {
     if (!credential) {
@@ -931,6 +1044,115 @@ export default function CheckoutPage() {
   }, [showRegister, googleScriptReady, handleGoogleLogin]);
 
   const showCardDetails = false;
+
+  // ── Shiprocket Checkout redirect screen ──────────────────────────────────────
+  // Shiprocket redirects to /checkout?order_id=<SR_ORDER_ID> after a checkout
+  // attempt. We gate on `srRedirectOrderId` (known synchronously from the URL
+  // on first render — see lazy useState above) rather than waiting on the
+  // verification result, so the native checkout form / "cart is empty"
+  // message can NEVER flash while we're confirming the order with our
+  // backend. Three sub-states: verifying → confirmed → failed.
+  if (srRedirectOrderId) {
+    if (srVerifyStatus === 'failed') {
+      return (
+        <>
+          <Header />
+          <div className="dima-main">
+            <div className="success-bg">
+              <div className="success-card visible">
+                <div className="success-top-bar" />
+                <div className="success-body">
+                  <span className="success-label">We need a moment</span>
+                  <h3 className="success-title">Still confirming your order</h3>
+                  <p className="success-copy">
+                    Your payment may have gone through, but we couldn&apos;t confirm it
+                    automatically just yet. Please check your order history, or
+                    contact support with reference <strong>#{srRedirectOrderId}</strong> if
+                    it doesn&apos;t appear shortly.
+                  </p>
+                  <hr className="success-divider" />
+                  <div className="success-actions">
+                    <Link href="/orders" className="success-btn-primary">
+                      Check My Orders
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <Footer />
+        </>
+      );
+    }
+
+    const confirmed = srVerifyStatus === 'confirmed';
+    return (
+      <>
+        <Header />
+        <div className="dima-main">
+          <div className="success-bg">
+            <div className="success-card visible">
+              <div className="success-top-bar" />
+              <div className="success-body">
+                <div className="success-icon-outer">
+                  <div className="ripple" />
+                  <div className="ripple" />
+                  <div className="ripple" />
+                  <svg className="success-circle-svg" viewBox="0 0 90 90">
+                    <circle className="circle-track"    cx="45" cy="45" r="36" />
+                    <circle className="circle-progress" cx="45" cy="45" r="36" />
+                  </svg>
+                  <div className="success-icon-inner">
+                    {confirmed ? (
+                      <svg viewBox="0 0 28 28" fill="none">
+                        <path
+                          className="check-path"
+                          d="M6 14 L11.5 19.5 L22 8"
+                          stroke="#fff"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : null}
+                  </div>
+                </div>
+                <span className="success-label">
+                  {confirmed ? 'Order Confirmed' : 'Confirming Your Order'}
+                </span>
+                <h3 className="success-title">
+                  {confirmed ? 'Thank you for your order.' : 'Just a moment…'}
+                </h3>
+                <p className="success-copy">
+                  {confirmed
+                    ? "Your order has been placed successfully. We'll send you a confirmation email with your receipt and tracking details shortly."
+                    : "We're verifying your payment with Shiprocket. This usually takes just a few seconds — please don't close this page."}
+                </p>
+                <div className="success-order-chip">
+                  <div className="success-order-chip-dot" />
+                  Order Reference &nbsp;<strong>#{confirmed ? (srVerifiedOrderId ?? srRedirectOrderId) : srRedirectOrderId}</strong>
+                </div>
+                {confirmed && (
+                  <>
+                    <hr className="success-divider" />
+                    <div className="success-actions">
+                      <Link href="/orders" className="success-btn-primary">
+                        Track My Order
+                      </Link>
+                    </div>
+                    <p className="success-note">
+                      Questions? Reach out to our support team — we&apos;re happy to help.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
 
   if (items.length === 0 && !placing) {
     return (

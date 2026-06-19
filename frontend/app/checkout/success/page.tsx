@@ -8,7 +8,15 @@ import Footer from '../../components/Footer';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('order');
+
+  // Our polling redirect sends ?order=DB_ORDER_ID
+  // Shiprocket's own redirect sends ?order_id=SR_ORDER_ID
+  // Show whichever is present — prefer our DB order ID
+  const orderId =
+    searchParams.get('order') ??
+    searchParams.get('order_id') ??
+    null;
+
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -25,14 +33,14 @@ function OrderSuccessContent() {
             <div className="success-top-bar" />
             <div className="success-body">
 
-              {/* PhonePe-style animated check */}
+              {/* Animated check circle */}
               <div className="success-icon-outer">
                 <div className="ripple" />
                 <div className="ripple" />
                 <div className="ripple" />
 
                 <svg className="success-circle-svg" viewBox="0 0 90 90">
-                  <circle className="circle-track" cx="45" cy="45" r="36" />
+                  <circle className="circle-track"    cx="45" cy="45" r="36" />
                   <circle className="circle-progress" cx="45" cy="45" r="36" />
                 </svg>
 
@@ -53,7 +61,8 @@ function OrderSuccessContent() {
               <span className="success-label">Order Confirmed</span>
               <h3 className="success-title">Thank you for your order.</h3>
               <p className="success-copy">
-                Your order has been placed successfully. We&apos;ll send you a confirmation email with your receipt and tracking details shortly.
+                Your order has been placed successfully. We&apos;ll send you a confirmation
+                email with your receipt and tracking details shortly.
               </p>
 
               {orderId && (
