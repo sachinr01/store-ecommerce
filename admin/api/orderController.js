@@ -2355,4 +2355,5 @@ module.exports = {
   updateProfileAddress,
   getShippingRate,
   getTrackingStatus,
+  createShiprocketOrder
 };

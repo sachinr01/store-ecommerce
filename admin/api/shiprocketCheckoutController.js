@@ -10,7 +10,7 @@ const {
   sendCollectionUpdateWebhook,
 } = require("./shiprocketWebhooks");
 const { fetchSROrderDetails } = require("./shiprocketorderwebhook");
-
+const { createShiprocketOrder } = require('./orderController');
 /* ─────────────────────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────────────────────── */
@@ -252,28 +252,31 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
   for (const item of cartItems) {
     const variantId = toInt(item?.variant_id, 0);
     const quantity = Math.max(1, toInt(item?.quantity, 1));
+    
+    // GRAB THE EXACT PRICE SHIPROCKET CHARGED
+    const srPrice = Number(item?.price || 0); 
+    
     if (!variantId) continue;
 
-    const [[priceRow]] = await db.query(
-      `SELECT
-         p.ID,
-         p.product_title,
-         CAST(pm.meta_value AS DECIMAL(10,2)) AS price,
+    // Remove the _price join, we only need the Title and SKU now
+    const [[dbRow]] = await db.query(
+      `SELECT 
+         p.ID, 
+         p.product_title, 
          sku_meta.meta_value AS sku
        FROM tbl_products p
-       LEFT JOIN tbl_productmeta pm       ON pm.product_id = p.ID AND pm.meta_key = '_price'
        LEFT JOIN tbl_productmeta sku_meta ON sku_meta.product_id = p.ID AND sku_meta.meta_key = '_sku'
-       WHERE p.ID = ?
+       WHERE p.ID = ? 
        LIMIT 1`,
       [variantId],
     );
 
-    if (priceRow) {
+    if (dbRow) {
       resolved.push({
-        product_id: priceRow.ID,
-        title: priceRow.product_title || "Product",
-        price: Number(priceRow.price || 0),
-        sku: priceRow.sku || "",
+        product_id: dbRow.ID,
+        title: dbRow.product_title || "Product",
+        price: srPrice > 0 ? srPrice : 0, // USE SHIPROCKET'S PRICE
+        sku: dbRow.sku || "",
         quantity,
       });
     }
@@ -281,7 +284,7 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
   return resolved;
 };
 
-const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email, phone }) => {
+const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email, phone, srDetails }) => {
   const cartData = checkoutContext?.cart_data || {};
   const cartItems = Array.isArray(cartData.items) ? cartData.items : [];
   const resolvedItems = await resolveShiprocketCheckoutItems(cartItems);
@@ -336,6 +339,24 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       [userId, orderName, orderTitle],
     );
     const orderId = orderResult.insertId;
+
+  const shipping = srDetails?.shipping_address || {};
+    const billing = srDetails?.billing_address || shipping;
+    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+    await conn.query(
+      `INSERT INTO tbl_user_address
+       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'yes', '', '', ?, ?, 'no')`,
+      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.line1 || billing.address || '', billing.line2 || billing.address_2 || '', billing.city || '', billing.pincode || billing.postcode || '', billing.state || '', createdAt, createdAt]
+    );
+
+    await conn.query(
+      `INSERT INTO tbl_user_address
+       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'no', '', '', ?, ?, 'no')`,
+      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.line1 || shipping.address || '', shipping.line2 || shipping.address_2 || '', shipping.city || '', shipping.pincode || shipping.postcode || '', shipping.state || '', createdAt, createdAt]
+    );
 
     for (const item of resolvedItems) {
       const [itemResult] = await conn.query(
@@ -407,6 +428,48 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     await conn.commit();
+    try {
+      const srPayload = {
+        order_id: "ORD_" + orderId + "_" + Date.now(),
+        order_date: new Date().toISOString().slice(0, 10),
+        pickup_location: "warehouse", // Ensure this matches your SR pickup location
+        billing_customer_name: billing.first_name || "Customer",
+        billing_last_name: billing.last_name || "",
+        billing_address: billing.line1 || billing.address || "No Address",
+        billing_address_2: billing.line2 || billing.address_2 || "",
+        billing_city: billing.city || "Unknown",
+        billing_pincode: billing.pincode || billing.postcode || "000000",
+        billing_state: billing.state || "Unknown",
+        billing_country: "India",
+        billing_email: email || "noemail@example.com",
+        billing_phone: billing.phone || phone || "0000000000",
+        shipping_is_billing: true,
+        order_items: resolvedItems.map((item) => ({
+          name: item.title,
+          sku: String(item.product_id),
+          units: item.quantity,
+          selling_price: item.price,
+          discount: 0,
+        })),
+        payment_method: paymentMethod.toUpperCase() === "COD" ? "COD" : "Prepaid",
+        sub_total: subtotal - discount,
+        shipping_charges: shippingCost,
+        total_discount: discount,
+        length: 10, breadth: 10, height: 10, weight: 0.5,
+      };
+
+      const shiprocketResponse = await createShiprocketOrder(srPayload);
+      
+      if (shiprocketResponse && shiprocketResponse.shipment_id) {
+         console.log(`[SR Polling] ✅ Order pushed to SR Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
+         // Save the shipment ID back to your local order (outside the main transaction)
+         await db.query(`UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`, 
+            [shiprocketResponse.shipment_id, orderId]);
+      }
+    } catch (e) {
+      console.error("[SR Polling] Failed to push to SR Panel:", e.message);
+    }
+    
     return { success: true, orderId };
   } catch (err) {
     await conn.rollback();
@@ -634,11 +697,18 @@ const getCheckoutToken = async (req, res) => {
       });
     }
 
+    // 1. You already have this payload defined:
     const payload = {
       cart_data:    req.body?.cart_data    || { items: [] },
       redirect_url: req.body?.redirect_url || "",
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
     };
+
+    // 2. >>> PASTE THE NEW CODE RIGHT HERE <<<
+    if (req.body?.coupon_discount && parseFloat(req.body.coupon_discount) > 0) {
+      payload.cart_data.discount_amount = parseFloat(req.body.coupon_discount);
+    }
+    // >>> END OF NEW CODE <<<
 
     const sessionUser = req.sessionData?.user || null;
 
@@ -655,13 +725,13 @@ const getCheckoutToken = async (req, res) => {
       payload,
       {
         headers: {
-          // NOTE: No "Bearer" prefix — just the raw key value
           "X-Api-Key":         apiKey,
           "X-Api-HMAC-SHA256": hmac,
           "Content-Type":      "application/json",
         },
       },
     );
+
 
     const responseData = response.data || {};
     const srOrderId =
@@ -794,12 +864,14 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       userId = 0;
     }
 
-    const result = await insertShiprocketOrder({
+   const result = await insertShiprocketOrder({
       checkoutContext,
       srOrderId: sr_order_id,
       userId,
       email,
       phone,
+      // >>> ADD THIS LINE: Pass the fetched details containing the addresses
+      srDetails: srDetails?.result || srDetails?.data || srDetails || {} 
     });
 
     if (!result.success) {

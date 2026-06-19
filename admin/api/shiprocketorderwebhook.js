@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const db     = require("../config/db");
 const axios  = require("axios");
+const { createShiprocketOrder } = require('./orderController');
 const {
   validateAndLockCoupon,
   recordCouponUsage,
@@ -51,9 +52,9 @@ const fetchSROrderDetails = async (orderId) => {
       .update(bodyStr)
       .digest("base64");
 
-    const response = await axios.post(
-      "https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details",
-      payload,
+   const response = await axios.post(
+  "https://checkout-api.shiprocket.com/api/v1/custom-platform-order/details",
+  payload,
       {
         headers: {
           "X-Api-Key":         process.env.CHECKOUT_API_KEY || "",
@@ -191,31 +192,35 @@ const receiveOrderWebhook = async (req, res) => {
   // ── 5. Resolve product details for each cart item ───────────────────────────
   //   SR sends variant_id (which is our product/variation ID) + quantity.
   //   We re-fetch live prices from DB — never trust prices from external webhooks.
+// ── 5. Resolve product details for each cart item ───────────────────────────
   const resolvedItems = [];
   for (const item of cartItems) {
     const variantId = toInt(item.variant_id, 0);
     const quantity  = toInt(item.quantity, 1);
+    
+    // 1. GRAB THE EXACT PRICE FROM SHIPROCKET'S WEBHOOK PAYLOAD
+    const srPrice = Number(item.price || 0);
+
     if (!variantId) continue;
 
-    const [[priceRow]] = await db.query(
-      `SELECT
-         p.ID, p.product_title,
-         CAST(pm.meta_value AS DECIMAL(10,2)) AS price,
+    // 2. ONLY FETCH TITLE AND SKU FROM DB (Remove the _price join)
+    const [[dbRow]] = await db.query(
+      `SELECT 
+         p.ID, p.product_title, 
          sku_meta.meta_value AS sku
        FROM tbl_products p
-       LEFT JOIN tbl_productmeta pm       ON pm.product_id  = p.ID AND pm.meta_key = '_price'
        LEFT JOIN tbl_productmeta sku_meta ON sku_meta.product_id = p.ID AND sku_meta.meta_key = '_sku'
-       WHERE p.ID = ?
+       WHERE p.ID = ? 
        LIMIT 1`,
       [variantId],
     );
 
-    if (priceRow) {
+    if (dbRow) {
       resolvedItems.push({
-        product_id: priceRow.ID,
-        title:      priceRow.product_title || "Product",
-        price:      Number(priceRow.price  || 0),
-        sku:        priceRow.sku            || "",
+        product_id: dbRow.ID,
+        title:      dbRow.product_title || "Product",
+        price:      srPrice > 0 ? srPrice : 0, // 3. USE SHIPROCKET'S PRICE
+        sku:        dbRow.sku || "",
         quantity,
       });
     }
@@ -287,6 +292,26 @@ const receiveOrderWebhook = async (req, res) => {
       [userId, orderName, orderTitle],
     );
     const orderId = orderResult.insertId;
+
+    // >>> 1. ADD THIS: SAVE SHIPPING & BILLING ADDRESSES <<<
+    const shipping = body.shipping_address || {};
+    const billing = body.billing_address || shipping;
+    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+    await conn.query(
+      `INSERT INTO tbl_user_address
+       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'yes', '', '', ?, ?, 'no')`,
+      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.line1 || billing.address || '', billing.line2 || billing.address_2 || '', billing.city || '', billing.pincode || billing.postcode || '', billing.state || '', createdAt, createdAt]
+    );
+
+    await conn.query(
+      `INSERT INTO tbl_user_address
+       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'no', '', '', ?, ?, 'no')`,
+      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.line1 || shipping.address || '', shipping.line2 || shipping.address_2 || '', shipping.city || '', shipping.pincode || shipping.postcode || '', shipping.state || '', createdAt, createdAt]
+    );
+    // >>> END OF ADDRESS INSERTION <<<
 
     // Insert order items
     for (const item of resolvedItems) {
@@ -362,6 +387,51 @@ const receiveOrderWebhook = async (req, res) => {
     }
 
     await conn.commit();
+    console.log(`[SR OrderWebhook] ✅ Order ${orderId} created locally.`);
+
+    // >>> 2. ADD THIS: PUSH TO SHIPROCKET FULFILLMENT PANEL <<<
+    try {
+      const srPayload = {
+        order_id: "ORD_" + orderId + "_" + Date.now(),
+        order_date: new Date().toISOString().slice(0, 10),
+        pickup_location: "warehouse", // Make sure this matches your Shiprocket pickup location name
+        billing_customer_name: billing.first_name || "Customer",
+        billing_last_name: billing.last_name || "",
+        billing_address: billing.line1 || billing.address || "No Address",
+        billing_address_2: billing.line2 || billing.address_2 || "",
+        billing_city: billing.city || "Unknown",
+        billing_pincode: billing.pincode || billing.postcode || "000000",
+        billing_state: billing.state || "Unknown",
+        billing_country: "India",
+        billing_email: email || "noemail@example.com",
+        billing_phone: billing.phone || phone || "0000000000",
+        shipping_is_billing: true,
+        order_items: resolvedItems.map((item) => ({
+          name: item.title,
+          sku: String(item.product_id),
+          units: item.quantity,
+          selling_price: item.price,
+          discount: 0,
+        })),
+        payment_method: paymentType === "CASH_ON_DELIVERY" ? "COD" : "Prepaid",
+        sub_total: subtotal - discount,
+        shipping_charges: shippingCost,
+        total_discount: discount,
+        length: 10, breadth: 10, height: 10, weight: 0.5,
+      };
+
+      const shiprocketResponse = await createShiprocketOrder(srPayload);
+      
+      if (shiprocketResponse && shiprocketResponse.shipment_id) {
+         console.log(`[SR OrderWebhook] ✅ Order pushed to Shiprocket Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
+         // Save the shipment ID back to your local order
+         await db.query(`UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`, 
+            [shiprocketResponse.shipment_id, orderId]);
+      }
+    } catch (e) {
+      console.error("[SR OrderWebhook] Failed to push to SR Panel:", e.message);
+    }
+    // >>> END OF SHIPROCKET PUSH <<<
 
     console.log(`[SR OrderWebhook] ✅ Order ${orderId} created for SR order ${srOrderId}`);
 

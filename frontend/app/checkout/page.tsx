@@ -182,13 +182,22 @@ export default function CheckoutPage() {
       // The integration guide doesn't pin down the exact query-param name
       // Shiprocket appends on a successful redirect, so check the common
       // variants defensively rather than only "order_id".
-      const v =
+     const v =
+        sp.get('oid') ?? 
         sp.get('order_id') ??
         sp.get('orderId') ??
         sp.get('sr_order_id') ??
         sp.get('order') ??
         null;
-      return v && v.trim() ? v.trim() : null;
+        
+      const status = sp.get('ois') ?? sp.get('status');
+      
+      if (v && v.trim()) {
+         // If there's an explicit failure status, don't trigger success flow
+         if (status && status.toUpperCase() === 'FAILED') return null;
+         return v.trim();
+      }
+      return null;
     } catch {
       return null;
     }

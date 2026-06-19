@@ -12,9 +12,10 @@ function OrderSuccessContent() {
   // Our polling redirect sends ?order=DB_ORDER_ID
   // Shiprocket's own redirect sends ?order_id=SR_ORDER_ID
   // Show whichever is present — prefer our DB order ID
-  const orderId =
+ const orderId =
     searchParams.get('order') ??
     searchParams.get('order_id') ??
+    searchParams.get('oid') ??
     null;
 
   const [show, setShow] = useState(false);

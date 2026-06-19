@@ -163,7 +163,6 @@ export default function CartPage() {
       stopPolling();
       clearSRStorage();
       try { await clearCart(); } catch { /* non-fatal */ }
-      router.push(`/checkout/success?order=${encodeURIComponent(String(data?.order_id ?? srOrderId))}`);
       return true;
     } catch {
       return false; // network error — keep polling
@@ -278,6 +277,7 @@ export default function CartPage() {
           variant_id: String(item.variationId ?? item.productId),
           quantity:   item.quantity,
         })),
+        discount_amount: discount > 0 ? discount : 0,
       };
 
       // redirect_url = /checkout (not /success) so the checkout page's
