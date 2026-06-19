@@ -12,6 +12,7 @@ import { getDiscountPercent, isSaleDateActive } from '../../lib/helpers/pricing'
 import { useWishlist } from '../../lib/wishlistContext';
 import { usePlaceholderImage } from '../../lib/siteSettingsContext';
 import ProductImageHover from '../../components/ProductImageHover';
+import AddToCartButton from '../../components/AddToCartButton';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>
@@ -158,20 +159,25 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
 
       </div>
       <div className="csp-info">
-        <Link href={href} className="csp-name">{product.title}</Link>
-        <div className="csp-price-row">
-          {!showRange && salePrice !== null && regularPrice !== null &&
-            <span className="csp-old-price">{formatPrice(regularPrice)}</span>}
-          <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
-          {discount !== null && <span className="csp-save-badge">{discount}% off</span>}
+          <div className="csp-info-top">
+            <Link href={href} className="csp-name">{product.title}</Link>
+            <div className="csp-price-row">
+              {!showRange && salePrice !== null && regularPrice !== null &&
+                <span className="csp-old-price">{formatPrice(regularPrice)}</span>}
+              <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
+              {discount !== null && <span className="csp-save-badge">{discount}% off</span>}
+            </div>
+            {listMode && product.short_description && (
+              <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
+            )}
+          </div>
+          <AddToCartButton
+            productId={product.ID}
+            title={product.title}
+            image={getImageUrl(product.thumbnail_url, PLACEHOLDER)}
+            inStock={!isOutOfStock}
+          />
         </div>
-        {isOutOfStock && (
-          <span className="csp-stock-label out">Out of Stock</span>
-        )}
-        {listMode && product.short_description && (
-          <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
-        )}
-      </div>
     </div>
   );
 }

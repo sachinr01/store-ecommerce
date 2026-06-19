@@ -1161,6 +1161,16 @@ input[type="checkbox"] {
   align-items: center;
   justify-content: center;
   line-height: 1;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nh-cart-badge.pulse {
+  animation: cartBadgePulse 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes cartBadgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
 }
 
 .nh-cart-dropdown {
@@ -3099,6 +3109,7 @@ input[type="checkbox"] {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 24px;
+  align-items: stretch;
 }
 
 .na-scroll-section {
@@ -3116,12 +3127,14 @@ input[type="checkbox"] {
   -webkit-overflow-scrolling: touch;
   padding: 0 0 14px;
   scrollbar-width: none;
+  align-items: stretch;
 }
 
 .na-grid-scroll .na-card {
   flex: 0 0 calc((100% - 96px) / 5);
   min-width: 220px;
   scroll-snap-align: start;
+  align-self: stretch;
 }
 
 .na-grid-scroll::-webkit-scrollbar {
@@ -3309,6 +3322,7 @@ input[type="checkbox"] {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  justify-content: space-between;
 }
 
 .na-name {
@@ -5849,6 +5863,7 @@ input[type="checkbox"] {
   flex-direction: column;
   gap: 5px;
   flex: 1;
+  justify-content: space-between;
 }
 
 .csp-name {
@@ -5927,6 +5942,218 @@ input[type="checkbox"] {
 
 .csp-stock-label.out {
   color: #22311d;
+}
+
+/* Add to Cart button on product cards - Enhanced with smooth animations */
+.csp-atc-btn {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 16px !important;
+  border: 1.5px solid #22311d !important;
+  border-radius: 8px !important;
+  font-family: var(--font-body);
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #fff !important;
+  background: #22311d !important;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.csp-atc-btn:hover:not(:disabled):not(.loading) {
+  background: transparent !important;
+  color: #22311d !important;
+  border-color: #22311d !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 49, 29, 0.15);
+}
+
+.csp-atc-btn:active:not(:disabled):not(.loading) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.csp-atc-btn:hover:not(:disabled) .csp-atc-icon {
+  transform: scale(1.1);
+}
+
+/* Content wrapper for smooth transitions */
+.csp-atc-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Icon animations */
+.csp-atc-icon {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.csp-atc-icon.cart-icon {
+  animation: cartIdle 2s ease-in-out infinite;
+}
+
+@keyframes cartIdle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+.csp-atc-icon.check-icon {
+  animation: checkPop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes checkPop {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.csp-atc-icon.error-icon {
+  animation: errorShake 0.4s ease-in-out;
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+/* Text animations */
+.csp-atc-text {
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+/* Loading state */
+.csp-atc-btn.loading {
+  cursor: wait;
+}
+
+.csp-atc-btn.loading .csp-atc-content {
+  opacity: 0.8;
+}
+
+/* Added state with smooth color transition */
+.csp-atc-btn.added {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #fff !important;
+  transform: scale(1.02);
+  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.3);
+  animation: successPulse 0.6s ease;
+}
+
+@keyframes successPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.csp-atc-btn.added .csp-atc-icon {
+  stroke: #fff;
+}
+
+/* Error state */
+.csp-atc-btn.error {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #fff !important;
+  animation: errorPulse 0.4s ease;
+}
+
+@keyframes errorPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.98); }
+}
+
+/* Disabled state */
+.csp-atc-btn.disabled,
+.csp-atc-btn:disabled {
+  background: #d1d5db !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Spinner with smooth animation */
+.csp-atc-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: csp-spin 0.7s linear infinite;
+}
+
+@keyframes csp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Ripple effect for click feedback */
+.csp-atc-ripple {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  transform: translate(-50%, -50%) scale(0);
+  animation: rippleEffect 0.6s ease-out;
+  pointer-events: none;
+}
+
+@keyframes rippleEffect {
+  to {
+    transform: translate(-50%, -50%) scale(4);
+    opacity: 0;
+  }
+}
+
+/* Smooth transitions for all states */
+.csp-atc-btn * {
+  transition: all 0.3s ease;
+}
+
+/* Focus state for accessibility */
+.csp-atc-btn:focus-visible {
+  outline: 2px solid #22311d;
+  outline-offset: 2px;
+}
+
+.csp-atc-btn.added:focus-visible {
+  outline-color: #16a34a;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .csp-atc-btn,
+  .csp-atc-icon,
+  .csp-atc-text,
+  .csp-atc-ripple {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .csp-atc-btn:hover:not(:disabled) {
+    transform: none;
+  }
 }
 
 .csp-state-wrap {

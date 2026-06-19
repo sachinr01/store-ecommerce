@@ -1,8 +1,6 @@
-// Server component — no 'use client' directive.
-// Only WishlistButton is a client island.
-
 import Link from 'next/link';
 import WishlistButton from '../components/WishlistButton';
+import AddToCartButton from '../components/AddToCartButton';
 import ProductImageHover from '../components/ProductImageHover';
 import ProductCardHoverWrapper from '../components/ProductCardHoverWrapper';
 import { formatPrice, formatPriceRange } from '../lib/price';
@@ -96,26 +94,33 @@ export default function ShopProductCard({
       </div>
 
       <div className="csp-info">
-        <Link href={productHref} className="csp-name">
-          {product.title}
-        </Link>
-        <div className="csp-price-row">
-          {!showRange && salePrice !== null && regularPrice !== null && (
-            <span className="csp-old-price" aria-label="Regular price">
-              {formatPrice(regularPrice)}
-            </span>
-          )}
-          <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
-          {discountPercent !== null && (
-            <span className="csp-save-badge">{discountPercent}% off</span>
+        <div className="csp-info-top">
+          <Link href={productHref} className="csp-name">
+            {product.title}
+          </Link>
+          <div className="csp-price-row">
+            {!showRange && salePrice !== null && regularPrice !== null && (
+              <span className="csp-old-price" aria-label="Regular price">
+                {formatPrice(regularPrice)}
+              </span>
+            )}
+            <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
+            {discountPercent !== null && (
+              <span className="csp-save-badge">{discountPercent}% off</span>
+            )}
+          </div>
+          {listMode && product.short_description && (
+            <p className="csp-list-desc">
+              {product.short_description.replace(/<[^>]+>/g, '')}
+            </p>
           )}
         </div>
-        {isOutOfStock && <span className="csp-stock-label out">Out of Stock</span>}
-        {listMode && product.short_description && (
-          <p className="csp-list-desc">
-            {product.short_description.replace(/<[^>]+>/g, '')}
-          </p>
-        )}
+        <AddToCartButton
+          productId={product.ID}
+          title={product.title}
+          image={featuredSrc}
+          inStock={!isOutOfStock}
+        />
       </div>
       </>)}
     </ProductCardHoverWrapper>

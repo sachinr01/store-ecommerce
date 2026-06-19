@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import WishlistButton from './WishlistButton';
+import AddToCartButton from './AddToCartButton';
 import ProductImageHover from './ProductImageHover';
 import ProductCardHoverWrapper from './ProductCardHoverWrapper';
 import { formatPrice, formatPriceRange } from '../lib/price';
@@ -16,9 +17,10 @@ interface NewArrivalCardProps {
   p: Product;
   idx: number;
   placeholder: string;
+  showAddToCart?: boolean;
 }
 
-export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardProps) {
+export default function NewArrivalCard({ p, idx, placeholder, showAddToCart = true }: NewArrivalCardProps) {
   const isOutOfStock =
     (p.stock_status !== 'instock' && p.stock_status !== 'onbackorder') ||
     (p.stock_qty !== null && p.stock_qty !== undefined && Number(p.stock_qty) <= 0);
@@ -72,21 +74,30 @@ export default function NewArrivalCard({ p, idx, placeholder }: NewArrivalCardPr
 
       </div>
       <div className="na-info">
-        <Link href={href} className="na-name">
-          {p.title}
-        </Link>
-        <div className="na-price-row">
-          {!showRange && salePrice !== null && regularPrice !== null && (
-            <span className="na-old-price">{formatPrice(regularPrice)}</span>
-          )}
-          <span className={`na-price${isOnSale ? ' sale' : ''}`}>
-            {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
-          </span>
-          {discountPercent !== null && (
-            <span className="na-save-badge">{discountPercent}% off</span>
-          )}
+        <div className="na-info-top">
+          <Link href={href} className="na-name">
+            {p.title}
+          </Link>
+          <div className="na-price-row">
+            {!showRange && salePrice !== null && regularPrice !== null && (
+              <span className="na-old-price">{formatPrice(regularPrice)}</span>
+            )}
+            <span className={`na-price${isOnSale ? ' sale' : ''}`}>
+              {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
+            </span>
+            {discountPercent !== null && (
+              <span className="na-save-badge">{discountPercent}% off</span>
+            )}
+          </div>
         </div>
-        {isOutOfStock && <span className="na-stock-label out">Out of Stock</span>}
+        {showAddToCart && (
+          <AddToCartButton
+            productId={p.ID}
+            title={p.title}
+            image={featuredSrc}
+            inStock={!isOutOfStock}
+          />
+        )}
       </div>
       </>)}
     </ProductCardHoverWrapper>

@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
     : '';
 
   const title = count > 0
-    ? `Shop All ${count} Products | ${SITE_NAME}`
+    ? `Shop All ${count} Products`
     : `Shop | ${SITE_NAME}`;
 
   const description = count > 0
@@ -70,8 +70,8 @@ export default async function ShopPage() {
 
   const heading = count > 0 ? `Our Collection (${count})` : 'Our Collection';
   const subheading = count > 0
-    ? `${inStock} item${inStock !== 1 ? 's' : ''} in stock - Coastal-inspired gear for every adventure`
-    : 'Coastal-inspired gear for every adventure';
+    ? `${inStock} item${inStock !== 1 ? 's' : ''} in stock - Discover our exclusive collection of premium products, carefully curated to bring you the perfect blend of quality, style, and value.`
+    : 'Explore the latest trends and timeless favorites designed to meet your every need.';
 
   const jsonLd = {
     '@context': 'https://schema.org',

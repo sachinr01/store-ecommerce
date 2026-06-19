@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./css/styles.css";
 import { CartProvider } from "./lib/cartContext";
 import { WishlistProvider } from "./lib/wishlistContext";
@@ -50,10 +51,13 @@ export default function RootLayout({
         <link rel="stylesheet" type="text/css" href="/js/specific/revolution-slider/css/settings.css" media="screen" />
         <link href="https://fonts.googleapis.com/css?family=Open+Sans:100,400,600,700,300" rel="stylesheet" type="text/css" />
         <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
-        <link rel="shortcut icon" href="/images/favicon1.jpeg" type="image/jpeg" />
-        <link rel="apple-touch-icon" href="/images/favicon1.jpeg" type="image/jpeg" />
-
-        
+        <link rel="shortcut icon" href="/images/favicon1.jpeg" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/images/favicon1.jpeg" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon1.jpeg" />
+        <Script
+  src="https://checkout.shiprocket.in/js/sdk.js"
+  strategy="beforeInteractive"
+/>
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
         {/*

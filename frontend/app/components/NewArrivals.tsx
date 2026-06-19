@@ -28,12 +28,14 @@ function ProductGrid({
   loading,
   placeholder,
   scrollable = false,
+  showAddToCart = true,
 }: {
   title: string;
   products: Product[];
   loading: boolean;
   placeholder: string;
   scrollable?: boolean;
+  showAddToCart?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -65,7 +67,7 @@ function ProductGrid({
         {loading
           ? Array.from({ length: scrollable ? 8 : 5 }).map((_, i) => <SkeletonCard key={i} />)
           : products.map((p, i) => (
-              <NewArrivalCard key={p.ID} p={p} idx={i} placeholder={placeholder} />
+              <NewArrivalCard key={p.ID} p={p} idx={i} placeholder={placeholder} showAddToCart={showAddToCart} />
             ))}
       </div>
       {scrollable && (
@@ -104,6 +106,7 @@ export default function NewArrivals() {
         loading={loading}
         placeholder={PLACEHOLDER}
         scrollable
+        showAddToCart={false}
       />
       <div className="na-view-all-wrap btn-view-product-wrap">
         <Link href="/shop" className="na-view-all-btn btn-view-product btn-view-product--inline">
@@ -133,6 +136,7 @@ export function BestSellers() {
         products={products}
         loading={loading}
         placeholder={PLACEHOLDER}
+        showAddToCart={false}
       />
       <div className="na-view-all-wrap btn-view-product-wrap">
         <Link href="/shop" className="na-view-all-btn btn-view-product btn-view-product--inline">

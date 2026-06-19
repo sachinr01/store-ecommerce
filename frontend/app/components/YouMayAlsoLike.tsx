@@ -163,7 +163,6 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
                         )}
                       </div>
 
-                      {isOutOfStock && <span className="ymal-stock-label out">Out of Stock</span>}
                     </div>
                   </div>
                 );

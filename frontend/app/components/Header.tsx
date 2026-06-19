@@ -61,6 +61,8 @@ export default function Header() {
   const [suggestions, setSuggestions] = useState<Array<{ id: number; title: string; price: string; image: string; slug: string }>>([]);
   const [categorySuggestions, setCategorySuggestions] = useState<Array<{ id: number; name: string; slug: string; count: number }>>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  const [cartBadgePulse, setCartBadgePulse] = useState(false);
+  const prevCountRef = useRef(count);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestAbort = useRef<AbortController | null>(null);
   const megaLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +70,15 @@ export default function Header() {
   const cartRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  // Pulse animation when cart count changes
+  useEffect(() => {
+    if (count > prevCountRef.current && prevCountRef.current !== 0) {
+      setCartBadgePulse(true);
+      setTimeout(() => setCartBadgePulse(false), 500);
+    }
+    prevCountRef.current = count;
+  }, [count]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -324,7 +335,7 @@ export default function Header() {
               <div className="nh-cart-wrap" ref={cartRef}>
                 <button type="button" className="nh-cart-link" onClick={() => setCartOpen(prev => !prev)} aria-label="Open cart preview" aria-expanded={cartOpen}>
                   <i className="fa-solid fa-bag-shopping"></i>
-                  {count > 0 && <span className="nh-cart-badge">{count}</span>}
+                  {count > 0 && <span className={`nh-cart-badge${cartBadgePulse ? ' pulse' : ''}`}>{count}</span>}
                 </button>
                 <div className={`nh-cart-dropdown${cartOpen ? ' open' : ''}`}>
                   {items.length === 0 ? (
