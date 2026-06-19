@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Nestcase";
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "nestcase";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
 export const metadata: Metadata = {
   title: `Careers`,
   description:
-    "Explore career opportunities at Nestcase and connect with our team.",
+    "Explore career opportunities at nestcase and connect with our team.",
   alternates: { canonical: `${SITE_URL}/careers` },
 };
 

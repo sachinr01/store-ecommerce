@@ -78,7 +78,7 @@ export default function LatestPosts({ posts }: { posts: Blog[] }) {
           <div className="blog-section-top">
             <div className="blog-section-header">
               <span className="blog-section-label">Blogs</span>
-              <h3 className="blog-section-title">From The Nestcase Blogs</h3>
+              <h3 className="blog-section-title">From The nestcase Blogs</h3>
             </div>
           </div>
           <div className="blog-carousel-shell">

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Nestcase";
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "nestcase";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
 export const metadata: Metadata = {
   title: `About Us`,
   description:
-    "Discover the design philosophy behind Nestcase and the details that shape everyday living.",
+    "Discover the design philosophy behind nestcase and the details that shape everyday living.",
   alternates: { canonical: `${SITE_URL}/about-us` },
 };
 
@@ -51,7 +51,7 @@ export default function AboutUsPage() {
         <section className="aboutus-banner">
           <img
             src="/images/about/about-banner.jpeg"
-            alt="About Nestcase"
+            alt="About nestcase"
             className="aboutus-banner-img"
           />
         </section>

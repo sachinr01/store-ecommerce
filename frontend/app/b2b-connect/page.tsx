@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 import { getProductCategories, type ProductCategory } from "../lib/api";
 import EnquiryForm from "../components/EnquiryForm";
 
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Nestcase";
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "nestcase";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
 export const metadata: Metadata = {
