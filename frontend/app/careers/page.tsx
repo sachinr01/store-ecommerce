@@ -10,6 +10,29 @@ export const metadata: Metadata = {
   description:
     "Explore career opportunities at nestcase and connect with our team.",
   alternates: { canonical: `${SITE_URL}/careers` },
+  openGraph: {
+    title: `Careers | ${SITE_NAME}`,
+    description:
+      "Explore career opportunities at nestcase and connect with our team.",
+    url: `${SITE_URL}/careers`,
+    siteName: SITE_NAME,
+    type: 'website',
+    images: [
+      {
+        url: `${SITE_URL}/images/og-home.png`,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} — Careers`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `Careers | ${SITE_NAME}`,
+    description:
+      "Explore career opportunities at nestcase and connect with our team.",
+    images: [`${SITE_URL}/images/og-home.png`],
+  },
 };
 
 export default function CareersPage() {
