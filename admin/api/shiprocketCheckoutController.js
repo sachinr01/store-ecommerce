@@ -284,6 +284,9 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
   return resolved;
 };
 
+
+let srDetails = null; 
+
 const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email, phone, srDetails }) => {
   const cartData = checkoutContext?.cart_data || {};
   const cartItems = Array.isArray(cartData.items) ? cartData.items : [];
@@ -348,14 +351,14 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       `INSERT INTO tbl_user_address
        (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
        VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'yes', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.line1 || billing.address || '', billing.line2 || billing.address_2 || '', billing.city || '', billing.pincode || billing.postcode || '', billing.state || '', createdAt, createdAt]
+      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.address1  || billing.address1 || '', billing.address2 || billing.address_2 || '', billing.city || '', billing.zip || billing.zip || '', billing.state || '', createdAt, createdAt]
     );
 
     await conn.query(
       `INSERT INTO tbl_user_address
        (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
        VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'no', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.line1 || shipping.address || '', shipping.line2 || shipping.address_2 || '', shipping.city || '', shipping.pincode || shipping.postcode || '', shipping.state || '', createdAt, createdAt]
+      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.address1 || shipping.address1 || '', shipping.address2 || shipping.address_2 || '', shipping.city || '', shipping.zip || shipping.zip || '', shipping.state || '', createdAt, createdAt]
     );
 
     for (const item of resolvedItems) {
@@ -435,10 +438,10 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
         pickup_location: "warehouse", // Ensure this matches your SR pickup location
         billing_customer_name: billing.first_name || "Customer",
         billing_last_name: billing.last_name || "",
-        billing_address: billing.line1 || billing.address || "No Address",
-        billing_address_2: billing.line2 || billing.address_2 || "",
+        billing_address: billing.address1 || billing.address1 || "No Address",
+        billing_address_2: billing.address2 || billing.address_2 || "",
         billing_city: billing.city || "Unknown",
-        billing_pincode: billing.pincode || billing.postcode || "000000",
+        billing_pincode: billing.zip || billing.zip || "000000",
         billing_state: billing.state || "Unknown",
         billing_country: "India",
         billing_email: email || "noemail@example.com",
@@ -864,14 +867,19 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       userId = 0;
     }
 
+    const orderDetails =
+    srDetails?.result ||
+    srDetails?.data ||
+    srDetails ||
+    {};
+
    const result = await insertShiprocketOrder({
       checkoutContext,
       srOrderId: sr_order_id,
       userId,
       email,
       phone,
-      // >>> ADD THIS LINE: Pass the fetched details containing the addresses
-      srDetails: srDetails?.result || srDetails?.data || srDetails || {} 
+      srDetails: orderDetails
     });
 
     if (!result.success) {
