@@ -111,6 +111,7 @@ const findCheckoutContext = async (srOrderId, checkoutRef = "") => {
    POST /api/shiprocket/order-webhook
 ───────────────────────────────────────────────────────────── */
 const receiveOrderWebhook = async (req, res) => {
+    console.log("Webhook body:", req.body);
   // ── 1. HMAC verification ───────────────────────────────────────────────────
   // req.rawBody is set by the express bodyParser rawBody option (see server setup note below).
   // If you don't have rawBody captured, use the parsed JSON body stringified — it works in

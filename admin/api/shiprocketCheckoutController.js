@@ -461,7 +461,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       const shiprocketResponse = await createShiprocketOrder(srPayload);
       
       if (shiprocketResponse && shiprocketResponse.shipment_id) {
-         console.log(`[SR Polling] ✅ Order pushed to SR Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
+        //  console.log(`[SR Polling] ✅ Order pushed to SR Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
          // Save the shipment ID back to your local order (outside the main transaction)
          await db.query(`UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`, 
             [shiprocketResponse.shipment_id, orderId]);
@@ -810,9 +810,9 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         ""
       ).toUpperCase();
 
-      if (srDetails) {
-        console.log(`[SR Complete-Checkout] order ${sr_order_id} details:`, JSON.stringify(srDetails).slice(0, 500));
-      }
+      // if (srDetails) {
+      //   console.log(`[SR Complete-Checkout] order ${sr_order_id} details:`, JSON.stringify(srDetails).slice(0, 500));
+      // }
 
       confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
     } catch (e) {
