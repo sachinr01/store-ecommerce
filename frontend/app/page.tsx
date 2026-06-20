@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: `${SITE_URL}/images/og-home.jpg`,
+        url: `${SITE_URL}/images/og-home.png`,
         width: 1200,
         height: 630,
         alt: `${SITE_NAME} — Shop Now`,
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     title: 'nestcase.in - Shop Drinkware, Glassware, Kitchen Organizers etc',
     description:
       'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories.',
-    images: [`${SITE_URL}/images/nestcase-logo-optimized.png`],
+    images: [`${SITE_URL}/images/og-home.png`],
   },
   robots: { index: true, follow: true },
 };
@@ -67,7 +67,7 @@ const jsonLd = {
       name: SITE_NAME,
       logo: {
         '@type': 'ImageObject',
-        url: `${SITE_URL}/images/logo/Nestcase_Logo.png`,
+        url: `${SITE_URL}/images/Nestcase.png`,
       },
     },
     {
