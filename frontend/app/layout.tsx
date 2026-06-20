@@ -23,9 +23,16 @@ export const metadata: Metadata = {
     'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories. Shop health-friendly dinnerware at nestcase for a stylish and healthy lifestyle.',
   metadataBase: new URL(SITE_URL),
   icons: {
-    icon:     '/images/favicon1.jpeg',
-    shortcut: '/images/favicon1.jpeg',
-    apple:    '/images/favicon1.jpeg',
+    icon: [
+      { url: '/images/favicon/icon-16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/images/favicon/icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/images/favicon/icon-48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/images/favicon/icon-96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/images/favicon/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/images/favicon/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/images/favicon/icon-180.png',
   },
   openGraph: {
     siteName: SITE_NAME,
@@ -51,9 +58,6 @@ export default function RootLayout({
         <link rel="stylesheet" type="text/css" href="/js/specific/revolution-slider/css/settings.css" media="screen" />
         <link href="https://fonts.googleapis.com/css?family=Open+Sans:100,400,600,700,300" rel="stylesheet" type="text/css" />
         <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet" />
-        <link rel="shortcut icon" href="/images/favicon1.jpeg" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/images/favicon1.jpeg" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon1.jpeg" />
         <Script
   src="https://checkout.shiprocket.in/js/sdk.js"
   strategy="beforeInteractive"
