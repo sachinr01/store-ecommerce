@@ -22,9 +22,8 @@ const CATEGORY_NAME_TO_SLUG: Record<string, string> = {
   'glassware': 'glassware',
   'jars and containers': 'jars-and-containers',
   'jars & containers': 'jars-and-containers',
-  'kitchen organisers': 'jars-and-containers',
   'kitchen organizers': 'kitchen-organisers',
-  'cup & mugs': 'cup-and-mugs'
+  'cups & mugs': 'cups-and-mugs'
 };
 const getCategoryHref = (slug: string) => {
   const normalized = slug.toLowerCase().trim();

@@ -14,18 +14,18 @@ const SITE_URL  = process.env.NEXT_PUBLIC_SITE_URL  ?? 'http://localhost:3001';
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'nestcase';
 
 export const metadata: Metadata = {
-  title: 'nestcase.in - Shop Drinkware, Glassware, Kitchen Organizers etc',
+  title: 'nestcase | Premium Drinkware, Glassware & Kitchenware',
   description:
-    'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories.',
+    'Shop premium drinkware, glassware, cups & mugs, bowls & platters, dinner sets, and kitchen organisers for modern homes.',
   keywords: [
     'dinnerware', 'crockery', 'tumblers', 'luxury dining', 'glassware',
     'cutlery', 'custom gifts', 'serving bowls', 'ceramic dinner sets',
   ],
   alternates: { canonical: SITE_URL },
   openGraph: {
-    title: 'nestcase.in - Shop Drinkware, Glassware, Kitchen Organizers etc',
+    title: 'nestcase | Premium Drinkware, Glassware & Kitchenware',
     description:
-      'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories.',
+      'Shop premium drinkware, glassware, cups & mugs, bowls & platters, dinner sets, and kitchen organisers for modern homes.',
     url: SITE_URL,
     siteName: SITE_NAME,
     type: 'website',
@@ -40,9 +40,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'nestcase.in - Shop Drinkware, Glassware, Kitchen Organizers etc',
+    title: 'nestcase | Premium Drinkware, Glassware & Kitchenware',
     description:
-      'Discover nestcase premium bone-ash-free crockery, lead-free glassware, 304 food-grade stainless steel cutlery, bottles and bar accessories.',
+      'Shop premium drinkware, glassware, cups & mugs, bowls & platters, dinner sets, and kitchen organisers for modern homes.',
     images: [`${SITE_URL}/images/og-home.png`],
   },
   robots: { index: true, follow: true },
