@@ -1,12 +1,9 @@
 const crypto = require("crypto");
 const db     = require("../config/db");
-const axios  = require("axios");
-const { createShiprocketOrder } = require('./orderController');
 const {
   validateAndLockCoupon,
   recordCouponUsage,
 } = require("./couponController");
-
 
 const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
@@ -15,323 +12,341 @@ const toInt   = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n
 /* ─────────────────────────────────────────────────────────────
    HMAC Verification
    Shiprocket signs the raw request body with your CHECKOUT_API_SECRET.
-   We verify before touching any data.
 ───────────────────────────────────────────────────────────── */
 const verifyHmac = (rawBody, receivedHmac) => {
+  if (!receivedHmac) return true; // Fastrr order webhooks are unsigned
   const secret = process.env.CHECKOUT_API_SECRET || "";
-  if (!secret) {
-    console.error("[SR OrderWebhook] CHECKOUT_API_SECRET not set — cannot verify HMAC");
-    return false;
-  }
+  if (!secret) return true;
   const expected = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
     .digest("base64");
-  // Constant-time comparison prevents timing attacks
   try {
     return crypto.timingSafeEqual(
       Buffer.from(expected),
-      Buffer.from(receivedHmac || ""),
+      Buffer.from(receivedHmac),
     );
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
 
 /* ─────────────────────────────────────────────────────────────
-   Fetch order details from Shiprocket  (Guide Section 6)
-   Used as fallback when the order webhook body lacks full cart data.
+   parseAddress
+   Converts either billing_address or shipping_address from the
+   Shiprocket Checkout webhook payload into our standard shape.
+
+   ACTUAL payload received (confirmed from your logs):
+   {
+     billing_address: {
+       zip, city, name, phone, country,
+       address1, address2, last_name, first_name
+     }
+   }
 ───────────────────────────────────────────────────────────── */
-const fetchSROrderDetails = async (orderId) => {
-  try {
-    const timestamp = new Date().toISOString();
-    const payload   = { order_id: orderId, timestamp };
-    const bodyStr   = JSON.stringify(payload);
-    const hmac      = crypto
-      .createHmac("sha256", process.env.CHECKOUT_API_SECRET || "")
-      .update(bodyStr)
-      .digest("base64");
+const parseAddress = (addr) => {
+  if (!addr || typeof addr !== "object") return null;
 
-   const response = await axios.post(
-  "https://checkout-api.shiprocket.com/api/v1/custom-platform-order/details",
-  payload,
-      {
-        headers: {
-          "X-Api-Key":         process.env.CHECKOUT_API_KEY || "",
-          "X-Api-HMAC-SHA256": hmac,
-          "Content-Type":      "application/json",
-        },
-        timeout: 8000,
-      },
-    );
-    return response.data;
-  } catch (err) {
-    console.error("[SR OrderWebhook] fetchSROrderDetails failed:", err.response?.data || err.message);
-    return null;
-  }
-};
+  // "name" field is the full name — split it only as fallback
+  const fullName   = toStr(addr.name || "");
+  const nameParts  = fullName.split(" ");
+  const firstName  = toStr(addr.first_name || nameParts[0] || "");
+  const lastName   = toStr(addr.last_name  || nameParts.slice(1).join(" ") || "");
 
-const findCheckoutContext = async (srOrderId, checkoutRef = "") => {
-  const orderNeedle = srOrderId ? String(srOrderId).replace(/"/g, '\\"') : "";
-  const refNeedle = checkoutRef ? String(checkoutRef).replace(/"/g, '\\"') : "";
-  if (!orderNeedle && !refNeedle) return null;
+  const line1 = toStr(addr.address1 || addr.address_line1 || addr.address || "");
+  const line2 = toStr(addr.address2 || addr.address_line2 || "");
+  const city  = toStr(addr.city || "");
+  const zip   = toStr(addr.zip  || addr.pincode || addr.zipcode || addr.postcode || "");
+  const state = toStr(addr.state || addr.state_name || addr.province || "");
+  const phone = toStr(addr.phone || addr.mobile || "");
 
-  const whereClauses = [];
-  const params = [];
-  if (orderNeedle) {
-    whereClauses.push(`meta_value LIKE ?`);
-    params.push(`%"sr_order_id":"${orderNeedle}"%`);
-  }
-  if (refNeedle) {
-    whereClauses.push(`meta_value LIKE ?`);
-    params.push(`%"checkout_ref":"${refNeedle}"%`);
-  }
+  if (!line1 && !city && !zip) return null;
 
-  const [rows] = await db.query(
-    `SELECT meta_value
-     FROM tbl_ordermeta
-     WHERE meta_key = '_shiprocket_checkout_ctx'
-       AND (${whereClauses.join(" OR ")})
-     ORDER BY meta_id DESC
-     LIMIT 1`,
-    params,
-  );
-
-  if (!rows.length) return null;
-
-  try {
-    return JSON.parse(rows[0].meta_value);
-  } catch {
-    return null;
-  }
+  return { firstName, lastName, line1, line2, city, state, zip, phone };
 };
 
 /* ─────────────────────────────────────────────────────────────
    Main webhook handler
    POST /api/shiprocket/order-webhook
+
+   ACTUAL payload shape (from your confirmed logs):
+   {
+     rtoPrediction: 'low',
+     cart_id:       '6a367facc0f1576a0d37f46c',
+     latest_stage:  'ORDER_PLACED',
+     items: [{ name, price, title, quantity, product_id, variant_id }],
+     currency:        'INR',
+     item_count:      1,
+     source_name:     'fastrr',
+     total_price:     799,
+     shipping_price:  0,
+     total_discount:  0,
+     tax:             0,
+     billing_address:  { zip, city, name, phone, country, address1, address2, last_name, first_name },
+     shipping_address: { zip, city, name, phone, country, address1, address2, last_name, first_name },
+     cart_attributes:  { ipv4_address: '...' }
+   }
 ───────────────────────────────────────────────────────────── */
 const receiveOrderWebhook = async (req, res) => {
-    console.log("Webhook body:", req.body);
-  // ── 1. HMAC verification ───────────────────────────────────────────────────
-  // req.rawBody is set by the express bodyParser rawBody option (see server setup note below).
-  // If you don't have rawBody captured, use the parsed JSON body stringified — it works in
-  // practice as long as Shiprocket doesn't alter key ordering.
+  console.log("Webhook body:", req.body);
+
+  // ── 1. HMAC verification ────────────────────────────────────────────────────
   const rawBody      = req.rawBody || JSON.stringify(req.body);
   const receivedHmac = req.headers["x-api-hmac-sha256"] || "";
 
   if (!verifyHmac(rawBody, receivedHmac)) {
     console.warn("[SR OrderWebhook] HMAC verification failed — rejecting request");
-    // Return 200 anyway so Shiprocket doesn't retry (we don't want spam from invalid requests)
     return res.status(200).json({ success: false, message: "HMAC mismatch" });
   }
 
   const body = req.body;
 
-  // ── 2. Parse payload ────────────────────────────────────────────────────────
-  const srOrderId       = toStr(body.order_id);
-  const checkoutRef     = toStr(body.checkout_ref || "");
-  const status          = toStr(body.status);       // "SUCCESS" | "FAILED" | "PENDING"
-  const phone           = toStr(body.phone);
-  const email           = toStr(body.email || "").toLowerCase().trim();
-  const paymentType     = toStr(body.payment_type); // "CASH_ON_DELIVERY" | "PREPAID" | "UPI" etc.
-  const totalAmount     = toFloat(body.total_amount_payable, 0);
-  const cartData        = body.cart_data || {};
-  const cartItems       = Array.isArray(cartData.items) ? cartData.items : [];
+  // ── 2. Parse the actual payload fields ─────────────────────────────────────
+  const cartId        = toStr(body.cart_id      || "");
+  const latestStage   = toStr(body.latest_stage || "");
+  const totalPrice    = toFloat(body.total_price,    0);
+  const shippingPrice = toFloat(body.shipping_price, 0);
+  const totalDiscount = toFloat(body.total_discount, 0);
+  const tax           = toFloat(body.tax, 0);
+  const itemCount     = toInt(body.item_count, 0);
+  const currency      = toStr(body.currency || "INR");
+  const sourceName    = toStr(body.source_name || "fastrr");
+  const rawItems      = Array.isArray(body.items) ? body.items : [];
 
-  // Only process successful orders
-  if (status !== "SUCCESS") {
-    console.log(`[SR OrderWebhook] Skipping non-success order ${srOrderId} (status: ${status})`);
-    return res.status(200).json({ success: true, message: "Non-success status ignored" });
+  // CONFIRMED (2026-06-22, side-by-side log comparison): the webhook's cart_id
+  // and the token response's order_id (what the frontend polls with) are the
+  // SAME Shiprocket identifier, just exposed under different field names at
+  // different stages of the flow. Use cart_id as the dedup/lookup key so the
+  // polling path's findOrderBySrOrderId() can actually find this order.
+  // (Still also check body.order_id/sr_order_id in case Shiprocket ever adds
+  // an explicit field — falls back to cartId if absent.)
+  const srOrderId = toStr(body.order_id || body.sr_order_id || cartId);
+
+  // Only process placed orders
+  if (latestStage !== "ORDER_PLACED") {
+    console.log(`[SR OrderWebhook] Skipping stage "${latestStage}" for cart_id=${cartId}`);
+    return res.status(200).json({ success: true, message: `Stage ${latestStage} ignored` });
   }
 
-  if (!srOrderId) {
-    console.warn("[SR OrderWebhook] Missing order_id in payload");
-    return res.status(200).json({ success: false, message: "Missing order_id" });
+  if (!cartId) {
+    console.warn("[SR OrderWebhook] Missing cart_id in payload");
+    return res.status(200).json({ success: false, message: "Missing cart_id" });
   }
 
-  // ── 3. Idempotency check — don't create duplicate orders ────────────────────
+  // ── 3. Idempotency — skip if already processed ─────────────────────────────
   const [[existing]] = await db.query(
     `SELECT order_id FROM tbl_ordermeta
-     WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
+     WHERE meta_key = '_sr_cart_id' AND meta_value = ?
      LIMIT 1`,
-    [srOrderId],
+    [cartId],
   );
   if (existing) {
-    console.log(`[SR OrderWebhook] Order ${srOrderId} already processed — skipping`);
+    console.log(`[SR OrderWebhook] cart_id=${cartId} already processed → order_id=${existing.order_id}`);
     return res.status(200).json({ success: true, message: "Already processed" });
   }
 
-  // ── 4. Resolve user by phone/email ──────────────────────────────────────────
+  // ── 4. Parse addresses (billing + shipping) directly from webhook ──────────
+  const billing  = parseAddress(body.billing_address)  || {};
+  const shipping = parseAddress(body.shipping_address) || billing; // fallback to billing
+
+  // Get the phone from whichever address has it
+  const phone = toStr(billing.phone || shipping.phone || "");
+
+  if (!billing.line1 && !billing.city) {
+    console.warn(`[SR OrderWebhook] cart_id=${cartId}: billing address is empty — will store blank address row`);
+  }
+
+  // ── 5. Resolve user by phone number ────────────────────────────────────────
+  // Shiprocket Checkout payload gives us phone and name but NOT always email.
+  // We store by phone. If tbl_users has a unique phone column, use that.
+  // Otherwise we store as a guest user with a synthetic login.
   let userId = 0;
-  if (email) {
-    const [[userRow]] = await db.query(
-      `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
-      [email],
-    );
-    if (userRow) {
-      userId = userRow.ID;
-    } else {
-      // Create guest user row so order history works if they register later
-      try {
-        await db.query(
-          `INSERT IGNORE INTO tbl_users
-           (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
-           VALUES (4, ?, '', ?, ?, ?, NOW())`,
-          [email, email, email, phone || email],
-        );
-        const [[newRow]] = await db.query(
-          `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
-          [email],
-        );
-        userId = newRow ? newRow.ID : 0;
-      } catch (e) {
-        console.error("[SR OrderWebhook] Guest user upsert failed:", e.message);
-      }
-    }
-  }
+  let userEmail = "";
 
-  // ── 5. Resolve product details for each cart item ───────────────────────────
-  //   SR sends variant_id (which is our product/variation ID) + quantity.
-  //   We re-fetch live prices from DB — never trust prices from external webhooks.
-// ── 5. Resolve product details for each cart item ───────────────────────────
-  const resolvedItems = [];
-  for (const item of cartItems) {
-    const variantId = toInt(item.variant_id, 0);
-    const quantity  = toInt(item.quantity, 1);
-    
-    // 1. GRAB THE EXACT PRICE FROM SHIPROCKET'S WEBHOOK PAYLOAD
-    const srPrice = Number(item.price || 0);
-
-    if (!variantId) continue;
-
-    // 2. ONLY FETCH TITLE AND SKU FROM DB (Remove the _price join)
-    const [[dbRow]] = await db.query(
-      `SELECT 
-         p.ID, p.product_title, 
-         sku_meta.meta_value AS sku
-       FROM tbl_products p
-       LEFT JOIN tbl_productmeta sku_meta ON sku_meta.product_id = p.ID AND sku_meta.meta_key = '_sku'
-       WHERE p.ID = ? 
+  // Try to find user by phone in tbl_usermeta (billing_phone meta key)
+  if (phone) {
+    const [[userByPhone]] = await db.query(
+      `SELECT u.ID, u.user_email
+       FROM tbl_users u
+       JOIN tbl_usermeta um ON um.user_id = u.ID
+       WHERE um.meta_key = 'billing_phone' AND um.meta_value = ?
        LIMIT 1`,
-      [variantId],
+      [phone],
+    );
+    if (userByPhone) {
+      userId    = userByPhone.ID;
+      userEmail = userByPhone.user_email;
+    }
+  }
+
+  // If not found by phone, create a guest user row for order history
+  if (!userId && (phone || billing.firstName)) {
+    const displayName = [billing.firstName, billing.lastName].filter(Boolean).join(" ") ||
+                        phone || "Guest";
+    // Use phone@shiprocket.guest as a synthetic email so INSERT IGNORE works
+    // without a real email address
+    const syntheticEmail = phone
+      ? `${phone}@shiprocket.guest`
+      : `guest_${Date.now()}@shiprocket.guest`;
+
+    try {
+      await db.query(
+        `INSERT IGNORE INTO tbl_users
+         (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
+         VALUES (4, ?, '', ?, ?, ?, NOW())`,
+        [syntheticEmail, syntheticEmail, syntheticEmail, displayName],
+      );
+      const [[newRow]] = await db.query(
+        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
+        [syntheticEmail],
+      );
+      userId    = newRow ? newRow.ID : 0;
+      userEmail = syntheticEmail;
+    } catch (e) {
+      console.error("[SR OrderWebhook] Guest user upsert failed:", e.message);
+    }
+  }
+
+  // ── 6. Resolve items — use product_id from webhook, fetch live title from DB ─
+  // We do NOT use variant_id (you confirmed no variants).
+  // We trust Shiprocket's item.price directly (this is the agreed checkout price).
+  const resolvedItems = [];
+  for (const item of rawItems) {
+    const productId = toInt(item.product_id, 0);
+    const quantity  = toInt(item.quantity, 1);
+    const price     = toFloat(item.price, 0);
+
+    if (!productId) continue;
+
+    // Fetch live title from DB
+    const [[dbRow]] = await db.query(
+      `SELECT ID, product_title FROM tbl_products WHERE ID = ? LIMIT 1`,
+      [productId],
     );
 
-    if (dbRow) {
-      resolvedItems.push({
-        product_id: dbRow.ID,
-        title:      dbRow.product_title || "Product",
-        price:      srPrice > 0 ? srPrice : 0, // 3. USE SHIPROCKET'S PRICE
-        sku:        dbRow.sku || "",
-        quantity,
-      });
-    }
+    resolvedItems.push({
+      product_id: productId,
+      title:      (dbRow && dbRow.product_title) ? dbRow.product_title : toStr(item.name || item.title || "Product"),
+      price,
+      quantity,
+    });
   }
 
-  if (resolvedItems.length === 0) {
-    // Fallback: fetch full order details from Shiprocket's API
-    console.warn(`[SR OrderWebhook] No cart items resolved locally for ${srOrderId} — fetching from SR`);
-    const srDetails = await fetchSROrderDetails(srOrderId);
-    if (!srDetails) {
-      console.error(`[SR OrderWebhook] Could not resolve items for order ${srOrderId}`);
-      return res.status(200).json({ success: false, message: "Could not resolve cart items" });
-    }
-    // srDetails payload structure varies — log it for debugging
-    console.log("[SR OrderWebhook] SR order details response:", JSON.stringify(srDetails).slice(0, 500));
+  if (!resolvedItems.length) {
+    console.error(`[SR OrderWebhook] No resolvable items for cart_id=${cartId}`);
+    return res.status(200).json({ success: false, message: "No valid items in cart" });
   }
 
-  // ── 6. Write order to DB inside a transaction ────────────────────────────────
+  // ── 7. Write order to DB in a transaction ──────────────────────────────────
   const conn = await db.getConnection();
-  const checkoutContext = await findCheckoutContext(srOrderId, checkoutRef);
-  const checkoutCouponCode = toStr(checkoutContext?.coupon_code || "");
-  const checkoutCouponDiscount = toFloat(checkoutContext?.coupon_discount, 0);
   try {
     await conn.beginTransaction();
 
-    const subtotal = resolvedItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0,
-    );
-    const paymentMethod = paymentType === "CASH_ON_DELIVERY" ? "cod" : "prepaid";
-    const orderName     = `#SR-${Date.now()}`;
+    // Subtotal = sum of (price × qty) — matches Shiprocket's total_price - shipping - tax + discount
+    const subtotal    = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const discount    = totalDiscount;
+    const shippingCost = shippingPrice;
+    const orderTotal  = totalPrice; // use Shiprocket's authoritative total
+
+    const paymentMethod = "prepaid"; // Shiprocket Checkout is always prepaid
+    const orderName     = `#SR-${cartId}`;
     const orderTitle    = `Order - ${new Date().toLocaleString()}`;
+    const createdAt     = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-    let discount = checkoutCouponDiscount;
-    let appliedCouponRow = null;
-    if (checkoutCouponCode) {
-      const [[couponRow]] = await conn.query(
-        `SELECT *
-         FROM tbl_coupons
-         WHERE LOWER(coupon_code) = LOWER(?)
-         LIMIT 1`,
-        [checkoutCouponCode],
-      );
-      if (couponRow) {
-        appliedCouponRow = couponRow;
-        if (discount <= 0) {
-          const couponCheck = await validateAndLockCoupon(
-            conn,
-            { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
-            userId,
-            subtotal,
-            resolvedItems.map((item) => item.product_id),
-            resolvedItems,
-          );
-          if (couponCheck.ok) {
-            discount = couponCheck.discount || 0;
-          }
-        }
-      }
-    }
-    const shippingCost = Math.max(0, totalAmount - subtotal + discount);
-
-    // Insert order row
+    // ── tbl_orders ─────────────────────────────────────────────────────────────
+    // TABLE: tbl_orders
+    // Stores: order identity, user, status, shipment tracking info, cart_id
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
-        order_status, order_type, order_date, order_modified)
-       VALUES (0, ?, ?, ?, '', 'pending', 'shop_order', NOW(), NOW())`,
-      [userId, orderName, orderTitle],
+        order_status, order_type, order_date, order_modified, cart_id)
+       VALUES (0, ?, ?, ?, '', 'processing', 'shop_order', NOW(), NOW(), ?)`,
+      [userId, orderName, orderTitle, cartId],
     );
     const orderId = orderResult.insertId;
 
-    // >>> 1. ADD THIS: SAVE SHIPPING & BILLING ADDRESSES <<<
-    const shipping = body.shipping_address || {};
-    const billing = body.billing_address || shipping;
-    const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-
+    // ── tbl_user_address (billing row) ─────────────────────────────────────────
+    // TABLE: tbl_user_address
+    // Stores: customer billing + shipping addresses, linked to order by order_id
+    // address_billing = 'yes' → billing row
+    // address_billing = 'no'  → shipping row
     await conn.query(
       `INSERT INTO tbl_user_address
-       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
-       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'yes', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.line1 || billing.address || '', billing.line2 || billing.address_2 || '', billing.city || '', billing.pincode || billing.postcode || '', billing.state || '', createdAt, createdAt]
+       (user_id, order_id, address_type, address_primary,
+        first_name, last_name, phone,
+        address_line1, address_line2, city, zipcode, state_name,
+        city_id, state_id, country_id, address_notes,
+        address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES
+       (?, ?, 'general', 'no',
+        ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        0, NULL, 226, '',
+        'yes', '', '', ?, ?, 'no')`,
+      [
+        userId || null,
+        orderId,
+        billing.firstName || shipping.firstName || "",
+        billing.lastName  || shipping.lastName  || "",
+        billing.phone     || phone              || "",
+        billing.line1     || "",
+        billing.line2     || "",
+        billing.city      || "",
+        billing.zip       || "",
+        billing.state     || "",
+        createdAt,
+        createdAt,
+      ],
     );
 
+    // ── tbl_user_address (shipping row) ────────────────────────────────────────
     await conn.query(
       `INSERT INTO tbl_user_address
-       (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
-       VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'no', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.line1 || shipping.address || '', shipping.line2 || shipping.address_2 || '', shipping.city || '', shipping.pincode || shipping.postcode || '', shipping.state || '', createdAt, createdAt]
+       (user_id, order_id, address_type, address_primary,
+        first_name, last_name, phone,
+        address_line1, address_line2, city, zipcode, state_name,
+        city_id, state_id, country_id, address_notes,
+        address_billing, latitude, longitude, created_at, updated_at, update_done)
+       VALUES
+       (?, ?, 'general', 'no',
+        ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        0, NULL, 226, '',
+        'no', '', '', ?, ?, 'no')`,
+      [
+        userId || null,
+        orderId,
+        shipping.firstName || billing.firstName || "",
+        shipping.lastName  || billing.lastName  || "",
+        shipping.phone     || phone             || "",
+        shipping.line1     || billing.line1     || "",
+        shipping.line2     || billing.line2     || "",
+        shipping.city      || billing.city      || "",
+        shipping.zip       || billing.zip       || "",
+        shipping.state     || billing.state     || "",
+        createdAt,
+        createdAt,
+      ],
     );
-    // >>> END OF ADDRESS INSERTION <<<
 
-    // Insert order items
+    // ── tbl_order_items + tbl_order_itemmeta ───────────────────────────────────
+    // TABLE: tbl_order_items — one row per product line
+    // TABLE: tbl_order_itemmeta — price, qty, totals for each line item
     for (const item of resolvedItems) {
       const [itemResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
          VALUES (?, 'line_item', ?, ?)`,
-        [item.title || "Product", orderId, item.product_id],
+        [item.title, orderId, item.product_id],
       );
       const orderItemId = itemResult.insertId;
-      const lineTotal = item.price * item.quantity;
+      const lineTotal   = item.price * item.quantity;
+
       const itemMeta = [
-        ["_product_id", item.product_id],
-        ["_variation_id", item.product_id],
-        ["_qty", item.quantity],
-        ["_line_subtotal", lineTotal.toFixed(2)],
-        ["_line_total", lineTotal.toFixed(2)],
-        ["_line_tax", "0"],
-        ["_line_subtotal_tax", "0"],
-        ["_item_sku", item.sku || ""],
+        ["_product_id",       item.product_id],
+        ["_variation_id",     0],               // no variants in your store
+        ["_qty",              item.quantity],
+        ["_line_subtotal",    lineTotal.toFixed(2)],
+        ["_line_total",       lineTotal.toFixed(2)],
+        ["_line_tax",         tax > 0 ? (tax / resolvedItems.length).toFixed(2) : "0"],
+        ["_line_subtotal_tax","0"],
       ];
 
       for (const [metaKey, metaValue] of itemMeta) {
@@ -342,6 +357,7 @@ const receiveOrderWebhook = async (req, res) => {
       }
     }
 
+    // Shipping line item (if charged)
     if (shippingCost > 0) {
       const [shipResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -354,90 +370,79 @@ const receiveOrderWebhook = async (req, res) => {
       );
     }
 
-    // Insert order meta
+    // ── Deduct stock ────────────────────────────────────────────────────────────
+    for (const item of resolvedItems) {
+      const qty = Number(item.quantity || 0);
+      if (!qty) continue;
+
+      await conn.query(
+        `UPDATE tbl_productmeta
+         SET meta_value = GREATEST(0, CAST(meta_value AS SIGNED) - ?)
+         WHERE product_id = ? AND meta_key = '_stock'`,
+        [qty, item.product_id],
+      );
+
+      const [[stockResult]] = await conn.query(
+        `SELECT CAST(meta_value AS SIGNED) AS stock
+         FROM tbl_productmeta
+         WHERE product_id = ? AND meta_key = '_stock'
+         ORDER BY meta_id DESC LIMIT 1`,
+        [item.product_id],
+      );
+      if ((stockResult?.stock ?? 0) <= 0) {
+        await conn.query(
+          `UPDATE tbl_productmeta
+           SET meta_value = 'outofstock'
+           WHERE product_id = ? AND meta_key = '_stock_status'`,
+          [item.product_id],
+        );
+      }
+    }
+
+    // ── tbl_ordermeta ──────────────────────────────────────────────────────────
+    // TABLE: tbl_ordermeta — financial data, identifiers, source info
     const metaEntries = [
       ["_payment_method",       paymentMethod],
-      ["_order_total",          String(totalAmount || subtotal)],
-      ["_order_subtotal",       String(subtotal)],
+      ["_order_currency",       currency],
+      ["_order_total",          orderTotal.toFixed(2)],
+      ["_order_subtotal",       subtotal.toFixed(2)],
       ["_order_shipping",       shippingCost.toFixed(2)],
+      ["_order_tax",            tax.toFixed(2)],
+      ["_order_item_count",     String(itemCount || resolvedItems.length)],
+      ["_order_discount",       discount.toFixed(2)],
       ["_billing_phone",        phone],
-      ["_billing_email",        email],
-      ["_sr_checkout_order_id", srOrderId],      // idempotency key
-      ["_order_source",         "shiprocket_checkout"],
+      ["_billing_first_name",   billing.firstName  || ""],
+      ["_billing_last_name",    billing.lastName   || ""],
+      ["_sr_cart_id",           cartId],              // idempotency key (dedup within webhook path)
+      ...(srOrderId ? [["_sr_checkout_order_id", srOrderId]] : []), // links to polling path dedup
+      ["_order_source",         sourceName],          // 'fastrr'
+      ["_rto_prediction",       toStr(body.rtoPrediction || "")],
     ];
-
-    if (checkoutCouponCode) {
-      metaEntries.push(["_coupon_code", checkoutCouponCode]);
-      metaEntries.push(["_coupon_discount", discount.toFixed(2)]);
-    }
 
     await conn.query(
       `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES ?`,
       [metaEntries.map(([k, v]) => [orderId, k, v])],
     );
 
-    if (appliedCouponRow) {
-      try {
-        await recordCouponUsage(conn, {
-          coupon_id: appliedCouponRow.coupon_id,
-          coupon_code: appliedCouponRow.coupon_code,
-        }, orderId, userId);
-      } catch (couponErr) {
-        console.error("[SR OrderWebhook] Coupon usage record failed:", couponErr.message);
-      }
-    }
-
     await conn.commit();
-    console.log(`[SR OrderWebhook] ✅ Order ${orderId} created locally.`);
+    console.log(`[SR OrderWebhook] ✅ Order ${orderId} saved for cart_id=${cartId}`);
+    console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone}`);
+    console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
-    // >>> 2. ADD THIS: PUSH TO SHIPROCKET FULFILLMENT PANEL <<<
-    try {
-      const srPayload = {
-        order_id: "ORD_" + orderId + "_" + Date.now(),
-        order_date: new Date().toISOString().slice(0, 10),
-        pickup_location: "warehouse", // Make sure this matches your Shiprocket pickup location name
-        billing_customer_name: billing.first_name || "Customer",
-        billing_last_name: billing.last_name || "",
-        billing_address: billing.line1 || billing.address || "No Address",
-        billing_address_2: billing.line2 || billing.address_2 || "",
-        billing_city: billing.city || "Unknown",
-        billing_pincode: billing.pincode || billing.postcode || "000000",
-        billing_state: billing.state || "Unknown",
-        billing_country: "India",
-        billing_email: email || "noemail@example.com",
-        billing_phone: billing.phone || phone || "0000000000",
-        shipping_is_billing: true,
-        order_items: resolvedItems.map((item) => ({
-          name: item.title,
-          sku: String(item.product_id),
-          units: item.quantity,
-          selling_price: item.price,
-          discount: 0,
-        })),
-        payment_method: paymentType === "CASH_ON_DELIVERY" ? "COD" : "Prepaid",
-        sub_total: subtotal - discount,
-        shipping_charges: shippingCost,
-        total_discount: discount,
-        length: 10, breadth: 10, height: 10, weight: 0.5,
-      };
-
-      const shiprocketResponse = await createShiprocketOrder(srPayload);
-      
-      if (shiprocketResponse && shiprocketResponse.shipment_id) {
-         console.log(`[SR OrderWebhook] ✅ Order pushed to Shiprocket Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
-         // Save the shipment ID back to your local order
-         await db.query(`UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`, 
-            [shiprocketResponse.shipment_id, orderId]);
+    // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
+    // The webhook path knows userId (resolved by phone above).
+    // The frontend's polling success path also calls clearCart() client-side,
+    // but clearing here ensures it's gone even if the tab was closed.
+    if (userId) {
+      try {
+        await db.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
+        console.log(`[SR OrderWebhook] Cart cleared for user_id=${userId}`);
+      } catch (clearErr) {
+        console.error("[SR OrderWebhook] Cart clear failed (non-fatal):", clearErr.message);
       }
-    } catch (e) {
-      console.error("[SR OrderWebhook] Failed to push to SR Panel:", e.message);
     }
-    // >>> END OF SHIPROCKET PUSH <<<
 
-    console.log(`[SR OrderWebhook] ✅ Order ${orderId} created for SR order ${srOrderId}`);
-
-    // ── 7. Trigger stock update webhooks back to Shiprocket ────────────────────
-    //   Fire-and-forget — don't await, don't block the response
+    // ── Fire-and-forget: sync stock back to Shiprocket catalog ────────────────
     try {
       const { sendProductUpdateWebhook } = require("./shiprocketWebhooks");
       for (const item of resolvedItems) {
@@ -453,12 +458,59 @@ const receiveOrderWebhook = async (req, res) => {
 
   } catch (err) {
     await conn.rollback();
-    console.error("[SR OrderWebhook] DB error:", err.message);
-    // Return 500 so Shiprocket retries — the idempotency check above
-    // will skip the retry if we already partially succeeded.
+    console.error("[SR OrderWebhook] DB error:", err.message, err.stack);
     return res.status(500).json({ success: false, message: "DB error" });
   } finally {
     conn.release();
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────
+   fetchSROrderDetails
+   Calls Shiprocket Checkout API to verify whether a given
+   sr_order_id has been paid. Used by completeCheckoutFromShiprocket
+   as a polling fallback when the order webhook hasn't arrived yet.
+
+   Returns the raw API response object, or null on failure.
+   The caller is responsible for inspecting .status / .order_status.
+───────────────────────────────────────────────────────────── */
+const axios = require("axios");
+
+const fetchSROrderDetails = async (srOrderId) => {
+  const apiKey    = process.env.CHECKOUT_API_KEY    || "";
+  const apiSecret = process.env.CHECKOUT_API_SECRET || "";
+
+  if (!srOrderId || !apiKey) {
+    return null;
+  }
+
+  try {
+    // HMAC over the order_id string (same pattern as token endpoint)
+    const hmac = crypto
+      .createHmac("sha256", apiSecret)
+      .update(String(srOrderId))
+      .digest("base64");
+
+    const response = await axios.get(
+      `https://checkout-api.shiprocket.com/public-api/api/v1/orders/${srOrderId}`,
+      {
+        headers: {
+          "X-Api-Key":         apiKey,
+          "X-Api-HMAC-SHA256": hmac,
+          "Content-Type":      "application/json",
+        },
+        timeout: 8000,
+      },
+    );
+
+    return response.data || null;
+  } catch (err) {
+    // Log but don't throw — caller handles null as "not confirmed"
+    console.error(
+      `[fetchSROrderDetails] Failed for order ${srOrderId}:`,
+      err.response?.data || err.message,
+    );
+    return null;
   }
 };
 

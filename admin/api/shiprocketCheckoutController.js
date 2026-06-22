@@ -285,8 +285,6 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
 };
 
 
-let srDetails = null; 
-
 const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email, phone, srDetails }) => {
   const cartData = checkoutContext?.cart_data || {};
   const cartItems = Array.isArray(cartData.items) ? cartData.items : [];
@@ -337,9 +335,9 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
-        order_status, order_type, order_date, order_modified)
-       VALUES (0, ?, ?, ?, '', 'pending', 'shop_order', NOW(), NOW())`,
-      [userId, orderName, orderTitle],
+        order_status, order_type, order_date, order_modified, cart_id)
+       VALUES (0, ?, ?, ?, '', 'pending', 'shop_order', NOW(), NOW(), ?)`,
+      [userId, orderName, orderTitle, toStr(srOrderId)],
     );
     const orderId = orderResult.insertId;
 
@@ -797,8 +795,9 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     // instant the customer clicks "Proceed to Checkout", before the iframe
     // even opens, so it proves nothing about whether they actually paid.
     let confirmed = false;
+    let srDetails = null; // hoisted so it's visible after the try block below
     try {
-      const srDetails = await fetchSROrderDetails(sr_order_id);
+      srDetails = await fetchSROrderDetails(sr_order_id);
       // NOTE: confirm the exact field name against your Shiprocket sandbox
       // response (log it below) and adjust if it differs — defaulting to
       // "not confirmed" on any unrecognized shape is intentional, since a
@@ -813,9 +812,9 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         ""
       ).toUpperCase();
 
-      // if (srDetails) {
-      //   console.log(`[SR Complete-Checkout] order ${sr_order_id} details:`, JSON.stringify(srDetails).slice(0, 500));
-      // }
+      if (srDetails) {
+        console.log(`[SR Complete-Checkout] order ${sr_order_id} raw details:`, JSON.stringify(srDetails).slice(0, 800));
+      }
 
       confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
     } catch (e) {
@@ -887,6 +886,37 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     }
 
     await bindCheckoutContextToOrder({ checkout_ref, sr_order_id });
+
+    // ── Clear the server-side cart so the frontend shows empty on next load ──
+    // This mirrors the client-side clearCart() call in cart.tsx.
+    // We identify the cart by user_id (logged-in) or the session/cookie that
+    // was captured in the checkout context. Both paths are best-effort:
+    // a failure here must NOT abort the order — the order already committed.
+    try {
+      if (userId) {
+        await db.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
+      } else {
+        const sessionUser = req.sessionData?.user || null;
+        const sessionId   = req.sessionId || "";
+        const cookieId    = req.guestId   || "";
+        if (cookieId) {
+          await db.query(
+            "DELETE FROM cart_items WHERE cookie_id = ? AND user_id IS NULL",
+            [cookieId],
+          );
+        } else if (sessionId) {
+          await db.query(
+            "DELETE FROM cart_items WHERE session_id = ? AND user_id IS NULL",
+            [sessionId],
+          );
+        }
+      }
+      console.log(`[SR Complete-Checkout] ✅ Cart cleared for user_id=${userId || "guest"}`);
+    } catch (clearErr) {
+      // Non-fatal — log only, order is already safe
+      console.error("[SR Complete-Checkout] Cart clear failed (non-fatal):", clearErr.message);
+    }
+
     return res.json({ success: true, order_id: result.orderId });
   } catch (err) {
     console.error("completeCheckoutFromShiprocket error:", err.message);
