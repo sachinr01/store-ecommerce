@@ -296,6 +296,8 @@ const showEditProduct = async (req, res) => {
     product.length   = mainMeta["length"]   || "";
     product.breadth  = mainMeta["breadth"]  || "";
     product.height   = mainMeta["height"]   || "";
+    product.hsn      = mainMeta["hsn"]      || "";
+    product.tax      = mainMeta["tax"]      || "";
 
     // ── Main product thumbnail ──────────────────────────────
     // Read media_path directly from tbl_media(no _wp_attached_file in mediameta)
@@ -640,6 +642,8 @@ const storeProduct = async (req, res) => {
     await insertMeta(productId, "length", body.length || "0");
     await insertMeta(productId, "breadth", body.breadth || "0");
     await insertMeta(productId, "height", body.height || "0");
+    await insertMeta(productId, "hsn", body.hsn || "0");
+    await insertMeta(productId, "tax", body.tax || "0");
 
     // ═══════════════════════════════════════════════════════
     // STEP 3: MAIN FEATURED IMAGE
@@ -1113,6 +1117,8 @@ const updateProduct = async (req, res) => {
     await updateMeta(id, "length", body.length || "0");
     await updateMeta(id, "breadth", body.breadth || "0");
     await updateMeta(id, "height", body.height || "0");
+    await updateMeta(id, "hsn", body.hsn || "0");
+    await updateMeta(id, "tax", body.tax || "0");
 
     // ─────────────────────────────────────────
     // ✅ DELETE OLD MEDIA (FIXED - ALWAYS RUN)

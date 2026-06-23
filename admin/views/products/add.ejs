@@ -246,6 +246,22 @@
                                       value="<%= isEdit ? (p.stock || '') : '' %>" />
                                   </div>
                                 </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">HSN Code</label>
+                                    <input type="text" name="hsn" class="form-control" placeholder="HSN Code"
+                                      value="<%= isEdit ? (p.hsn || '') : '' %>" />
+                                    <small class="text-muted">Harmonized System Nomenclature Code</small>
+                                  </div>
+                                </div>
+                                <div class="col-md-6">
+                                  <div class="mb-3">
+                                    <label class="form-label fw-semibold">Tax %</label>
+                                    <input type="text" name="tax" class="form-control" placeholder="Tax percentage"
+                                      value="<%= isEdit ? (p.tax || '') : '' %>" />
+                                    <small class="text-muted">Percentage of tax to be applied</small>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
