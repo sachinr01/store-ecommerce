@@ -172,13 +172,20 @@ const receiveOrderWebhook = async (req, res) => {
   let userId = 0;
   let userEmail = "";
 
-  // Try to find user by phone in tbl_usermeta (billing_phone meta key)
+  // ── Resolve user by phone — check all dedup paths before inserting ────────
+  // Priority order:
+  //   1. Existing user with billing_phone usermeta matching this phone
+  //   2. Existing guest row with user_login = phone@shiprocket.guest
+  //   3. Existing guest row with user_login LIKE phone@% (catches domain variants)
+  //   4. Create a new guest row (only if all lookups above returned nothing)
   if (phone) {
+    // Path 1: matched by billing_phone usermeta (covers registered customers too)
     const [[userByPhone]] = await db.query(
       `SELECT u.ID, u.user_email
        FROM tbl_users u
        JOIN tbl_usermeta um ON um.user_id = u.ID
        WHERE um.meta_key = 'billing_phone' AND um.meta_value = ?
+       ORDER BY u.ID ASC
        LIMIT 1`,
       [phone],
     );
@@ -186,31 +193,68 @@ const receiveOrderWebhook = async (req, res) => {
       userId    = userByPhone.ID;
       userEmail = userByPhone.user_email;
     }
+
+    // Path 2: matched by user_login or user_email (exact synthetic email)
+    if (!userId) {
+      const syntheticEmail = `${phone}@shiprocket.guest`;
+      const [[userByLogin]] = await db.query(
+        `SELECT ID, user_email FROM tbl_users
+         WHERE user_login = ? OR user_email = ?
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [syntheticEmail, syntheticEmail],
+      );
+      if (userByLogin) {
+        userId    = userByLogin.ID;
+        userEmail = userByLogin.user_email;
+      }
+    }
+
+    // Path 3: matched by phone prefix on user_login (catches any @*.guest variant)
+    if (!userId) {
+      const [[userByPrefix]] = await db.query(
+        `SELECT ID, user_email FROM tbl_users
+         WHERE user_login LIKE ? AND user_type = 4
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [`${phone}@%`],
+      );
+      if (userByPrefix) {
+        userId    = userByPrefix.ID;
+        userEmail = userByPrefix.user_email;
+      }
+    }
   }
 
-  // If not found by phone, create a guest user row for order history
+  // Path 4: create guest row only if all lookups above found nothing
   if (!userId && (phone || billing.firstName)) {
     const displayName = [billing.firstName, billing.lastName].filter(Boolean).join(" ") ||
                         phone || "Guest";
-    // Use phone@shiprocket.guest as a synthetic email so INSERT IGNORE works
-    // without a real email address
     const syntheticEmail = phone
       ? `${phone}@shiprocket.guest`
       : `guest_${Date.now()}@shiprocket.guest`;
 
     try {
+      // INSERT IGNORE skips silently if a unique constraint fires.
+      // The SELECT immediately after always fetches the canonical row —
+      // whether just inserted or a pre-existing one that won a race.
       await db.query(
         `INSERT IGNORE INTO tbl_users
          (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
          VALUES (4, ?, '', ?, ?, ?, NOW())`,
         [syntheticEmail, syntheticEmail, syntheticEmail, displayName],
       );
+      // Re-query by BOTH login and email so we get the right row even if
+      // INSERT was skipped because user_login already existed.
       const [[newRow]] = await db.query(
-        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
-        [syntheticEmail],
+        `SELECT ID, user_email FROM tbl_users
+         WHERE user_login = ? OR user_email = ?
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [syntheticEmail, syntheticEmail],
       );
       userId    = newRow ? newRow.ID : 0;
-      userEmail = syntheticEmail;
+      userEmail = newRow ? newRow.user_email : syntheticEmail;
     } catch (e) {
       console.error("[SR OrderWebhook] Guest user upsert failed:", e.message);
     }

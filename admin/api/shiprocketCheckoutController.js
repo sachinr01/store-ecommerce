@@ -908,26 +908,57 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     let phone = toStr(checkoutContext.user_phone || "");
 
     if (!userId && email) {
+      // Deduplicate by email OR user_login (Shiprocket uses phone@shiprocket.guest
+      // as both email and login — check both columns to avoid duplicate rows when
+      // the same guest checks out more than once).
       const [guestRows] = await db.query(
-        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
-        [email],
+        `SELECT ID FROM tbl_users
+         WHERE user_email = ? OR user_login = ?
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [email, email],
       );
       if (guestRows.length) {
         userId = toInt(guestRows[0].ID, 0);
       }
     }
 
+    // Extra safety: if Shiprocket guest email carries the phone number
+    // (e.g. "8459908676@shiprocket.guest"), try to match an existing guest
+    // row by that phone so we don't create yet another duplicate.
+    if (!userId && phone) {
+      const [phoneRows] = await db.query(
+        `SELECT u.ID
+         FROM tbl_users u
+         WHERE u.user_login LIKE ? AND u.user_type = 4
+         ORDER BY u.ID ASC
+         LIMIT 1`,
+        [`${phone}@%`],
+      );
+      if (phoneRows.length) {
+        userId = toInt(phoneRows[0].ID, 0);
+      }
+    }
+
     if (!userId && email) {
       const display = toStr(checkoutContext.user_name || email);
+      // INSERT IGNORE silently skips if a UNIQUE constraint fires on user_email
+      // or user_login. The SELECT immediately after fetches whichever row won
+      // (whether just inserted or a pre-existing one).
       await db.query(
         `INSERT IGNORE INTO tbl_users
          (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
          VALUES (4, ?, '', ?, ?, ?, NOW())`,
         [email, email, email, display],
       );
+      // Re-query by both columns so we get the canonical row even if INSERT was
+      // skipped due to a duplicate user_login (not just user_email).
       const [[newUser]] = await db.query(
-        `SELECT ID FROM tbl_users WHERE user_email = ? LIMIT 1`,
-        [email],
+        `SELECT ID FROM tbl_users
+         WHERE user_email = ? OR user_login = ?
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [email, email],
       );
       userId = newUser ? toInt(newUser.ID, 0) : 0;
     }
