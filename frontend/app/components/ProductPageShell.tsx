@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import { getImageUrl, type ProductDetail } from '../lib/api';
 import Header from './Header';
 import Footer from './Footer';
@@ -59,6 +60,9 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
   const [quantity,      setQuantity]      = useState(1);
   const [addedFlash,    setAddedFlash]    = useState(false);
   const [pinned,        setPinned]        = useState(false);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
+  const [buyNowFlash,   setBuyNowFlash]   = useState(false);
+  const [srReady,       setSrReady]       = useState(false);
 
   useEffect(() => {
     const onScroll = () => setPinned(window.scrollY > 400);
@@ -132,6 +136,85 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
     }
   };
 
+  const handleBuyNow = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!canAddToCart) return;
+    setBuyNowLoading(true);
+    try {
+      const checkoutRef =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const variantId = String(bestMatch?.ID ?? product.ID);
+      const cartData = {
+        items: [{ variant_id: variantId, quantity }],
+        discount_amount: 0,
+      };
+
+      const res = await fetch('/api/shiprocket/token', {
+        method:      'POST',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart_data:       cartData,
+          redirect_url:    `${window.location.origin}/checkout`,
+          timestamp:       new Date().toISOString(),
+          checkout_ref:    checkoutRef,
+          coupon_code:     '',
+          coupon_discount: 0,
+        }),
+      });
+
+      const data = await res.json() as Record<string, unknown>;
+
+      if (!res.ok) {
+        alert((data?.error as any)?.message ?? (data?.message as string) ?? 'Failed to start checkout. Please try again.');
+        return;
+      }
+
+      const token =
+        (data?.token as string) ??
+        (data?.result as any)?.token ??
+        (data?.access_token as string) ??
+        (data?.data as any)?.token;
+
+      if (!token) {
+        alert('Unable to initialize checkout. Please try again.');
+        return;
+      }
+
+      if (typeof window === 'undefined') return;
+      // Script uses lazyOnload — if the user clicks very fast, wait up to 3s
+      if (typeof (window as any).HeadlessCheckout === 'undefined') {
+        await new Promise<void>((resolve, reject) => {
+          const deadline = Date.now() + 3000;
+          const check = () => {
+            if (typeof (window as any).HeadlessCheckout !== 'undefined') return resolve();
+            if (Date.now() >= deadline) return reject(new Error('HeadlessCheckout not ready'));
+            setTimeout(check, 100);
+          };
+          check();
+        }).catch(() => {
+          alert('Checkout script failed to load. Please refresh and try again.');
+          throw new Error('abort');
+        });
+      }
+
+      (window as any).HeadlessCheckout.addToCart(e.nativeEvent, token, {
+        fallbackUrl: `${window.location.origin}/checkout`,
+      });
+
+      setBuyNowFlash(true);
+      setTimeout(() => setBuyNowFlash(false), 2000);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'abort') return;
+      console.error('[BuyNow] error:', err);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setBuyNowLoading(false);
+    }
+  };
+
   const toggleWishlist = async () => {
     try {
       if (inWishlist(product.ID)) {
@@ -173,6 +256,15 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
 
   return (
     <>
+      {/* Shiprocket HeadlessCheckout — needed for Buy Now */}
+      <input type="hidden" value="nestcase.in" id="sellerDomain" />
+      <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css" />
+      <Script
+        src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js"
+        strategy="lazyOnload"
+        onLoad={() => setSrReady(true)}
+      />
+
       <Header />
 
       {/* ── Breadcrumb ── */}
@@ -361,15 +453,6 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
               <button className="cpd-qty-btn" onClick={() => setQuantity(q => q + 1)}>+</button>
             </div>
 
-            <button type="button" disabled={!canAddToCart} onClick={handleAddToCart}
-              className={`cpd-atc-btn${canAddToCart ? ' ready' : ''}${addedFlash ? ' flash' : ''}`}>
-              {addedFlash ? '✓ Added to Cart!' :
-                !inStock ? 'Out of Stock' :
-                  (!hasColors || selectedColor
-                    ? (!hasSizes || selectedSize ? 'Add to Cart' : 'Select Size')
-                    : 'Select Colour')}
-            </button>
-
             <button className={`cpd-wishlist-btn${inWishlist(product.ID) ? ' active' : ''}`}
               onClick={toggleWishlist}
               title={inWishlist(product.ID) ? 'Remove from Wishlist' : 'Add to Wishlist'}>
@@ -379,6 +462,28 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </button>
+
+            <div className="cpd-action-btns">
+              <button type="button" disabled={!canAddToCart} onClick={handleAddToCart}
+                className={`cpd-atc-btn${canAddToCart ? ' ready' : ''}${addedFlash ? ' flash' : ''}`}>
+                {addedFlash ? '✓ Added to Cart!' :
+                  !inStock ? 'Out of Stock' :
+                    (!hasColors || selectedColor
+                      ? (!hasSizes || selectedSize ? 'Add to Cart' : 'Select Size')
+                      : 'Select Colour')}
+              </button>
+
+              <button type="button" disabled={!canAddToCart || buyNowLoading}
+                onClick={handleBuyNow}
+                className={`cpd-buy-now-btn${canAddToCart ? ' ready' : ''}${buyNowFlash ? ' flash' : ''}`}>
+                {buyNowLoading ? 'Please wait…' :
+                  buyNowFlash ? '✓ Redirecting…' :
+                  !inStock ? 'Out of Stock' :
+                    (!hasColors || selectedColor
+                      ? (!hasSizes || selectedSize ? 'Buy Now' : 'Select Size')
+                      : 'Select Colour')}
+              </button>
+            </div>
           </div>
 
           {addedFlash && (
