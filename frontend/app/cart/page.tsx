@@ -161,9 +161,10 @@ export default function CartPage() {
 
       // Order created in DB — stop, clean up, redirect
       stopPolling();
-      clearSRStorage();
-      try { await clearCart(); } catch { /* non-fatal */ }
-      return true;
+clearSRStorage();
+try { await clearCart(); } catch { /* non-fatal */ }
+router.push(`/checkout/success?order=${encodeURIComponent(data.order_id)}`);
+return true;
     } catch {
       return false; // network error — keep polling
     }
