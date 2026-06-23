@@ -794,31 +794,42 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     // checkout context as proof of payment — that context is written the
     // instant the customer clicks "Proceed to Checkout", before the iframe
     // even opens, so it proves nothing about whether they actually paid.
+    //
+    // KNOWN ISSUE (2026-06-23): this fallback currently fails with
+    // "511 NETWORK_AUTHENTICATION_REQUIRED" against fastrr-api-dev.pickrr.com
+    // — the host name suggests it needs separate sandbox credentials, not
+    // your production CHECKOUT_API_KEY/SECRET. Until Shiprocket support
+    // confirms the correct production host + credentials, this call is
+    // gated behind SR_ORDER_DETAILS_ENABLED so it doesn't spam guaranteed
+    // failures on every 2.5s poll tick. Set that env var to "true" once you
+    // have working credentials to re-enable this fallback.
     let confirmed = false;
     let srDetails = null; // hoisted so it's visible after the try block below
-    try {
-      srDetails = await fetchSROrderDetails(sr_order_id);
-      // NOTE: confirm the exact field name against your Shiprocket sandbox
-      // response (log it below) and adjust if it differs — defaulting to
-      // "not confirmed" on any unrecognized shape is intentional, since a
-      // false negative just means "keep polling," while a false positive
-      // means creating an order nobody paid for.
-      const srStatus = toStr(
-        srDetails?.status ??
-        srDetails?.order_status ??
-        srDetails?.payment_status ??
-        srDetails?.data?.status ??
-        srDetails?.result?.status ??
-        ""
-      ).toUpperCase();
+    if (toStr(process.env.SR_ORDER_DETAILS_ENABLED).toLowerCase() === "true") {
+      try {
+        srDetails = await fetchSROrderDetails(sr_order_id);
+        // NOTE: confirm the exact field name against your Shiprocket sandbox
+        // response (log it below) and adjust if it differs — defaulting to
+        // "not confirmed" on any unrecognized shape is intentional, since a
+        // false negative just means "keep polling," while a false positive
+        // means creating an order nobody paid for.
+        const srStatus = toStr(
+          srDetails?.status ??
+          srDetails?.order_status ??
+          srDetails?.payment_status ??
+          srDetails?.data?.status ??
+          srDetails?.result?.status ??
+          ""
+        ).toUpperCase();
 
-      if (srDetails) {
-        console.log(`[SR Complete-Checkout] order ${sr_order_id} raw details:`, JSON.stringify(srDetails).slice(0, 800));
+        if (srDetails) {
+          console.log(`[SR Complete-Checkout] order ${sr_order_id} raw details:`, JSON.stringify(srDetails).slice(0, 800));
+        }
+
+        confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
+      } catch (e) {
+        console.error("[SR Complete-Checkout] fetchSROrderDetails failed:", e.message);
       }
-
-      confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
-    } catch (e) {
-      console.error("[SR Complete-Checkout] fetchSROrderDetails failed:", e.message);
     }
 
     if (!confirmed) {

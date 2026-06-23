@@ -111,6 +111,17 @@ const receiveOrderWebhook = async (req, res) => {
   const sourceName    = toStr(body.source_name || "fastrr");
   const rawItems      = Array.isArray(body.items) ? body.items : [];
 
+  // CONFIRMED (2026-06-23): this store's Shiprocket Checkout is configured
+  // COD-only — "always prepaid" was a wrong assumption. Shiprocket's own
+  // documented payload includes a payment_type field (e.g. "CASH_ON_DELIVERY"),
+  // though your real production payloads haven't shown it yet — fall back to
+  // "cod" since that's this store's only real option, rather than "prepaid".
+  const rawPaymentType = toStr(body.payment_type || body.payment_method || "").toUpperCase();
+  const paymentMethod  =
+    rawPaymentType.includes("COD") || rawPaymentType.includes("CASH") ? "cod" :
+    rawPaymentType.includes("PREPAID") || rawPaymentType.includes("PAID") ? "prepaid" :
+    "cod"; // store default — change here if you later enable prepaid too
+
   // CONFIRMED (2026-06-22, side-by-side log comparison): the webhook's cart_id
   // and the token response's order_id (what the frontend polls with) are the
   // SAME Shiprocket identifier, just exposed under different field names at
@@ -246,7 +257,7 @@ const receiveOrderWebhook = async (req, res) => {
     const shippingCost = shippingPrice;
     const orderTotal  = totalPrice; // use Shiprocket's authoritative total
 
-    const paymentMethod = "prepaid"; // Shiprocket Checkout is always prepaid
+    // paymentMethod is now resolved earlier from the webhook payload (COD-aware)
     const orderName     = `#SR-${cartId}`;
     const orderTitle    = `Order - ${new Date().toLocaleString()}`;
     const createdAt     = new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -456,6 +467,55 @@ const receiveOrderWebhook = async (req, res) => {
       }
     } catch (e) {
       console.error("[SR OrderWebhook] Could not trigger stock webhooks:", e.message);
+    }
+
+    // ── Push to Shiprocket's fulfillment/shipping panel (separate product
+    // from Shiprocket Checkout — apiv2.shiprocket.in handles pickup/AWB).
+    // Non-fatal: the order is already safely committed above regardless of
+    // whether this succeeds. Runs AFTER commit so a slow/failed call here
+    // can never roll back a real, paid order.
+    try {
+      const { createShiprocketOrder } = require("./orderController");
+      const srPayload = {
+        order_id:               `ORD_${orderId}_${Date.now()}`,
+        order_date:             new Date().toISOString().slice(0, 10),
+        pickup_location:        "warehouse", // must match your SR pickup location name
+        billing_customer_name:  billing.firstName || "Customer",
+        billing_last_name:      billing.lastName  || "",
+        billing_address:        billing.line1     || "No Address",
+        billing_address_2:      billing.line2     || "",
+        billing_city:           billing.city      || "Unknown",
+        billing_pincode:        billing.zip       || "000000",
+        billing_state:          billing.state     || "Unknown",
+        billing_country:        "India",
+        billing_email:          userEmail || "noemail@example.com",
+        billing_phone:          billing.phone || phone || "0000000000",
+        shipping_is_billing:    true,
+        order_items: resolvedItems.map((item) => ({
+          name:          item.title,
+          sku:           String(item.product_id),
+          units:         item.quantity,
+          selling_price: item.price,
+          discount:      0,
+        })),
+        payment_method:   paymentMethod === "cod" ? "COD" : "Prepaid",
+        sub_total:        subtotal - discount,
+        shipping_charges: shippingCost,
+        total_discount:   discount,
+        length: 10, breadth: 10, height: 10, weight: 0.5,
+      };
+
+      const shiprocketResponse = await createShiprocketOrder(srPayload);
+      if (shiprocketResponse?.shipment_id) {
+        console.log(`[SR OrderWebhook] ✅ Pushed to SR fulfillment panel — shipment_id=${shiprocketResponse.shipment_id}`);
+        await db.query(
+          `UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`,
+          [shiprocketResponse.shipment_id, orderId],
+        );
+      }
+    } catch (e) {
+      // Logged inside createShiprocketOrder too — keep this short
+      console.error("[SR OrderWebhook] Fulfillment push failed (non-fatal):", e.message);
     }
 
     return res.status(200).json({ success: true, order_id: orderId });
