@@ -491,13 +491,72 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
 const findOrderBySrOrderId = async (srOrderId) => {
   const orderId = toStr(srOrderId);
   if (!orderId) return null;
+
+  // 1. Direct match on _sr_checkout_order_id
   const [rows] = await db.query(
     `SELECT order_id FROM tbl_ordermeta
      WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
      LIMIT 1`,
     [orderId],
   );
-  return rows.length ? rows[0].order_id : null;
+  if (rows.length) return rows[0].order_id;
+
+  // 2. Match on _sr_cart_id
+  const [rows2] = await db.query(
+    `SELECT order_id FROM tbl_ordermeta
+     WHERE meta_key = '_sr_cart_id' AND meta_value = ?
+     LIMIT 1`,
+    [orderId],
+  );
+  if (rows2.length) return rows2[0].order_id;
+
+  // 3. Match via redirect-id mapping stored by registerRedirectOrderId()
+  const [rows3] = await db.query(
+    `SELECT meta_value FROM tbl_ordermeta
+     WHERE meta_key = '_sr_redirect_order_id'
+       AND meta_value LIKE ?
+     ORDER BY meta_id DESC LIMIT 1`,
+    [orderId + '|%'],
+  );
+  if (rows3.length) {
+    const checkoutRef = toStr(rows3[0].meta_value).split('|')[1] || '';
+    if (checkoutRef) {
+      // Find order via checkout_ref stored on the order itself
+      const [rows4] = await db.query(
+        `SELECT order_id FROM tbl_ordermeta
+         WHERE meta_key = '_shiprocket_checkout_ref' AND meta_value = ?
+         LIMIT 1`,
+        [checkoutRef],
+      );
+      if (rows4.length) return rows4[0].order_id;
+
+      // Also walk back through the checkout context to get the sr_order_id (= cart_id)
+      const [ctxRows] = await db.query(
+        `SELECT meta_value FROM tbl_ordermeta
+         WHERE meta_key = '_shiprocket_checkout_ctx'
+           AND meta_value LIKE ?
+         ORDER BY meta_id DESC LIMIT 1`,
+        ['%"checkout_ref":"' + checkoutRef + '"%'],
+      );
+      if (ctxRows.length) {
+        try {
+          const ctx = JSON.parse(ctxRows[0].meta_value);
+          const ctxSrOrderId = toStr(ctx?.sr_order_id || '');
+          if (ctxSrOrderId && ctxSrOrderId !== orderId) {
+            const [rows5] = await db.query(
+              `SELECT order_id FROM tbl_ordermeta
+               WHERE meta_key = '_sr_cart_id' AND meta_value = ?
+               LIMIT 1`,
+              [ctxSrOrderId],
+            );
+            if (rows5.length) return rows5[0].order_id;
+          }
+        } catch { /* skip */ }
+      }
+    }
+  }
+
+  return null;
 };
 
 const bindCheckoutContextToOrder = async ({ checkout_ref, sr_order_id }) => {
@@ -935,6 +994,37 @@ const completeCheckoutFromShiprocket = async (req, res) => {
   }
 };
 
+/* ─────────────────────────────────────────────────────────────
+   POST /api/shiprocket/register-redirect
+   Called by the frontend the instant Shiprocket redirects back
+   with ?order_id=XXX (before polling starts).
+   Stores: meta_key='_sr_redirect_order_id', meta_value='<redirectId>|<checkoutRef>'
+   This lets findOrderBySrOrderId() map the redirect id → checkout context → order.
+───────────────────────────────────────────────────────────── */
+const registerRedirectOrderId = async (req, res) => {
+  try {
+    const redirect_order_id = toStr(req.body?.redirect_order_id || req.body?.order_id || "");
+    const checkout_ref      = toStr(req.body?.checkout_ref || "");
+
+    if (!redirect_order_id) {
+      return res.status(400).json({ success: false, message: "redirect_order_id is required" });
+    }
+
+    // Store mapping even without checkout_ref — at minimum the redirect_order_id
+    // can be checked directly against _sr_checkout_order_id / _sr_cart_id later.
+    await db.query(
+      `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (0, '_sr_redirect_order_id', ?)`,
+      [`${redirect_order_id}|${checkout_ref}`],
+    );
+
+    console.log(`[SR RegisterRedirect] redirect_id=${redirect_order_id} checkout_ref=${checkout_ref || "(none)"}`);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("registerRedirectOrderId error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const finalizeCheckoutContext = async (req, res) => {
   try {
     const checkout_ref = toStr(req.body?.checkout_ref || "");
@@ -1002,6 +1092,7 @@ module.exports = {
   getCheckoutToken,
   completeCheckoutFromShiprocket,
   finalizeCheckoutContext,
+  registerRedirectOrderId,
   triggerProductWebhook,
   triggerCollectionWebhook,
 };

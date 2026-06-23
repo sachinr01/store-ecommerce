@@ -13,14 +13,9 @@ const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddl
 const contact = require('./contactController');
 const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
-// FIX: was 'shiprocketorderwebhook' (all lowercase) — Node.js on Linux is case-sensitive,
-// that would cause a MODULE_NOT_FOUND crash at startup. Correct casing matches the filename.
 const { receiveOrderWebhook } = require('./shiprocketorderwebhook');
 
 // ── In-memory rate limiter ─────────────────────────────────────────────────────
-// Plain Map + setInterval — no extra packages needed.
-// For multi-process / PM2 cluster deployments, swap for:
-//   npm i express-rate-limit rate-limit-redis
 function makeRateLimiter({ windowMs, max, message }) {
   const hits = new Map();
   setInterval(() => hits.clear(), windowMs).unref();
@@ -55,7 +50,6 @@ const forgotPasswordLimiter = makeRateLimiter({
 });
 
 // Token endpoint: max 30 requests per IP per 10 minutes
-// (each checkout click = 1 token request; this prevents brute-force abuse)
 const tokenLimiter = makeRateLimiter({
   windowMs: 10 * 60 * 1000,
   max: 30,
@@ -152,34 +146,23 @@ router.get('/address/profile',            requireLogin, orders.getProfileAddress
 router.put('/address/profile/:kind',      requireLogin, orders.updateProfileAddress);
 
 // ── Shiprocket Catalog Sync APIs ──────────────────────────────────────────────
-// Shiprocket's backend fetches these to sync your product catalog.
-// Share these URLs during Shiprocket onboarding:
-//   GET https://nestcase.in/api/shiprocket/products?page=1&limit=100
-//   GET https://nestcase.in/api/shiprocket/products/by-collection?collection_id=1&page=1&limit=100
-//   GET https://nestcase.in/api/shiprocket/collections?page=1&limit=100
 router.get('/shiprocket/products',               shiprocket.fetchProducts);
 router.get('/shiprocket/products/by-collection', shiprocket.fetchProductsByCollection);
 router.get('/shiprocket/collections',            shiprocket.fetchCollections);
 
 // ── Shiprocket Checkout Token ─────────────────────────────────────────────────
-// Called by the cart page when user clicks "Proceed to Checkout".
-// Generates an access token for the Shiprocket iframe.
 router.post('/shiprocket/token', tokenLimiter, shiprocket.getCheckoutToken);
 
 // ── Shiprocket Complete Checkout (polled by cart page after iframe opens) ─────
-// Cart page polls this every 2.5 s after the iframe opens.
-// When Shiprocket has confirmed the order, we create it in our DB and return success.
 router.post('/shiprocket/complete-checkout', shiprocket.completeCheckoutFromShiprocket);
+
+// ── Shiprocket Register Redirect ID ──────────────────────────────────────────
+router.post('/shiprocket/register-redirect', shiprocket.registerRedirectOrderId);
 
 // ── Shiprocket Finalize Context (utility — links checkout_ref to sr_order_id) ─
 router.post('/shiprocket/finalize-checkout', shiprocket.finalizeCheckoutContext);
 
 // ── Shiprocket Order Webhook ──────────────────────────────────────────────────
-// Shiprocket's backend POSTs here after a successful checkout.
-// Register this URL in Shiprocket dashboard under Settings → Webhooks:
-//   https://nestcase.in/api/shiprocket/order-webhook
-// NOTE: no auth middleware — Shiprocket doesn't send credentials.
-//       Security is handled by HMAC verification inside receiveOrderWebhook.
 router.post('/shiprocket/order-webhook', receiveOrderWebhook);
 
 // ── Shiprocket Admin Catalog Sync Webhooks ────────────────────────────────────

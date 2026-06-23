@@ -157,7 +157,7 @@ function deduplicateCards(cards: PreviousAddressCard[]): PreviousAddressCard[] {
 }
 
 export default function CheckoutPage() {
-  const { items, total, clearCart, refresh } = useCart();
+  const { items, total, clearCart, refresh: refreshCart } = useCart();
   const router = useRouter();
   const { isLoggedIn, setUser } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
@@ -279,12 +279,12 @@ export default function CheckoutPage() {
 
   const handleLoginSuccess = useCallback(async (payload: AuthUser | AuthUserResponse | null | undefined) => {
     setUser(payload ?? null);
-    await refresh();
+    await refreshCart();
     setLoginError('');
     setLoginEmail('');
     setLoginPassword('');
     setShowLogin(false);
-  }, [refresh, setUser]);
+  }, [refreshCart, setUser]);
 
   const closeForgotRecovery = useCallback(() => {
     setShowForgotRecovery(false);
@@ -339,7 +339,7 @@ export default function CheckoutPage() {
         if (me.success && me.data?.isLoggedIn && me.data.user) {
           setUser(me.data.user);
         }
-        await refresh();
+        await refreshCart();
         setRegSuccess('Account created! You are now logged in.');
         setRegEmail('');
         setRegPassword('');
@@ -481,6 +481,20 @@ export default function CheckoutPage() {
     let attempts = 0;
     const MAX_ATTEMPTS = 40; // ~40 x 3s = 2 min
 
+    // Read checkout_ref from sessionStorage (stored when the Shiprocket iframe was opened)
+    const checkoutRef = (typeof window !== 'undefined'
+      ? window.sessionStorage?.getItem('sr_checkout_ref') ?? ''
+      : '') as string;
+
+    // Register the redirect order_id immediately so the backend can map it
+    // to the correct checkout context (the redirect id ≠ the cart_id stored by webhook)
+    fetch('/api/shiprocket/register-redirect', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirect_order_id: srRedirectOrderId, checkout_ref: checkoutRef }),
+    }).catch(() => { /* non-fatal */ });
+
     const verify = async (): Promise<boolean> => {
       try {
         const res = await fetch('/api/shiprocket/complete-checkout', {
@@ -499,6 +513,7 @@ export default function CheckoutPage() {
         setSrVerifiedOrderId(String(data?.order_id ?? srRedirectOrderId));
         setSrVerifyStatus('confirmed');
         try { await clearCartRef.current(); } catch { /* non-fatal */ }
+        try { await refreshCart(); } catch { /* non-fatal */ }
         return true;
       } catch {
         return false; // network error — keep polling
