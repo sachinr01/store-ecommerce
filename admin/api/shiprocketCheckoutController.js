@@ -846,6 +846,38 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       return res.json({ success: true, order_id: existingOrderId });
     }
 
+    // ── 1b. Try finding via checkout_ref → checkout context → sr_cart_id ──
+    // The redirect order_id from Shiprocket's URL param is NOT the same as
+    // the cart_id the webhook stored. If checkout_ref is available, walk the
+    // checkout context to get the original cart_id and look that up.
+    if (checkout_ref) {
+      const ctx = await findCheckoutContext({ checkout_ref });
+      if (ctx) {
+        const ctxCartId = toStr(ctx.sr_order_id || "");
+        if (ctxCartId) {
+          const [ctxRows] = await db.query(
+            `SELECT order_id FROM tbl_ordermeta
+             WHERE meta_key = '_sr_cart_id' AND meta_value = ?
+             LIMIT 1`,
+            [ctxCartId],
+          );
+          if (ctxRows.length) {
+            return res.json({ success: true, order_id: ctxRows[0].order_id });
+          }
+          // Also try _sr_checkout_order_id with the cart_id
+          const [ctxRows2] = await db.query(
+            `SELECT order_id FROM tbl_ordermeta
+             WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
+             LIMIT 1`,
+            [ctxCartId],
+          );
+          if (ctxRows2.length) {
+            return res.json({ success: true, order_id: ctxRows2[0].order_id });
+          }
+        }
+      }
+    }
+
     // ── 2. Webhook hasn't arrived yet — fall back to asking Shiprocket. ────
     // This mirrors the documented fallback path in Shiprocket's integration
     // guide ("Order Webhook Not Received" → "Call Order Details API using

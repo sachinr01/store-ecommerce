@@ -501,7 +501,7 @@ export default function CheckoutPage() {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order_id: srRedirectOrderId }),
+          body: JSON.stringify({ order_id: srRedirectOrderId, checkout_ref: checkoutRef }),
         });
 
         if (res.status === 202) return false; // Shiprocket hasn't confirmed yet
