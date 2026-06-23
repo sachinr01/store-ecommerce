@@ -837,21 +837,22 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       return res.status(400).json({ success: false, message: "order_id is required" });
     }
 
-    // ── 1. Has the Order Webhook already created this order? ───────────────
-    // receiveOrderWebhook() ONLY inserts the _sr_checkout_order_id meta row
-    // when Shiprocket's webhook explicitly reports status === "SUCCESS".
-    // If we find it here, the checkout is genuinely, verifiably complete.
+    console.log(`[SR Complete-Checkout] poll — redirect_order_id=${sr_order_id} checkout_ref=${checkout_ref || "(none)"}`);
+
+    // ── 1. Direct lookup: has the webhook already created this order? ──────
     const existingOrderId = await findOrderBySrOrderId(sr_order_id);
     if (existingOrderId) {
+      console.log(`[SR Complete-Checkout] ✅ found via direct ID lookup → order_id=${existingOrderId}`);
       return res.json({ success: true, order_id: existingOrderId });
     }
 
-    // ── 1b. Try finding via checkout_ref → checkout context → sr_cart_id ──
-    // The redirect order_id from Shiprocket's URL param is NOT the same as
-    // the cart_id the webhook stored. If checkout_ref is available, walk the
-    // checkout context to get the original cart_id and look that up.
+    // ── 1b. Walk checkout context via checkout_ref ──────────────────────────
+    // The redirect ?order_id= Shiprocket puts in the URL is NOT the cart_id
+    // the webhook stores. Use checkout_ref to find the context, get the real
+    // cart_id (ctx.sr_order_id), then look that up against _sr_cart_id.
     if (checkout_ref) {
       const ctx = await findCheckoutContext({ checkout_ref });
+      console.log(`[SR Complete-Checkout] ctx for checkout_ref=${checkout_ref}:`, ctx ? `sr_order_id=${ctx.sr_order_id}` : "NOT FOUND");
       if (ctx) {
         const ctxCartId = toStr(ctx.sr_order_id || "");
         if (ctxCartId) {
@@ -862,9 +863,9 @@ const completeCheckoutFromShiprocket = async (req, res) => {
             [ctxCartId],
           );
           if (ctxRows.length) {
+            console.log(`[SR Complete-Checkout] ✅ found via _sr_cart_id=${ctxCartId} → order_id=${ctxRows[0].order_id}`);
             return res.json({ success: true, order_id: ctxRows[0].order_id });
           }
-          // Also try _sr_checkout_order_id with the cart_id
           const [ctxRows2] = await db.query(
             `SELECT order_id FROM tbl_ordermeta
              WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
@@ -872,9 +873,36 @@ const completeCheckoutFromShiprocket = async (req, res) => {
             [ctxCartId],
           );
           if (ctxRows2.length) {
+            console.log(`[SR Complete-Checkout] ✅ found via _sr_checkout_order_id=${ctxCartId} → order_id=${ctxRows2[0].order_id}`);
             return res.json({ success: true, order_id: ctxRows2[0].order_id });
           }
+          console.log(`[SR Complete-Checkout] ctx cart_id=${ctxCartId} — no order found yet (webhook pending?)`);
+        } else {
+          console.log(`[SR Complete-Checkout] ctx found but sr_order_id is empty — token response may not have returned order_id`);
         }
+      }
+    }
+
+    // ── 1c. Last-resort: find most recent shiprocket/fastrr order in last 10 min ──
+    // Covers both webhook-created orders (source='fastrr') and polling-created
+    // orders (source='shiprocket_checkout'). The webhook fires before the
+    // redirect arrives so this will almost always catch it.
+    {
+      const [recentRows] = await db.query(
+        `SELECT om.order_id
+         FROM tbl_ordermeta om
+         WHERE om.meta_key = '_order_source'
+           AND om.meta_value IN ('shiprocket_checkout', 'fastrr')
+           AND om.order_id IN (
+             SELECT order_id FROM tbl_orders
+             WHERE order_date >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+           )
+         ORDER BY om.order_id DESC
+         LIMIT 1`,
+      );
+      if (recentRows.length) {
+        console.log(`[SR Complete-Checkout] ✅ found via recent order fallback → order_id=${recentRows[0].order_id}`);
+        return res.json({ success: true, order_id: recentRows[0].order_id });
       }
     }
 

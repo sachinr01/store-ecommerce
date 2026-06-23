@@ -532,7 +532,8 @@ export default function CheckoutPage() {
       setTimeout(() => void tick(), 3000);
     };
 
-    void tick();
+    // Small initial delay so register-redirect can complete before first poll
+    setTimeout(() => void tick(), 1500);
     return () => { cancelled = true; };
   }, [srRedirectOrderId]);
 
