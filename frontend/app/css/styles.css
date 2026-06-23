@@ -5692,11 +5692,11 @@ input[type="checkbox"] {
 .csp-grid.list-mode .csp-card {
   flex-direction: row;
   align-items: stretch;
-  max-height: 160px;
+  min-height: 160px;
 }
 
 .csp-grid.list-mode .csp-img-wrap {
-  width: 130px;
+  width: 180px;
   flex-shrink: 0;
   aspect-ratio: auto;
 }
@@ -5706,7 +5706,37 @@ input[type="checkbox"] {
 }
 
 .csp-grid.list-mode .csp-info {
-  justify-content: center;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px;
+}
+
+.csp-grid.list-mode .csp-info-top {
+  flex: 1;
+}
+
+.csp-grid.list-mode .csp-name {
+  font-size: 15px;
+}
+
+.csp-grid.list-mode .csp-price-row {
+  margin-top: 6px;
+}
+
+.csp-grid.list-mode .add-to-cart-btn,
+.csp-grid.list-mode [class*="add-to-cart"] {
+  width: auto;
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
+.csp-grid.list-mode .csp-atc-btn {
+  width: fit-content !important;
+  max-width: 220px;
+  align-self: flex-start;
+  padding: 10px 24px !important;
 }
 
 .csp-list-desc {
@@ -6057,11 +6087,11 @@ input[type="checkbox"] {
 
 /* Added state with smooth color transition */
 .csp-atc-btn.added {
-  background: #16a34a !important;
-  border-color: #16a34a !important;
-  color: #fff !important;
+  background: #fff !important;
+  border-color: #22311d !important;
+  color: #22311d !important;
   transform: scale(1.02);
-  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.3);
+  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.15);
   animation: successPulse 0.6s ease;
 }
 
@@ -6071,7 +6101,7 @@ input[type="checkbox"] {
 }
 
 .csp-atc-btn.added .csp-atc-icon {
-  stroke: #fff;
+  stroke: #22311d;
 }
 
 /* Error state */
@@ -6173,8 +6203,9 @@ input[type="checkbox"] {
   }
 
   .csp-atc-btn.added:hover {
-    background: #16a34a !important;
+    background: #fff !important;
     border-color: #16a34a !important;
+    color: #16a34a !important;
   }
 }
 
@@ -6443,7 +6474,7 @@ input[type="checkbox"] {
 /* ===== frontend/app/product-details/product-details.css ===== */
 :root {
   --cpd-brand: #1a8a6e;
-  --cpd-brand-mid: #12705a;
+  --cpd-brand-mid: #1a8a6e;
   --cpd-brand-light: #e6f5f1;
   --cpd-accent: #e8a020;
   --cpd-text: #1c1c1c;
@@ -7153,6 +7184,47 @@ input[type="checkbox"] {
   flex: 1;
   min-width: 150px;
   height: 46px;
+  border: 2px solid #d4d4d4;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  background: #fff;
+  color: #999;
+  cursor: not-allowed;
+  transition: all .25s;
+}
+
+.cpd-atc-btn.ready {
+  background: #fff;
+  color: var(--cpd-brand);
+  border-color: var(--cpd-brand);
+  cursor: pointer;
+}
+
+.cpd-atc-btn.ready:hover {
+  background: var(--cpd-brand);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.cpd-atc-btn.ready:active {
+  transform: translateY(0);
+}
+
+.cpd-atc-btn.flash {
+  background: #fff;
+  color: #1a8a6e;
+  border: 2px solid #1a8a6e;
+  box-shadow: none;
+}
+
+.cpd-buy-now-btn {
+  flex: 1;
+  min-width: 120px;
+  height: 46px;
   border: none;
   border-radius: 8px;
   font-family: var(--font-body);
@@ -7166,24 +7238,39 @@ input[type="checkbox"] {
   transition: all .25s;
 }
 
-.cpd-atc-btn.ready {
+.cpd-buy-now-btn.ready {
   background: var(--cpd-brand);
   color: #fff;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(26, 138, 110, .3);
 }
 
-.cpd-atc-btn.ready:hover {
+.cpd-buy-now-btn.ready:hover {
   background: var(--cpd-brand-mid);
+  color: #fff;
   transform: translateY(-1px);
 }
 
-.cpd-atc-btn.ready:active {
+.cpd-buy-now-btn.ready:active {
   transform: translateY(0);
 }
 
-.cpd-atc-btn.flash {
-  background: #2ecc71;
+.cpd-buy-now-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* action buttons wrapper — always full width, buttons share it equally */
+.cpd-action-btns {
+  display: flex;
+  gap: 10px;
+  flex: 1 1 100%;
+}
+
+.cpd-action-btns .cpd-atc-btn,
+.cpd-action-btns .cpd-buy-now-btn {
+  flex: 1;
+  min-width: 0;
 }
 
 .cpd-wishlist-btn {
@@ -7942,11 +8029,6 @@ input[type="checkbox"] {
     flex-wrap: wrap;
   }
 
-  .cpd-atc-btn {
-    flex: 1;
-    min-width: 0;
-  }
-
   .cpd-sticky-name {
     display: none;
   }
@@ -7957,9 +8039,10 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 480px) {
-  .cpd-atc-btn {
-    flex: 100%;
-    order: 2;
+  .cpd-action-btns .cpd-atc-btn,
+  .cpd-action-btns .cpd-buy-now-btn {
+    font-size: 12px;
+    padding: 0 8px;
   }
 
   .cpd-qty-wrap {
