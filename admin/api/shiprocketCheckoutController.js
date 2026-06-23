@@ -335,7 +335,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
-        order_status, order_type, order_date, order_modified, cart_id)
+        order_status, order_type, order_date, order_modified, sr_cart_id)
        VALUES (0, ?, ?, ?, '', 'pending', 'shop_order', NOW(), NOW(), ?)`,
       [userId, orderName, orderTitle, toStr(srOrderId)],
     );

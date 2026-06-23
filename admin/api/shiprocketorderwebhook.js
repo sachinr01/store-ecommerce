@@ -253,11 +253,15 @@ const receiveOrderWebhook = async (req, res) => {
 
     // ── tbl_orders ─────────────────────────────────────────────────────────────
     // TABLE: tbl_orders
-    // Stores: order identity, user, status, shipment tracking info, cart_id
+    // Stores: order identity, user, status, shipment tracking info, sr_cart_id
+    // CONFIRMED via production schema export (phpMyAdmin, 2026-06-23): the real
+    // column is `sr_cart_id`, not `cart_id`. Every previous INSERT using
+    // `cart_id` would have thrown "Unknown column 'cart_id'" and rolled back
+    // the whole transaction — including the tbl_ordermeta rows.
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
-        order_status, order_type, order_date, order_modified, cart_id)
+        order_status, order_type, order_date, order_modified, sr_cart_id)
        VALUES (0, ?, ?, ?, '', 'processing', 'shop_order', NOW(), NOW(), ?)`,
       [userId, orderName, orderTitle, cartId],
     );
@@ -485,14 +489,25 @@ const fetchSROrderDetails = async (srOrderId) => {
   }
 
   try {
-    // HMAC over the order_id string (same pattern as token endpoint)
+    // CONFIRMED from Shiprocket's official integration PDF (page 8-9):
+    // this is a DIFFERENT host than checkout-api.shiprocket.com, it's a POST
+    // (not GET), and the HMAC is computed over the JSON request body — same
+    // pattern as the access-token call — not over a bare order_id string.
+    // Previous attempts guessed at checkout-api.shiprocket.com/.../orders/:id
+    // (a GET) and got 404s because that endpoint never existed.
+    const body = JSON.stringify({
+      order_id:  String(srOrderId),
+      timestamp: new Date().toISOString(),
+    });
+
     const hmac = crypto
       .createHmac("sha256", apiSecret)
-      .update(String(srOrderId))
+      .update(body)
       .digest("base64");
 
-    const response = await axios.get(
-      `https://checkout-api.shiprocket.com/public-api/api/v1/orders/${srOrderId}`,
+    const response = await axios.post(
+      "https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details",
+      body,
       {
         headers: {
           "X-Api-Key":         apiKey,
