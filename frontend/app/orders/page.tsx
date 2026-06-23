@@ -92,7 +92,7 @@ export default function OrdersPage() {
         statusLabel: toTitleCase(status),
         dateLabel: formatDate(o.order_date || ''),
         totalLabel: o.total ? formatPrice(Number(o.total)) : formatPrice(0),
-        itemCount: Number.isFinite(backendCount) ? backendCount : fallbackCount,
+        itemCount: (o.item_count != null && Number.isFinite(backendCount)) ? backendCount : fallbackCount,
       };
     })
   ), [orders]);
@@ -118,8 +118,8 @@ export default function OrdersPage() {
                   <div className="account-layout">
                     <AccountSidebar accountHandle={accountHandle} activeLink="orders" onLogout={logout} />
 
-                    <div className="orders-account-main">
-                      <div className="orders-account-top" />
+                    <div className="account-main">
+                      <div className="account-top" />
 
                       <div className="orders-section">
                         {cards.length > 0 && (

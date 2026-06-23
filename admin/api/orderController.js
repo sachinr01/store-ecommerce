@@ -1874,6 +1874,69 @@ const updateProfileAddress = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// resolveLinkedUserIds
+// Orders placed via Shiprocket Checkout are stored under a guest user ID
+// resolved from phone/email — NOT the logged-in customer's ID. This helper
+// collects ALL user IDs (real + guest) that belong to the same customer so
+// getMyOrders and getMyOrderById can include those orders.
+// ─────────────────────────────────────────────────────────────────────────────
+async function resolveLinkedUserIds(userId, sessionEmail) {
+  const userIds = new Set([userId]);
+
+  const [[userRow]] = await db.query(
+    `SELECT user_email FROM tbl_users WHERE ID = ? LIMIT 1`,
+    [userId],
+  );
+  const userEmail = (userRow && userRow.user_email) ? userRow.user_email : sessionEmail || "";
+
+  if (userEmail) {
+    const [guestByEmail] = await db.query(
+      `SELECT ID FROM tbl_users
+       WHERE user_type = 4 AND (user_email = ? OR user_login = ?)
+       AND ID != ?`,
+      [userEmail, userEmail, userId],
+    );
+    guestByEmail.forEach((r) => userIds.add(r.ID));
+
+    const [ordersByEmail] = await db.query(
+      `SELECT DISTINCT o.user_id
+       FROM tbl_orders o
+       JOIN tbl_ordermeta om ON om.order_id = o.order_id
+         AND om.meta_key = '_billing_email' AND om.meta_value = ?
+       WHERE o.order_type = 'shop_order' AND o.user_id != ?`,
+      [userEmail, userId],
+    );
+    ordersByEmail.forEach((r) => userIds.add(r.user_id));
+  }
+
+  const [[phoneMeta]] = await db.query(
+    `SELECT meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key = 'billing_phone' LIMIT 1`,
+    [userId],
+  );
+  if (phoneMeta && phoneMeta.meta_value) {
+    const phone = phoneMeta.meta_value;
+    const [guestByPhone] = await db.query(
+      `SELECT ID FROM tbl_users
+       WHERE user_type = 4 AND user_login LIKE ? AND ID != ?`,
+      [`${phone}@%`, userId],
+    );
+    guestByPhone.forEach((r) => userIds.add(r.ID));
+
+    const [ordersByPhone] = await db.query(
+      `SELECT DISTINCT o.user_id
+       FROM tbl_orders o
+       JOIN tbl_ordermeta om ON om.order_id = o.order_id
+         AND om.meta_key = '_billing_phone' AND om.meta_value = ?
+       WHERE o.order_type = 'shop_order' AND o.user_id != ?`,
+      [phone, userId],
+    );
+    ordersByPhone.forEach((r) => userIds.add(r.user_id));
+  }
+
+  return Array.from(userIds);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // getMyOrders
 // Frontend: GET /api/orders/my
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1883,6 +1946,8 @@ const getMyOrders = async (req, res) => {
     return res.status(401).json({ success: false, message: "Login required." });
   }
   try {
+    const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
+
     // Single JOIN instead of correlated subqueries per row.
     // CAST inside MAX() ensures numeric comparison, not lexicographic string sort
     // (e.g. MAX('1000.00','200.00') as strings = '200.00' — wrong; as DECIMAL = 1000.00 — correct).
@@ -1900,10 +1965,10 @@ const getMyOrders = async (req, res) => {
        LEFT JOIN tbl_ordermeta om
          ON om.order_id = o.order_id
         AND om.meta_key IN ('_order_total', '_order_subtotal')
-       WHERE o.user_id = ? AND o.order_type = 'shop_order'
+       WHERE o.user_id IN (?) AND o.order_type = 'shop_order'
        GROUP BY o.order_id
        ORDER BY MAX(o.order_date) DESC`,
-      [user.id],
+      [userIdList],
     );
 
     const orderIds = orders
@@ -2139,9 +2204,9 @@ const getMyOrderById = async (req, res) => {
          WHERE address_billing = 'no'
          GROUP BY order_id
        ) us ON us.order_id = o.order_id
-       WHERE o.order_id = ? AND o.user_id = ? AND o.order_type = 'shop_order'
+       WHERE o.order_id = ? AND o.user_id IN (?) AND o.order_type = 'shop_order'
        GROUP BY o.order_id`,
-      [orderId, user.id],
+      [orderId, await resolveLinkedUserIds(user.id, user.email || "")],
     );
 
     if (!orderRows.length) {
