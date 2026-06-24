@@ -757,18 +757,43 @@ const getCheckoutToken = async (req, res) => {
       });
     }
 
-    // 1. You already have this payload defined:
+    // Fetch fresh prices from DB for all items instead of trusting frontend prices
+    const frontendItems = req.body?.cart_data?.items || [];
+    const freshItems = [];
+
+    for (const item of frontendItems) {
+      const variantId = toInt(item?.variant_id, 0);
+      const quantity = Math.max(1, toInt(item?.quantity, 1));
+      
+      if (!variantId) continue;
+
+      // Query DB for fresh sale price or regular price
+      const [[dbRow]] = await db.query(
+        `SELECT 
+           COALESCE(
+             (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_sale_price' LIMIT 1),
+             (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_regular_price' LIMIT 1),
+             0
+           ) as price
+         LIMIT 1`,
+        [variantId, variantId]
+      );
+
+      const freshPrice = Math.max(0, parseFloat(dbRow?.price || 0));
+      freshItems.push({
+        variant_id: String(variantId),
+        quantity: quantity,
+      });
+    }
+
     const payload = {
-      cart_data:    req.body?.cart_data    || { items: [] },
+      cart_data: {
+        items: freshItems,
+        discount_amount: parseFloat(req.body?.coupon_discount || 0) || 0,
+      },
       redirect_url: req.body?.redirect_url || "",
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
     };
-
-    // 2. >>> PASTE THE NEW CODE RIGHT HERE <<<
-    if (req.body?.coupon_discount && parseFloat(req.body.coupon_discount) > 0) {
-      payload.cart_data.discount_amount = parseFloat(req.body.coupon_discount);
-    }
-    // >>> END OF NEW CODE <<<
 
     const sessionUser = req.sessionData?.user || null;
 

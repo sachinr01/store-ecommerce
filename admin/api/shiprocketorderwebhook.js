@@ -166,19 +166,25 @@ const receiveOrderWebhook = async (req, res) => {
   }
 
   // ── 5. Resolve user by phone number ────────────────────────────────────────
-  // Shiprocket Checkout payload gives us phone and name but NOT always email.
-  // We store by phone. If tbl_users has a unique phone column, use that.
-  // Otherwise we store as a guest user with a synthetic login.
+  // Normalize phone to last 10 digits — handles +91XXXXXXXXXX, 91XXXXXXXXXX,
+  // 0XXXXXXXXXX, or plain 10-digit numbers uniformly.
+  const normalizePhone = (raw) => {
+    const digits = toStr(raw).replace(/\D/g, ""); // strip everything except digits
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  };
+  const phone10 = normalizePhone(phone); // clean 10-digit phone used for storage & dedup
+
   let userId = 0;
   let userEmail = "";
 
   // ── Resolve user by phone — check all dedup paths before inserting ────────
   // Priority order:
-  //   1. Existing user with billing_phone usermeta matching this phone
-  //   2. Existing guest row with user_login = phone@shiprocket.guest
-  //   3. Existing guest row with user_login LIKE phone@% (catches domain variants)
-  //   4. Create a new guest row (only if all lookups above returned nothing)
-  if (phone) {
+  //   1. Existing user with billing_phone usermeta matching this 10-digit phone
+  //   2. Existing guest row with user_login = 10-digit phone (new clean format)
+  //   3. Existing guest row with user_login = phone@shiprocket.guest (old format — backward compat)
+  //   4. Existing guest row with user_login LIKE phone@% (catches any other old variants)
+  //   5. Create a new guest row with clean 10-digit phone as user_login
+  if (phone10) {
     // Path 1: matched by billing_phone usermeta (covers registered customers too)
     const [[userByPhone]] = await db.query(
       `SELECT u.ID, u.user_email
@@ -187,22 +193,21 @@ const receiveOrderWebhook = async (req, res) => {
        WHERE um.meta_key = 'billing_phone' AND um.meta_value = ?
        ORDER BY u.ID ASC
        LIMIT 1`,
-      [phone],
+      [phone10],
     );
     if (userByPhone) {
       userId    = userByPhone.ID;
       userEmail = userByPhone.user_email;
     }
 
-    // Path 2: matched by user_login or user_email (exact synthetic email)
+    // Path 2: matched by clean 10-digit phone as user_login (new format)
     if (!userId) {
-      const syntheticEmail = `${phone}@shiprocket.guest`;
       const [[userByLogin]] = await db.query(
         `SELECT ID, user_email FROM tbl_users
-         WHERE user_login = ? OR user_email = ?
+         WHERE user_login = ? AND user_type = 4
          ORDER BY ID ASC
          LIMIT 1`,
-        [syntheticEmail, syntheticEmail],
+        [phone10],
       );
       if (userByLogin) {
         userId    = userByLogin.ID;
@@ -210,14 +215,30 @@ const receiveOrderWebhook = async (req, res) => {
       }
     }
 
-    // Path 3: matched by phone prefix on user_login (catches any @*.guest variant)
+    // Path 3: matched by old synthetic email format (backward compat for existing rows)
+    if (!userId) {
+      const oldSyntheticEmail = `${phone10}@shiprocket.guest`;
+      const [[userByOldLogin]] = await db.query(
+        `SELECT ID, user_email FROM tbl_users
+         WHERE user_login = ? OR user_email = ?
+         ORDER BY ID ASC
+         LIMIT 1`,
+        [oldSyntheticEmail, oldSyntheticEmail],
+      );
+      if (userByOldLogin) {
+        userId    = userByOldLogin.ID;
+        userEmail = userByOldLogin.user_email;
+      }
+    }
+
+    // Path 4: matched by phone prefix on user_login (catches any other old variants)
     if (!userId) {
       const [[userByPrefix]] = await db.query(
         `SELECT ID, user_email FROM tbl_users
          WHERE user_login LIKE ? AND user_type = 4
          ORDER BY ID ASC
          LIMIT 1`,
-        [`${phone}@%`],
+        [`${phone10}@%`],
       );
       if (userByPrefix) {
         userId    = userByPrefix.ID;
@@ -226,35 +247,36 @@ const receiveOrderWebhook = async (req, res) => {
     }
   }
 
-  // Path 4: create guest row only if all lookups above found nothing
-  if (!userId && (phone || billing.firstName)) {
+  // Path 5: create guest row only if all lookups above found nothing
+  // user_login = clean 10-digit phone (e.g. "7030467187") — no @shiprocket.guest suffix
+  if (!userId && (phone10 || billing.firstName)) {
     const displayName = [billing.firstName, billing.lastName].filter(Boolean).join(" ") ||
-                        phone || "Guest";
-    const syntheticEmail = phone
-      ? `${phone}@shiprocket.guest`
-      : `guest_${Date.now()}@shiprocket.guest`;
+                        phone10 || "Guest";
+    // user_login = plain 10-digit phone; user_email = phone@guest.local (satisfies
+    // the unique email constraint without exposing a fake domain publicly)
+    const guestLogin = phone10 || `guest_${Date.now()}`;
+    const guestEmail = phone10
+      ? `${phone10}@guest.local`
+      : `guest_${Date.now()}@guest.local`;
 
     try {
-      // INSERT IGNORE skips silently if a unique constraint fires.
-      // The SELECT immediately after always fetches the canonical row —
-      // whether just inserted or a pre-existing one that won a race.
+      // INSERT IGNORE skips silently if a unique constraint fires (race condition).
+      // The SELECT immediately after always fetches the canonical row.
       await db.query(
         `INSERT IGNORE INTO tbl_users
          (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
          VALUES (4, ?, '', ?, ?, ?, NOW())`,
-        [syntheticEmail, syntheticEmail, syntheticEmail, displayName],
+        [guestLogin, displayName, guestEmail, displayName],
       );
-      // Re-query by BOTH login and email so we get the right row even if
-      // INSERT was skipped because user_login already existed.
       const [[newRow]] = await db.query(
         `SELECT ID, user_email FROM tbl_users
-         WHERE user_login = ? OR user_email = ?
+         WHERE user_login = ?
          ORDER BY ID ASC
          LIMIT 1`,
-        [syntheticEmail, syntheticEmail],
+        [guestLogin],
       );
       userId    = newRow ? newRow.ID : 0;
-      userEmail = newRow ? newRow.user_email : syntheticEmail;
+      userEmail = newRow ? newRow.user_email : guestEmail;
     } catch (e) {
       console.error("[SR OrderWebhook] Guest user upsert failed:", e.message);
     }
@@ -345,7 +367,7 @@ const receiveOrderWebhook = async (req, res) => {
         orderId,
         billing.firstName || shipping.firstName || "",
         billing.lastName  || shipping.lastName  || "",
-        billing.phone     || phone              || "",
+        normalizePhone(billing.phone) || phone10 || "",
         billing.line1     || "",
         billing.line2     || "",
         billing.city      || "",
@@ -375,7 +397,7 @@ const receiveOrderWebhook = async (req, res) => {
         orderId,
         shipping.firstName || billing.firstName || "",
         shipping.lastName  || billing.lastName  || "",
-        shipping.phone     || phone             || "",
+        normalizePhone(shipping.phone) || phone10 || "",
         shipping.line1     || billing.line1     || "",
         shipping.line2     || billing.line2     || "",
         shipping.city      || billing.city      || "",
@@ -389,21 +411,47 @@ const receiveOrderWebhook = async (req, res) => {
     // ── tbl_order_items + tbl_order_itemmeta ───────────────────────────────────
     // TABLE: tbl_order_items — one row per product line
     // TABLE: tbl_order_itemmeta — price, qty, totals for each line item
-    for (const item of resolvedItems) {
+    //
+    // COUPON DISCOUNT: totalDiscount comes from Shiprocket's webhook payload
+    // (body.total_discount). We spread it proportionally across items by each
+    // item's share of the pre-discount subtotal.
+    //   _line_subtotal = original price × qty  (pre-discount, MRP reference)
+    //   _line_total    = actual amount charged  (post-discount — what the DB stores)
+    const subtotalForDiscount = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    // Track how much discount we've allocated so far (avoid floating-point drift)
+    let discountAllocated = 0;
+
+    for (const [itemIndex, item] of resolvedItems.entries()) {
       const [itemResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
          VALUES (?, 'line_item', ?, ?)`,
         [item.title, orderId, item.product_id],
       );
-      const orderItemId = itemResult.insertId;
-      const lineTotal   = item.price * item.quantity;
+      const orderItemId  = itemResult.insertId;
+      const lineSubtotal = item.price * item.quantity; // original pre-discount amount
+
+      // Proportional discount for this line item.
+      // Last item gets the remainder to avoid rounding drift across items.
+      let lineDiscount = 0;
+      if (totalDiscount > 0 && subtotalForDiscount > 0) {
+        const isLastItem = itemIndex === resolvedItems.length - 1;
+        if (isLastItem) {
+          lineDiscount = Math.max(0, totalDiscount - discountAllocated);
+        } else {
+          lineDiscount = Math.round((lineSubtotal / subtotalForDiscount) * totalDiscount * 100) / 100;
+          discountAllocated += lineDiscount;
+        }
+      }
+
+      const lineTotal = Math.max(0, lineSubtotal - lineDiscount); // actual charged amount
 
       const itemMeta = [
         ["_product_id",       item.product_id],
         ["_variation_id",     0],               // no variants in your store
         ["_qty",              item.quantity],
-        ["_line_subtotal",    lineTotal.toFixed(2)],
-        ["_line_total",       lineTotal.toFixed(2)],
+        ["_line_subtotal",    lineSubtotal.toFixed(2)], // original price (pre-discount)
+        ["_line_total",       lineTotal.toFixed(2)],    // actual price after coupon discount
         ["_line_tax",         tax > 0 ? (tax / resolvedItems.length).toFixed(2) : "0"],
         ["_line_subtotal_tax","0"],
       ];
@@ -469,7 +517,12 @@ const receiveOrderWebhook = async (req, res) => {
       ["_order_tax",            tax.toFixed(2)],
       ["_order_item_count",     String(itemCount || resolvedItems.length)],
       ["_order_discount",       discount.toFixed(2)],
-      ["_billing_phone",        phone],
+      // Coupon applied via Shiprocket Checkout — store code if present in webhook
+      ...(toStr(body.coupon_code || body.discount_code || "")
+          ? [["_coupon_code", toStr(body.coupon_code || body.discount_code || "")],
+             ["_coupon_discount", discount.toFixed(2)]]
+          : []),
+      ["_billing_phone",        phone10],
       ["_billing_first_name",   billing.firstName  || ""],
       ["_billing_last_name",    billing.lastName   || ""],
       ["_sr_cart_id",           cartId],              // idempotency key (dedup within webhook path)
@@ -485,7 +538,7 @@ const receiveOrderWebhook = async (req, res) => {
 
     await conn.commit();
     console.log(`[SR OrderWebhook] ✅ Order ${orderId} saved for cart_id=${cartId}`);
-    console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone}`);
+    console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone10}`);
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
@@ -533,7 +586,7 @@ const receiveOrderWebhook = async (req, res) => {
         billing_state:          billing.state     || "Unknown",
         billing_country:        "India",
         billing_email:          userEmail || "noemail@example.com",
-        billing_phone:          billing.phone || phone || "0000000000",
+        billing_phone:          normalizePhone(billing.phone) || phone10 || "0000000000",
         shipping_is_billing:    true,
         order_items: resolvedItems.map((item) => ({
           name:          item.title,
