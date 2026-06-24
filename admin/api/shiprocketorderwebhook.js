@@ -1,3 +1,4 @@
+
 const crypto = require("crypto");
 const db     = require("../config/db");
 const {
@@ -29,19 +30,8 @@ const verifyHmac = (rawBody, receivedHmac) => {
   } catch { return false; }
 };
 
-/* ─────────────────────────────────────────────────────────────
-   parseAddress
-   Converts either billing_address or shipping_address from the
-   Shiprocket Checkout webhook payload into our standard shape.
-
-   ACTUAL payload received (confirmed from your logs):
-   {
-     billing_address: {
-       zip, city, name, phone, country,
-       address1, address2, last_name, first_name
-     }
-   }
-───────────────────────────────────────────────────────────── */
+   //parseAddress
+   
 const parseAddress = (addr) => {
   if (!addr || typeof addr !== "object") return null;
 
@@ -111,24 +101,12 @@ const receiveOrderWebhook = async (req, res) => {
   const sourceName    = toStr(body.source_name || "fastrr");
   const rawItems      = Array.isArray(body.items) ? body.items : [];
 
-  // CONFIRMED (2026-06-23): this store's Shiprocket Checkout is configured
-  // COD-only — "always prepaid" was a wrong assumption. Shiprocket's own
-  // documented payload includes a payment_type field (e.g. "CASH_ON_DELIVERY"),
-  // though your real production payloads haven't shown it yet — fall back to
-  // "cod" since that's this store's only real option, rather than "prepaid".
+
   const rawPaymentType = toStr(body.payment_type || body.payment_method || "").toUpperCase();
   const paymentMethod  =
     rawPaymentType.includes("COD") || rawPaymentType.includes("CASH") ? "cod" :
     rawPaymentType.includes("PREPAID") || rawPaymentType.includes("PAID") ? "prepaid" :
     "cod"; // store default — change here if you later enable prepaid too
-
-  // CONFIRMED (2026-06-22, side-by-side log comparison): the webhook's cart_id
-  // and the token response's order_id (what the frontend polls with) are the
-  // SAME Shiprocket identifier, just exposed under different field names at
-  // different stages of the flow. Use cart_id as the dedup/lookup key so the
-  // polling path's findOrderBySrOrderId() can actually find this order.
-  // (Still also check body.order_id/sr_order_id in case Shiprocket ever adds
-  // an explicit field — falls back to cartId if absent.)
   const srOrderId = toStr(body.order_id || body.sr_order_id || cartId);
 
   // Only process placed orders
@@ -166,8 +144,6 @@ const receiveOrderWebhook = async (req, res) => {
   }
 
   // ── 5. Resolve user by phone number ────────────────────────────────────────
-  // Normalize phone to last 10 digits — handles +91XXXXXXXXXX, 91XXXXXXXXXX,
-  // 0XXXXXXXXXX, or plain 10-digit numbers uniformly.
   const normalizePhone = (raw) => {
     const digits = toStr(raw).replace(/\D/g, ""); // strip everything except digits
     return digits.length >= 10 ? digits.slice(-10) : digits;
@@ -178,12 +154,6 @@ const receiveOrderWebhook = async (req, res) => {
   let userEmail = "";
 
   // ── Resolve user by phone — check all dedup paths before inserting ────────
-  // Priority order:
-  //   1. Existing user with billing_phone usermeta matching this 10-digit phone
-  //   2. Existing guest row with user_login = 10-digit phone (new clean format)
-  //   3. Existing guest row with user_login = phone@shiprocket.guest (old format — backward compat)
-  //   4. Existing guest row with user_login LIKE phone@% (catches any other old variants)
-  //   5. Create a new guest row with clean 10-digit phone as user_login
   if (phone10) {
     // Path 1: matched by billing_phone usermeta (covers registered customers too)
     const [[userByPhone]] = await db.query(
@@ -248,7 +218,6 @@ const receiveOrderWebhook = async (req, res) => {
   }
 
   // Path 5: create guest row only if all lookups above found nothing
-  // user_login = clean 10-digit phone (e.g. "7030467187") — no @shiprocket.guest suffix
   if (!userId && (phone10 || billing.firstName)) {
     const displayName = [billing.firstName, billing.lastName].filter(Boolean).join(" ") ||
                         phone10 || "Guest";
@@ -283,8 +252,6 @@ const receiveOrderWebhook = async (req, res) => {
   }
 
   // ── 6. Resolve items — use product_id from webhook, fetch live title from DB ─
-  // We do NOT use variant_id (you confirmed no variants).
-  // We trust Shiprocket's item.price directly (this is the agreed checkout price).
   const resolvedItems = [];
   for (const item of rawItems) {
     const productId = toInt(item.product_id, 0);
@@ -329,12 +296,6 @@ const receiveOrderWebhook = async (req, res) => {
     const createdAt     = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     // ── tbl_orders ─────────────────────────────────────────────────────────────
-    // TABLE: tbl_orders
-    // Stores: order identity, user, status, shipment tracking info, sr_cart_id
-    // CONFIRMED via production schema export (phpMyAdmin, 2026-06-23): the real
-    // column is `sr_cart_id`, not `cart_id`. Every previous INSERT using
-    // `cart_id` would have thrown "Unknown column 'cart_id'" and rolled back
-    // the whole transaction — including the tbl_ordermeta rows.
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
        (parent_id, user_id, order_name, order_title, order_content,
@@ -345,10 +306,6 @@ const receiveOrderWebhook = async (req, res) => {
     const orderId = orderResult.insertId;
 
     // ── tbl_user_address (billing row) ─────────────────────────────────────────
-    // TABLE: tbl_user_address
-    // Stores: customer billing + shipping addresses, linked to order by order_id
-    // address_billing = 'yes' → billing row
-    // address_billing = 'no'  → shipping row
     await conn.query(
       `INSERT INTO tbl_user_address
        (user_id, order_id, address_type, address_primary,
@@ -409,14 +366,6 @@ const receiveOrderWebhook = async (req, res) => {
     );
 
     // ── tbl_order_items + tbl_order_itemmeta ───────────────────────────────────
-    // TABLE: tbl_order_items — one row per product line
-    // TABLE: tbl_order_itemmeta — price, qty, totals for each line item
-    //
-    // COUPON DISCOUNT: totalDiscount comes from Shiprocket's webhook payload
-    // (body.total_discount). We spread it proportionally across items by each
-    // item's share of the pre-discount subtotal.
-    //   _line_subtotal = original price × qty  (pre-discount, MRP reference)
-    //   _line_total    = actual amount charged  (post-discount — what the DB stores)
     const subtotalForDiscount = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
     // Track how much discount we've allocated so far (avoid floating-point drift)
@@ -542,9 +491,6 @@ const receiveOrderWebhook = async (req, res) => {
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
-    // The webhook path knows userId (resolved by phone above).
-    // The frontend's polling success path also calls clearCart() client-side,
-    // but clearing here ensures it's gone even if the tab was closed.
     if (userId) {
       try {
         await db.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
@@ -566,13 +512,45 @@ const receiveOrderWebhook = async (req, res) => {
       console.error("[SR OrderWebhook] Could not trigger stock webhooks:", e.message);
     }
 
-    // ── Push to Shiprocket's fulfillment/shipping panel (separate product
-    // from Shiprocket Checkout — apiv2.shiprocket.in handles pickup/AWB).
-    // Non-fatal: the order is already safely committed above regardless of
-    // whether this succeeds. Runs AFTER commit so a slow/failed call here
-    // can never roll back a real, paid order.
     try {
       const { createShiprocketOrder } = require("./orderController");
+
+      // ── Aggregate real package dimensions from tbl_productmeta 
+      let totalWeight = 0;
+      let totalHeight = 0;
+      let maxLength   = 0;
+      let maxBreadth  = 0;
+
+      for (const item of resolvedItems) {
+        const [dimRows] = await db.query(
+          `SELECT meta_key, meta_value
+           FROM tbl_productmeta
+           WHERE product_id = ?
+             AND meta_key IN ('length', 'breadth', 'height', 'weight')`,
+          [item.product_id],
+        );
+
+        const meta = {};
+        dimRows.forEach((row) => { meta[row.meta_key] = toFloat(row.meta_value, 0); });
+
+        const qty     = Number(item.quantity || 1);
+        const pLen    = meta.length  || 10;
+        const pBreadth= meta.breadth || 10;
+        const pHeight = meta.height  || 2;
+        const pWeight = meta.weight  || 0.5;
+
+        totalWeight += pWeight * qty;
+        totalHeight += pHeight * qty;
+        maxLength    = Math.max(maxLength,  pLen);
+        maxBreadth   = Math.max(maxBreadth, pBreadth);
+      }
+
+      // Final safe values — never send 0 to Shiprocket
+      const pkgLength  = maxLength  || 10;
+      const pkgBreadth = maxBreadth || 10;
+      const pkgHeight  = totalHeight || 2;
+      const pkgWeight  = totalWeight || 0.5;
+
       const srPayload = {
         order_id:               `ORD_${orderId}_${Date.now()}`,
         order_date:             new Date().toISOString().slice(0, 10),
@@ -599,7 +577,7 @@ const receiveOrderWebhook = async (req, res) => {
         sub_total:        subtotal - discount,
         shipping_charges: shippingCost,
         total_discount:   discount,
-        length: 10, breadth: 10, height: 10, weight: 0.5,
+        length: pkgLength, breadth: pkgBreadth, height: pkgHeight, weight: pkgWeight,
       };
 
       const shiprocketResponse = await createShiprocketOrder(srPayload);
@@ -626,15 +604,7 @@ const receiveOrderWebhook = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────────
-   fetchSROrderDetails
-   Calls Shiprocket Checkout API to verify whether a given
-   sr_order_id has been paid. Used by completeCheckoutFromShiprocket
-   as a polling fallback when the order webhook hasn't arrived yet.
-
-   Returns the raw API response object, or null on failure.
-   The caller is responsible for inspecting .status / .order_status.
-───────────────────────────────────────────────────────────── */
+/*fetchSROrderDetails*/
 const axios = require("axios");
 
 const fetchSROrderDetails = async (srOrderId) => {
@@ -646,12 +616,6 @@ const fetchSROrderDetails = async (srOrderId) => {
   }
 
   try {
-    // CONFIRMED from Shiprocket's official integration PDF (page 8-9):
-    // this is a DIFFERENT host than checkout-api.shiprocket.com, it's a POST
-    // (not GET), and the HMAC is computed over the JSON request body — same
-    // pattern as the access-token call — not over a bare order_id string.
-    // Previous attempts guessed at checkout-api.shiprocket.com/.../orders/:id
-    // (a GET) and got 404s because that endpoint never existed.
     const body = JSON.stringify({
       order_id:  String(srOrderId),
       timestamp: new Date().toISOString(),
