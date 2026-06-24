@@ -106,7 +106,7 @@ function CheckOption({ label, checked, onChange }: { label: string; checked: boo
 }
 
 /* ── Product Card ──────────────────────────────────────────────────────────── */
-function ProductCard({ product, idx, listMode }: { product: Product; idx: number; listMode?: boolean }) {
+function ProductCard({ product, idx, listMode, pageSlug }: { product: Product; idx: number; listMode?: boolean; pageSlug?: string }) {
   const { hasItem, addItem, removeItem } = useWishlist();
   const PLACEHOLDER = usePlaceholderImage();
   const inWishlist = hasItem(product.ID);
@@ -187,6 +187,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
             title={product.title}
             image={getImageUrl(product.thumbnail_url, PLACEHOLDER)}
             inStock={!isOutOfStock}
+            redirectToCheckout={pageSlug === 'dinner-sets'}
           />
         </div>
     </div>
@@ -416,7 +417,7 @@ export default function CategoryPage() {
 
           {!loading && filtered.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label={`${pageLabel} products`}>
-              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i} listMode={viewMode === 'list'}/>)}
+              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i} listMode={viewMode === 'list'} pageSlug={pageSlug}/>)}
             </div>
           )}
         </main>
