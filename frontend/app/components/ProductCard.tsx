@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatPrice } from "@/app/lib/price";
 
 interface ProductCardProps {
   name: string;
@@ -68,12 +69,23 @@ export default function ProductCard({
       </div>
 
       {/* ── Price ── */}
-      <span className="price text-center">
-        {oldPrice && (
-          <del><span className="amount">${oldPrice.toFixed(2)}</span></del>
-        )}
-        <ins><span className="amount">${price.toFixed(2)}</span></ins>
-      </span>
+      <div className="price-block">
+        <div className="price-row">
+          {oldPrice && oldPrice > price ? (
+            <>
+              <span className="price-mrp-label">MRP</span>
+              <del className="price-old">{formatPrice(oldPrice)}</del>
+              <span className="price-current">{formatPrice(price)}</span>
+              <span className="price-discount">
+                {Math.round(((oldPrice - price) / oldPrice) * 100)}% off
+              </span>
+            </>
+          ) : (
+            <span className="price-current">{formatPrice(price)}</span>
+          )}
+        </div>
+        <div className="price-tax-note">(Incl. of all taxes)</div>
+      </div>
     </li>
   );
 }

@@ -79,16 +79,22 @@ export default function NewArrivalCard({ p, idx, placeholder, showAddToCart = tr
             {p.title}
           </Link>
           <div className="na-price-row">
-            {!showRange && salePrice !== null && regularPrice !== null && (
-              <span className="na-old-price">{formatPrice(regularPrice)}</span>
-            )}
-            <span className={`na-price${isOnSale ? ' sale' : ''}`}>
-              {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
-            </span>
-            {discountPercent !== null && (
-              <span className="na-save-badge">{discountPercent}% off</span>
+            {!showRange && salePrice !== null && regularPrice !== null && isOnSale ? (
+              <>
+                <span className="na-mrp-label">MRP</span>
+                <del className="na-old-price">{formatPrice(regularPrice)}</del>
+                <span className="na-price sale">{formatPrice(displayPrice)}</span>
+                {discountPercent !== null && (
+                  <span className="na-save-badge">{discountPercent}% off</span>
+                )}
+              </>
+            ) : (
+              <span className="na-price">
+                {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
+              </span>
             )}
           </div>
+          <div className="na-tax-note">(Incl. of all taxes)</div>
         </div>
         {showAddToCart && (
           <AddToCartButton

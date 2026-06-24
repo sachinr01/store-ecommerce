@@ -162,11 +162,22 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
           <div className="csp-info-top">
             <Link href={href} className="csp-name">{product.title}</Link>
             <div className="csp-price-row">
-              {!showRange && salePrice !== null && regularPrice !== null &&
-                <span className="csp-old-price">{formatPrice(regularPrice)}</span>}
-              <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
-              {discount !== null && <span className="csp-save-badge">{discount}% off</span>}
+              {!showRange && salePrice !== null && regularPrice !== null && isOnSale ? (
+                <>
+                  <span className="csp-mrp-label">MRP</span>
+                  <span className="csp-old-price" aria-label="Regular price">
+                    {formatPrice(regularPrice)}
+                  </span>
+                  <span className="csp-price sale">{priceStr}</span>
+                  {discount !== null && (
+                    <span className="csp-save-badge">{discount}% off</span>
+                  )}
+                </>
+              ) : (
+                <span className="csp-price">{priceStr}</span>
+              )}
             </div>
+            <div className="csp-tax-note">(Incl. of all taxes)</div>
             {listMode && product.short_description && (
               <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
             )}

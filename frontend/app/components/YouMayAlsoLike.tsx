@@ -152,16 +152,22 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
                       <Link href={href} className="ymal-name">{p.title}</Link>
 
                       <div className="ymal-price-row">
-                        {!showRange && salePrice !== null && regularPrice !== null && (
-                          <span className="ymal-old-price">{formatPrice(regularPrice)}</span>
-                        )}
-                        <span className={`ymal-price${isOnSale ? ' sale' : ''}`}>
-                          {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
-                        </span>
-                        {discountPercent !== null && (
-                          <span className="ymal-save-badge">{discountPercent}% off</span>
+                        {!showRange && salePrice !== null && regularPrice !== null && isOnSale ? (
+                          <>
+                            <span className="ymal-mrp-label">MRP</span>
+                            <del className="ymal-old-price">{formatPrice(regularPrice)}</del>
+                            <span className="ymal-price sale">{formatPrice(displayPrice)}</span>
+                            {discountPercent !== null && (
+                              <span className="ymal-save-badge">{discountPercent}% off</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="ymal-price">
+                            {showRange ? formatPriceRange(priceMin, priceMax) : formatPrice(displayPrice)}
+                          </span>
                         )}
                       </div>
+                      <div className="ymal-tax-note">(Incl. of all taxes)</div>
 
                     </div>
                   </div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { getMyOrderById, getImageUrl, type OrderDetailResponse } from '../../lib/api';
+import { getMyOrderById, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../../lib/api';
 import { formatPrice } from '../../lib/price';
 
 function formatDate(value: string) {
@@ -22,6 +22,49 @@ function normalizeStatus(status: string) {
   if (s.includes('ship')) return 'shipped';
   if (s.includes('pending')) return 'pending';
   return s;
+}
+
+function ShipmentActivities({ awb }: { awb: string }) {
+  const [activities, setActivities] = useState<ShiprocketTrackingActivity[]>([]);
+  const [liveStatus, setLiveStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getLiveTracking(awb)
+      .then((res) => {
+        if (res.success) {
+          setActivities(res.activities || []);
+          setLiveStatus(res.current_status || '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [awb]);
+
+  if (loading) return <div className="tracking-activities-loading">Loading live tracking…</div>;
+  if (!activities.length && !liveStatus) return null;
+
+  return (
+    <div className="order-detail-card">
+      <h3 className="order-detail-subtitle">Live Tracking</h3>
+      {liveStatus && (
+        <div className="tracking-current-status">
+          Current Status: <span className="shipping-badge">{liveStatus}</span>
+        </div>
+      )}
+      {activities.length > 0 && (
+        <ul className="tracking-activities">
+          {activities.map((act, i) => (
+            <li key={i} className="tracking-activity-item">
+              <div className="tracking-activity-date">{act.date}</div>
+              <div className="tracking-activity-desc">{act.activity}</div>
+              {act.location && <div className="tracking-activity-location">{act.location}</div>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function OrderDetailPage() {

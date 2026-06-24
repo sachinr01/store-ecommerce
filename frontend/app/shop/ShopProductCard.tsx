@@ -99,16 +99,22 @@ export default function ShopProductCard({
             {product.title}
           </Link>
           <div className="csp-price-row">
-            {!showRange && salePrice !== null && regularPrice !== null && (
-              <span className="csp-old-price" aria-label="Regular price">
-                {formatPrice(regularPrice)}
-              </span>
-            )}
-            <span className={`csp-price${isOnSale ? ' sale' : ''}`}>{priceStr}</span>
-            {discountPercent !== null && (
-              <span className="csp-save-badge">{discountPercent}% off</span>
+            {!showRange && salePrice !== null && regularPrice !== null && isOnSale ? (
+              <>
+                <span className="csp-mrp-label">MRP</span>
+                <span className="csp-old-price" aria-label="Regular price">
+                  {formatPrice(regularPrice)}
+                </span>
+                <span className="csp-price sale">{priceStr}</span>
+                {discountPercent !== null && (
+                  <span className="csp-save-badge">{discountPercent}% off</span>
+                )}
+              </>
+            ) : (
+              <span className="csp-price">{priceStr}</span>
             )}
           </div>
+          <div className="csp-tax-note">(Incl. of all taxes)</div>
           {listMode && product.short_description && (
             <p className="csp-list-desc">
               {product.short_description.replace(/<[^>]+>/g, '')}

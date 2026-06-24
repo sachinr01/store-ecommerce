@@ -2406,10 +2406,289 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+// ── Track order by order ID only (no auth, public) ────────────────────────────
+// POST /orders/track-by-id  { orderId }
+// Returns order status + live Shiprocket tracking if AWB is available.
+const trackOrderById = async (req, res) => {
+  const { orderId: rawId } = req.body || {};
+  const orderId = Number.parseInt(rawId, 10);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ success: false, message: "Invalid order ID." });
+  }
+
+  try {
+    const [[order]] = await db.query(
+      `SELECT o.order_id,
+              o.order_status,
+              o.order_date,
+              o.awb_code,
+              o.courier_name,
+              o.shipping_status,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
+               ORDER BY om.meta_id DESC LIMIT 1) AS total,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
+               ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
+              MAX(ub.first_name) AS billing_first_name,
+              MAX(ub.last_name)  AS billing_last_name,
+              MAX(ub.city)       AS billing_city,
+              MAX(ub.state_name) AS billing_state
+       FROM tbl_orders o
+       LEFT JOIN (
+         SELECT order_id, MAX(first_name) AS first_name, MAX(last_name) AS last_name,
+                MAX(city) AS city, MAX(state_name) AS state_name
+         FROM tbl_user_address WHERE address_billing = 'yes' GROUP BY order_id
+       ) ub ON ub.order_id = o.order_id
+       WHERE o.order_id = ? AND o.order_type = 'shop_order'
+       GROUP BY o.order_id`,
+      [orderId],
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found." });
+    }
+
+    // Fetch live Shiprocket tracking if we have an AWB
+    let trackingData = null;
+    const awb = toStr(order.awb_code);
+    if (awb) {
+      try {
+        const token = await getShiprocketToken();
+        const srRes = await axios.get(
+          `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+        );
+        const td = srRes.data?.tracking_data;
+        if (td) {
+          const rawStatus = td.shipment_track?.[0]?.current_status || "";
+          const statusMap = {
+            NEW: "Order Confirmed",
+            "PICKUP SCHEDULED": "Packed",
+            "PICKED UP": "Shipped",
+            "IN TRANSIT": "In Transit",
+            "OUT FOR DELIVERY": "Out for Delivery",
+            DELIVERED: "Delivered",
+            CANCELLED: "Cancelled",
+            "RTO INITIATED": "Return Initiated",
+            "RTO DELIVERED": "Returned",
+          };
+          trackingData = {
+            current_status: statusMap[rawStatus] || rawStatus || order.order_status,
+            activities: td.shipment_track_activities || [],
+            courier_name: td.shipment_track?.[0]?.courier_name || order.courier_name || "",
+            awb_code: awb,
+          };
+          // keep local status in sync
+          if (trackingData.current_status) {
+            await db.query(
+              `UPDATE tbl_orders SET order_status = ? WHERE order_id = ?`,
+              [trackingData.current_status, orderId],
+            );
+          }
+        }
+      } catch (trackErr) {
+        console.error(`[trackOrderById] SR tracking fetch failed for AWB ${awb}:`, trackErr.message);
+      }
+    }
+
+    const [items] = await db.query(
+      `SELECT oi.order_item_name,
+              oi.product_id,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS qty,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS line_total
+       FROM tbl_order_items oi
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+       GROUP BY oi.order_item_id, oi.order_item_name, oi.product_id`,
+      [orderId],
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        order: {
+          order_id: order.order_id,
+          order_status: trackingData?.current_status || order.order_status,
+          order_date: order.order_date,
+          total: order.total,
+          payment_method: order.payment_method,
+          billing_first_name: order.billing_first_name,
+          billing_last_name: order.billing_last_name,
+          billing_city: order.billing_city,
+          billing_state: order.billing_state,
+          awb_code: awb || null,
+          courier_name: order.courier_name || null,
+        },
+        items,
+        tracking: trackingData,
+      },
+    });
+  } catch (err) {
+    console.error("trackOrderById error:", err);
+    return res.status(500).json({ success: false, message: "Failed to load order." });
+  }
+};
+
+// ── Public order tracking (no login required) ─────────────────────────────────
+// POST /orders/track  { orderId, phone }
+// Verifies the phone matches the order's billing/shipping phone server-side.
+const trackOrderByPhone = async (req, res) => {
+  const { orderId: rawId, phone: rawPhone } = req.body || {};
+
+  const orderId = Number.parseInt(rawId, 10);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ success: false, message: "Invalid order ID." });
+  }
+
+  const inputDigits = String(rawPhone || "").replace(/\D/g, "");
+  if (!inputDigits || inputDigits.length < 6) {
+    return res.status(400).json({ success: false, message: "Please enter a valid mobile number." });
+  }
+
+  try {
+    const [orderRows] = await db.query(
+      `SELECT o.order_id,
+              MAX(o.order_status)      AS order_status,
+              MAX(o.order_date)        AS order_date,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
+               ORDER BY om.meta_id DESC LIMIT 1) AS total,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal'
+               ORDER BY om.meta_id DESC LIMIT 1) AS subtotal,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping'
+               ORDER BY om.meta_id DESC LIMIT 1) AS shipping,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
+               ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'
+               ORDER BY om.meta_id DESC LIMIT 1) AS coupon_code,
+              (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_discount'
+               ORDER BY om.meta_id DESC LIMIT 1) AS coupon_discount,
+              MAX(u.display_name)      AS user_display_name,
+              MAX(ub.first_name)       AS billing_first_name,
+              MAX(ub.last_name)        AS billing_last_name,
+              MAX(ub.phone)            AS billing_phone,
+              MAX(ub.address_line1)    AS billing_address_1,
+              MAX(ub.address_line2)    AS billing_address_2,
+              MAX(ub.city)             AS billing_city,
+              MAX(ub.state_name)       AS billing_state,
+              MAX(ub.zipcode)          AS billing_postcode,
+              MAX(ub.address_notes)    AS billing_notes,
+              MAX(us.first_name)       AS ship_first_name,
+              MAX(us.last_name)        AS ship_last_name,
+              MAX(us.phone)            AS ship_phone,
+              MAX(us.address_line1)    AS ship_address_1,
+              MAX(us.address_line2)    AS ship_address_2,
+              MAX(us.city)             AS ship_city,
+              MAX(us.state_name)       AS ship_state,
+              MAX(us.zipcode)          AS ship_postcode
+       FROM tbl_orders o
+       LEFT JOIN tbl_users u ON u.ID = o.user_id
+       LEFT JOIN (
+         SELECT order_id,
+                MAX(first_name) AS first_name, MAX(last_name) AS last_name,
+                MAX(phone) AS phone, MAX(address_line1) AS address_line1,
+                MAX(address_line2) AS address_line2, MAX(city) AS city,
+                MAX(state_name) AS state_name, MAX(zipcode) AS zipcode,
+                MAX(address_notes) AS address_notes
+         FROM tbl_user_address WHERE address_billing = 'yes' GROUP BY order_id
+       ) ub ON ub.order_id = o.order_id
+       LEFT JOIN (
+         SELECT order_id,
+                MAX(first_name) AS first_name, MAX(last_name) AS last_name,
+                MAX(phone) AS phone, MAX(address_line1) AS address_line1,
+                MAX(address_line2) AS address_line2, MAX(city) AS city,
+                MAX(state_name) AS state_name, MAX(zipcode) AS zipcode
+         FROM tbl_user_address WHERE address_billing = 'no' GROUP BY order_id
+       ) us ON us.order_id = o.order_id
+       WHERE o.order_id = ? AND o.order_type = 'shop_order'
+       GROUP BY o.order_id`,
+      [orderId],
+    );
+
+    if (!orderRows.length) {
+      return res.status(404).json({ success: false, message: "Order not found." });
+    }
+
+    const order = orderRows[0];
+
+    // Verify phone server-side
+    const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");
+    const billingDigits = String(order.billing_phone || "").replace(/\D/g, "");
+    const phoneMatches  =
+      (shipDigits    && (shipDigits.endsWith(inputDigits)    || inputDigits.endsWith(shipDigits)))    ||
+      (billingDigits && (billingDigits.endsWith(inputDigits) || inputDigits.endsWith(billingDigits)));
+
+    if (!phoneMatches) {
+      return res.status(403).json({ success: false, message: "The mobile number does not match this order." });
+    }
+
+    const [items] = await db.query(
+      `SELECT oi.order_item_id,
+              oi.order_item_name,
+              oi.product_id,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_variation_id'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS variation_id,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS qty,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS line_total,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = 'pa_color'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS color,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim
+               WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = 'pa_size'
+               ORDER BY oim.meta_id DESC LIMIT 1) AS size,
+              (SELECT COALESCE(
+                NULLIF((SELECT oim3.meta_value FROM tbl_order_itemmeta oim3
+                        WHERE oim3.order_item_id = oi.order_item_id AND oim3.meta_key = '_item_image' LIMIT 1), ''),
+                (SELECT m1.media_path FROM tbl_productmeta pm1
+                 JOIN tbl_media m1 ON m1.media_id = CAST(pm1.meta_value AS UNSIGNED)
+                 WHERE pm1.product_id = CAST(NULLIF(
+                   (SELECT oim2.meta_value FROM tbl_order_itemmeta oim2
+                    WHERE oim2.order_item_id = oi.order_item_id AND oim2.meta_key = '_variation_id' LIMIT 1
+                   ), '0') AS UNSIGNED) AND pm1.meta_key = '_thumbnail_id'
+                 ORDER BY pm1.meta_id DESC LIMIT 1),
+                (SELECT m2.media_path FROM tbl_productmeta pm2
+                 JOIN tbl_media m2 ON m2.media_id = CAST(pm2.meta_value AS UNSIGNED)
+                 WHERE pm2.product_id = oi.product_id AND pm2.meta_key = '_thumbnail_id'
+                 ORDER BY pm2.meta_id DESC LIMIT 1)
+              )) AS thumbnail_url
+       FROM tbl_order_items oi
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+       GROUP BY oi.order_item_id, oi.order_item_name, oi.product_id`,
+      [orderId],
+    );
+
+    const effectiveItems = selectEffectiveOrderItems(
+      items,
+      order.subtotal ? Number(order.subtotal) : 0,
+    );
+
+    res.json({ success: true, data: { order, items: effectiveItems } });
+  } catch (err) {
+    console.error("trackOrderByPhone error:", err);
+    res.status(500).json({ success: false, message: "Failed to load order." });
+  }
+};
+
 module.exports = {
   placeOrder,
   getMyOrders,
   getMyOrderById,
+  trackOrderByPhone,
+  trackOrderById,
   getAllOrders,
   updateOrderStatus,
   getDefaultAddress,

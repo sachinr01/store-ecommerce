@@ -305,6 +305,43 @@ export interface OrderDetailResponse {
 export const getMyOrderById = (orderId: number | string) =>
   apiFetch<OrderDetailResponse>(`/orders/${orderId}`, true);
 
+export const trackOrder = async (orderId: number | string, phone: string): Promise<OrderDetailResponse> => {
+  const res = await fetch(`${API_BASE}/orders/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId, phone }),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `Error ${res.status}`);
+  }
+  const body = await res.json();
+  return body.data as OrderDetailResponse;
+};
+
+export interface ShiprocketTrackingActivity {
+  date: string;
+  activity: string;
+  location: string;
+  sr_status?: string;
+  sr_status_label?: string;
+}
+
+export interface LiveTrackingResponse {
+  success: boolean;
+  current_status: string;
+  activities: ShiprocketTrackingActivity[];
+}
+
+export const getLiveTracking = async (awb: string): Promise<LiveTrackingResponse> => {
+  const res = await fetch(`${API_BASE}/tracking/${encodeURIComponent(awb)}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json() as Promise<LiveTrackingResponse>;
+};
+
 export interface RecentOrderAddress {
   address_id: number;
   order_id: number;

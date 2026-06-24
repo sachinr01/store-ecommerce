@@ -61,7 +61,6 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
   const [addedFlash,    setAddedFlash]    = useState(false);
   const [pinned,        setPinned]        = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
-  const [buyNowFlash,   setBuyNowFlash]   = useState(false);
   const [srReady,       setSrReady]       = useState(false);
 
   useEffect(() => {
@@ -204,8 +203,7 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
         fallbackUrl: `${window.location.origin}/checkout`,
       });
 
-      setBuyNowFlash(true);
-      setTimeout(() => setBuyNowFlash(false), 2000);
+
     } catch (err) {
       if (err instanceof Error && err.message === 'abort') return;
       console.error('[BuyNow] error:', err);
@@ -355,13 +353,17 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
               <span className="cpd-price">{priceRangeStr}</span>
             ) : displayMRP ? (
               <>
-                <span className="cpd-old-price">{formatPrice(displayMRP)}</span>
-                <span className="cpd-price sale">{formatPrice(displayPrice)}</span>
-                {displayMRP != null && displayMRP > 0 && displayPrice != null && displayPrice > 0 && (
-                  <span className="cpd-save-badge">
-                    {(() => { const d = getDiscountPercent(displayPrice, displayMRP); return d ? `${d}% off` : null; })()}
-                  </span>
-                )}
+                <div className="cpd-price-row">
+                  <span className="cpd-mrp-label">MRP</span>
+                  <span className="cpd-old-price">{formatPrice(displayMRP)}</span>
+                  <span className="cpd-price sale">{formatPrice(displayPrice)}</span>
+                  {displayMRP != null && displayMRP > 0 && displayPrice != null && displayPrice > 0 && (
+                    <span className="cpd-save-badge">
+                      {(() => { const d = getDiscountPercent(displayPrice, displayMRP); return d ? `${d}% off` : null; })()}
+                    </span>
+                  )}
+                </div>
+                <div className="cpd-tax-note">(Incl. of all taxes)</div>
               </>
             ) : displayPrice ? (
               <span className="cpd-price">{formatPrice(displayPrice)}</span>
@@ -444,45 +446,82 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
 
           <div className="cpd-divider" />
 
+          {/* ── Coupon Message ── */}
+          <div className="product-info__block-item" data-block-type="available-discounts">
+            <div className="product_best_offer">
+              <h4>Best offers for you!</h4>
+              <hr className="product_best_offer_divider" />
+              <div className="product_best_offer_row">
+                <div className="product_best_offer_item">
+                  <div className="product_best_offer_info">
+                    <div className="metafield-rich_text_field">
+                      <p><strong>Get 10% OFF | Code: NEST10</strong></p>
+                      <em>Limited Time Offer!</em>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ── Qty + Add to Cart + Wishlist ── */}
           <div className="cpd-cart-row">
-            <div className="cpd-qty-wrap">
-              <button className="cpd-qty-btn" onClick={() => setQuantity(q => Math.max(1, q - 1))}>−</button>
-              <input type="number" className="cpd-qty-input" value={quantity}
-                onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} />
-              <button className="cpd-qty-btn" onClick={() => setQuantity(q => q + 1)}>+</button>
+            <div className="cpd-cart-row-top">
+              <div className="cpd-qty-wrap">
+                <button className="cpd-qty-btn" onClick={() => setQuantity(q => Math.max(1, q - 1))}>−</button>
+                <input type="number" className="cpd-qty-input" value={quantity}
+                  onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} />
+                <button className="cpd-qty-btn" onClick={() => setQuantity(q => q + 1)}>+</button>
+              </div>
+
+              <button className={`cpd-wishlist-btn${inWishlist(product.ID) ? ' active' : ''}`}
+                onClick={toggleWishlist}
+                title={inWishlist(product.ID) ? 'Remove from Wishlist' : 'Add to Wishlist'}>
+                <svg width="18" height="18" viewBox="0 0 24 24"
+                  fill={inWishlist(product.ID) ? '#e74c3c' : 'none'}
+                  stroke={inWishlist(product.ID) ? '#e74c3c' : 'currentColor'} strokeWidth="1.8">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
             </div>
 
-            <button className={`cpd-wishlist-btn${inWishlist(product.ID) ? ' active' : ''}`}
-              onClick={toggleWishlist}
-              title={inWishlist(product.ID) ? 'Remove from Wishlist' : 'Add to Wishlist'}>
-              <svg width="18" height="18" viewBox="0 0 24 24"
-                fill={inWishlist(product.ID) ? '#e74c3c' : 'none'}
-                stroke={inWishlist(product.ID) ? '#e74c3c' : 'currentColor'} strokeWidth="1.8">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            </button>
-
             <div className="cpd-action-btns">
-              <button type="button" disabled={!canAddToCart} onClick={handleAddToCart}
+              <button type="submit" disabled={!canAddToCart} onClick={handleAddToCart}
                 className={`cpd-atc-btn${canAddToCart ? ' ready' : ''}${addedFlash ? ' flash' : ''}`}>
-                {addedFlash ? '✓ Added to Cart!' :
-                  !inStock ? 'Out of Stock' :
+                {addedFlash ? 'ADDED TO CART' :
+                  !inStock ? 'OUT OF STOCK' :
                     (!hasColors || selectedColor
-                      ? (!hasSizes || selectedSize ? 'Add to Cart' : 'Select Size')
-                      : 'Select Colour')}
+                      ? (!hasSizes || selectedSize ? 'ADD TO CART' : 'SELECT SIZE')
+                      : 'SELECT COLOUR')}
               </button>
 
-              <button type="button" disabled={!canAddToCart || buyNowLoading}
-                onClick={handleBuyNow}
-                className={`cpd-buy-now-btn${canAddToCart ? ' ready' : ''}${buyNowFlash ? ' flash' : ''}`}>
-                {buyNowLoading ? 'Please wait…' :
-                  buyNowFlash ? '✓ Redirecting…' :
-                  !inStock ? 'Out of Stock' :
-                    (!hasColors || selectedColor
-                      ? (!hasSizes || selectedSize ? 'Buy Now' : 'Select Size')
-                      : 'Select Colour')}
-              </button>
+              <div className="shiprocket-headless" data-type="product">
+                <button type="button" className="sr-headless-checkout" name="sr-headless-button" onClick={handleBuyNow} disabled={!canAddToCart || buyNowLoading}>
+                  <div className="sr-d-flex flex-center">
+                    <div className="sr-d-flex full-width flex-center">
+                      <span className="sr-checkout-visible2">
+                        {buyNowLoading ? 'PLEASE WAIT…' :
+                          !inStock ? 'OUT OF STOCK' :
+                            (!hasColors || selectedColor
+                              ? (!hasSizes || selectedSize ? 'BUY NOW' : 'SELECT SIZE')
+                              : 'SELECT COLOUR')}
+                      </span>
+                      {canAddToCart && !buyNowLoading && (
+                        <>
+                          <img src="https://fastrr-boost-ui.pickrr.com/assets/images/boost_button/upi_options.svg" alt="Google Pay | Phone Pay | UPI" className="sr-pl-15 sr-checkout-visible"/>
+                          <img src="https://fastrr-boost-ui.pickrr.com/assets/images/boost_button/right_arrow.svg" className="sr-pl-15 sr-checkout-visible1" alt="right_arrow"/>
+                        </>
+                      )}
+                      {buyNowLoading && <div className="loader5" style={{display: 'block'}}></div>}
+                    </div>
+                    <div>
+                      <span className="sr-powered-by">
+                        <img src="https://fastrr-boost-ui.pickrr.com/assets/images/boost_button/powered_by.svg" alt=""/>
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -549,6 +588,13 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
           </span>
           <button type="button" disabled={!canAddToCart} onClick={handleAddToCart}
             className={`cpd-sticky-atc${canAddToCart ? ' ready' : ''}`}>
+            <span className="cpd-btn-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                <path d="M20 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+            </span>
             {!inStock ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </div>

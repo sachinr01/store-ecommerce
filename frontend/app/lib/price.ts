@@ -1,7 +1,7 @@
 // ── Change these constants to update pricing display everywhere ───────────────
 export const CURRENCY      = '₹';   // '$' | '€' | '£' | '₹' etc.
-export const SEPARATOR     = '.';   // decimal separator
-export const LEADING_ZEROS = '00';  // digits after separator
+export const SEPARATOR     = '';   // decimal separator
+export const LEADING_ZEROS = '';  // digits after separator
 
 /**
  * formatPrice(amount)

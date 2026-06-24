@@ -117,7 +117,7 @@ export default function Footer() {
               {b2bHref && <li><Link href={b2bHref} className="link-faded">B2B Connect</Link></li>}
               {aboutHref && <li><Link href={aboutHref} className="link-faded">About Us</Link></li>}
               {contactHref && <li><Link href={contactHref} className="link-faded">Contact Us</Link></li>}
-              <li><Link href="/orders" className="link-faded">Track Order</Link></li>
+              <li><Link href="/order-tracking" className="link-faded">Order Tracking</Link></li>
               <li><Link href="/careers" className="link-faded">Careers</Link></li>
             </ul>
           </div>

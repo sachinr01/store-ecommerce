@@ -131,11 +131,13 @@ router.delete('/wishlist/remove/:productId', requireLogin, wishlist.removeFromWi
 router.post  ('/wishlist/sync',              requireLogin, wishlist.syncWishlist);
 
 // ── Orders ────────────────────────────────────────────────────────────────────
-router.post('/orders/place',   orders.placeOrder);
-router.post('/shipping-rate',  orders.getShippingRate);
-router.get ('/tracking/:awb',  orders.getTrackingStatus);
-router.get ('/orders/my',      requireLogin, orders.getMyOrders);
-router.get ('/orders/:orderId', requireLogin, orders.getMyOrderById);
+router.post('/orders/place',        orders.placeOrder);
+router.post('/orders/track',        orders.trackOrderByPhone);   // public – no login needed
+router.post('/orders/track-by-id',  orders.trackOrderById);      // public – order ID only
+router.post('/shipping-rate',       orders.getShippingRate);
+router.get ('/tracking/:awb',       orders.getTrackingStatus);
+router.get ('/orders/my',           requireLogin, orders.getMyOrders);
+router.get ('/orders/:orderId',     requireLogin, orders.getMyOrderById);
 
 // ── Address Book ──────────────────────────────────────────────────────────────
 router.get('/address/default',            requireLogin, orders.getDefaultAddress);
