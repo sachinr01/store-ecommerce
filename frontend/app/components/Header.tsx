@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -10,6 +11,7 @@ import { useAuth } from "../lib/authContext";
 import { formatPrice } from "../lib/price";
 import { usePlaceholderImage } from "../lib/siteSettingsContext";
 import { getImageUrl } from "../lib/api";
+import { useShiprocketCheckout } from "../lib/useShiprocketCheckout";
 
 const CATEGORY_PAGE_SLUGS: Record<string, string> = {
   'drinkware': '/shop/drinkware',
@@ -51,6 +53,7 @@ export default function Header() {
   const { items, count, total, removeItem } = useCart();
   const { user, isLoggedIn } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
+  const { startCheckout, loading: checkoutLoading } = useShiprocketCheckout();
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -240,6 +243,13 @@ export default function Header() {
 
   return (
     <>
+      {/* Shiprocket HeadlessCheckout — loaded here so it's available on all pages */}
+      <input type="hidden" value="nestcase.in" id="sellerDomain" />
+      <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css" />
+      <Script
+        src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js"
+        strategy="lazyOnload"
+      />
       <div className="nh-sticky-wrap">
         <div className="nh-announcement">
           Welcome Offer: Extra 10% Off on Your First Order | Use Code NEST10
@@ -357,7 +367,14 @@ export default function Header() {
                   )}
                   <div className="nh-cart-actions">
                     <Link href="/cart" className="btn-view-product" onClick={closeOverlays}>View Cart</Link>
-                    <Link href="/checkout" className="btn-view-product" onClick={closeOverlays}>Checkout</Link>
+                    <button
+                      type="button"
+                      className="btn-view-product"
+                      disabled={checkoutLoading || items.length === 0}
+                      onClick={(e) => { closeOverlays(); void startCheckout(e); }}
+                    >
+                      {checkoutLoading ? 'Starting…' : 'Checkout'}
+                    </button>
                   </div>
                 </div>
               </div>
