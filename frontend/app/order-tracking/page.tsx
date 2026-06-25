@@ -242,12 +242,15 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
           </div>
 
           <div className="tracking-result-actions">
-            <Link href={`/orders/${summary.id}`} className="btn-view-product btn-view-product--inline">
-              Full Order Details
-            </Link>
-            <Link href="/orders" className="btn-view-product btn-view-product--inline btn-view-product--outline">
-              All Orders
-            </Link>
+            <a
+              href={`/api/orders/invoice/${summary.id}?phone=${encodeURIComponent(summary.phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ot-btn ot-btn--invoice"
+            >
+              DOWNLOAD INVOICE
+            </a>
+
           </div>
         </div>
       </div>

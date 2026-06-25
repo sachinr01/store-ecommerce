@@ -744,7 +744,9 @@ const getProduct = async (req, res) => {
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'canonical_tag'    ORDER BY meta_id DESC LIMIT 1) AS seo_canonical_tag,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'meta_index'       ORDER BY meta_id DESC LIMIT 1) AS seo_meta_index,
                 (SELECT CAST(meta_value AS DECIMAL(3,2)) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_average_rating' ORDER BY meta_id DESC LIMIT 1) AS avg_rating,
-                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' ORDER BY meta_id DESC LIMIT 1) AS review_count
+                (SELECT CAST(meta_value AS UNSIGNED) FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = '_wc_review_count' ORDER BY meta_id DESC LIMIT 1) AS review_count,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'hsn' ORDER BY meta_id DESC LIMIT 1) AS hsn_code,
+                (SELECT meta_value FROM tbl_productmeta WHERE product_id = p.ID AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1) AS tax_percent
             FROM tbl_products p
             WHERE p.ID = ?
               AND p.product_type   = 'product'

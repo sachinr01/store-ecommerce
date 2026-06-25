@@ -138,6 +138,7 @@ router.post('/orders/track-by-id',  orders.trackOrderById);      // public – o
 router.post('/shipping-rate',       orders.getShippingRate);
 router.get ('/tracking/:awb',       orders.getTrackingStatus);
 router.get ('/orders/my',           requireLogin, orders.getMyOrders);
+router.get ('/orders/invoice/:orderId', orders.downloadInvoice); // public – phone verified
 router.get ('/orders/:orderId',     requireLogin, orders.getMyOrderById);
 
 // ── Address Book ──────────────────────────────────────────────────────────────
