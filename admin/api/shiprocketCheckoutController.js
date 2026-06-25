@@ -795,6 +795,22 @@ const getCheckoutToken = async (req, res) => {
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
     };
 
+    // ── COUPON/DISCOUNT DEBUG LOG — what THIS site sends to Shiprocket ────────
+    // This is the only place the actual coupon CODE (text) exists in your
+    // system — Shiprocket's order webhook never echoes the code back later,
+    // only the resulting total_discount amount. Compare this line against the
+    // [COUPON-CHECK] SUMMARY log in shiprocketorderwebhook.js for the same
+    // order (match by checkout_ref / cart_id) to confirm the discount carried
+    // through end-to-end, from "coupon applied on your site" all the way to
+    // "discounted price stored on the order."
+    console.log(
+      `[SR Checkout][COUPON-CHECK][TOKEN-GEN] checkout_ref=${toStr(req.body?.checkout_ref || "") || "—"} ` +
+      `coupon_code_from_frontend=${toStr(req.body?.coupon_code || "") || "—"} ` +
+      `coupon_discount_from_frontend=${toFloat(req.body?.coupon_discount, 0)} ` +
+      `discount_amount_sent_to_SR=${payload.cart_data.discount_amount} ` +
+      `item_count=${freshItems.length}`,
+    );
+
     const sessionUser = req.sessionData?.user || null;
 
     // HMAC must be computed over the exact JSON string sent as the body.
@@ -862,7 +878,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       return res.status(400).json({ success: false, message: "order_id is required" });
     }
 
-    console.log(`[SR Complete-Checkout] poll — redirect_order_id=${sr_order_id} checkout_ref=${checkout_ref || "(none)"}`);
+    // (poll log removed — was firing on every single poll attempt and flooding pm2 logs)
 
     // ── 1. Direct lookup: has the webhook already created this order? ──────
     const existingOrderId = await findOrderBySrOrderId(sr_order_id);
@@ -877,7 +893,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     // cart_id (ctx.sr_order_id), then look that up against _sr_cart_id.
     if (checkout_ref) {
       const ctx = await findCheckoutContext({ checkout_ref });
-      console.log(`[SR Complete-Checkout] ctx for checkout_ref=${checkout_ref}:`, ctx ? `sr_order_id=${ctx.sr_order_id}` : "NOT FOUND");
+      // (ctx lookup log removed — was repeating every poll attempt)
       if (ctx) {
         const ctxCartId = toStr(ctx.sr_order_id || "");
         if (ctxCartId) {
@@ -901,7 +917,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
             console.log(`[SR Complete-Checkout] ✅ found via _sr_checkout_order_id=${ctxCartId} → order_id=${ctxRows2[0].order_id}`);
             return res.json({ success: true, order_id: ctxRows2[0].order_id, sr_cart_id: ctxCartId });
           }
-          console.log(`[SR Complete-Checkout] ctx cart_id=${ctxCartId} — no order found yet (webhook pending?)`);
+          // (removed — was repeating "no order found yet" on every poll attempt)
         } else {
           console.log(`[SR Complete-Checkout] ctx found but sr_order_id is empty — token response may not have returned order_id`);
         }
@@ -1079,10 +1095,6 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     await bindCheckoutContextToOrder({ checkout_ref, sr_order_id });
 
     // ── Clear the server-side cart so the frontend shows empty on next load ──
-    // This mirrors the client-side clearCart() call in cart.tsx.
-    // We identify the cart by user_id (logged-in) or the session/cookie that
-    // was captured in the checkout context. Both paths are best-effort:
-    // a failure here must NOT abort the order — the order already committed.
     try {
       if (userId) {
         await db.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
@@ -1115,13 +1127,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────────
-   POST /api/shiprocket/register-redirect
-   Called by the frontend the instant Shiprocket redirects back
-   with ?order_id=XXX (before polling starts).
-   Stores: meta_key='_sr_redirect_order_id', meta_value='<redirectId>|<checkoutRef>'
-   This lets findOrderBySrOrderId() map the redirect id → checkout context → order.
-───────────────────────────────────────────────────────────── */
+/* POST /api/shiprocket/register-redirect*/
 const registerRedirectOrderId = async (req, res) => {
   try {
     const redirect_order_id = toStr(req.body?.redirect_order_id || req.body?.order_id || "");

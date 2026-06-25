@@ -1,4 +1,3 @@
-
 const crypto = require("crypto");
 const db     = require("../config/db");
 const {
@@ -53,28 +52,6 @@ const parseAddress = (addr) => {
   return { firstName, lastName, line1, line2, city, state, zip, phone };
 };
 
-/* ─────────────────────────────────────────────────────────────
-   Main webhook handler
-   POST /api/shiprocket/order-webhook
-
-   ACTUAL payload shape (from your confirmed logs):
-   {
-     rtoPrediction: 'low',
-     cart_id:       '6a367facc0f1576a0d37f46c',
-     latest_stage:  'ORDER_PLACED',
-     items: [{ name, price, title, quantity, product_id, variant_id }],
-     currency:        'INR',
-     item_count:      1,
-     source_name:     'fastrr',
-     total_price:     799,
-     shipping_price:  0,
-     total_discount:  0,
-     tax:             0,
-     billing_address:  { zip, city, name, phone, country, address1, address2, last_name, first_name },
-     shipping_address: { zip, city, name, phone, country, address1, address2, last_name, first_name },
-     cart_attributes:  { ipv4_address: '...' }
-   }
-───────────────────────────────────────────────────────────── */
 const receiveOrderWebhook = async (req, res) => {
   console.log("Webhook body:", req.body);
 
@@ -108,6 +85,17 @@ const receiveOrderWebhook = async (req, res) => {
     rawPaymentType.includes("PREPAID") || rawPaymentType.includes("PAID") ? "prepaid" :
     "cod"; // store default — change here if you later enable prepaid too
   const srOrderId = toStr(body.order_id || body.sr_order_id || cartId);
+
+  // ── COUPON/DISCOUNT DEBUG
+  const couponLikeKeys = Object.keys(body).filter((k) =>
+    /coupon|discount|promo|voucher/i.test(k),
+  );
+  console.log(
+    `[SR OW][COUPON-CHECK] cart_id=${cartId} stage=${latestStage} ` +
+    `total_price=${totalPrice} total_discount=${totalDiscount} ` +
+    `coupon_code=${body.coupon_code ?? "—"} discount_code=${body.discount_code ?? "—"} ` +
+    `all_discount_like_keys_in_body=${JSON.stringify(couponLikeKeys)}`,
+  );
 
   // Only process placed orders
   if (latestStage !== "ORDER_PLACED") {
@@ -395,6 +383,16 @@ const receiveOrderWebhook = async (req, res) => {
 
       const lineTotal = Math.max(0, lineSubtotal - lineDiscount); // actual charged amount
 
+      // ── COUPON/DISCOUNT DEBUG LOG #2 — per-item before/after price ──────────
+      console.log(
+        `[SR OrderWebhook][COUPON-CHECK] item="${item.title}" product_id=${item.product_id} ` +
+        `qty=${item.quantity} unit_price=${item.price} ` +
+        `line_subtotal(before_discount)=${lineSubtotal.toFixed(2)} ` +
+        `line_discount_applied=${lineDiscount.toFixed(2)} ` +
+        `line_total(after_discount)=${lineTotal.toFixed(2)} ` +
+        `coupon_applied=${lineDiscount > 0 ? "YES — storing discounted price" : "NO — storing core product price"}`,
+      );
+
       const itemMeta = [
         ["_product_id",       item.product_id],
         ["_variation_id",     0],               // no variants in your store
@@ -457,6 +455,24 @@ const receiveOrderWebhook = async (req, res) => {
 
     // ── tbl_ordermeta ──────────────────────────────────────────────────────────
     // TABLE: tbl_ordermeta — financial data, identifiers, source info
+    const couponCodeFromBody = toStr(body.coupon_code || body.discount_code || "");
+
+    // ── COUPON/DISCOUNT DEBUG LOG #3 — order-level summary ─────────────────────
+    console.log(
+      `[SR OrderWebhook][COUPON-CHECK] SUMMARY cart_id=${cartId} ` +
+      `subtotal(before_discount)=${subtotal.toFixed(2)} ` +
+      `discount_from_SR=${discount.toFixed(2)} ` +
+      `order_total(SR authoritative)=${orderTotal.toFixed(2)} ` +
+      `coupon_code_field_present=${couponCodeFromBody ? `YES ("${couponCodeFromBody}")` : "NO"} ` +
+      `will_store=${
+        discount > 0
+          ? couponCodeFromBody
+            ? "_coupon_code + _coupon_discount + discounted _line_total"
+            : "discounted _line_total ONLY (no coupon code field sent by SR — _coupon_code meta will be skipped)"
+          : "core/original _line_total (no discount on this order)"
+      }`,
+    );
+
     const metaEntries = [
       ["_payment_method",       paymentMethod],
       ["_order_currency",       currency],
@@ -467,8 +483,8 @@ const receiveOrderWebhook = async (req, res) => {
       ["_order_item_count",     String(itemCount || resolvedItems.length)],
       ["_order_discount",       discount.toFixed(2)],
       // Coupon applied via Shiprocket Checkout — store code if present in webhook
-      ...(toStr(body.coupon_code || body.discount_code || "")
-          ? [["_coupon_code", toStr(body.coupon_code || body.discount_code || "")],
+      ...(couponCodeFromBody
+          ? [["_coupon_code", couponCodeFromBody],
              ["_coupon_discount", discount.toFixed(2)]]
           : []),
       ["_billing_phone",        phone10],

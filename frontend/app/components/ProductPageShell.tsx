@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
-import { getImageUrl, type ProductDetail } from '../lib/api';
+import { getImageUrl, getActiveCoupon, type ProductDetail, type AppliedCoupon } from '../lib/api';
 import Header from './Header';
 import Footer from './Footer';
 import { formatPrice, formatPriceRange } from '../lib/price';
@@ -62,11 +62,16 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
   const [pinned,        setPinned]        = useState(false);
   const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [srReady,       setSrReady]       = useState(false);
+  const [activeCoupon,  setActiveCoupon]  = useState<AppliedCoupon | null>(null);
 
   useEffect(() => {
     const onScroll = () => setPinned(window.scrollY > 400);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  // Load active coupon so BuyNow sends the correct discount to Shiprocket
+  useEffect(() => {
+    getActiveCoupon().then((c) => setActiveCoupon(c)).catch(() => {});
   }, []);
 
   useEffect(() => { setMainImage(0); }, [selectedColor]);
@@ -144,10 +149,12 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      const variantId = String(bestMatch?.ID ?? product.ID);
+      const variantId    = String(bestMatch?.ID ?? product.ID);
+      const couponCode   = activeCoupon?.code     ?? '';
+      const couponDiscount = activeCoupon?.discount ?? 0;
       const cartData = {
         items: [{ variant_id: variantId, quantity }],
-        discount_amount: 0,
+        discount_amount: couponDiscount,
       };
 
       const res = await fetch('/api/shiprocket/token', {
@@ -159,8 +166,8 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
           redirect_url:    `${window.location.origin}/checkout`,
           timestamp:       new Date().toISOString(),
           checkout_ref:    checkoutRef,
-          coupon_code:     '',
-          coupon_discount: 0,
+          coupon_code:     couponCode,
+          coupon_discount: couponDiscount,
         }),
       });
 
