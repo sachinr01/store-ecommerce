@@ -267,7 +267,7 @@ export default function OrderDetailPage() {
 
                 <div className="order-detail-side">
                   <div className="order-detail-card">
-                    <h3 className="order-detail-subtitle">Delivery details</h3>
+                    <h3 className="order-detail-card-title">Delivery details</h3>
                     <div className="order-summary-grid">
                       <div><strong>Name:</strong> {summary.name || '-'}</div>
                       <div><strong>Phone:</strong> {summary.phone || '-'}</div>
@@ -277,8 +277,8 @@ export default function OrderDetailPage() {
                   </div>
 
                   <div className="order-detail-card">
-                    <h3 className="order-detail-subtitle">Price details</h3>
-                    <div className="order-summary-grid">
+                    <h3 className="order-detail-card-title">Price details</h3>
+                    <div className="order-details-grid">
                       <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
                       {summary.couponCode && (
                         <div><strong>Coupon:</strong> {summary.couponCode}</div>
@@ -294,7 +294,7 @@ export default function OrderDetailPage() {
 
 
                   <div className="order-detail-card">
-                    <h3 className="order-detail-subtitle">Shipping Details</h3>
+                    <h3 className="order-detail-card-title">Shipping Details</h3>
 
                     <div className="order-summary-grid">
                       <div>

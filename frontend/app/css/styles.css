@@ -10742,6 +10742,7 @@ input[type="checkbox"] {
   gap: 0;
   overflow-x: auto;
   padding-bottom: 4px;
+  padding-top: 4px;
 }
 
 .timeline-step {
@@ -10812,6 +10813,15 @@ input[type="checkbox"] {
   letter-spacing: 0.06em;
 }
 
+.order-detail-card-title {
+  margin: 0 0 24px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #4a4a3a;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .order-items-list {
   display: flex;
   flex-direction: column;
@@ -10877,14 +10887,77 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 24px;
   color: #343434;
 }
 
-.order-summary-grid strong {
-  color: #111;
+.order-summary-grid > div {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
 }
 
+.order-summary-grid > div strong {
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+
+.order-summary-grid strong {
+  color: #111;
+  font-weight: 700;
+}
+
+.order-summary-grid > div > *:last-child:not(strong) {
+  color:rgb(52, 52, 52);
+}
+
+.order-summary-grid > div > span {
+  word-wrap: break-word;
+  word-break: break-word;
+  text-align: left;
+}
+
+/* Order Details Grid - with space-between */
+.order-details-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 24px;
+  color: #343434;
+}
+
+.order-details-grid > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.order-details-grid > div strong {
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.order-details-grid strong {
+  color: #111;
+  font-weight: 700;
+}
+
+.order-details-grid > div > *:last-child:not(strong) {
+  color:rgb(52, 52, 52);
+}
+
+.order-price-total {
+  border-top: 3px solid #111;
+  padding-top: 12px;
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 15px;
+}
 /* visual style from btn-view-product; only layout override here */
 .orders-cta {
   margin-top: 12px;
@@ -12376,6 +12449,12 @@ a.ot-btn {
   margin-top: 32px;
   width: 100%;
   max-width: 100%;
+}
+
+/* Add spacing above timeline to prevent overlap with nav */
+.ot-result .order-timeline {
+  margin-top: 4px;
+  margin-bottom: 32px;
 }
 
 /* Responsive */

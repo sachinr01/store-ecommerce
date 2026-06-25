@@ -154,6 +154,9 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
 
   return (
     <div className="ot-result">
+      {/* Timeline at the very top */}
+      <TrackingTimeline status={summary.status} />
+
       {/* Hero */}
       <div className="order-detail-card order-hero">
         <div className="order-detail-header">
@@ -163,7 +166,6 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
           </div>
           <span className={`order-detail-status ${summary.status}`}>{toLabel(summary.status)}</span>
         </div>
-        <TrackingTimeline status={summary.status} />
       </div>
 
       <div className="order-detail-grid">
@@ -221,23 +223,28 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
         {/* Right */}
         <div className="order-detail-side">
           <div className="order-detail-card">
-            <h3 className="order-detail-subtitle">Delivery Details</h3>
+            <h3 className="order-detail-card-title">Customer Details</h3>
             <div className="order-summary-grid">
               {summary.name    && <div><strong>Name:</strong> {summary.name}</div>}
               {summary.phone   && <div><strong>Phone:</strong> {summary.phone}</div>}
-              {summary.address && <div><strong>Address:</strong> {summary.address}</div>}
+              {summary.address && (
+                <div>
+                  <strong>Address:</strong>
+                  <span style={{ wordWrap: 'break-word' }}>{summary.address}</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="order-detail-card">
-            <h3 className="order-detail-subtitle">Price Details</h3>
-            <div className="order-summary-grid">
+            <h3 className="order-detail-card-title">Order Details</h3>
+            <div className="order-details-grid">
+              <div><strong>Payment:</strong> {toLabel(summary.payment)}</div>
               <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
               {summary.couponCode   && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
-              {summary.discountLabel && <div><strong>Discount:</strong> -{summary.discountLabel}</div>}
+              <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>
               <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
               <div className="order-price-total"><strong>Total:</strong> {summary.totalLabel}</div>
-              <div><strong>Payment:</strong> {toLabel(summary.payment)}</div>
             </div>
           </div>
 
