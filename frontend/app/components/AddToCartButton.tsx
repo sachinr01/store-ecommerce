@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useCart } from '../lib/cartContext';
 
 interface AddToCartButtonProps {
@@ -10,7 +9,6 @@ interface AddToCartButtonProps {
   image: string;
   inStock: boolean;
   className?: string;
-  redirectToCheckout?: boolean;
 }
 
 export default function AddToCartButton({
@@ -19,10 +17,8 @@ export default function AddToCartButton({
   image,
   inStock,
   className = 'csp-atc-btn',
-  redirectToCheckout = false,
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
-  const router = useRouter();
   const [state, setState] = useState<'idle' | 'loading' | 'added' | 'error'>('idle');
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -61,10 +57,6 @@ export default function AddToCartButton({
     
     try {
       await addItem({ productId, image, quantity: 1 });
-      if (redirectToCheckout) {
-        router.push('/checkout');
-        return;
-      }
       setState('added');
       
       // Vibration API for haptic feedback (if supported)
