@@ -269,7 +269,7 @@ export default function OrderTrackingPage() {
     const trimId  = orderId.trim();
     const trimMob = mobile.trim();
 
-    if (!trimId)  { setError('Please enter your Order ID.'); return; }
+    if (!trimId)  { setError('Please enter your Order Reference.'); return; }
     if (!trimMob) { setError('Please enter your Mobile No.'); return; }
 
     setLoading(true);
@@ -284,7 +284,7 @@ export default function OrderTrackingPage() {
       if (msg.toLowerCase().includes('mobile') || msg.toLowerCase().includes('match')) {
         setError('The mobile number does not match this order. Please check and try again.');
       } else if (msg.includes('404') || msg.toLowerCase().includes('not found')) {
-        setError('No order found with that ID. Please double-check your order confirmation email.');
+        setError('No order found with that reference. Please double-check your order confirmation email.');
       } else {
         setError('Could not find this order. Please check the details and try again.');
       }
@@ -310,14 +310,14 @@ export default function OrderTrackingPage() {
               <div className="ot-wrap">
 
                 <p className="ot-description">
-                  To track your order please enter your Order ID in the box below and press the &quot;Track&quot; button.
+                  To track your order please enter your Order Reference in the box below and press the &quot;Track&quot; button.
                   <br />This was given to you on your receipt and in the confirmation email you should have received.
                 </p>
 
                 {!result ? (
                   <form className="ot-form" onSubmit={handleTrack} noValidate>
                     <div className="ot-field">
-                      <label htmlFor="ot-order-id">Order ID</label>
+                      <label htmlFor="ot-order-id">Order Reference</label>
                       <input
                         id="ot-order-id"
                         type="text"

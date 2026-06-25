@@ -2539,17 +2539,32 @@ const trackOrderById = async (req, res) => {
 const trackOrderByPhone = async (req, res) => {
   const { orderId: rawId, phone: rawPhone } = req.body || {};
 
-  const orderId = Number.parseInt(rawId, 10);
-  if (!Number.isFinite(orderId) || orderId <= 0) {
-    return res.status(400).json({ success: false, message: "Invalid order ID." });
-  }
-
+  const inputRef    = String(rawId || "").trim();
   const inputDigits = String(rawPhone || "").replace(/\D/g, "");
+
+  if (!inputRef) {
+    return res.status(400).json({ success: false, message: "Please enter your Order Reference." });
+  }
   if (!inputDigits || inputDigits.length < 6) {
     return res.status(400).json({ success: false, message: "Please enter a valid mobile number." });
   }
 
   try {
+    // Resolve sr_cart_id → DB order_id when the input is not a plain integer
+    let orderId = Number.parseInt(inputRef, 10);
+    if (!Number.isFinite(orderId) || orderId <= 0 || String(orderId) !== inputRef) {
+      // Treat input as sr_cart_id and look up the real order_id
+      const [[metaRow]] = await db.query(
+        `SELECT order_id FROM tbl_ordermeta
+         WHERE meta_key = '_sr_cart_id' AND meta_value = ?
+         LIMIT 1`,
+        [inputRef],
+      );
+      if (!metaRow) {
+        return res.status(404).json({ success: false, message: "No order found with that reference." });
+      }
+      orderId = metaRow.order_id;
+    }
     const [orderRows] = await db.query(
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
