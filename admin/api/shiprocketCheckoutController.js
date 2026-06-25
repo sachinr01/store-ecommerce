@@ -868,7 +868,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     const existingOrderId = await findOrderBySrOrderId(sr_order_id);
     if (existingOrderId) {
       console.log(`[SR Complete-Checkout] ✅ found via direct ID lookup → order_id=${existingOrderId}`);
-      return res.json({ success: true, order_id: existingOrderId });
+      return res.json({ success: true, order_id: existingOrderId, sr_cart_id: sr_order_id });
     }
 
     // ── 1b. Walk checkout context via checkout_ref ──────────────────────────
@@ -889,7 +889,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
           );
           if (ctxRows.length) {
             console.log(`[SR Complete-Checkout] ✅ found via _sr_cart_id=${ctxCartId} → order_id=${ctxRows[0].order_id}`);
-            return res.json({ success: true, order_id: ctxRows[0].order_id });
+            return res.json({ success: true, order_id: ctxRows[0].order_id, sr_cart_id: ctxCartId });
           }
           const [ctxRows2] = await db.query(
             `SELECT order_id FROM tbl_ordermeta
@@ -899,7 +899,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
           );
           if (ctxRows2.length) {
             console.log(`[SR Complete-Checkout] ✅ found via _sr_checkout_order_id=${ctxCartId} → order_id=${ctxRows2[0].order_id}`);
-            return res.json({ success: true, order_id: ctxRows2[0].order_id });
+            return res.json({ success: true, order_id: ctxRows2[0].order_id, sr_cart_id: ctxCartId });
           }
           console.log(`[SR Complete-Checkout] ctx cart_id=${ctxCartId} — no order found yet (webhook pending?)`);
         } else {
@@ -927,7 +927,12 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       );
       if (recentRows.length) {
         console.log(`[SR Complete-Checkout] ✅ found via recent order fallback → order_id=${recentRows[0].order_id}`);
-        return res.json({ success: true, order_id: recentRows[0].order_id });
+        // Fetch sr_cart_id for this order
+        const [[cartIdRow]] = await db.query(
+          `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_sr_cart_id' AND order_id = ? LIMIT 1`,
+          [recentRows[0].order_id],
+        );
+        return res.json({ success: true, order_id: recentRows[0].order_id, sr_cart_id: cartIdRow?.meta_value || sr_order_id });
       }
     }
 
@@ -1103,7 +1108,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       console.error("[SR Complete-Checkout] Cart clear failed (non-fatal):", clearErr.message);
     }
 
-    return res.json({ success: true, order_id: result.orderId });
+    return res.json({ success: true, order_id: result.orderId, sr_cart_id: sr_order_id });
   } catch (err) {
     console.error("completeCheckoutFromShiprocket error:", err.message);
     return res.status(500).json({ success: false, message: err.message });

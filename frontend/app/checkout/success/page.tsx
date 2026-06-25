@@ -9,13 +9,9 @@ import Footer from '../../components/Footer';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
 
-  // Our polling redirect sends ?order=DB_ORDER_ID
-  // Shiprocket's own redirect sends ?order_id=SR_ORDER_ID
-  // Show whichever is present — prefer our DB order ID
- const orderId =
-    searchParams.get('order') ??
-    searchParams.get('order_id') ??
-    searchParams.get('oid') ??
+  // Show sr_cart_id from our redirect param
+  const srCartId =
+    searchParams.get('sr_cart_id') ??
     null;
 
   const [show, setShow] = useState(false);
@@ -66,10 +62,10 @@ function OrderSuccessContent() {
                 email with your receipt and tracking details shortly.
               </p>
 
-              {orderId && (
+              {srCartId && (
                 <div className="success-order-chip">
                   <div className="success-order-chip-dot" />
-                  Order Reference &nbsp;<strong>#{orderId}</strong>
+                  Order Reference &nbsp;<strong>#{srCartId}</strong>
                 </div>
               )}
 

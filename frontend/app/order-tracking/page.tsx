@@ -158,7 +158,7 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
       <div className="order-detail-card order-hero">
         <div className="order-detail-header">
           <div>
-            <h2 className="order-detail-title">Order #{summary.id}</h2>
+            <h2 className="order-detail-title">Order #{order.sr_cart_id || summary.id}</h2>
             <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
           </div>
           <span className={`order-detail-status ${summary.status}`}>{toLabel(summary.status)}</span>
@@ -348,7 +348,7 @@ export default function OrderTrackingPage() {
                   </form>
                 ) : (
                   <div className="ot-reset-bar">
-                    <span>Showing results for Order #{result.order.order_id}</span>
+                    <span>Showing results for Order #{result.order.sr_cart_id || result.order.order_id}</span>
                     <button type="button" onClick={handleReset} className="ot-reset-btn">
                       Track a different order
                     </button>

@@ -2620,6 +2620,13 @@ const trackOrderByPhone = async (req, res) => {
 
     const order = orderRows[0];
 
+    // Attach sr_cart_id from ordermeta
+    const [[cartIdRow]] = await db.query(
+      `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_sr_cart_id' AND order_id = ? LIMIT 1`,
+      [orderId],
+    );
+    order.sr_cart_id = cartIdRow?.meta_value || null;
+
     // Verify phone server-side
     const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");
     const billingDigits = String(order.billing_phone || "").replace(/\D/g, "");

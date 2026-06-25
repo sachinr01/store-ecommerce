@@ -298,6 +298,7 @@ export interface OrderDetailResponse {
     courier_name?: string | null;
     shipping_status?: string | null;
     shipment_id?: string | null;
+    sr_cart_id?: string | null;
   };
   items: OrderItemDetail[];
 }

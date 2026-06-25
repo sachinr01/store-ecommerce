@@ -106,7 +106,8 @@ export function useShiprocketCheckout() {
       stopPolling();
       clearSRStorage();
       try { await clearCart(); } catch { /* non-fatal */ }
-      router.push(`/checkout/success?order=${encodeURIComponent(data.order_id)}`);
+      const ref = data.sr_cart_id || data.order_id;
+      router.push(`/checkout/success?sr_cart_id=${encodeURIComponent(ref)}`);
       return true;
     } catch {
       return false;
