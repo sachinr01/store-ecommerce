@@ -14,6 +14,7 @@ const contact = require('./contactController');
 const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
 const { receiveOrderWebhook } = require('./shiprocketorderwebhook');
+const catalogSync = require('./shiprocketcatalogsync');
 
 // ── In-memory rate limiter ─────────────────────────────────────────────────────
 function makeRateLimiter({ windowMs, max, message }) {
@@ -180,6 +181,37 @@ router.post(
   requireAdmin,
   shiprocket.triggerCollectionWebhook,
 );
+
+// ── Shiprocket Catalog Auto-Sync ───────────────────────────────────────────────
+// FIX (2026-06-25): Shiprocket caches your product catalog and only refreshes
+// it when the Product Update webhook fires. Nothing was calling that webhook
+// automatically, so price edits (e.g. ₹899 → ₹799) never reached Shiprocket
+// and the checkout kept charging the old price.
+//
+// 1) startCatalogSync() below runs a background watcher that polls for price/
+//    stock changes every 2 minutes and auto-pushes the webhook — works no
+//    matter which tool edited the price.
+// 2) This route gives your (separate) admin app an INSTANT option: call it
+//    right after saving a product and the new price reaches Shiprocket
+//    immediately instead of waiting for the next poll tick.
+router.post(
+  '/admin/shiprocket/sync-now/:productId',
+  requireAdmin,
+  async (req, res) => {
+    const productId = parseInt(req.params.productId, 10);
+    if (!productId) {
+      return res.status(400).json({ success: false, message: 'Invalid productId' });
+    }
+    const result = await catalogSync.triggerCatalogSyncNow(productId);
+    if (!result.success) {
+      return res.status(502).json({ success: false, message: 'Sync failed', error: result.error });
+    }
+    return res.json({ success: true, shiprocket_response: result.data });
+  },
+);
+
+// Start the background price/stock watcher as soon as routes are loaded.
+catalogSync.startCatalogSync();
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 router.get('/admin/orders',                  requireAdmin,        orders.getAllOrders);

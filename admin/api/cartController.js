@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const db = require('../config/db');
 const { getSessionUser } = require('./session');
 
@@ -17,18 +16,10 @@ function buildCartSessionId(userId, sessionId) {
   return userId ? `user_${userId}` : sessionId;
 }
 
-function syntheticVariationId(productId, color, size) {
-  const raw = `${productId || ''}:${color || ''}:${size || ''}`;
-  const hex = crypto.createHash('md5').update(raw).digest('hex').slice(0, 8);
-  const value = Number.parseInt(hex, 16);
-  return -Math.abs(value);
-}
-
-function resolveVariationId(inputVarId, productId, color, size) {
+function resolveVariationId(inputVarId, productId) {
   const parsed = toInt(inputVarId, null);
   if (parsed) return parsed;
-  if (color || size) return syntheticVariationId(productId, color, size);
-  return null;
+  return productId || null;
 }
 
 function getCartIdentity(req) {
@@ -46,10 +37,7 @@ function getCartIdentity(req) {
   return { key: 'session_id', value: sessionId, userId: null, sessionId, cookieId: null };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 1: Fetch real-time price and title from the database.
-// Never use client-supplied price/title — those can be tampered.
-// ─────────────────────────────────────────────────────────────────────────────
+
 async function fetchProductInfo(productId, variationId) {
   // Try variation price first (if variationId is a real DB row > 0)
   if (variationId && variationId > 0) {
@@ -206,7 +194,7 @@ const addToCart = async (req, res) => {
 
   const color = toStr(body.color);
   const size = toStr(body.size);
-  const variationId = resolveVariationId(body.variation_id, productId, color, size);
+  const variationId = resolveVariationId(body.variation_id, productId);
   const quantity = Math.max(toInt(body.quantity, 1), 1);
   // NOTE: body.price and body.title are intentionally IGNORED here.
   const image = toStr(body.image);
@@ -418,7 +406,7 @@ async function mergeGuestCart(userId, guestSessionId, guestCookieId) {
   for (const item of guestItems) {
     const color = toStr(item.color);
     const size = toStr(item.size);
-    const variationId = resolveVariationId(item.variation_id, item.product_id, color, size);
+    const variationId = resolveVariationId(item.variation_id, item.product_id);
 
     // Refresh price and title from DB on merge
     const productInfo = await fetchProductInfo(item.product_id, variationId);

@@ -22,12 +22,43 @@ export const SR_STORAGE_KEYS = {
 
 const MAX_POLL_ATTEMPTS = 72;
 
+const SR_OVERLAY_SELECTORS = [
+  '[id*="fastrr" i]',
+  '[class*="fastrr" i]',
+  '[id*="pickrr" i]',
+  '[class*="pickrr" i]',
+  '[id*="shiprocket" i]',
+  '[class*="shiprocket-checkout" i]',
+  'iframe[src*="pickrr"]',
+  'iframe[src*="fastrr"]',
+  'iframe[src*="shiprocket"]',
+];
+
+/** True if Shiprocket's checkout overlay/iframe still appears to be on screen. */
+const isShiprocketOverlayOpen = (): boolean => {
+  if (typeof document === 'undefined') return false;
+  try {
+    return SR_OVERLAY_SELECTORS.some((sel) => {
+      const els = document.querySelectorAll(sel);
+      return Array.from(els).some((el) => {
+        const rect = (el as HTMLElement).getBoundingClientRect?.();
+        return !!rect && rect.width > 0 && rect.height > 0;
+      });
+    });
+  } catch {
+    return false;
+  }
+};
+
+const MAX_OVERLAY_HOLDS = 8;
+
 export function useShiprocketCheckout() {
   const router = useRouter();
   const { items, total, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollAttemptsRef = useRef(0);
+  const overlayHoldsRef = useRef(0);
 
   const srSet = (key: string, value: string) => {
     try { sessionStorage.setItem(key, value); } catch { /* SSR/private mode */ }
@@ -47,6 +78,7 @@ export function useShiprocketCheckout() {
       pollIntervalRef.current = null;
     }
     pollAttemptsRef.current = 0;
+    overlayHoldsRef.current = 0;
   };
 
   const finalizeCheckout = async (srOrderId: string, checkoutRef: string): Promise<boolean> => {
@@ -62,6 +94,15 @@ export function useShiprocketCheckout() {
       if (res.status === 202) return false;
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) return false;
+
+      // Order exists — but don't redirect over the top of a still-open
+      // checkout iframe. Hold here and let the next tick re-check.
+      if (isShiprocketOverlayOpen() && overlayHoldsRef.current < MAX_OVERLAY_HOLDS) {
+        overlayHoldsRef.current += 1;
+        return false;
+      }
+
+      overlayHoldsRef.current = 0;
       stopPolling();
       clearSRStorage();
       try { await clearCart(); } catch { /* non-fatal */ }
