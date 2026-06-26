@@ -1446,158 +1446,268 @@ const placeOrder = async (req, res) => {
       req.touchSession();
     }
 
+    // ── Email notifications ───────────────────────────────────────────────────
+    // Reads RECEIVED_EMAIL from env (same as contactController) — comma-separated.
+    const OWNER_EMAILS = (process.env.RECEIVED_EMAIL || "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+
     let emailSent = false;
     try {
-      const toEmail = billing.email;
-      const toName = `${billing.first_name} ${billing.last_name}`.trim();
-      const itemRows = cartItems
-        .map((item) => {
-          const title = escapeHtml(item.title || "Item");
-          const qty = Number(item.quantity || 0);
-          const price = toAmount(item.price);
-          const lineTotal = price * qty;
-          return `
-          <tr>
-            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; font-size:14px;">${title}</td>
-            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:center; font-size:14px;">${qty}</td>
-            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(price)}</td>
-            <td style="padding:10px 12px; border-bottom:1px solid #f0ece6; text-align:right; font-size:14px;">₹${formatMoney(lineTotal)}</td>
-          </tr>
-        `;
-        })
-        .join("");
+      const toEmail   = billing.email;
+      const toName    = `${billing.first_name} ${billing.last_name}`.trim();
+      const fullName  = toName || "Customer";
+      const orderDate = new Date().toLocaleString("en-IN", {
+        day:    "2-digit",
+        month:  "long",
+        year:   "numeric",
+        hour:   "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
 
-      const billingBlock = `${escapeHtml(billing.address)}${billing.address_2 ? `, ${escapeHtml(billing.address_2)}` : ""}, ${escapeHtml(billing.city)}, ${escapeHtml(billing.state)} ${escapeHtml(billing.postcode)}, ${escapeHtml(billing.country)}`;
-      const shippingBlock = `${escapeHtml(shipping.address)}${shipping.address_2 ? `, ${escapeHtml(shipping.address_2)}` : ""}, ${escapeHtml(shipping.city)}, ${escapeHtml(shipping.state)} ${escapeHtml(shipping.postcode)}, ${escapeHtml(shipping.country)}`;
-      const orderDate = new Date().toLocaleString();
+      // Fetch sr_cart_id saved into ordermeta (Shiprocket checkout) — null for direct checkout
+      const [[srCartRow]] = await db.query(
+        `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_sr_cart_id' AND order_id = ? LIMIT 1`,
+        [orderId],
+      );
+      const srCartId = srCartRow ? srCartRow.meta_value : null;
 
-      const emailHtml = `
-        <div style="margin:0; padding:0; background:#f5efe8;">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5efe8; padding:28px 0;">
+      // Logo served from public folder
+      // (matches the BASE_URL convention used by shiprocketorderwebhook.js /
+      //  shiprocketCheckoutController.js — SITE_URL was never set anywhere in this
+      //  codebase, so this previously resolved to a bare "/images/logo-white.png"
+      //  with no domain, which is broken in every email client.)
+      const siteBase = process.env.BASE_URL || process.env.SITE_URL || "https://nestcase.in";
+      const logoUrl  = `${siteBase}/images/logo-white.png`;
+
+      // ── Shared builders ─────────────────────────────────────────────────────
+
+      // Order meta info cards
+      function buildMetaCards() {
+        const colWidth = srCartId ? "25%" : "33%";
+        const refCard  = srCartId
+          ? `<td width="25%" style="padding:0 6px;vertical-align:top;">
+               <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:12px;">
+                 <tr><td style="text-align:center;">
+                   <div style="font-size:11px;color:#888;margin-bottom:4px;">Order Reference ID</div>
+                   <div style="font-size:12px;font-weight:700;color:#222;">SR_CART_ID: ${escapeHtml(srCartId)}</div>
+                 </td></tr>
+               </table>
+             </td>`
+          : "";
+        return `
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;">
             <tr>
-              <td align="center">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="background:#ffffff; border-radius:14px; overflow:hidden; border:1px solid #eadfce;">
-                  <tr>
-                    <td style="background:linear-gradient(135deg,#161616,#2c1f14); padding:22px 26px; text-align:left;">
-                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-                        <tr>
-                          <td>
-                            <div style="color:#fff; font-size:20px; letter-spacing:2px; font-weight:700; font-family:Arial,sans-serif;">NESTCASE</div>
-                          </td>
-                          <td style="text-align:right; color:#fff; font-family: Arial, sans-serif; font-size:12px;">
-                            <div style="opacity:0.85;">Order Confirmed</div>
-                            <div style="font-size:14px; font-weight:700;">#${orderId}</div>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td style="padding:24px 28px; font-family: Arial, sans-serif; color:#1b1b1b;">
-                      <h2 style="margin:0 0 8px; font-size:22px; color:#1b1b1b;">Thank you for your order!</h2>
-                      <p style="margin:0 0 6px; color:#4c4c4c;">Hi ${escapeHtml(toName || "there")},</p>
-                      <p style="margin:0 0 18px; color:#4c4c4c;">We’ve received your order and it’s now being processed.</p>
-
-                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
-                        <tr>
-                          <td style="background:#faf6f0; border:1px solid #efe5d8; border-radius:10px; padding:14px;">
-                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-                              <tr>
-                                <td style="font-size:12px; color:#777;">Order Date</td>
-                                <td style="font-size:12px; color:#777; text-align:right;">Payment</td>
-                              </tr>
-                              <tr>
-                                <td style="font-size:14px; font-weight:700; color:#222;">${escapeHtml(orderDate)}</td>
-                                <td style="font-size:14px; font-weight:700; color:#222; text-align:right;">${escapeHtml(paymentMethod.toUpperCase())}</td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse; margin:0 0 18px; border:1px solid #efe5d8; border-radius:10px; overflow:hidden;">
-                        <thead>
-                          <tr style="background:#faf6f0;">
-                            <th style="text-align:left; font-size:12px; padding:10px 12px; color:#6b5b4b;">Item</th>
-                            <th style="text-align:center; font-size:12px; padding:10px 12px; color:#6b5b4b;">Qty</th>
-                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Price</th>
-                            <th style="text-align:right; font-size:12px; padding:10px 12px; color:#6b5b4b;">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${itemRows}
-                        </tbody>
-                      </table>
-
-                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;">
-                        <tr>
-                          <td style="background:#111; color:#fff; border-radius:10px; padding:14px 16px;">
-                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-                              <tr>
-                                <td style="font-size:13px; opacity:0.8;">Subtotal</td>
-                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(subtotal)}</td>
-                              </tr>
-                              ${
-                                discount > 0
-                                  ? `
-                              <tr>
-                                <td style="font-size:13px; opacity:0.8;">Discount (${escapeHtml(appliedCoupon.coupon_code)})</td>
-                                <td style="font-size:13px; text-align:right; opacity:0.8; color:#4caf50;">−₹${formatMoney(discount)}</td>
-                              </tr>`
-                                  : ""
-                              }
-                              <tr>
-                                <td style="font-size:13px; opacity:0.8;">Shipping</td>
-                                <td style="font-size:13px; text-align:right; opacity:0.8;">₹${formatMoney(shippingCost)}</td>
-                              </tr>
-                              <tr>
-                                <td style="font-size:16px; font-weight:700; padding-top:8px;">Order Total</td>
-                                <td style="font-size:16px; font-weight:700; text-align:right; padding-top:8px;">₹${formatMoney(total)}</td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 10px;">
-                        <tr>
-                          <td style="width:50%; padding-right:10px; vertical-align:top;">
-                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
-                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Billing Address</div>
-                              <div style="font-size:13px; color:#222; line-height:1.5;">${billingBlock}</div>
-                            </div>
-                          </td>
-                          <td style="width:50%; padding-left:10px; vertical-align:top;">
-                            <div style="border:1px solid #efe5d8; border-radius:10px; padding:12px;">
-                              <div style="font-size:12px; color:#6b5b4b; margin-bottom:6px;">Shipping Address</div>
-                              <div style="font-size:13px; color:#222; line-height:1.5;">${shippingBlock}</div>
-                            </div>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <p style="margin:14px 0 0; color:#555;">We’ll notify you once your order ships.</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="background:#f8f3ee; padding:14px 24px; text-align:center; font-family: Arial, sans-serif; font-size:12px; color:#7a6b5c;">
-                      Thank you for choosing NESTCASE
-                    </td>
-                  </tr>
+              <td width="${colWidth}" style="padding:0 6px 0 0;vertical-align:top;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:12px;">
+                  <tr><td style="text-align:center;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">Order ID</div>
+                    <div style="font-size:13px;font-weight:700;color:#222;">#NC${escapeHtml(String(orderId))}</div>
+                  </td></tr>
+                </table>
+              </td>
+              ${refCard}
+              <td width="${colWidth}" style="padding:0 6px;vertical-align:top;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:12px;">
+                  <tr><td style="text-align:center;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">Order Date</div>
+                    <div style="font-size:13px;font-weight:700;color:#222;">${escapeHtml(orderDate)}</div>
+                  </td></tr>
+                </table>
+              </td>
+              <td width="${colWidth}" style="padding:0 0 0 6px;vertical-align:top;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:12px;">
+                  <tr><td style="text-align:center;">
+                    <div style="font-size:11px;color:#888;margin-bottom:4px;">Payment Method</div>
+                    <div style="font-size:13px;font-weight:700;color:#222;">Online Payment</div>
+                  </td></tr>
                 </table>
               </td>
             </tr>
-          </table>
-        </div>
-      `;
+          </table>`;
+      }
 
+      // Product rows
+      const productRowsHtml = cartItems.map((item) => {
+        const title     = escapeHtml(item.title || "Item");
+        const qty       = Number(item.quantity || 0);
+        const price     = toAmount(item.price);
+        const lineTotal = price * qty;
+        return `
+          <tr>
+            <td style="padding:14px 12px;border-bottom:1px solid #f0f0f0;">
+              <div style="font-size:14px;font-weight:600;color:#1b1b1b;">${title}</div>
+            </td>
+            <td style="padding:14px 12px;border-bottom:1px solid #f0f0f0;text-align:center;font-size:14px;color:#444;">&#8377;${formatMoney(price)}</td>
+            <td style="padding:14px 12px;border-bottom:1px solid #f0f0f0;text-align:center;font-size:14px;color:#444;">${qty}</td>
+            <td style="padding:14px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-size:14px;font-weight:600;color:#1b1b1b;">&#8377;${formatMoney(lineTotal)}</td>
+          </tr>`;
+      }).join("");
+
+      // Totals footer rows
+      const discountRow = discount > 0
+        ? `<tr>
+             <td colspan="3" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;">Discount (${escapeHtml(appliedCoupon.coupon_code)})</td>
+             <td style="padding:4px 12px;text-align:right;font-size:13px;color:#2e7d32;">-&#8377;${formatMoney(discount)}</td>
+           </tr>`
+        : "";
+      const totalsHtml = `
+        <tr>
+          <td colspan="3" style="padding:10px 12px;text-align:right;font-size:13px;color:#666;">Subtotal</td>
+          <td style="padding:10px 12px;text-align:right;font-size:13px;color:#333;">&#8377;${formatMoney(subtotal)}</td>
+        </tr>
+        ${discountRow}
+        <tr>
+          <td colspan="3" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;">Shipping</td>
+          <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;">&#8377;${formatMoney(shippingCost)}</td>
+        </tr>
+        <tr style="background:#f9f9f9;">
+          <td colspan="3" style="padding:12px;text-align:right;font-size:15px;font-weight:700;color:#1b1b1b;">Total</td>
+          <td style="padding:12px;text-align:right;font-size:15px;font-weight:700;color:#1b1b1b;">&#8377;${formatMoney(total)}</td>
+        </tr>`;
+
+      // Shipping address
+      const shipName = `${escapeHtml(shipping.first_name || billing.first_name)} ${escapeHtml(shipping.last_name || billing.last_name)}`.trim();
+      const shipLines = [
+        shipping.address || billing.address,
+        shipping.address_2 || billing.address_2,
+        shipping.city || billing.city,
+        ((shipping.state || billing.state) && (shipping.postcode || billing.postcode))
+          ? `${shipping.state || billing.state} \u2013 ${shipping.postcode || billing.postcode}`
+          : (shipping.state || billing.state || shipping.postcode || billing.postcode),
+        shipping.country || billing.country,
+      ].filter(Boolean).map(escapeHtml).join("<br>");
+      const shipPhone = escapeHtml(shipping.phone || billing.phone || "");
+
+      // ── Shared email body (used for both customer and owner) ─────────────────
+      function buildEmailBody() {
+        return `
+          <!-- HEADER: white bar with logo (logo artwork is dark green, needs a light background) -->
+          <tr>
+            <td style="background:#ffffff;padding:20px 28px;border-bottom:1px solid #eeeeee;">
+              <img src="${logoUrl}" alt="Nestcase" height="36" style="display:block;max-height:36px;border:0;" />
+            </td>
+          </tr>
+          <!-- CONTENT -->
+          <tr>
+            <td style="padding:28px 28px 8px;font-family:Arial,sans-serif;">
+              <h2 style="margin:0 0 6px;font-size:22px;color:#1b1b1b;">New Order Received &#x1F6D2;</h2>
+              <p style="margin:0 0 4px;color:#555;font-size:14px;">Hello,</p>
+              <p style="margin:0 0 20px;color:#555;font-size:14px;">
+                You have received a new order on your website <strong>Nestcase</strong>.<br>
+                Please find the order details below.
+              </p>
+
+              ${buildMetaCards()}
+
+              <!-- Customer Information -->
+              <h3 style="margin:0 0 12px;font-size:15px;color:#1b1b1b;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">&#x1F464; Customer Information</h3>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:14px;margin:0 0 20px;">
+                <tr>
+                  <td width="50%" style="padding:6px 10px;font-size:13px;color:#555;">
+                    <div style="font-size:11px;color:#888;margin-bottom:3px;">Customer Name</div>
+                    <div style="font-weight:600;color:#1b1b1b;">${escapeHtml(fullName)}</div>
+                  </td>
+                  <td width="50%" style="padding:6px 10px;font-size:13px;color:#555;">
+                    <div style="font-size:11px;color:#888;margin-bottom:3px;">Email Address</div>
+                    <div style="font-weight:600;color:#1b1b1b;">${escapeHtml(billing.email)}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding:6px 10px;font-size:13px;color:#555;">
+                    <div style="font-size:11px;color:#888;margin-bottom:3px;">Phone Number</div>
+                    <div style="font-weight:600;color:#1b1b1b;">+91 ${escapeHtml(billing.phone)}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Shipping Address -->
+              <h3 style="margin:0 0 12px;font-size:15px;color:#1b1b1b;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">&#x1F4E6; Shipping Address</h3>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:14px 18px;margin:0 0 20px;">
+                <tr><td style="font-size:13px;color:#333;line-height:1.8;">
+                  <strong>${shipName}</strong><br>
+                  ${shipLines}
+                  ${shipPhone ? "<br>" + shipPhone : ""}
+                </td></tr>
+              </table>
+
+              <!-- Order Summary -->
+              <h3 style="margin:0 0 12px;font-size:15px;color:#1b1b1b;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">&#x1F6D2; Order Summary</h3>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border:1px solid #e8e8e8;border-radius:8px;overflow:hidden;margin:0 0 6px;">
+                <thead>
+                  <tr style="background:#f3f3f3;">
+                    <th style="text-align:left;font-size:12px;padding:10px 12px;color:#555;font-weight:600;">Product Name</th>
+                    <th style="text-align:center;font-size:12px;padding:10px 12px;color:#555;font-weight:600;">Price</th>
+                    <th style="text-align:center;font-size:12px;padding:10px 12px;color:#555;font-weight:600;">Quantity</th>
+                    <th style="text-align:right;font-size:12px;padding:10px 12px;color:#555;font-weight:600;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>${productRowsHtml}</tbody>
+                <tfoot>${totalsHtml}</tfoot>
+              </table>
+
+              <!-- Payment Status -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e8e8e8;border-radius:8px;margin:0 0 20px;">
+                <tr>
+                  <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#1b1b1b;">Payment Status</td>
+                  <td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:700;color:#2e7d32;">Paid</td>
+                </tr>
+              </table>
+
+              <p style="margin:0;font-size:12px;color:#888;line-height:1.6;">
+                <strong>Note:</strong><br>
+                This is an automated email. Please do not reply to this email.<br>
+                If you have any questions, please contact us at <a href="mailto:support@nestcase.in" style="color:#555;">support@nestcase.in</a>
+              </p>
+            </td>
+          </tr>
+          <!-- FOOTER -->
+          <tr>
+            <td style="background:#f8f8f8;padding:16px 28px;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#888;border-top:1px solid #e8e8e8;">
+              This email has been sent to the following recipients:<br>
+              <strong>support@nestcase.in, growbizzmedia@gmail.com</strong>
+            </td>
+          </tr>`;
+      }
+
+      function wrapEmailBody() {
+        return `
+          <div style="margin:0;padding:0;background:#f4f4f4;">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;padding:28px 0;">
+              <tr><td align="center">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="max-width:620px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0;">
+                  ${buildEmailBody()}
+                </table>
+              </td></tr>
+            </table>
+          </div>`;
+      }
+
+      const emailHtml = wrapEmailBody();
+
+      // 1. Customer confirmation
       emailSent = await sendBrevoEmail({
         toEmail,
         toName,
-        subject: `Order Confirmed - #${orderId}`,
-        html: emailHtml,
+        subject: `Order Confirmed - #NC${orderId} | Nestcase`,
+        html:    emailHtml,
       });
+
+      // 2. Owner notifications → all RECEIVED_EMAIL addresses (parallel)
+      if (OWNER_EMAILS.length) {
+        await Promise.all(
+          OWNER_EMAILS.map((ownerEmail) =>
+            sendBrevoEmail({
+              toEmail:  ownerEmail,
+              toName:   "Store Admin",
+              subject:  `New Order Received - #NC${orderId} | Nestcase`,
+              html:     emailHtml,
+            }),
+          ),
+        );
+      }
     } catch (emailErr) {
       console.error("Order email error:", emailErr);
     }

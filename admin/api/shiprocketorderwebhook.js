@@ -4,6 +4,291 @@ const {
   validateAndLockCoupon,
   recordCouponUsage,
 } = require("./couponController");
+const { sendEmail: sendBrevoEmail } = require("./mailer");
+
+// ── Email config ──────────────────────────────────────────────────────────────
+const BASE_URL    = process.env.BASE_URL || "https://nestcase.in";
+const LOGO_URL    = `${BASE_URL}/images/logo-white.png`;
+const OWNER_EMAILS = (process.env.RECEIVED_EMAIL || "")
+  .split(",").map((e) => e.trim()).filter(Boolean);
+
+const buildImageUrl = (p) =>
+  !p ? "" : p.startsWith("http") ? p : `${BASE_URL}/${p.replace(/^\/+/, "")}`;
+
+const escHtml = (v) =>
+  String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+
+const fmtMoney = (v) => { const n = parseFloat(v); return isFinite(n) ? n.toFixed(2) : "0.00"; };
+
+function buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
+  paymentMethod, customerName, customerEmail, customerPhone,
+  shippingAddr, items, subtotal, shippingCost, discount, couponCode, total }) {
+
+  const payLabel    = (paymentMethod || "").toLowerCase() === "cod" ? "Cash on Delivery" : "Online Payment";
+  const payStatus   = (paymentMethod || "").toLowerCase() === "cod" ? "COD - Pending" : "Paid";
+  const payStatusColor = (paymentMethod || "").toLowerCase() === "cod" ? "#e65100" : "#2e7d32";
+
+  // Info cards (Order ID, Reference, Date, Payment)
+  const refCard = srCartId ? `
+    <td width="25%" style="padding:0 5px;vertical-align:top;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;">
+        <tr><td style="padding:10px 8px;text-align:center;">
+          <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Order Reference ID</div>
+          <div style="font-size:11px;font-weight:700;color:#222;font-family:Arial,sans-serif;">SR_CART_ID: ${escHtml(srCartId)}</div>
+        </td></tr>
+      </table>
+    </td>` : "";
+
+  const colW = srCartId ? "25%" : "33%";
+
+  const infoCards = `
+    <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;">
+      <tr>
+        <td width="${colW}" style="padding:0 5px 0 0;vertical-align:top;">
+          <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;">
+            <tr><td style="padding:10px 8px;text-align:center;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Order ID</div>
+              <div style="font-size:13px;font-weight:700;color:#222;font-family:Arial,sans-serif;">#NC${escHtml(String(orderId))}</div>
+            </td></tr>
+          </table>
+        </td>
+        ${refCard}
+        <td width="${colW}" style="padding:0 5px;vertical-align:top;">
+          <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;">
+            <tr><td style="padding:10px 8px;text-align:center;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Order Date</div>
+              <div style="font-size:12px;font-weight:700;color:#222;font-family:Arial,sans-serif;">${escHtml(orderDate)}</div>
+              <div style="font-size:11px;color:#666;font-family:Arial,sans-serif;">${escHtml(orderTime)}</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="${colW}" style="padding:0 0 0 5px;vertical-align:top;">
+          <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;">
+            <tr><td style="padding:10px 8px;text-align:center;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Payment Method</div>
+              <div style="font-size:12px;font-weight:700;color:#222;font-family:Arial,sans-serif;">${escHtml(payLabel)}</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+
+  // Product rows
+  const productRows = items.map((item) => {
+    // Only trust it as a real image if it's a well-formed http(s) URL.
+    // Anything else (empty string, null, a bare relative path that slipped
+    // through) falls back to the neutral placeholder box below — the product
+    // name/SKU are in their own column either way, so they're never hidden.
+    const hasImage = typeof item.image === "string" && /^https?:\/\/.+/i.test(item.image.trim());
+    const imgCell = hasImage
+      ? `<td width="52" style="padding:10px 10px 10px 12px;vertical-align:middle;">
+           <img src="${escHtml(item.image)}" width="44" height="44" alt=""
+             style="display:block;border-radius:6px;object-fit:cover;border:1px solid #eee;background-color:#f0f0f0;" />
+         </td>`
+      : `<td width="52" style="padding:10px 10px 10px 12px;vertical-align:middle;">
+           <div style="width:44px;height:44px;background:#f0f0f0;border-radius:6px;border:1px solid #e0e0e0;"></div>
+         </td>`;
+    const skuLine = item.sku
+      ? `<div style="font-size:11px;color:#888;font-family:Arial,sans-serif;">SKU: ${escHtml(item.sku)}</div>` : "";
+    const lTotal = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0);
+    return `
+      <tr>
+        ${imgCell}
+        <td style="padding:10px 8px;vertical-align:middle;">
+          <div style="font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;">${escHtml(item.title)}</div>
+          ${skuLine}
+        </td>
+        <td style="padding:10px 8px;text-align:center;font-size:13px;color:#444;font-family:Arial,sans-serif;vertical-align:middle;">&#8377;${fmtMoney(item.price)}</td>
+        <td style="padding:10px 8px;text-align:center;font-size:13px;color:#444;font-family:Arial,sans-serif;vertical-align:middle;">${escHtml(String(item.quantity))}</td>
+        <td style="padding:10px 12px 10px 8px;text-align:right;font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;vertical-align:middle;">&#8377;${fmtMoney(lTotal)}</td>
+      </tr>`;
+  }).join("");
+
+  const discountRow = discount > 0 ? `
+    <tr>
+      <td colspan="4" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">
+        Discount${couponCode ? ` (${escHtml(couponCode)})` : ""}
+      </td>
+      <td style="padding:4px 12px;text-align:right;font-size:13px;color:#2e7d32;font-family:Arial,sans-serif;">-&#8377;${fmtMoney(discount)}</td>
+    </tr>` : "";
+
+  // Shipping address lines
+  const addrLines = [
+    shippingAddr.line1, shippingAddr.line2,
+    shippingAddr.city,
+    (shippingAddr.state && shippingAddr.zip)
+      ? `${shippingAddr.state} - ${shippingAddr.zip}`
+      : (shippingAddr.state || shippingAddr.zip),
+    "India",
+  ].filter(Boolean).map(escHtml).join("<br>");
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;">
+<table cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;padding:28px 0;">
+  <tr><td align="center">
+    <table cellpadding="0" cellspacing="0" width="620" style="max-width:620px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ddd;">
+
+      <!-- HEADER: white bar with logo (logo artwork is dark green, needs a light background) -->
+      <tr>
+        <td style="background:#ffffff;padding:18px 26px;border-bottom:1px solid #eeeeee;">
+          <img src="${escHtml(LOGO_URL)}" alt="Nestcase" height="34"
+            style="display:block;max-height:34px;border:0;" />
+        </td>
+      </tr>
+
+      <!-- BODY -->
+      <tr><td style="padding:26px 26px 10px;">
+
+        <h2 style="margin:0 0 6px;font-size:20px;color:#1b1b1b;font-family:Arial,sans-serif;">
+          New Order Received &#x1F6D2;
+        </h2>
+        <p style="margin:0 0 4px;font-size:14px;color:#555;font-family:Arial,sans-serif;">Hello,</p>
+        <p style="margin:0 0 22px;font-size:14px;color:#555;font-family:Arial,sans-serif;">
+          You have received a new order on your website <strong>Nestcase</strong>.<br>
+          Please find the order details below.
+        </p>
+
+        ${infoCards}
+
+        <!-- Customer Information -->
+        <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;
+          border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Customer Information</h3>
+        <table cellpadding="0" cellspacing="0" width="100%"
+          style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;margin:0 0 20px;">
+          <tr>
+            <td width="50%" style="padding:10px 14px;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Customer Name</div>
+              <div style="font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;">${escHtml(customerName)}</div>
+            </td>
+            <td width="50%" style="padding:10px 14px;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Email Address</div>
+              <div style="font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;">${escHtml(customerEmail || "—")}</div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:6px 14px 12px;">
+              <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Phone Number</div>
+              <div style="font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;">+91 ${escHtml(customerPhone)}</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Shipping Address -->
+        <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;
+          border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Shipping Address</h3>
+        <table cellpadding="0" cellspacing="0" width="100%"
+          style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;margin:0 0 20px;">
+          <tr><td style="padding:12px 16px;font-size:13px;color:#333;line-height:1.8;font-family:Arial,sans-serif;">
+            <strong>${escHtml([shippingAddr.firstName, shippingAddr.lastName].filter(Boolean).join(" "))}</strong><br>
+            ${addrLines}
+            ${shippingAddr.phone ? `<br>+91 ${escHtml(shippingAddr.phone)}` : ""}
+          </td></tr>
+        </table>
+
+        <!-- Order Summary -->
+        <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;
+          border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Order Summary</h3>
+        <table cellpadding="0" cellspacing="0" width="100%"
+          style="border-collapse:collapse;border:1px solid #e4e4e4;border-radius:8px;overflow:hidden;margin:0 0 6px;">
+          <thead>
+            <tr style="background:#f5f5f5;">
+              <th colspan="2" style="text-align:left;font-size:11px;padding:9px 12px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Product Name</th>
+              <th style="text-align:center;font-size:11px;padding:9px 8px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Price</th>
+              <th style="text-align:center;font-size:11px;padding:9px 8px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Quantity</th>
+              <th style="text-align:right;font-size:11px;padding:9px 12px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${productRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" style="padding:10px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">Subtotal</td>
+              <td style="padding:10px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(subtotal)}</td>
+            </tr>
+            ${discountRow}
+            <tr>
+              <td colspan="4" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">Shipping</td>
+              <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(shippingCost)}</td>
+            </tr>
+            <tr style="background:#f9f9f9;">
+              <td colspan="4" style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;"><strong>Total</strong></td>
+              <td style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;"><strong>&#8377;${fmtMoney(total)}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Payment Status -->
+        <table cellpadding="0" cellspacing="0" width="100%"
+          style="border:1px solid #e4e4e4;border-radius:8px;margin:0 0 20px;">
+          <tr>
+            <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#1b1b1b;font-family:Arial,sans-serif;">Payment Status</td>
+            <td style="padding:12px 16px;text-align:right;font-size:13px;font-weight:700;
+              color:${payStatusColor};font-family:Arial,sans-serif;">${escHtml(payStatus)}</td>
+          </tr>
+        </table>
+
+        <!-- Note -->
+        <p style="margin:0;font-size:11px;color:#888;line-height:1.7;font-family:Arial,sans-serif;">
+          <strong>Note:</strong><br>
+          This is an automated email. Please do not reply to this email.<br>
+          If you have any questions, please contact us at
+          <a href="mailto:support@nestcase.in" style="color:#555;">support@nestcase.in</a>
+        </p>
+
+      </td></tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td style="background:#f8f8f8;padding:14px 26px;text-align:center;
+          font-family:Arial,sans-serif;font-size:11px;color:#888;border-top:1px solid #e8e8e8;">
+          This email has been sent to the following recipients:<br>
+          <strong>support@nestcase.in, growbizzmedia@gmail.com</strong>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+async function sendOrderEmails({ orderId, srCartId, orderDate, orderTime,
+  paymentMethod, customerName, customerEmail, customerPhone,
+  shippingAddr, items, subtotal, shippingCost, discount, couponCode, total }) {
+
+  const html    = buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
+    paymentMethod, customerName, customerEmail, customerPhone,
+    shippingAddr, items, subtotal, shippingCost, discount, couponCode, total });
+
+  const orderRef = srCartId || String(orderId);
+  const subject  = `New Order Received - #NC${orderId} | Nestcase`;
+
+  const sends = [];
+
+  // Customer email (only if we have a real email — Shiprocket guests often don't provide one)
+  const isRealEmail = (e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && !e.includes("guest.local") && !e.includes("shiprocket.guest");
+  if (isRealEmail(customerEmail)) {
+    sends.push(
+      sendBrevoEmail({
+        toEmail: customerEmail,
+        toName:  customerName,
+        subject: `Order Confirmed - #NC${orderId} | Nestcase`,
+        html,
+      }).catch((e) => console.error("[SR OW] Customer email failed:", e.message))
+    );
+  }
+
+  // Owner notification to all RECEIVED_EMAIL addresses
+  OWNER_EMAILS.forEach((ownerEmail) => {
+    sends.push(
+      sendBrevoEmail({ toEmail: ownerEmail, toName: "Store Admin", subject, html })
+        .catch((e) => console.error(`[SR OW] Owner email to ${ownerEmail} failed:`, e.message))
+    );
+  });
+
+  await Promise.all(sends);
+}
 
 const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
@@ -607,6 +892,74 @@ const receiveOrderWebhook = async (req, res) => {
     } catch (e) {
       // Logged inside createShiprocketOrder too — keep this short
       console.error("[SR OrderWebhook] Fulfillment push failed (non-fatal):", e.message);
+    }
+
+    // ── Send order emails (fire-and-forget, non-blocking) ──────────────────────
+    try {
+      // Fetch product image + SKU for each item (for rich email display)
+      const emailItems = [];
+      for (const item of resolvedItems) {
+        const [[imgRow]] = await db.query(
+          `SELECT media_path AS img_path
+           FROM tbl_media
+           WHERE parent_id = ? AND media_type = 'product_image'
+           ORDER BY media_id ASC LIMIT 1`,
+          [item.product_id],
+        );
+        const [[skuRow]] = await db.query(
+          `SELECT meta_value AS sku FROM tbl_productmeta
+           WHERE product_id = ? AND meta_key = '_sku' LIMIT 1`,
+          [item.product_id],
+        );
+        emailItems.push({
+          title:    item.title,
+          price:    item.price,
+          quantity: item.quantity,
+          image:    imgRow ? buildImageUrl(imgRow.img_path) : "",
+          sku:      skuRow ? toStr(skuRow.sku) : "",
+        });
+      }
+
+      const now       = new Date();
+      const orderDate = now.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+      const orderTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+      // Resolve buyer email from userEmail (set earlier during user lookup)
+      const buyerEmail   = userEmail || "";
+      const buyerName    = [billing.firstName, billing.lastName].filter(Boolean).join(" ") || "Customer";
+      const buyerPhone   = phone10 || toStr(billing.phone || shipping.phone || "");
+      const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");
+
+      await sendOrderEmails({
+        orderId,
+        srCartId:      cartId,
+        orderDate,
+        orderTime,
+        paymentMethod,
+        customerName:  buyerName,
+        customerEmail: buyerEmail,
+        customerPhone: buyerPhone,
+        shippingAddr: {
+          firstName: shipping.firstName || billing.firstName || "",
+          lastName:  shipping.lastName  || billing.lastName  || "",
+          line1:     shipping.line1     || billing.line1     || "",
+          line2:     shipping.line2     || billing.line2     || "",
+          city:      shipping.city      || billing.city      || "",
+          state:     shipping.state     || billing.state     || "",
+          zip:       shipping.zip       || billing.zip       || "",
+          phone:     toStr(shipping.phone || billing.phone || ""),
+        },
+        items:       emailItems,
+        subtotal,
+        shippingCost,
+        discount,
+        couponCode:  couponFromMeta,
+        total:       orderTotal,
+      });
+
+      console.log(`[SR OrderWebhook] Emails sent for order_id=${orderId}`);
+    } catch (emailErr) {
+      console.error("[SR OrderWebhook] Email send failed (non-fatal):", emailErr.message);
     }
 
     return res.status(200).json({ success: true, order_id: orderId });
