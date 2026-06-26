@@ -853,7 +853,7 @@ const receiveOrderWebhook = async (req, res) => {
       const pkgWeight  = totalWeight || 0.5;
 
       const srPayload = {
-        order_id:               `ORD_${orderId}_${Date.now()}`,
+        order_id:               cartId,
         order_date:             new Date().toISOString().slice(0, 10),
         pickup_location:        "warehouse", // must match your SR pickup location name
         billing_customer_name:  billing.firstName || "Customer",
