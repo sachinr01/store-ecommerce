@@ -18,7 +18,7 @@ const collectionRows = [
         title: 'Plates',
         src: '/images/collection/Dinner-Set-Plates.png',
         alt: 'Plates Collection',
-        href: '/shop/dinner-set',
+        href: '/shop/dinner-sets',
       },
       {
         title: 'Bowls',
