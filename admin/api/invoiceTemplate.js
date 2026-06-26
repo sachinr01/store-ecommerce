@@ -45,7 +45,7 @@ function amountToWords(amount) {
 // ── renderer ─────────────────────────────────────────────────────────────
 
 function renderInvoice(data) {
-  const { store, order, billing, shipping, totals, items } = data;
+  const { store, order, billing, totals, items } = data;
 
   // helpers
   function esc(v) {
@@ -82,13 +82,10 @@ function renderInvoice(data) {
   const billAddr = [billing.addr1, billing.addr2].filter(Boolean).map(esc).join(', ');
   const billCity = [billing.city, billing.state].filter(Boolean).map(esc).join(', ')
                  + (billing.pin ? ' - ' + esc(billing.pin) : '');
-  const shipAddr = [shipping.addr1, shipping.addr2].filter(Boolean).map(esc).join(', ');
-  const shipCity = [shipping.city, shipping.state].filter(Boolean).map(esc).join(', ')
-                 + (shipping.pin ? ' - ' + esc(shipping.pin) : '');
 
   // Supplier's Ref: sr_cart_id if available, else the numeric order id
   // Never show a bare dash — we always have at least the orderId
-  const supplierRef = esc(order.supplierRef || String(order.orderId));
+  const supplierRef = esc(order.supplierRef || '');
 
   // Other Reference(s): AWB / tracking number if available, else blank
   const otherRef = order.otherRef ? esc(order.otherRef) : '';
@@ -97,7 +94,9 @@ function renderInvoice(data) {
   const itemRows = items.map((item, i) => {
     const qty = Number(item.qty || 1);
     const lt  = toAmt(item.line_total);
-    const up  = qty > 0 ? lt / qty : lt;
+    const taxRate = toAmt(item.tax_percent);
+    const taxable = taxRate > 0 ? (lt * 100) / (100 + taxRate) : lt;
+    const up  = qty > 0 ? taxable / qty : taxable;
     return `
       <tr>
         <td class="c">${i + 1}</td>
@@ -106,9 +105,33 @@ function renderInvoice(data) {
         <td class="r">${qty}&nbsp;NOS</td>
         <td class="r">${inr(up)}</td>
         <td class="c">NOS</td>
-        <td class="r">${inr(lt)}</td>
+        <td class="r">${inr(taxable)}</td>
       </tr>`;
   }).join('');
+
+  const taxableTotal = hasTax
+    ? taxRows.reduce((sum, group) => sum + group.taxable, 0)
+    : toAmt(totals.subtotal);
+
+  const taxSummaryRows = hasTax ? `
+      <tr>
+        <td></td>
+        <td class="r">CGST</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="r">${inr(totalTax / 2)}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="r">SGST</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="r">${inr(totalTax / 2)}</td>
+      </tr>` : '';
 
   const discountRow = totals.discount > 0 ? `
       <tr>
@@ -172,7 +195,7 @@ function renderInvoice(data) {
     <table>
       <tr>
         <td class="words-cell">
-          <span class="lbl">Tax Amount (in words)</span><br>
+          <span class="lbl">Tax Amount (in words)</span>
           <strong>Indian Rupee ${esc(amountToWords(totalTax))} Only</strong>
         </td>
       </tr>
@@ -204,7 +227,7 @@ body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; 
 .sheet { max-width: 800px; margin: 0 auto; }
 
 /* title */
-.inv-title { font-size: 14px; font-weight: bold; text-align: center; letter-spacing: 1px; border: 1px solid #000; padding: 5px; }
+.inv-title { font-size: 17px; font-weight: 500; text-align: center; letter-spacing: 0; padding: 14px 0 22px; }
 
 /*
  * THE ONE BORDER RULE
@@ -218,32 +241,35 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
 /* helpers */
 .c   { text-align: center; }
 .r   { text-align: right; }
-.lbl { font-size: 10.5px; color: #444; display: block; margin-bottom: 1px; }
+.lbl { font-size: 10.5px; color: #222; display: block; margin-bottom: 1px; }
 .bold td { font-weight: bold; }
 
 /* seller section */
 .seller-cell { width: 55%; }
 .meta-cell   { width: 45%; padding: 0; } /* padding:0 so inner table is flush */
-.seller-name { font-weight: bold; font-size: 13px; margin-bottom: 3px; }
+.seller-name { font-weight: normal; font-size: 13px; }
+.meta-cell table { height: 100%; }
+.meta-cell td { width: 50%; height: 36px; }
+.strong-value { display: block; font-size: 13px; font-weight: bold; }
 
-/* buyer section — full-width single cell, no inner table */
+/* buyer section */
 .buyer-cell { width: 55%; }
-.ship-cell  { width: 45%; }
-.buyer-name { font-weight: bold; }
-.sect-lbl   { font-size: 10.5px; color: #555; margin-bottom: 2px; }
+.buyer-name { font-weight: normal; font-size: 13px; text-transform: uppercase; }
+.sect-lbl   { font-size: 10.5px; color: #222; margin-bottom: 2px; }
+.address-lines { line-height: 1.25; min-height: 140px; }
 
 /* items table — fixed layout with explicit col widths */
 .items-table { table-layout: fixed; }
-.col-sr   { width: 5%;  }
-.col-desc { width: 35%; }
-.col-hsn  { width: 11%; }
-.col-qty  { width: 11%; }
-.col-rate { width: 10%; }
-.col-per  { width: 8%;  }
+.col-sr   { width: 6%;  }
+.col-desc { width: 30%; }
+.col-hsn  { width: 14%; }
+.col-qty  { width: 13%; }
+.col-rate { width: 11%; }
+.col-per  { width: 9%;  }
 .col-amt  { width: 16%; }
 
 /* spacer pushes subtotal to the bottom of the items block */
-.spacer td { height: 60px; vertical-align: bottom; }
+.spacer td { height: 70px; vertical-align: bottom; }
 .grand-total td { font-weight: bold; }
 
 /* words */
@@ -281,65 +307,66 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
 
   <div class="inv-title">TAX INVOICE</div>
 
-  <!-- ① Seller (left) + Invoice meta grid (right) -->
+  <!-- Seller / buyer (left) + invoice meta grid (right) -->
   <table>
     <tr>
       <td class="seller-cell">
         <div class="seller-name">${esc(store.name)}</div>
         ${store.address1     ? `<div>${esc(store.address1)}</div>`                                    : ''}
         ${store.address2     ? `<div>${esc(store.address2)}</div>`                                    : ''}
-        ${store.cityStatePin ? `<div>${esc(store.cityStatePin)}</div>`                                : ''}
-        ${store.phone        ? `<div><span class="lbl">Phone</span>${esc(store.phone)}</div>`         : ''}
-        ${store.email        ? `<div><span class="lbl">E-Mail</span>${esc(store.email)}</div>`        : ''}
-        ${store.gstin        ? `<div><span class="lbl">GSTIN</span>${esc(store.gstin)}</div>`         : ''}
+        ${store.phone        ? `<div>Phone no. : ${esc(store.phone)}</div>`         : ''}
+        ${store.cityStatePin ? `<div>Pin code : ${esc(store.cityStatePin)}</div>`                                : ''}
+        ${store.gstin        ? `<div>GSTIN : ${esc(store.gstin)}</div>`         : ''}
+        ${store.email        ? `<div>E-Mail : ${esc(store.email)}</div>`        : ''}
       </td>
       <td class="meta-cell">
-        <!--
-          Standard GST invoice reference grid (right column).
-          All 4 rows always rendered — no optional rows, no colspan shortcuts.
-          Inner table uses border-collapse:collapse + same td border rule,
-          so its edges merge seamlessly with the outer meta-cell border.
-        -->
         <table>
           <tr>
-            <td><span class="lbl">Invoice No.</span>${esc(String(order.invoiceNo))}</td>
-            <td><span class="lbl">Dated</span>${esc(order.dateStr)}</td>
+            <td><span class="lbl">Invoice No.</span><span class="strong-value">${esc(String(order.invoiceNo))}</span></td>
+            <td><span class="lbl">Dated</span><span class="strong-value">${esc(order.dateStr)}</span></td>
           </tr>
           <tr>
-            <td><span class="lbl">Supplier's Ref</span>${supplierRef}</td>
-            <td><span class="lbl">Other Reference(s)</span>${otherRef}</td>
+            <td><span class="lbl">Delivery Note</span></td>
+            <td><span class="lbl">Mode/Terms of Payment</span>${order.isCOD ? 'Cash on Delivery' : ''}</td>
+          </tr>
+          <tr>
+            <td><span class="lbl">Supplier's Ref</span></td>
+            <td><span class="lbl">Other Reference(s)</span></td>
           </tr>
           <tr>
             <td><span class="lbl">Buyer's Order No.</span>${esc(String(order.orderId))}</td>
-            <td><span class="lbl">Buyer's Order Date</span>${esc(order.dateStr)}</td>
-          </tr>
-          <tr>
-            <td><span class="lbl">Despatch Doc No. (AWB)</span>${order.awbCode ? esc(order.awbCode) : ''}</td>
-            <td><span class="lbl">Despatch Through</span>${order.courierName ? esc(order.courierName) : ''}</td>
+            <td><span class="lbl">Dated</span>${esc(order.dateStr)}</td>
           </tr>
         </table>
       </td>
     </tr>
-  </table>
-
-  <!-- ② Buyer (Bill To, left) + Ship To (right) — plain cells, no inner tables -->
-  <table>
     <tr>
       <td class="buyer-cell">
-        <div class="sect-lbl">Buyer (Bill To)</div>
-        <div class="buyer-name">${esc(billing.name)}</div>
-        ${billAddr      ? `<div>${billAddr}</div>`                                                      : ''}
-        ${billCity      ? `<div>${billCity}</div>`                                                      : ''}
-        ${billing.phone ? `<div><span class="lbl">Mobile</span>${esc(billing.phone)}</div>`            : ''}
-        ${billing.email ? `<div><span class="lbl">E-mail</span>${esc(billing.email)}</div>`            : ''}
-        ${billing.state ? `<div><span class="lbl">State</span>${esc(billing.state)}</div>`             : ''}
+        <div class="address-lines">
+          <div class="sect-lbl">Buyer</div>
+          <div class="buyer-name">${esc(billing.name)}</div>
+          ${billAddr      ? `<div>${billAddr}</div>`                                                : ''}
+          ${billCity      ? `<div>${billCity}</div>`                                                : ''}
+          ${billing.gstin ? `<div>GSTIN/UIN : ${esc(billing.gstin)}</div>`   : ''}
+          ${billing.state ? `<div>State Name : ${esc(billing.state)}</div>`  : ''}
+          ${billing.phone ? `<div>Mobile no. : ${esc(billing.phone)}</div>`  : ''}
+          ${billing.email ? `<div>E-mail : ${esc(billing.email)}</div>`      : ''}
+        </div>
       </td>
-      <td class="ship-cell">
-        <div class="sect-lbl">Ship To</div>
-        <div class="buyer-name">${esc(shipping.name)}</div>
-        ${shipAddr       ? `<div>${shipAddr}</div>`                                                     : ''}
-        ${shipCity       ? `<div>${shipCity}</div>`                                                     : ''}
-        ${shipping.phone ? `<div><span class="lbl">Mobile</span>${esc(shipping.phone)}</div>`          : ''}
+      <td class="meta-cell">
+        <table>
+          <tr>
+            <td><span class="lbl">Despatch Doc No.</span>${order.awbCode ? esc(order.awbCode) : ''}</td>
+            <td><span class="lbl">Delivery Note Date</span><span class="strong-value">${esc(order.dateStr)}</span></td>
+          </tr>
+          <tr>
+            <td><span class="lbl">Despatched through</span><strong>${order.courierName ? esc(order.courierName) : ''}</strong></td>
+            <td><span class="lbl">Destination</span><strong>${billing.city ? esc(billing.city) : ''}</strong></td>
+          </tr>
+          <tr>
+            <td colspan="2"><span class="lbl">Terms of Delivery</span></td>
+          </tr>
+        </table>
       </td>
     </tr>
   </table>
@@ -365,8 +392,9 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
       ${itemRows}
       <tr class="spacer">
         <td colspan="6"></td>
-        <td class="r"><strong>${inr(totals.subtotal)}</strong></td>
+        <td class="r"><strong>${inr(taxableTotal)}</strong></td>
       </tr>
+      ${taxSummaryRows}
       ${discountRow}
       ${shippingRow}
       <tr class="grand-total">
@@ -390,18 +418,14 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
   <!-- ⑤ Tax breakdown + Tax Amount in words (only when at least one item has tax) -->
   ${taxBlock}
 
-  <!-- ⑥ GSTIN / PAN -->
-  <table>
-    <tr>
-      <td style="width:50%;"><span class="lbl">Company's GSTIN</span>${esc(store.gstin || '-')}</td>
-      <td><span class="lbl">Company's PAN</span>${esc(store.pan || '-')}</td>
-    </tr>
-  </table>
-
-  <!-- ⑦ Declaration / Authorised Signatory -->
+  <!-- ⑦ Declaration / Authorised Signatory / Company's GSTIN / Company's PAN -->
   <table>
     <tr>
       <td class="decl-cell">
+        <div>Company's GSTIN : ${esc(store.gstin || '-')}</div>
+        <br/>
+        <div>Company's PAN : ${esc(store.pan || '-')}</div>
+        <br/>
         <strong>Declaration</strong>
         <p style="font-size:11px; line-height:1.5; margin-top:4px;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.${codNote}</p>
       </td>
