@@ -24,6 +24,11 @@ const toInt = (val, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const normalizePhone = (raw) => {
+  const digits = toStr(raw).replace(/\D/g, ""); // strip spaces, +, dashes, etc.
+  return digits.length >= 10 ? digits.slice(-10) : digits; // always clean 10-digit
+};
+
 // Tolerance per item — accounts for floating-point accumulation across many items.
 // e.g. 4 items each ₹249.99 sum to 999.96 but stored subtotal may be 999.99.
 const MONEY_EPSILON_PER_ITEM = 0.02;
@@ -1064,7 +1069,7 @@ const placeOrder = async (req, res) => {
       weight: totalWeight,
     });
 
-    const orderIdShiprocket = "ORD_" + orderId + "_" + Date.now(); // makes it unique on retry
+    // order_id uses stable orderId — Shiprocket Notify uses this for WhatsApp/SMS
 
     // Standardize fallback metrics to match your rate calculator defaults
     const finalLength = maxLength || 10;
@@ -1073,7 +1078,7 @@ const placeOrder = async (req, res) => {
     const finalWeight = totalWeight || 0.5; // Always provide a safe minimum weight (e.g., 0.5kg)
 
     const shiprocketPayload = {
-      order_id: orderIdShiprocket,
+      order_id: String(orderId), // stable, matches DB
 
       order_date: new Date().toISOString().slice(0, 10),
 
@@ -1097,7 +1102,7 @@ const placeOrder = async (req, res) => {
 
       billing_email: billing.email,
 
-      billing_phone: billing.phone,
+      billing_phone: normalizePhone(billing.phone),
 
       shipping_is_billing: true,
 
