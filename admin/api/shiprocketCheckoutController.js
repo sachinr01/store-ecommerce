@@ -17,6 +17,10 @@ const { createShiprocketOrder } = require('./orderController');
 const toInt   = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n) ? d : n; };
 const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
+const calculateExclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
+  const taxable = Math.max(0, toFloat(subtotal) - toFloat(discountShare));
+  return (taxable * toFloat(taxPercent)) / 100;
+};
 
 const BASE_URL = "https://nestcase.in";
 
@@ -77,6 +81,7 @@ const mapProduct = (p) => {
   // ── Prices ──────────────────────────────────────────────────────
   const sellingPrice  = toFloat(p.price,         0); // _price
   const regularPrice  = toFloat(p.regular_price, 0); // _regular_price (MRP)
+  const taxPercent    = toFloat(p.tax_percent,   0);
 
   // compare_at_price = MRP only when MRP > selling price (real discount exists)
   const compareAtPrice =
@@ -109,6 +114,7 @@ const mapProduct = (p) => {
         created_at:       createdAt,
         updated_at:       updatedAt,
         taxable:          true,
+        tax_percent:      taxPercent,
         quantity:         stockQty,
         option_values:    {},
         grams:            Math.round(weight * 1000),        // e.g. 7 kg → 7000 grams
@@ -117,8 +123,9 @@ const mapProduct = (p) => {
         weight_unit:      "kg",
       },
     ],
-    image:   { src: imageSrc },
-    options: [],
+    image:       { src: imageSrc },
+    tax_percent: taxPercent,
+    options:     [],
   };
 };
 
@@ -164,6 +171,8 @@ const PRODUCT_SELECT = `
   ,
   /* ── Weight in kg (key = 'weight', NO underscore, confirmed in tbl_productmeta) ── */
   ${metaSubQuery("weight",         "weight")}
+  ,
+  ${metaSubQuery("tax",            "tax_percent")}
 `;
 
 /* ─────────────────────────────────────────────────────────────
@@ -258,15 +267,19 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
     
     if (!variantId) continue;
 
-    // Remove the _price join, we only need the Title and SKU now
+    // Remove the _price join, we only need title/SKU/tax now
     const [[dbRow]] = await db.query(
       `SELECT 
          p.ID, 
          p.product_title, 
-         sku_meta.meta_value AS sku
+         sku_meta.meta_value AS sku,
+         COALESCE(NULLIF(tax_meta.meta_value, ''), parent_tax_meta.meta_value, 0) AS tax_percent
        FROM tbl_products p
        LEFT JOIN tbl_productmeta sku_meta ON sku_meta.product_id = p.ID AND sku_meta.meta_key = '_sku'
+       LEFT JOIN tbl_productmeta tax_meta ON tax_meta.product_id = p.ID AND tax_meta.meta_key = 'tax'
+       LEFT JOIN tbl_productmeta parent_tax_meta ON parent_tax_meta.product_id = p.parent_id AND parent_tax_meta.meta_key = 'tax'
        WHERE p.ID = ? 
+       ORDER BY tax_meta.meta_id DESC, parent_tax_meta.meta_id DESC
        LIMIT 1`,
       [variantId],
     );
@@ -277,6 +290,7 @@ const resolveShiprocketCheckoutItems = async (cartItems = []) => {
         title: dbRow.product_title || "Product",
         price: srPrice > 0 ? srPrice : 0, // USE SHIPROCKET'S PRICE
         sku: dbRow.sku || "",
+        tax_percent: toFloat(dbRow.tax_percent, 0),
         quantity,
       });
     }
@@ -330,7 +344,12 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     const shippingCost = Math.max(0, toFloat(checkoutContext?.shipping_cost, 0));
-    const grandTotal = Math.max(0, subtotal - discount + shippingCost);
+    const taxTotal = resolvedItems.reduce((sum, item) => {
+      const lineSubtotal = item.price * item.quantity;
+      const discountShare = subtotal > 0 ? (discount * lineSubtotal) / subtotal : 0;
+      return sum + calculateExclusiveTax(lineSubtotal, item.tax_percent, discountShare);
+    }, 0);
+    const grandTotal = Math.max(0, subtotal - discount + taxTotal + shippingCost);
 
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
@@ -367,14 +386,16 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       );
       const orderItemId = itemResult.insertId;
       const lineTotal = item.price * item.quantity;
+      const discountShare = subtotal > 0 ? (discount * lineTotal) / subtotal : 0;
+      const lineTax = calculateExclusiveTax(lineTotal, item.tax_percent, discountShare);
       const itemMeta = [
         ["_product_id", item.product_id],
         ["_variation_id", item.product_id],
         ["_qty", item.quantity],
         ["_line_subtotal", lineTotal.toFixed(2)],
         ["_line_total", lineTotal.toFixed(2)],
-        ["_line_tax", "0"],
-        ["_line_subtotal_tax", "0"],
+        ["_line_tax", lineTax.toFixed(2)],
+        ["_line_subtotal_tax", lineTax.toFixed(2)],
         ["_item_sku", item.sku || ""],
       ];
 
@@ -402,6 +423,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       ["_payment_method", paymentMethod],
       ["_order_total", String(grandTotal)],
       ["_order_subtotal", String(subtotal)],
+      ["_order_tax", taxTotal.toFixed(2)],
       ["_order_shipping", shippingCost.toFixed(2)],
       ["_billing_phone", toStr(phone)],
       ["_billing_email", toStr(email)],
@@ -453,7 +475,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
           discount: 0,
         })),
         payment_method: paymentMethod.toUpperCase() === "COD" ? "COD" : "Prepaid",
-        sub_total: subtotal - discount,
+        sub_total: Math.max(0, subtotal - discount + taxTotal),
         shipping_charges: shippingCost,
         total_discount: discount,
         length: 10, breadth: 10, height: 10, weight: 0.5,
@@ -767,22 +789,35 @@ const getCheckoutToken = async (req, res) => {
       
       if (!variantId) continue;
 
-      // Query DB for fresh sale price or regular price
+      // Query DB for fresh exclusive price and tax percent.
       const [[dbRow]] = await db.query(
         `SELECT 
            COALESCE(
-             (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_sale_price' LIMIT 1),
-             (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_regular_price' LIMIT 1),
+             (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1),
+             (SELECT meta_value FROM tbl_productmeta WHERE product_id = (SELECT parent_id FROM tbl_products WHERE ID = ? LIMIT 1) AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1),
              0
-           ) as price
+           ) AS price,
+           COALESCE(
+             NULLIF((SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1), ''),
+             (SELECT meta_value FROM tbl_productmeta WHERE product_id = (SELECT parent_id FROM tbl_products WHERE ID = ? LIMIT 1) AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+             0
+           ) AS tax_percent
          LIMIT 1`,
-        [variantId, variantId]
+        [variantId, variantId, variantId, variantId]
       );
 
-      const freshPrice = Math.max(0, parseFloat(dbRow?.price || 0));
+      const freshPrice = Math.max(0, toFloat(dbRow?.price, 0));
+      const taxPercent = Math.max(0, toFloat(dbRow?.tax_percent, 0));
+      const lineSubtotal = freshPrice * quantity;
+      const taxAmount = calculateExclusiveTax(lineSubtotal, taxPercent);
       freshItems.push({
         variant_id: String(variantId),
         quantity: quantity,
+        price: freshPrice,
+        tax_percent: taxPercent,
+        tax_amount: Number(taxAmount.toFixed(2)),
+        line_subtotal: Number(lineSubtotal.toFixed(2)),
+        line_total: Number((lineSubtotal + taxAmount).toFixed(2)),
       });
     }
 

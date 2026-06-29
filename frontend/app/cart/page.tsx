@@ -18,7 +18,7 @@ import { useShiprocketCheckout } from '../lib/useShiprocketCheckout';
 
 export default function CartPage() {
   const PLACEHOLDER = usePlaceholderImage();
-  const { items, removeItem, updateQty, total } = useCart();
+  const { items, removeItem, updateQty, subtotal, tax } = useCart();
   const { startCheckout, loading: checkoutLoading, stopPolling } = useShiprocketCheckout();
 
   // ── Coupon state ──────────────────────────────────────────────────────────
@@ -35,8 +35,10 @@ export default function CartPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const discount   = appliedCoupon?.discount ?? 0;
-  const orderTotal = Math.max(0, total - discount);
+  const discount = appliedCoupon?.discount ?? 0;
+  const taxableAfterDiscount = Math.max(0, subtotal - discount);
+  const taxAfterDiscount = subtotal > 0 ? tax * (taxableAfterDiscount / subtotal) : 0;
+  const orderTotal = taxableAfterDiscount + taxAfterDiscount;
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -164,7 +166,7 @@ export default function CartPage() {
 
                             <div className="cart-detail cart-detail--total">
                               <span className="cart-detail-value">
-                                {formatPrice(item.price * item.quantity)}
+                                {formatPrice(item.price * item.quantity + item.taxAmount)}
                               </span>
                             </div>
                           </div>
@@ -188,13 +190,20 @@ export default function CartPage() {
                   <div className="cart-summary-table">
                     <div className="cart-summary-row">
                       <span>Cart Subtotal</span>
-                      <span>{formatPrice(total)}</span>
+                      <span>{formatPrice(subtotal)}</span>
                     </div>
 
                     {discount > 0 && (
                       <div className="cart-summary-row discount">
                         <span>Discount ({appliedCoupon?.code})</span>
                         <span>−{formatPrice(discount)}</span>
+                      </div>
+                    )}
+
+                    {taxAfterDiscount > 0 && (
+                      <div className="cart-summary-row">
+                        <span>Tax</span>
+                        <span>{formatPrice(taxAfterDiscount)}</span>
                       </div>
                     )}
 

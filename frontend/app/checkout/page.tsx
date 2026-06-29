@@ -157,7 +157,7 @@ function deduplicateCards(cards: PreviousAddressCard[]): PreviousAddressCard[] {
 }
 
 export default function CheckoutPage() {
-  const { items, total, clearCart, refresh: refreshCart } = useCart();
+  const { items, subtotal, tax, clearCart, refresh: refreshCart } = useCart();
   const router = useRouter();
   const { isLoggedIn, setUser } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
@@ -717,9 +717,11 @@ export default function CheckoutPage() {
   // (sum of matching items only). We calculate the discount on that base so
   // the Order Summary shows the correct partial discount amount.
   const discount = appliedCoupon?.discount ?? 0;
+  const taxableAfterDiscount = Math.max(0, subtotal - discount);
+  const taxAfterDiscount = subtotal > 0 ? tax * (taxableAfterDiscount / subtotal) : 0;
 
   // shippingCost added by sumit
-  const orderTotal = Math.max(0, total - discount + shippingCost);
+  const orderTotal = taxableAfterDiscount + taxAfterDiscount + shippingCost;
 
   // ─── Resolved addresses ─────────────────────────────────────────────────────
   const resolvedShipping = useMemo<AddressFields>(() => {
@@ -1676,12 +1678,18 @@ export default function CheckoutPage() {
                         <h4 className="checkout-summary-title">Order Summary</h4>
                         <div className="checkout-summary-row">
                           <span>Cart Subtotal</span>
-                          <strong>{formatPrice(total)}</strong>
+                          <strong>{formatPrice(subtotal)}</strong>
                         </div>
                         {discount > 0 && (
                           <div className="checkout-summary-row csp-discount-row">
                             <span>Discount ({appliedCoupon?.code})</span>
                             <strong>−{formatPrice(discount)}</strong>
+                          </div>
+                        )}
+                        {taxAfterDiscount > 0 && (
+                          <div className="checkout-summary-row">
+                            <span>Tax</span>
+                            <strong>{formatPrice(taxAfterDiscount)}</strong>
                           </div>
                         )}
                         <div className="checkout-summary-row">

@@ -24,6 +24,11 @@ const toInt = (val, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const calculateExclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
+  const taxable = Math.max(0, toAmount(subtotal) - toAmount(discountShare));
+  return toAmount((taxable * toAmount(taxPercent)) / 100);
+};
+
 const normalizePhone = (raw) => {
   const digits = toStr(raw).replace(/\D/g, ""); // strip spaces, +, dashes, etc.
   return digits.length >= 10 ? digits.slice(-10) : digits; // always clean 10-digit
@@ -911,6 +916,25 @@ const placeOrder = async (req, res) => {
         livePrice = parentPriceRow ? Number(parentPriceRow.price) : 0;
       }
 
+      const [[taxRow]] = await conn.query(
+        `SELECT CAST(meta_value AS DECIMAL(10,2)) AS tax_percent
+         FROM tbl_productmeta
+         WHERE product_id = ? AND meta_key = 'tax'
+         ORDER BY meta_id DESC LIMIT 1`,
+        [checkId],
+      );
+      let liveTaxPercent = taxRow ? Number(taxRow.tax_percent) : null;
+      if (liveTaxPercent === null) {
+        const [[parentTaxRow]] = await conn.query(
+          `SELECT CAST(meta_value AS DECIMAL(10,2)) AS tax_percent
+           FROM tbl_productmeta
+           WHERE product_id = ? AND meta_key = 'tax'
+           ORDER BY meta_id DESC LIMIT 1`,
+          [item.product_id],
+        );
+        liveTaxPercent = parentTaxRow ? Number(parentTaxRow.tax_percent) : 0;
+      }
+
       // Fetch live title from tbl_products
       const [[titleRow]] = await conn.query(
         `SELECT product_title FROM tbl_products WHERE ID = ? LIMIT 1`,
@@ -921,6 +945,7 @@ const placeOrder = async (req, res) => {
       // getCart already returns live data. We just need the correct value
       // for this order's subtotal and order_items records.
       item.price = livePrice;
+      item.tax_percent = liveTaxPercent;
       if (titleRow && titleRow.product_title) {
         item.title = titleRow.product_title;
       }
@@ -957,7 +982,12 @@ const placeOrder = async (req, res) => {
     }
     const discount = couponCheck.discount || 0;
 
-    const total = Math.max(0, subtotal - discount) + shippingCost;
+    const taxTotal = cartItems.reduce((sum, item) => {
+      const lineSubtotal = toAmount(item.price) * Number(item.quantity || 0);
+      const discountShare = subtotal > 0 ? (discount * lineSubtotal) / subtotal : 0;
+      return sum + calculateExclusiveTax(lineSubtotal, item.tax_percent, discountShare);
+    }, 0);
+    const total = Math.max(0, subtotal - discount) + taxTotal + shippingCost;
 
     if (paymentMethod === "razorpay" && !razorpayPaymentId) {
       const razorpay = require("../config/razorpay");
@@ -1120,7 +1150,7 @@ const placeOrder = async (req, res) => {
 
       payment_method: paymentMethod.toLowerCase() === "cod" ? "COD" : "Prepaid",
 
-      sub_total: Number(subtotal - discount),
+      sub_total: Number(Math.max(0, subtotal - discount + taxTotal)),
 
       shipping_charges: Number(shippingCost),
 
@@ -1228,6 +1258,7 @@ const placeOrder = async (req, res) => {
       ["_order_currency", currency],
       ["_order_total", total.toFixed(2)],
       ["_order_subtotal", subtotal.toFixed(2)],
+      ["_order_tax", taxTotal.toFixed(2)],
       ["_order_shipping", shippingCost.toFixed(2)],
       ["_session_id", sessionId],
       ["_cookie_id", cookieId || ""],
@@ -1341,6 +1372,8 @@ const placeOrder = async (req, res) => {
           ? item.variation_id
           : 0;
       const lineTotal = toAmount(item.price) * Number(item.quantity || 0);
+      const discountShare = subtotal > 0 ? (discount * lineTotal) / subtotal : 0;
+      const lineTax = calculateExclusiveTax(lineTotal, item.tax_percent, discountShare);
 
       const itemMeta = [
         ["_product_id", item.product_id],
@@ -1348,8 +1381,8 @@ const placeOrder = async (req, res) => {
         ["_qty", item.quantity],
         ["_line_subtotal", lineTotal.toFixed(2)],
         ["_line_total", lineTotal.toFixed(2)],
-        ["_line_tax", "0"],
-        ["_line_subtotal_tax", "0"],
+        ["_line_tax", lineTax.toFixed(2)],
+        ["_line_subtotal_tax", lineTax.toFixed(2)],
       ];
 
       if (item.color) itemMeta.push(["pa_color", item.color]);
@@ -2921,6 +2954,7 @@ const downloadInvoice = async (req, res) => {
               oi.product_id,
               (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'         ORDER BY oim.meta_id DESC LIMIT 1) AS qty,
               (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'  ORDER BY oim.meta_id DESC LIMIT 1) AS line_total,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_tax'    ORDER BY oim.meta_id DESC LIMIT 1) AS line_tax,
               (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_variation_id' ORDER BY oim.meta_id DESC LIMIT 1) AS variation_id,
               (SELECT COALESCE(
                 NULLIF((SELECT pm.meta_value FROM tbl_productmeta pm 

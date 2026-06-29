@@ -96,7 +96,8 @@ const buildProductPayload = async (productId) => {
        ${metaSubQuery("_regular_price", "regular_price")},
        ${metaSubQuery("_sku",           "sku")},
        ${metaSubQuery("_stock",         "stock")},
-       ${metaSubQuery("weight",         "weight")}
+       ${metaSubQuery("weight",         "weight")},
+       ${metaSubQuery("tax",            "tax_percent")}
 
      FROM tbl_products p
      LEFT JOIN tbl_products_category_link pcl ON pcl.product_id = p.ID
@@ -123,6 +124,7 @@ const buildProductPayload = async (productId) => {
   const regularPrice = toFloat(p.regular_price, 0);
   const compareAt    = regularPrice > 0 && regularPrice > sellingPrice ? regularPrice : 0;
   const weight       = toFloat(p.weight, 0);
+  const taxPercent   = toFloat(p.tax_percent, 0);
 
   return {
     id:           p.ID,
@@ -144,6 +146,7 @@ const buildProductPayload = async (productId) => {
         quantity:         toInt(p.stock, 0),
         updated_at:       updatedAt,
         taxable:          true,
+        tax_percent:      taxPercent,
         option_values:    {},
         grams:            Math.round(weight * 1000),
         image:            { src: imageSrc },
@@ -152,7 +155,8 @@ const buildProductPayload = async (productId) => {
       },
     ],
 
-    image: { src: imageSrc },
+    image:       { src: imageSrc },
+    tax_percent: taxPercent,
   };
 };
 

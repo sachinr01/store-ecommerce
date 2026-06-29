@@ -115,7 +115,18 @@ const getCart = async (req, res) => {
                   AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1),
                0
              ) AS DECIMAL(10,2)
-           ) AS price
+           ) AS price,
+           CAST(
+             COALESCE(
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = COALESCE(NULLIF(ci.variation_id,0), ci.product_id)
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = ci.product_id
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               0
+             ) AS DECIMAL(10,2)
+           ) AS tax_percent
          FROM cart_items ci
          LEFT JOIN tbl_products p ON p.ID = ci.product_id
          WHERE ci.user_id = ?
@@ -138,7 +149,18 @@ const getCart = async (req, res) => {
                   AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1),
                0
              ) AS DECIMAL(10,2)
-           ) AS price
+           ) AS price,
+           CAST(
+             COALESCE(
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = COALESCE(NULLIF(ci.variation_id,0), ci.product_id)
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = ci.product_id
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               0
+             ) AS DECIMAL(10,2)
+           ) AS tax_percent
          FROM cart_items ci
          LEFT JOIN tbl_products p ON p.ID = ci.product_id
          WHERE ci.cookie_id = ? AND ci.user_id IS NULL
@@ -161,7 +183,18 @@ const getCart = async (req, res) => {
                   AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1),
                0
              ) AS DECIMAL(10,2)
-           ) AS price
+           ) AS price,
+           CAST(
+             COALESCE(
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = COALESCE(NULLIF(ci.variation_id,0), ci.product_id)
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               (SELECT meta_value FROM tbl_productmeta
+                WHERE product_id = ci.product_id
+                  AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+               0
+             ) AS DECIMAL(10,2)
+           ) AS tax_percent
          FROM cart_items ci
          LEFT JOIN tbl_products p ON p.ID = ci.product_id
          WHERE ci.session_id = ? AND ci.user_id IS NULL
@@ -171,8 +204,23 @@ const getCart = async (req, res) => {
     }
 
     const count = rows.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    const total = rows.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
-    res.json({ success: true, data: { items: rows, count, total } });
+    rows = rows.map((item) => {
+      const qty = Number(item.quantity || 0);
+      const price = Number(item.price || 0);
+      const taxPercent = Number(item.tax_percent || 0);
+      const lineSubtotal = price * qty;
+      const lineTax = lineSubtotal * taxPercent / 100;
+      return {
+        ...item,
+        line_subtotal: Number(lineSubtotal.toFixed(2)),
+        tax_amount: Number(lineTax.toFixed(2)),
+        line_total: Number((lineSubtotal + lineTax).toFixed(2)),
+      };
+    });
+    const subtotal = rows.reduce((sum, item) => sum + Number(item.line_subtotal || 0), 0);
+    const tax = rows.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
+    const total = subtotal + tax;
+    res.json({ success: true, data: { items: rows, count, subtotal, tax, total } });
   } catch (err) {
     console.error('getCart error:', err);
     res.status(500).json({ success: false, message: 'Failed to load cart.' });

@@ -65,13 +65,14 @@ function renderInvoice(data) {
   for (const item of items) {
     const lt  = toAmt(item.line_total);
     const r   = toAmt(item.tax_percent);
+    const itemTax = item.line_tax == null ? (r > 0 ? (lt * r) / 100 : 0) : toAmt(item.line_tax);
     const hsn = String(item.hsn_code || '').trim();
     const k   = `${hsn}|${r}`;
-    const tv  = r > 0 ? (lt * 100) / (100 + r) : lt;
+    const tv  = lt;
     if (!taxGroups.has(k)) taxGroups.set(k, { hsn, rate: r, taxable: 0, taxAmt: 0 });
     const g = taxGroups.get(k);
     g.taxable += tv;
-    g.taxAmt  += lt - tv;
+    g.taxAmt  += itemTax;
   }
   const taxRows  = [...taxGroups.values()];
   const hasTax   = taxRows.some(g => g.rate > 0);
@@ -95,7 +96,7 @@ function renderInvoice(data) {
     const qty = Number(item.qty || 1);
     const lt  = toAmt(item.line_total);
     const taxRate = toAmt(item.tax_percent);
-    const taxable = taxRate > 0 ? (lt * 100) / (100 + taxRate) : lt;
+    const taxable = lt;
     const up  = qty > 0 ? taxable / qty : taxable;
     return `
       <tr>

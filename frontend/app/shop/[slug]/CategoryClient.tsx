@@ -177,7 +177,7 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
                 <span className="csp-price">{priceStr}</span>
               )}
             </div>
-            <div className="csp-tax-note">(Incl. of all taxes)</div>
+            <div className="csp-tax-note">(Excl. of taxes)</div>
             {listMode && product.short_description && (
               <p className="csp-list-desc">{product.short_description.replace(/<[^>]+>/g, '').slice(0, 300)}</p>
             )}

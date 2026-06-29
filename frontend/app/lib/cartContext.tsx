@@ -20,6 +20,10 @@ export interface CartItem {
   variationId?: number | null;
   title: string;
   price: number;
+  taxPercent: number;
+  taxAmount: number;
+  lineSubtotal: number;
+  lineTotal: number;
   color?: string | null;
   size?: string | null;
   quantity: number;
@@ -51,6 +55,8 @@ interface CartContextType {
   clearCart: () => Promise<void>;
   refresh: () => Promise<void>;
   total: number;
+  subtotal: number;
+  tax: number;
   count: number;
 }
 
@@ -94,6 +100,10 @@ function normalizeItem(raw: any): CartItem {
     variationId: raw.variation_id !== null && raw.variation_id !== undefined ? Number(raw.variation_id) : null,
     title: raw.title || '',
     price: Number(raw.price || 0),
+    taxPercent: Number(raw.tax_percent || 0),
+    taxAmount: Number(raw.tax_amount || 0),
+    lineSubtotal: Number(raw.line_subtotal || (Number(raw.price || 0) * Number(raw.quantity || 0))),
+    lineTotal: Number(raw.line_total || 0),
     color: raw.color ?? null,
     size: raw.size ?? null,
     quantity: Number(raw.quantity || 0),
@@ -224,9 +234,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
   };
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     [items]
+  );
+
+  const tax = useMemo(
+    () => items.reduce((sum, i) => sum + (i.price * i.quantity * i.taxPercent / 100), 0),
+    [items]
+  );
+
+  const total = useMemo(
+    () => subtotal + tax,
+    [subtotal, tax]
   );
 
   const count = useMemo(
@@ -235,7 +255,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <CartContext.Provider value={{ items, loading, error, addItem, removeItem, updateQty, clearCart, refresh, total, count }}>
+    <CartContext.Provider value={{ items, loading, error, addItem, removeItem, updateQty, clearCart, refresh, total, subtotal, tax, count }}>
       {children}
     </CartContext.Provider>
   );

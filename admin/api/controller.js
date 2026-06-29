@@ -779,11 +779,16 @@ const getProduct = async (req, res) => {
                     LIMIT 1
                 ) AS thumbnail_url,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_sku' ORDER BY meta_id DESC LIMIT 1) AS sku,
+                COALESCE(
+                    NULLIF((SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1), ''),
+                    (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = 'tax' ORDER BY meta_id DESC LIMIT 1),
+                    0
+                ) AS tax_percent,
                 (SELECT meta_value FROM tbl_productmeta WHERE product_id = v.ID AND meta_key = '_variation_description' ORDER BY meta_id DESC LIMIT 1) AS variation_description
             FROM tbl_products v
             WHERE v.parent_id = ? AND v.product_type = 'product_variation'
             ORDER BY v.menu_order ASC
-        `, [id]));
+        `, [id, id]));
 
         // Fetch all images for each variation (for full gallery switch on color select)
         const variationIds = variations.map(v => v.ID);
