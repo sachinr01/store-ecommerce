@@ -257,32 +257,38 @@ async function sendOrderEmails({ orderId, srCartId, orderDate, orderTime,
   paymentMethod, customerName, customerEmail, customerPhone,
   shippingAddr, items, subtotal, shippingCost, discount, couponCode, total }) {
 
-  const html    = buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
+  const isValidEmail = (e) =>
+    !!e &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) &&
+    !e.includes("@shiprocket.guest") &&
+    !e.includes("@guest.local");
+
+  const html = buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
     paymentMethod, customerName, customerEmail, customerPhone,
     shippingAddr, items, subtotal, shippingCost, discount, couponCode, total });
 
-  const orderRef = srCartId || String(orderId);
-  const subject  = `New Order Received - #NC${orderId} | Nestcase`;
+  // Seller notification — always sent; subject includes SR cart ID as Order ID
+  const srRef = srCartId ? ` | Order ID: ${srCartId}` : "";
+  const sellerSubject = `New Order #NC${orderId}${srRef} | Nestcase`;
 
   const sends = [];
 
-  // Customer email (only if we have a real email — Shiprocket guests often don't provide one)
-  const isRealEmail = (e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && !e.includes("guest.local") && !e.includes("shiprocket.guest");
-  if (isRealEmail(customerEmail)) {
+  // ── Customer confirmation — only if they entered a real email in the SR iframe ──
+  if (isValidEmail(customerEmail)) {
     sends.push(
       sendBrevoEmail({
         toEmail: customerEmail,
         toName:  customerName,
-        subject: `Order Confirmed - #NC${orderId} | Nestcase`,
+        subject: `Order Confirmed - #NC${orderId}${srRef} | Nestcase`,
         html,
       }).catch((e) => console.error("[SR OW] Customer email failed:", e.message))
     );
   }
 
-  // Owner notification to all RECEIVED_EMAIL addresses
+  // ── Seller notification — all RECEIVED_EMAIL addresses ──
   OWNER_EMAILS.forEach((ownerEmail) => {
     sends.push(
-      sendBrevoEmail({ toEmail: ownerEmail, toName: "Store Admin", subject, html })
+      sendBrevoEmail({ toEmail: ownerEmail, toName: "Store Admin", subject: sellerSubject, html })
         .catch((e) => console.error(`[SR OW] Owner email to ${ownerEmail} failed:`, e.message))
     );
   });
@@ -362,6 +368,20 @@ const receiveOrderWebhook = async (req, res) => {
   const currency      = toStr(body.currency || "INR");
   const sourceName    = toStr(body.source_name || "fastrr");
   const rawItems      = Array.isArray(body.items) ? body.items : [];
+  // Shiprocket order webhooks do not include a buyer email field.
+  // Keeping this as a safe future-proof fallback in case SR adds it later.
+  // SR webhook rarely sends email at top level; more commonly it appears in billing_address.email
+  const rawEnteredEmail = toStr(
+    body.email || body.buyer_email || body.customer_email ||
+    body.billing_address?.email || body.shipping_address?.email || ""
+  );
+  const isRealEmail = (e) =>
+    !!e &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) &&
+    !e.includes("@shiprocket.guest") &&
+    !e.includes("@guest.local");
+  const enteredEmail = isRealEmail(rawEnteredEmail) ? rawEnteredEmail.trim() : "";
+  console.log("[SR OW][EMAIL-DEBUG] enteredEmail=", enteredEmail, "body.email=", body.email, "billing_address.email=", body.billing_address?.email);
 
 
   const rawPaymentType = toStr(body.payment_type || body.payment_method || "").toUpperCase();
@@ -494,12 +514,9 @@ const receiveOrderWebhook = async (req, res) => {
   if (!userId && (phone10 || billing.firstName)) {
     const displayName = [billing.firstName, billing.lastName].filter(Boolean).join(" ") ||
                         phone10 || "Guest";
-    // user_login = plain 10-digit phone; user_email = phone@guest.local (satisfies
-    // the unique email constraint without exposing a fake domain publicly)
+    // user_login = plain 10-digit phone; user_email = real email if entered, else empty
     const guestLogin = phone10 || `guest_${Date.now()}`;
-    const guestEmail = phone10
-      ? `${phone10}@guest.local`
-      : `guest_${Date.now()}@guest.local`;
+    const guestEmailToStore = enteredEmail || "";
 
     try {
       // INSERT IGNORE skips silently if a unique constraint fires (race condition).
@@ -508,7 +525,7 @@ const receiveOrderWebhook = async (req, res) => {
         `INSERT IGNORE INTO tbl_users
          (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
          VALUES (4, ?, '', ?, ?, ?, NOW())`,
-        [guestLogin, displayName, guestEmail, displayName],
+        [guestLogin, displayName, guestEmailToStore, displayName],
       );
       const [[newRow]] = await db.query(
         `SELECT ID, user_email FROM tbl_users
@@ -518,9 +535,24 @@ const receiveOrderWebhook = async (req, res) => {
         [guestLogin],
       );
       userId    = newRow ? newRow.ID : 0;
-      userEmail = newRow ? newRow.user_email : guestEmail;
+      userEmail = newRow ? newRow.user_email : guestEmailToStore;
     } catch (e) {
       console.error("[SR OrderWebhook] Guest user upsert failed:", e.message);
+    }
+  }
+
+  // ── 5b. If we resolved an existing user AND have a real entered email,
+  //        update their user_email if it's currently blank or stale
+  if (userId && enteredEmail) {
+    try {
+      await db.query(
+        `UPDATE tbl_users SET user_email = ? WHERE ID = ? AND (user_email = '' OR user_email IS NULL)`,
+        [enteredEmail, userId],
+      );
+      // Always keep userEmail in sync with what we'll use for sending
+      userEmail = enteredEmail;
+    } catch (e) {
+      console.error("[SR OrderWebhook] Email update failed (non-fatal):", e.message);
     }
   }
 
@@ -773,6 +805,7 @@ const receiveOrderWebhook = async (req, res) => {
              ["_coupon_discount", discount.toFixed(2)]]
           : []),
       ["_billing_phone",        phone10],
+      ["_billing_email",        enteredEmail || ""],
       ["_billing_first_name",   billing.firstName  || ""],
       ["_billing_last_name",    billing.lastName   || ""],
       ["_sr_cart_id",           cartId],              // idempotency key (dedup within webhook path)
@@ -924,8 +957,12 @@ const receiveOrderWebhook = async (req, res) => {
       const orderDate = now.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
       const orderTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-      // Resolve buyer email from userEmail (set earlier during user lookup)
-      const buyerEmail   = userEmail || "";
+      // Use enteredEmail (typed by user in SR iframe) first.
+      // Fall back to userEmail only if it's a real address (registered customers).
+      // Never send to empty or synthetic addresses.
+      const buyerEmail = isRealEmail(enteredEmail)
+        ? enteredEmail
+        : isRealEmail(userEmail) ? userEmail : "";
       const buyerName    = [billing.firstName, billing.lastName].filter(Boolean).join(" ") || "Customer";
       const buyerPhone   = phone10 || toStr(billing.phone || shipping.phone || "");
       const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");

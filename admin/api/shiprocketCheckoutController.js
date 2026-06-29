@@ -1013,6 +1013,17 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     let email = toStr(checkoutContext.user_email || sessionUser?.email || "");
     let phone = toStr(checkoutContext.user_phone || "");
 
+    // Reject synthetic Shiprocket guest addresses — treat them as no email provided
+    const isRealEmail = (e) =>
+      !!e &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) &&
+      !e.includes("@shiprocket.guest") &&
+      !e.includes("@guest.local");
+
+    if (!isRealEmail(email)) {
+      email = "";
+    }
+
     if (!userId && email) {
       // Deduplicate by email OR user_login (Shiprocket uses phone@shiprocket.guest
       // as both email and login — check both columns to avoid duplicate rows when
@@ -1048,17 +1059,13 @@ const completeCheckoutFromShiprocket = async (req, res) => {
 
     if (!userId && email) {
       const display = toStr(checkoutContext.user_name || email);
-      // INSERT IGNORE silently skips if a UNIQUE constraint fires on user_email
-      // or user_login. The SELECT immediately after fetches whichever row won
-      // (whether just inserted or a pre-existing one).
+      // INSERT IGNORE silently skips if a UNIQUE constraint fires on user_login.
       await db.query(
         `INSERT IGNORE INTO tbl_users
          (user_type, user_login, user_pass, user_nicename, user_email, display_name, user_registered)
          VALUES (4, ?, '', ?, ?, ?, NOW())`,
         [email, email, email, display],
       );
-      // Re-query by both columns so we get the canonical row even if INSERT was
-      // skipped due to a duplicate user_login (not just user_email).
       const [[newUser]] = await db.query(
         `SELECT ID FROM tbl_users
          WHERE user_email = ? OR user_login = ?
@@ -1067,6 +1074,19 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         [email, email],
       );
       userId = newUser ? toInt(newUser.ID, 0) : 0;
+    }
+
+    // If we resolved an existing guest user via phone but they now have a real email,
+    // update their user_email if it is currently empty (one phone → latest email wins)
+    if (userId && email) {
+      try {
+        await db.query(
+          `UPDATE tbl_users SET user_email = ? WHERE ID = ? AND (user_email = '' OR user_email IS NULL)`,
+          [email, userId],
+        );
+      } catch (e) {
+        console.error("[SR Checkout] Email update failed (non-fatal):", e.message);
+      }
     }
 
     if (!userId) {
