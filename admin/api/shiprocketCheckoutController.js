@@ -81,9 +81,12 @@ const mapProduct = (p) => {
     : updatedAt;
 
   // ── Prices ──────────────────────────────────────────────────────
-  const sellingPrice  = toFloat(p.price,         0); // _price
+  const sellingPrice  = toFloat(p.price,         0); // _price (base / ex-tax)
   const regularPrice  = toFloat(p.regular_price, 0); // _regular_price (MRP)
   const taxPercent    = toFloat(p.tax_percent,   0);
+
+  // Tax-inclusive selling price sent to Shiprocket
+  const sellingPriceWithTax = sellingPrice + (sellingPrice * taxPercent) / 100;
 
   // compare_at_price = MRP only when MRP > selling price (real discount exists)
   const compareAtPrice =
@@ -110,7 +113,7 @@ const mapProduct = (p) => {
       {
         id:               p.ID,
         title:            "Default",
-        price:            sellingPrice.toFixed(2),          // ✅ string e.g. "999.00"
+        price:            sellingPriceWithTax.toFixed(2),      // ✅ tax-inclusive e.g. "1178.82"
         compare_at_price: compareAtPrice > 0
                             ? compareAtPrice.toFixed(2)     // ✅ string e.g. "1499.00" (MRP)
                             : "",                           // ✅ "" when no discount
