@@ -207,13 +207,13 @@ export default function Footer() {
             { label: 'Gift Under 5000',     href: '/shop?max=5000' },
             { label: 'Glassware',          href: '/shop/glassware' },
             { label: 'Drinkware',          href: '/shop/drinkware' },
-            { label: 'Jars and containers', href: '/shop/jars-and-containers' },
+            { label: 'Spice-jars', href: '/shop/spice-jars' },
             { label: 'Tumbler with straw', href: `/shop?search=${encodeURIComponent('Tumbler with straw')}` },
             { label: 'Whiskey glasses',    href: `/shop?search=${encodeURIComponent('Whiskey glasses')}` },
             { label: 'Set of 6',           href: `/shop?search=${encodeURIComponent('Set of 6')}` },
             { label: 'Mug set',            href: `/shop?search=${encodeURIComponent('Mug set')}` },
             { label: 'Crystal glasses',    href: `/shop?search=${encodeURIComponent('Crystal glasses')}` },
-            { label: 'Beer mug',           href: `/shop?search=${encodeURIComponent('Beer mug')}` },
+            { label: 'Beer mugs',           href: `/shop?search=${encodeURIComponent('Beer mug')}` },
             { label: 'Storage jars',       href: `/shop?search=${encodeURIComponent('Storage jars')}` },
           ].map(({ label, href }, i, arr) => (
             <span key={label}>

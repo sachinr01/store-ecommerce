@@ -40,6 +40,8 @@ const buildImageUrl = (path) => {
  *   _stock          → stock quantity
  *   weight          → weight in kg (NO underscore prefix — confirmed in DB)
  *                     e.g. product 61 has meta_key='weight', meta_value='7'
+ *   tax             → GST rate percentage (e.g. "18")
+ *   hsn             → HSN/SAC code (e.g. "39269099")
  */
 const metaSubQuery = (key, alias) => `
   (
@@ -90,6 +92,8 @@ const mapProduct = (p) => {
   // ── Stock / Weight ───────────────────────────────────────────────
   const stockQty = toInt(p.stock,  0);
   const weight   = toFloat(p.weight, 0); // meta_key='weight' (no underscore), value in kg
+  const hsnCode  = toStr(p.hsn_code);   // meta_key='hsn'
+  const gstRate  = toFloat(p.gst_rate, taxPercent); // meta_key='tax' (same value, aliased for clarity)
 
   return {
     id:           p.ID,
@@ -115,6 +119,8 @@ const mapProduct = (p) => {
         updated_at:       updatedAt,
         taxable:          true,
         tax_percent:      taxPercent,
+        gst_rate:         String(gstRate),                  // GST % e.g. "18"
+        hsn_code:         hsnCode,                          // HSN/SAC e.g. "39269099"
         quantity:         stockQty,
         option_values:    {},
         grams:            Math.round(weight * 1000),        // e.g. 7 kg → 7000 grams
@@ -125,6 +131,8 @@ const mapProduct = (p) => {
     ],
     image:       { src: imageSrc },
     tax_percent: taxPercent,
+    gst_rate:    String(gstRate),
+    hsn_code:    hsnCode,
     options:     [],
   };
 };
@@ -132,7 +140,8 @@ const mapProduct = (p) => {
 /* ─────────────────────────────────────────────────────────────
    Shared product SELECT columns
    Fetches: price (_price), compare-at (_regular_price),
-            sku (_sku), stock (_stock), weight (weight), image
+            sku (_sku), stock (_stock), weight (weight), image,
+            gst_rate (tax), hsn_code (hsn)
 ───────────────────────────────────────────────────────────── */
 const PRODUCT_SELECT = `
   p.ID,
@@ -172,7 +181,14 @@ const PRODUCT_SELECT = `
   /* ── Weight in kg (key = 'weight', NO underscore, confirmed in tbl_productmeta) ── */
   ${metaSubQuery("weight",         "weight")}
   ,
+  /* ── GST rate % ── */
+  ${metaSubQuery("tax",            "gst_rate")}
+  ,
+  /* ── tax_percent alias (same value, kept for backward compat in other consumers) ── */
   ${metaSubQuery("tax",            "tax_percent")}
+  ,
+  /* ── HSN / SAC code ── */
+  ${metaSubQuery("hsn",            "hsn_code")}
 `;
 
 /* ─────────────────────────────────────────────────────────────
@@ -344,12 +360,17 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     const shippingCost = Math.max(0, toFloat(checkoutContext?.shipping_cost, 0));
+    // item.price is the INCLUSIVE price (GST already embedded).
+    // Reverse-calculate the GST component:  tax = inclusive * rate / (100 + rate)
     const taxTotal = resolvedItems.reduce((sum, item) => {
-      const lineSubtotal = item.price * item.quantity;
-      const discountShare = subtotal > 0 ? (discount * lineSubtotal) / subtotal : 0;
-      return sum + calculateExclusiveTax(lineSubtotal, item.tax_percent, discountShare);
+      const lineInclusive  = item.price * item.quantity;
+      const discountShare  = subtotal > 0 ? (discount * lineInclusive) / subtotal : 0;
+      const taxableInclusive = Math.max(0, lineInclusive - discountShare);
+      const rate = toFloat(item.tax_percent, 0);
+      return sum + (rate > 0 ? (taxableInclusive * rate) / (100 + rate) : 0);
     }, 0);
-    const grandTotal = Math.max(0, subtotal - discount + taxTotal + shippingCost);
+    // grandTotal = inclusive subtotal − discount + shipping (tax is already inside subtotal)
+    const grandTotal = Math.max(0, subtotal - discount + shippingCost);
 
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
@@ -387,7 +408,9 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       const orderItemId = itemResult.insertId;
       const lineTotal = item.price * item.quantity;
       const discountShare = subtotal > 0 ? (discount * lineTotal) / subtotal : 0;
-      const lineTax = calculateExclusiveTax(lineTotal, item.tax_percent, discountShare);
+      const taxableInclusive = Math.max(0, lineTotal - discountShare);
+      const rate = toFloat(item.tax_percent, 0);
+      const lineTax = rate > 0 ? (taxableInclusive * rate) / (100 + rate) : 0;
       const itemMeta = [
         ["_product_id", item.product_id],
         ["_variation_id", item.product_id],
@@ -475,7 +498,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
           discount: 0,
         })),
         payment_method: paymentMethod.toUpperCase() === "COD" ? "COD" : "Prepaid",
-        sub_total: Math.max(0, subtotal - discount + taxTotal),
+        sub_total: Math.max(0, subtotal - discount),
         shipping_charges: shippingCost,
         total_discount: discount,
         length: 10, breadth: 10, height: 10, weight: 0.5,
@@ -806,18 +829,26 @@ const getCheckoutToken = async (req, res) => {
         [variantId, variantId, variantId, variantId]
       );
 
+      // _price in DB is the inclusive selling price (GST already embedded)
       const freshPrice = Math.max(0, toFloat(dbRow?.price, 0));
-      const taxPercent = Math.max(0, toFloat(dbRow?.tax_percent, 0));
-      const lineSubtotal = freshPrice * quantity;
-      const taxAmount = calculateExclusiveTax(lineSubtotal, taxPercent);
+      const gstRate    = Math.max(0, toFloat(dbRow?.tax_percent, 0));
+
+      // Reverse-calculate GST from inclusive price:
+      //   tax_amount = inclusive_price * gst_rate / (100 + gst_rate)
+      const lineTotal   = freshPrice * quantity;
+      const taxAmount   = gstRate > 0
+        ? (lineTotal * gstRate) / (100 + gstRate)
+        : 0;
+      const lineExcl    = lineTotal - taxAmount; // pre-tax subtotal
+
       freshItems.push({
-        variant_id: String(variantId),
-        quantity: quantity,
-        price: freshPrice,
-        tax_percent: taxPercent,
-        tax_amount: Number(taxAmount.toFixed(2)),
-        line_subtotal: Number(lineSubtotal.toFixed(2)),
-        line_total: Number((lineSubtotal + taxAmount).toFixed(2)),
+        variant_id:     String(variantId),
+        quantity:        quantity,
+        price:           freshPrice,           // inclusive price per unit
+        gst_rate:        String(gstRate),       // GST % e.g. "18" — field Shiprocket expects
+        tax_amount:      Number(taxAmount.toFixed(2)),
+        line_subtotal:   Number(lineExcl.toFixed(2)),   // pre-tax total for this line
+        line_total:      Number(lineTotal.toFixed(2)),  // inclusive total for this line
       });
     }
 

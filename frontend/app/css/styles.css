@@ -12406,6 +12406,7 @@ input[type="checkbox"] {
 a.ot-btn {
   text-decoration: none;
   height: 48px;
+  margin-bottom: 50px;
 }
 
 .ot-error {
