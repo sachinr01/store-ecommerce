@@ -9,9 +9,8 @@ import Footer from '../../components/Footer';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
 
-  // Show sr_cart_id from our redirect param
   const srCartId =
-    searchParams.get('sr_cart_id') ??
+    searchParams.get('oid') ??
     null;
 
   const [show, setShow] = useState(false);
@@ -65,7 +64,7 @@ function OrderSuccessContent() {
               {srCartId && (
                 <div className="success-order-chip">
                   <div className="success-order-chip-dot" />
-                  Order Reference &nbsp;<strong>#{srCartId}</strong>
+                  Order Reference &nbsp;<strong>{srCartId}</strong>
                 </div>
               )}
 
