@@ -835,6 +835,7 @@ const receiveOrderWebhook = async (req, res) => {
     const buyerEmail = isRealEmail(enteredEmail)
       ? enteredEmail
       : isRealEmail(userEmail) ? userEmail : "";
+    const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");
 
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
     if (userId) {
@@ -973,7 +974,8 @@ const receiveOrderWebhook = async (req, res) => {
       // shared with the Wigzo block below, not redeclared here.
       const buyerName    = [billing.firstName, billing.lastName].filter(Boolean).join(" ") || "Customer";
       const buyerPhone   = phone10 || toStr(billing.phone || shipping.phone || "");
-      const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");
+      // couponFromMeta is already declared in outer scope (right after commit) —
+      // shared with the Wigzo block below, not redeclared here.
 
       await sendOrderEmails({
         orderId,
