@@ -1157,7 +1157,7 @@ export default function CheckoutPage() {
                 </p>
                 <div className="success-order-chip">
                   <div className="success-order-chip-dot" />
-                  Order Reference &nbsp;<strong>#{confirmed ? (srVerifiedOrderId ?? srRedirectOrderId) : srRedirectOrderId}</strong>
+                  Order Reference &nbsp;<strong>#{srRedirectOrderId}</strong>
                 </div>
                 {confirmed && (
                   <>

@@ -108,7 +108,7 @@ export function useShiprocketCheckout() {
       clearSRStorage();
       try { await clearCart(); } catch { /* non-fatal */ }
       const ref = data.sr_cart_id || data.order_id;
-      router.push(`/checkout/success?sr_cart_id=${encodeURIComponent(ref)}`);
+      router.push(`/checkout/success?oid=${encodeURIComponent(ref)}`);
       return true;
     } catch {
       return false;
