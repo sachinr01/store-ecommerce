@@ -832,26 +832,26 @@ const getCheckoutToken = async (req, res) => {
         [variantId, variantId, variantId, variantId]
       );
 
-      // _price in DB is the inclusive selling price (GST already embedded)
-      const freshPrice = Math.max(0, toFloat(dbRow?.price, 0));
-      const gstRate    = Math.max(0, toFloat(dbRow?.tax_percent, 0));
+      // _price in DB is the exclusive (ex-tax) selling price.
+      // Compute the tax-inclusive price the same way the catalog API does.
+      const exPrice = Math.max(0, toFloat(dbRow?.price, 0));
+      const gstRate = Math.max(0, toFloat(dbRow?.tax_percent, 0));
 
-      // Reverse-calculate GST from inclusive price:
-      //   tax_amount = inclusive_price * gst_rate / (100 + gst_rate)
+      // Tax-inclusive price per unit (matches what mapProduct sends to Shiprocket catalog)
+      const freshPrice  = exPrice + (exPrice * gstRate) / 100;
+
       const lineTotal   = freshPrice * quantity;
-      const taxAmount   = gstRate > 0
-        ? (lineTotal * gstRate) / (100 + gstRate)
-        : 0;
-      const lineExcl    = lineTotal - taxAmount; // pre-tax subtotal
+      const taxAmount   = lineTotal - (exPrice * quantity); // tax portion
+      const lineExcl    = exPrice * quantity;               // pre-tax subtotal
 
       freshItems.push({
         variant_id:     String(variantId),
         quantity:        quantity,
-        price:           freshPrice,           // inclusive price per unit
-        gst_rate:        String(gstRate),       // GST % e.g. "18" — field Shiprocket expects
+        price:           Number(freshPrice.toFixed(2)),  // tax-inclusive price per unit
+        gst_rate:        String(gstRate),                // GST % e.g. "18"
         tax_amount:      Number(taxAmount.toFixed(2)),
-        line_subtotal:   Number(lineExcl.toFixed(2)),   // pre-tax total for this line
-        line_total:      Number(lineTotal.toFixed(2)),  // inclusive total for this line
+        line_subtotal:   Number(lineExcl.toFixed(2)),    // pre-tax total for this line
+        line_total:      Number(lineTotal.toFixed(2)),   // inclusive total for this line
       });
     }
 
