@@ -197,6 +197,165 @@ async function generateAWB(shipment_id, courierId) {
   return response.data;
 }
 
+// ================================
+// WIGZO ORDER EVENT (WhatsApp / SMS confirmation)
+// ================================
+//
+// Fires the Wigzo `order` event so the customer gets a WhatsApp (and/or SMS)
+// order-confirmation message on the phone number they entered at checkout.
+// Shared by BOTH checkout flows:
+//   1. Direct checkout  → orderController.placeOrder
+//   2. Shiprocket Checkout flow → shiprocketorderwebhook.receiveOrderWebhook
+//      (called only once Shiprocket confirms latest_stage === "ORDER_PLACED",
+//       i.e. the order is genuinely placed — never on initiation alone)
+//
+// Non-blocking by design: any failure here is logged but must NEVER fail or
+// delay the order response — the order is already saved at this point.
+//
+// "fullName" is sent as the *customer's* name; the WhatsApp template / sender
+// identity ("Nestcase") is configured on the Wigzo dashboard side, not here.
+const WIGZO_TOKEN = process.env.WIGZO_TOKEN;
+
+// Resolves a product's category for the Wigzo `order` event.
+// Mirrors the same parent/child walk used for YMAL in controller.js:
+//   - `category` = the direct linked category name (most specific, e.g. "Tumblers")
+//   - `type`     = the top-level parent category name (e.g. "Drinkware"),
+//                  or the same as `category` if it has no parent.
+// Returns { category: "", type: "" } if the product has no category link.
+async function resolveProductCategoryForWigzo(productId) {
+  if (!productId) return { category: "", type: "" };
+  try {
+    const [[primaryCat]] = await db.query(
+      `SELECT c.category_id, c.category_name, c.parent_id
+       FROM tbl_products_category_link l
+       JOIN tbl_products_category c ON c.category_id = l.category_id
+       WHERE l.product_id = ?
+       ORDER BY l.category_id ASC
+       LIMIT 1`,
+      [productId],
+    );
+    if (!primaryCat) return { category: "", type: "" };
+
+    let parentName = primaryCat.category_name;
+    if (primaryCat.parent_id && primaryCat.parent_id !== 0) {
+      const [[parentCat]] = await db.query(
+        `SELECT category_name FROM tbl_products_category WHERE category_id = ? LIMIT 1`,
+        [primaryCat.parent_id],
+      );
+      if (parentCat) parentName = parentCat.category_name;
+    }
+    return { category: primaryCat.category_name || "", type: parentName || "" };
+  } catch (err) {
+    console.error("[wigzo] resolveProductCategoryForWigzo failed (non-fatal):", err.message);
+    return { category: "", type: "" };
+  }
+}
+
+async function sendWigzoOrderEvent({
+  orderId,
+  orderName,
+  gaTransactionId, // online payment reference: Razorpay payment id, or Shiprocket's order id — empty for COD
+  title,
+  userId,
+  email,
+  phone, // raw phone, will be normalized to clean 10-digit here
+  firstName,
+  lastName,
+  totalPrice,
+  subtotal,
+  shippingCost,
+  discount,
+  city,
+  state,
+  postcode,
+  paymentMethod,
+  couponCode,
+  firstItem, // { product_id, variation_id, price, quantity, discount }
+}) {
+  if (!WIGZO_TOKEN) {
+    console.warn("[wigzo] WIGZO_TOKEN not set — skipping WhatsApp/SMS notification");
+    return;
+  }
+
+  const cleanPhone = normalizePhone(phone); // clean 10-digit
+  if (!cleanPhone) {
+    console.warn(`[wigzo] No usable phone for order ${orderId} — skipping WhatsApp/SMS notification`);
+    return;
+  }
+
+  const fullName = `${firstName || ""} ${lastName || ""}`.trim() || "Customer";
+  const nowIso = new Date().toISOString();
+  const isCod = toStr(paymentMethod).toLowerCase() === "cod";
+  const { category: firstItemCategory, type: firstItemType } =
+    await resolveProductCategoryForWigzo(firstItem?.product_id);
+
+  const payload = {
+    token: WIGZO_TOKEN,
+    event: "order",
+    identity: {
+      email: email || "",
+      phone: cleanPhone,
+      fullName,
+    },
+    data: {
+      // Customer-facing order reference — Shiprocket cart id for SR checkout,
+      // or the internal order-name string for direct checkout. NOT the raw
+      // DB order_id, since that's an internal id the customer never sees.
+      orderId: orderName || String(orderId),
+      title: title || "Product",
+      customer_id: String(userId || 0),
+      phone: `+91${cleanPhone}`,
+      fullName,
+      email: email || "",
+      total_price: toAmount(totalPrice),
+      total_line_items_price: toAmount(subtotal),
+      cart_token: orderName || String(orderId),
+      checkout_token: orderName || String(orderId),
+      // Online payment reference — Razorpay payment id for direct checkout,
+      // Shiprocket's own order id for the SR flow. Empty for COD, since
+      // there is no payment transaction to reference.
+      ga_transaction_id: gaTransactionId || "",
+      created_at: nowIso,
+      updated_at: nowIso,
+      shipping_cost: toAmount(shippingCost),
+      total_discounts: toAmount(discount),
+      city: city || "",
+      state: state || "",
+      country: "India",
+      zip: postcode || "",
+      financial_status: isCod ? "COD" : "Prepaid",
+      taxes_included: true,
+      coupons: couponCode ? [couponCode] : [],
+      fulfillment_status: "Pending",
+      // First line item details (Wigzo's flat-field convention)
+      line_item_id: String(firstItem?.order_item_id || ""),
+      product_id: String(firstItem?.product_id || ""),
+      variant_id: String(firstItem?.variation_id || ""),
+      price: toAmount(firstItem?.price),
+      quantity: Number(firstItem?.quantity || 1),
+      product_discount: toAmount(firstItem?.discount),
+      categories: firstItemCategory,
+      type: firstItemType,
+    },
+  };
+
+  try {
+    const wigzoRes = await axios.post(
+      "https://app.wigzo.com/api/v1/track",
+      payload,
+      { headers: { "Content-Type": "application/json" }, timeout: 8000 },
+    );
+    console.log(`[wigzo] Order event sent for order ${orderId}:`, wigzoRes.data);
+    return wigzoRes.data;
+  } catch (wigzoErr) {
+    // Non-fatal — order/email already handled by the caller.
+    console.error(
+      `[wigzo] WhatsApp/SMS notification failed for order ${orderId} (non-fatal):`,
+      wigzoErr.response?.data || wigzoErr.message,
+    );
+  }
+}
+
 async function getShippingRate(req, res) {
   try {
     const token = await getShiprocketToken();
@@ -1359,6 +1518,8 @@ const placeOrder = async (req, res) => {
     });
 
     // ── 6. tbl_order_items + tbl_order_itemmeta ───────────────────────────────
+    let firstOrderItemId = null;  // captured below for Wigzo line_item_id
+    let firstItemDiscount = null; // captured below for Wigzo product_discount
     for (const item of cartItems) {
       const [itemResult] = await conn.query(
         `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
@@ -1366,6 +1527,7 @@ const placeOrder = async (req, res) => {
         [item.title || "Item", orderId, item.product_id],
       );
       const orderItemId = itemResult.insertId;
+      if (firstOrderItemId === null) firstOrderItemId = orderItemId;
 
       const variationId =
         item.variation_id && Number(item.variation_id) > 0
@@ -1373,6 +1535,7 @@ const placeOrder = async (req, res) => {
           : 0;
       const lineTotal = toAmount(item.price) * Number(item.quantity || 0);
       const discountShare = subtotal > 0 ? (discount * lineTotal) / subtotal : 0;
+      if (firstItemDiscount === null) firstItemDiscount = discountShare;
       const lineTax = calculateExclusiveTax(lineTotal, item.tax_percent, discountShare);
 
       const itemMeta = [
@@ -1748,6 +1911,43 @@ const placeOrder = async (req, res) => {
       }
     } catch (emailErr) {
       console.error("Order email error:", emailErr);
+    }
+
+    // ── WhatsApp / SMS order confirmation (Wigzo) ─────────────────────────────
+    // Non-blocking — failure here never fails or delays the order response.
+    try {
+      await sendWigzoOrderEvent({
+        orderId,
+        orderName,
+        gaTransactionId: razorpayPaymentId || "",
+        title: cartItems.map((i) => i.title || "Product").join(", "),
+        userId,
+        email: billing.email,
+        phone: billing.phone,
+        firstName: billing.first_name,
+        lastName: billing.last_name,
+        totalPrice: total,
+        subtotal,
+        shippingCost,
+        discount,
+        city: billing.city,
+        state: billing.state,
+        postcode: billing.postcode,
+        paymentMethod,
+        couponCode: appliedCoupon ? appliedCoupon.coupon_code : "",
+        firstItem: cartItems[0]
+          ? {
+              order_item_id: firstOrderItemId,
+              product_id: cartItems[0].product_id,
+              variation_id: cartItems[0].variation_id,
+              price: cartItems[0].price,
+              quantity: cartItems[0].quantity,
+              discount: firstItemDiscount,
+            }
+          : null,
+      });
+    } catch (wigzoErr) {
+      console.error("[wigzo] Unexpected error sending order event (non-fatal):", wigzoErr.message);
     }
 
     res.json({
@@ -3061,5 +3261,6 @@ module.exports = {
   getShippingRate,
   getTrackingStatus,
   createShiprocketOrder,
+  sendWigzoOrderEvent,
   downloadInvoice,
 };

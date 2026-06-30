@@ -559,6 +559,17 @@ const login = async (req, res) => {
     await mergeGuestCart(user.ID, oldSessionId, guestCookieId);
     setSessionUser(req, user);
 
+    // Prefer the account-level `phone` meta key — confirmed against production
+    // data to be the one populated for real logged-in users. `billing_phone`
+    // is only ever set via checkout/guest-merge flows and is empty for most
+    // accounts, so it's kept only as a fallback, not the primary source.
+    const [phoneRows] = await db.query(
+      `SELECT meta_key, meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key IN ('phone','billing_phone')`,
+      [user.ID],
+    );
+    const phoneMetaMap = Object.fromEntries(phoneRows.map(r => [r.meta_key, r.meta_value]));
+    const resolvedPhone = phoneMetaMap['phone'] || phoneMetaMap['billing_phone'] || '';
+
     res.json({
       success: true,
       message: 'Login successful.',
@@ -568,6 +579,7 @@ const login = async (req, res) => {
           username: user.user_login,
           email: user.user_email,
           displayName: user.display_name,
+          phone: resolvedPhone,
           role: user.user_type_slug || roleSlugFromType(user.user_type),
           userType: user.user_type,
         }
@@ -711,9 +723,12 @@ const me = async (req, res) => {
     });
   }
 
-  // Fetch first_name and last_name from tbl_usermeta
+  // Fetch first_name, last_name, and phone from tbl_usermeta.
+  // Prefer 'phone' over 'billing_phone' — confirmed against production data
+  // that real account phone numbers live under 'phone', while 'billing_phone'
+  // is set only via checkout/guest-merge flows and is empty for most users.
   const [metaRows] = await db.query(
-    `SELECT meta_key, meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key IN ('first_name','last_name')`,
+    `SELECT meta_key, meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key IN ('first_name','last_name','phone','billing_phone')`,
     [user.id]
   );
   const meta = {};
@@ -730,6 +745,7 @@ const me = async (req, res) => {
         displayName: user.name,
         firstName: meta['first_name'] || '',
         lastName: meta['last_name'] || '',
+        phone: meta['phone'] || meta['billing_phone'] || '',
         role: user.userTypeSlug,
         userType: user.userType,
       }

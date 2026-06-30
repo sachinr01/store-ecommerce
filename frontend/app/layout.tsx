@@ -70,6 +70,21 @@ export default function RootLayout({
   src="https://checkout.shiprocket.in/js/sdk.js"
   strategy="beforeInteractive"
 />
+        {/* Wigzo (Engage360) Mapper — must load on every page, per integration doc */}
+        <Script id="wigzo-mapper" strategy="afterInteractive">
+          {`
+            (function(w,i,g,z,o){
+            var a,m;w['WigzoObject']=o;w[o]=w[o]|| function()
+            {(w[o].q=w[o].q||[]).push(arguments)},w[o].l=1* new Date()
+            ;w[o].h=z;a=i.createElement(g)
+            ,m=i.getElementsByTagName(g)[0];a.async=1;a.src=z;m.parentNode.insertBefore(a,m)
+            }) (window,document,
+            'script','//app.wigzo.com/wigzo.compressed.js','wigzo'
+            ); wigzo(
+            'configure', '${process.env.NEXT_PUBLIC_WIGZO_KEY || ''}'
+            );
+          `}
+        </Script>
       </head>
       <body className="responsive" id="demo-shop" suppressHydrationWarning>
         {/*

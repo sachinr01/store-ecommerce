@@ -125,6 +125,7 @@ export interface AuthUser {
   displayName: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
   role: string;
   userType: number;
 }

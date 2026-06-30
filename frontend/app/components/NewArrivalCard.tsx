@@ -102,6 +102,9 @@ export default function NewArrivalCard({ p, idx, placeholder, showAddToCart = tr
             title={p.title}
             image={featuredSrc}
             inStock={!isOutOfStock}
+            price={displayPrice}
+            previousPrice={regularPrice ?? ''}
+            category={p.category_name || ''}
           />
         )}
       </div>

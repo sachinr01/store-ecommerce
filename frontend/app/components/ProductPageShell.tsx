@@ -25,6 +25,7 @@ import { useWishlist } from '../lib/wishlistContext';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
 import StarRating from './StarRating';
 import YouMayAlsoLike from './YouMayAlsoLike';
+import { wigzoProductView, wigzoAddToCart, wigzoCheckoutStarted } from '../lib/wigzo';
 
 
 
@@ -135,6 +136,17 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
       });
       setAddedFlash(true);
       setTimeout(() => setAddedFlash(false), 2000);
+      wigzoAddToCart({
+        canonicalURL: typeof window !== 'undefined' ? window.location.href : '',
+        productUrl: typeof window !== 'undefined' ? window.location.href : '',
+        title: product.title,
+        price: String(displayPrice ?? ''),
+        previousPrice: String(displayMRP ?? ''),
+        description: product.short_description || '',
+        image: productImage,
+        productId: product.ID,
+        category: product.category_name || '',
+      });
     } catch (err) {
       console.error('Add to cart failed:', err);
     }
@@ -206,6 +218,22 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
         });
       }
 
+      // Wigzo `checkoutstarted` event — Trigger point per integration doc: Checkout Page.
+      // "Buy Now" skips the cart and goes straight to Shiprocket's overlay,
+      // so this is the real checkout-start moment for this flow.
+      wigzoCheckoutStarted({
+        totalLineItemsPrice: (Number(displayPrice) || 0) * quantity,
+        totalPrice: (Number(displayPrice) || 0) * quantity,
+        totalDiscounts: couponDiscount,
+        image: productImage,
+        checkoutId: checkoutRef,
+        productId: product.ID,
+        quantity,
+        title: product.title,
+        variantId,
+        price: displayPrice ?? '',
+      });
+
       (window as any).HeadlessCheckout.addToCart(e.nativeEvent, token, {
         fallbackUrl: `${window.location.origin}/checkout`,
       });
@@ -258,6 +286,24 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
 
   const allImages    = selectedVariationImages ?? defaultImages;
   const productImage = allImages[0];
+
+  // Wigzo `productview` event — Trigger point per integration doc: Product Page
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    wigzoProductView({
+      canonicalURL: window.location.href,
+      productUrl: window.location.href,
+      title: product.title,
+      price: String(displayPrice ?? ''),
+      previousPrice: String(displayMRP ?? ''),
+      description: product.short_description || '',
+      image: productImage,
+      productId: product.ID,
+      category: product.category_name || '',
+    });
+    // Re-fire only when the product itself changes, not on every price/variant recompute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.ID]);
 
   return (
     <>

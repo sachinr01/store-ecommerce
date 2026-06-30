@@ -126,6 +126,10 @@ export default function ShopProductCard({
           title={product.title}
           image={featuredSrc}
           inStock={!isOutOfStock}
+          price={displayPrice ?? ''}
+          previousPrice={regularPrice ?? ''}
+          description={product.short_description || ''}
+          category={product.category_name || ''}
         />
       </div>
       </>)}

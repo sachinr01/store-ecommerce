@@ -11,6 +11,7 @@ declare global {
 }
 import { useRouter } from 'next/navigation';
 import { useCart } from './cartContext';
+import { wigzoCheckoutStarted } from './wigzo';
 
 export const SR_STORAGE_KEYS = {
   checkoutRef:     'sr_checkout_ref',
@@ -207,6 +208,23 @@ export function useShiprocketCheckout() {
       srSet(SR_STORAGE_KEYS.couponCode,     couponCode);
       srSet(SR_STORAGE_KEYS.couponDiscount, String(discount));
       srSet(SR_STORAGE_KEYS.checkoutActive, '1');
+
+      // Wigzo `checkoutstarted` event — Trigger point per integration doc: Checkout Page.
+      // This storefront hands off to Shiprocket's hosted Checkout overlay
+      // instead of using its own /checkout form, so this is the real
+      // "checkout started" moment — right before the overlay opens.
+      const firstItem = items[0];
+      wigzoCheckoutStarted({
+        totalLineItemsPrice: total,
+        totalPrice: total,
+        image: firstItem?.image || '',
+        checkoutId: srOrderId || checkoutRef,
+        productId: firstItem?.productId,
+        quantity: firstItem?.quantity ?? null,
+        title: firstItem?.title || '',
+        variantId: firstItem?.variationId ?? firstItem?.productId ?? '',
+        price: firstItem?.price ?? '',
+      });
 
       window.HeadlessCheckout.addToCart(e.nativeEvent, token, {
         fallbackUrl: `${window.location.origin}/checkout`,

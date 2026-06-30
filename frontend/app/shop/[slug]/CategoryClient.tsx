@@ -13,6 +13,7 @@ import { useWishlist } from '../../lib/wishlistContext';
 import { usePlaceholderImage } from '../../lib/siteSettingsContext';
 import ProductImageHover from '../../components/ProductImageHover';
 import AddToCartButton from '../../components/AddToCartButton';
+import { wigzoCategoryView } from '../../lib/wigzo';
 
 const toSlug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const normalizeList = (v: string | null | undefined) =>
@@ -187,6 +188,10 @@ function ProductCard({ product, idx, listMode }: { product: Product; idx: number
             title={product.title}
             image={getImageUrl(product.thumbnail_url, PLACEHOLDER)}
             inStock={!isOutOfStock}
+            price={displayPrice ?? ''}
+            previousPrice={regularPrice ?? ''}
+            description={product.short_description || ''}
+            category={product.category_name || ''}
           />
         </div>
     </div>
@@ -239,6 +244,16 @@ export default function CategoryPage() {
         : 0;
       setAbsoluteMax(max);
       setSliderMax(max);
+
+      // Wigzo `categoryview` event — Trigger point per integration doc: Category Page
+      if (typeof window !== 'undefined') {
+        wigzoCategoryView({
+          canonicalURL: window.location.href,
+          categoryUrl: window.location.href,
+          image: prods[0] ? getImageUrl(prods[0].thumbnail_url, '') : '',
+          title: pageLabel,
+        });
+      }
     }).finally(() => setLoading(false));
   }, [pageSlug]);
 

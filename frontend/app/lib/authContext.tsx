@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { AuthUser } from './api';
 import { useCart } from './cartContext';
+import { wigzoIdentify } from './wigzo';
 
 const API_BASE = '/api';
 
@@ -36,7 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then((json: { success: boolean; data?: { isLoggedIn: boolean; user?: AuthUser } }) => {
         if (json.success && json.data?.isLoggedIn && json.data.user) {
-          setState({ user: normalizeUser(json.data.user), isLoggedIn: true, isLoading: false });
+          const u = normalizeUser(json.data.user);
+          setState({ user: u, isLoggedIn: true, isLoading: false });
+          if (u) wigzoIdentify({ email: u.email, phone: u.phone, fullName: u.displayName });
         } else {
           setState({ user: null, isLoggedIn: false, isLoading: false });
         }
@@ -47,6 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useCallback((user: AuthUser | { user?: AuthUser | null } | null) => {
     const normalized = normalizeUser(user);
     setState({ user: normalized, isLoggedIn: !!normalized, isLoading: false });
+    if (normalized) {
+      wigzoIdentify({ email: normalized.email, phone: normalized.phone, fullName: normalized.displayName });
+    }
   }, []);
 
   const logout = useCallback(async () => {

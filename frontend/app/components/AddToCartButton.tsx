@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useCart } from '../lib/cartContext';
+import { wigzoAddToCart } from '../lib/wigzo';
 
 interface AddToCartButtonProps {
   productId: number;
@@ -9,6 +10,13 @@ interface AddToCartButtonProps {
   image: string;
   inStock: boolean;
   className?: string;
+  // Optional — when provided, enables a richer Wigzo `addtocart` event payload.
+  // Falls back to safe defaults if omitted so existing callers keep working.
+  price?: string | number;
+  previousPrice?: string | number;
+  description?: string;
+  category?: string;
+  productUrl?: string;
 }
 
 export default function AddToCartButton({
@@ -17,6 +25,11 @@ export default function AddToCartButton({
   image,
   inStock,
   className = 'csp-atc-btn',
+  price,
+  previousPrice,
+  description,
+  category,
+  productUrl,
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
   const [state, setState] = useState<'idle' | 'loading' | 'added' | 'error'>('idle');
@@ -58,7 +71,20 @@ export default function AddToCartButton({
     try {
       await addItem({ productId, image, quantity: 1 });
       setState('added');
-      
+
+      const href = typeof window !== 'undefined' ? window.location.href : '';
+      wigzoAddToCart({
+        canonicalURL: productUrl || href,
+        productUrl: productUrl || href,
+        title,
+        price: String(price ?? ''),
+        previousPrice: String(previousPrice ?? ''),
+        description: description || '',
+        image,
+        productId,
+        category: category || '',
+      });
+
       // Vibration API for haptic feedback (if supported)
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
