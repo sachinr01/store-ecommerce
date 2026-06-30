@@ -828,6 +828,14 @@ const receiveOrderWebhook = async (req, res) => {
     console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone10}`);
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
+    // Declared here (outer scope) — not inside the email try{} block below —
+    // because both the email send AND the Wigzo WhatsApp send need it.
+    // Use enteredEmail (typed by user in SR iframe) first, fall back to
+    // userEmail only if it's a real address (registered customers).
+    const buyerEmail = isRealEmail(enteredEmail)
+      ? enteredEmail
+      : isRealEmail(userEmail) ? userEmail : "";
+
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
     if (userId) {
       try {
@@ -961,12 +969,8 @@ const receiveOrderWebhook = async (req, res) => {
       const orderDate = now.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
       const orderTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
-      // Use enteredEmail (typed by user in SR iframe) first.
-      // Fall back to userEmail only if it's a real address (registered customers).
-      // Never send to empty or synthetic addresses.
-      const buyerEmail = isRealEmail(enteredEmail)
-        ? enteredEmail
-        : isRealEmail(userEmail) ? userEmail : "";
+      // buyerEmail is already declared in outer scope (right after commit) —
+      // shared with the Wigzo block below, not redeclared here.
       const buyerName    = [billing.firstName, billing.lastName].filter(Boolean).join(" ") || "Customer";
       const buyerPhone   = phone10 || toStr(billing.phone || shipping.phone || "");
       const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");
