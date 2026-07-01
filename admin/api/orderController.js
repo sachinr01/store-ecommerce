@@ -3299,7 +3299,7 @@ const getOrderWigzoData = async (req, res) => {
          oi.order_item_id,
          oi.order_item_name            AS title,
          oi.product_id,
-         oi.variation_id,
+         (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_variation_id'  ORDER BY oim.meta_id DESC LIMIT 1) AS variation_id,
          (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_total'    LIMIT 1) AS price,
          (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_qty'           LIMIT 1) AS quantity,
          (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_subtotal' LIMIT 1) AS line_subtotal
