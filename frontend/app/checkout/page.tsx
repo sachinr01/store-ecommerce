@@ -510,7 +510,8 @@ export default function CheckoutPage() {
         if (!res.ok || !data?.success) return false;
 
         if (cancelled) return true;
-        setSrVerifiedOrderId(String(data?.order_id ?? srRedirectOrderId));
+        const confirmedOrderId = String(data?.order_id ?? srRedirectOrderId);
+        setSrVerifiedOrderId(confirmedOrderId);
         setSrVerifyStatus('confirmed');
         try { await clearCartRef.current(); } catch { /* non-fatal */ }
         try { await refreshCart(); } catch { /* non-fatal */ }

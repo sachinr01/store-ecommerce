@@ -3244,6 +3244,119 @@ const downloadInvoice = async (req, res) => {
   }
 };
 
+// ── getOrderWigzoData ─────────────────────────────────────────────────────────
+// Public endpoint — no login required. Returns the minimal fields the
+// client-side Wigzo `order` event needs, fetched by DB order_id.
+// Called from the /checkout?oid=...&ost=SUCCESS Thank You page immediately
+// after srVerifyStatus === 'confirmed', so the browser-side wigzo('track',
+// 'order', {...}) call fires with real data instead of the broken server-side
+// POST to /api/v1/track (which returned 404 — wrong endpoint, not documented).
+const getOrderWigzoData = async (req, res) => {
+  const orderId = Number.parseInt(req.params.orderId, 10);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid order id.' });
+  }
+
+  try {
+    // Fetch order + billing address in one query
+    const [[row]] = await db.query(
+      `SELECT
+         o.order_id,
+         o.order_date,
+         o.user_id,
+         MAX(ua.first_name)    AS first_name,
+         MAX(ua.last_name)     AS last_name,
+         MAX(ua.phone)         AS phone,
+         MAX(ua.city)          AS city,
+         MAX(ua.state_name)    AS state,
+         MAX(ua.zipcode)       AS zip,
+         MAX(u.user_email)     AS email,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_total'      ORDER BY meta_id DESC LIMIT 1) AS total_price,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_subtotal'   ORDER BY meta_id DESC LIMIT 1) AS subtotal,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_shipping'   ORDER BY meta_id DESC LIMIT 1) AS shipping_cost,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_discount'   ORDER BY meta_id DESC LIMIT 1) AS total_discounts,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_payment_method'   ORDER BY meta_id DESC LIMIT 1) AS payment_method,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_coupon_code'      ORDER BY meta_id DESC LIMIT 1) AS coupon_code,
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_sr_cart_id'       ORDER BY meta_id DESC LIMIT 1) AS sr_cart_id
+       FROM tbl_orders o
+       LEFT JOIN tbl_user_address ua ON ua.order_id = o.order_id AND ua.address_billing = 'yes'
+       LEFT JOIN tbl_users u ON u.ID = o.user_id
+       WHERE o.order_id = ?
+       GROUP BY o.order_id`,
+      [orderId],
+    );
+
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    // Fetch first order item for product-level fields
+    const [[item]] = await db.query(
+      `SELECT
+         oi.order_item_id,
+         oi.product_id,
+         oi.variation_id,
+         (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_total'    LIMIT 1) AS price,
+         (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_qty'           LIMIT 1) AS quantity,
+         (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_subtotal' LIMIT 1) AS line_subtotal,
+         p.post_title AS title
+       FROM tbl_order_items oi
+       LEFT JOIN tbl_products p ON p.ID = oi.product_id
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+       ORDER BY oi.order_item_id ASC
+       LIMIT 1`,
+      [orderId],
+    );
+
+    // Resolve category for first item
+    const { category, type } = await resolveProductCategoryForWigzo(item?.product_id);
+
+    const isCod = toStr(row.payment_method).toLowerCase() === 'cod';
+    const cartToken = row.sr_cart_id || String(orderId);
+    const cleanPhone = normalizePhone(row.phone || '');
+
+    return res.json({
+      success: true,
+      data: {
+        orderId:                cartToken,
+        title:                  item?.title                    || '',
+        customer_id:            String(row.user_id             || 0),
+        phone:                  cleanPhone ? `+91${cleanPhone}` : '',
+        fullName:               `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Customer',
+        email:                  row.email                      || '',
+        total_price:            Number(row.total_price)        || 0,
+        total_line_items_price: Number(row.subtotal)           || 0,
+        cart_token:             cartToken,
+        checkout_token:         cartToken,
+        ga_transaction_id:      isCod ? '' : cartToken,
+        created_at:             row.order_date ? new Date(row.order_date).toISOString() : new Date().toISOString(),
+        updated_at:             row.order_date ? new Date(row.order_date).toISOString() : new Date().toISOString(),
+        shipping_cost:          Number(row.shipping_cost)      || 0,
+        total_discounts:        Number(row.total_discounts)    || 0,
+        city:                   row.city                       || '',
+        state:                  row.state                      || '',
+        country:                'India',
+        zip:                    row.zip                        || '',
+        financial_status:       isCod ? 'COD' : 'Prepaid',
+        taxes_included:         true,
+        coupons:                row.coupon_code ? [row.coupon_code] : [],
+        fulfillment_status:     'Pending',
+        line_item_id:           String(item?.order_item_id     || ''),
+        product_id:             String(item?.product_id        || ''),
+        variant_id:             String(item?.variation_id      || ''),
+        price:                  Number(item?.price)            || 0,
+        quantity:               Number(item?.quantity)         || 1,
+        product_discount:       0,
+        categories:             category,
+        type,
+      },
+    });
+  } catch (err) {
+    console.error('getOrderWigzoData error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch order data.' });
+  }
+};
+
 module.exports = {
   placeOrder,
   getMyOrders,
@@ -3262,5 +3375,6 @@ module.exports = {
   getTrackingStatus,
   createShiprocketOrder,
   sendWigzoOrderEvent,
+  getOrderWigzoData,
   downloadInvoice,
 };

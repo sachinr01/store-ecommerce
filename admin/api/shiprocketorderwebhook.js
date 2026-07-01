@@ -1011,11 +1011,6 @@ const receiveOrderWebhook = async (req, res) => {
 
     // ── WhatsApp / SMS order confirmation (Wigzo) ─────────────────────────────
     // This checkout flow (Shiprocket Checkout) never went through
-    // orderController.placeOrder, so it previously never fired the WhatsApp/SMS
-    // confirmation that direct checkout orders get. Reusing the same shared
-    // helper here keeps both flows consistent — same payload shape, same
-    // sender identity ("Nestcase", configured on the Wigzo dashboard).
-    // Non-blocking — failure here never fails the webhook response.
     try {
       const { sendWigzoOrderEvent } = require("./orderController");
       const buyerCity  = shipping.city  || billing.city  || "";

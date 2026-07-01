@@ -180,9 +180,81 @@ export function wigzoCheckoutStarted(params: {
   });
 }
 
+// ── 6. Order ─────────────────────────────────────────────────────────────────
+// Trigger point per PDF: Thank You Page.
+// This fires CLIENT-SIDE on the /checkout?oid=...&ost=SUCCESS page — the
+// browser-based approach the PDF actually documents, which replaces the
+// previous server-side POST to /api/v1/track (that endpoint returned 404).
+export function wigzoOrder(params: {
+  orderId?: string;
+  title?: string;
+  customer_id?: string;
+  phone?: string;
+  fullName?: string;
+  email?: string;
+  total_price?: number;
+  total_line_items_price?: number;
+  cart_token?: string;
+  checkout_token?: string;
+  ga_transaction_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  shipping_cost?: number;
+  total_discounts?: number;
+  city?: string;
+  state?: string;
+  country?: string;
+  zip?: string;
+  financial_status?: string;
+  taxes_included?: boolean;
+  coupons?: string[];
+  line_item_id?: string;
+  variant_id?: string;
+  product_id?: string;
+  price?: number;
+  quantity?: number;
+  product_discount?: number;
+  categories?: string;
+  type?: string;
+  fulfillment_status?: string;
+}) {
+  callWigzo('track', 'order', {
+    orderId:                params.orderId              || '',
+    title:                  params.title                || '',
+    customer_id:            params.customer_id          || '',
+    phone:                  params.phone                || '',
+    fullName:               params.fullName             || '',
+    email:                  params.email                || '',
+    total_price:            params.total_price          ?? 0,
+    total_line_items_price: params.total_line_items_price ?? 0,
+    cart_token:             params.cart_token           || '',
+    checkout_token:         params.checkout_token       || '',
+    ga_transaction_id:      params.ga_transaction_id    || '',
+    created_at:             params.created_at           || new Date().toISOString(),
+    updated_at:             params.updated_at           || new Date().toISOString(),
+    shipping_cost:          params.shipping_cost        ?? 0,
+    total_discounts:        params.total_discounts      ?? 0,
+    city:                   params.city                 || '',
+    state:                  params.state                || '',
+    country:                params.country              || 'India',
+    zip:                    params.zip                  || '',
+    financial_status:       params.financial_status     || '',
+    taxes_included:         params.taxes_included       ?? true,
+    coupons:                params.coupons              || [],
+    line_item_id:           params.line_item_id         || '',
+    variant_id:             params.variant_id           || '',
+    product_id:             params.product_id           || '',
+    price:                  params.price                ?? 0,
+    quantity:               params.quantity             ?? 1,
+    product_discount:       params.product_discount     ?? 0,
+    categories:             params.categories           || '',
+    type:                   params.type                 || '',
+    fulfillment_status:     params.fulfillment_status   || 'Pending',
+  });
+}
+
 // ── 7. Buy (optional) ────────────────────────────────────────────────────────
-// Trigger point per PDF: Thank You Page (fires alongside the `order` event,
-// which this storefront sends server-side — see api/orderController.js).
+// Trigger point per PDF: Thank You Page (fires alongside the order event).
 export function wigzoBuy(productIds: Array<string | number>) {
   callWigzo('track', 'buy', productIds.map(String));
 }

@@ -107,8 +107,12 @@ export function useShiprocketCheckout() {
       stopPolling();
       clearSRStorage();
       try { await clearCart(); } catch { /* non-fatal */ }
-      const ref = data.sr_cart_id || data.order_id;
-      router.push(`/checkout/success?sr_cart_id=${encodeURIComponent(ref)}`);
+      // Pass the DB order_id as `order` param (same as direct checkout does)
+      // so checkout/success/page.tsx can fetch Wigzo data with it.
+      // Also pass sr_cart_id for the Order Reference display chip.
+      const dbOrderId = data.order_id;
+      const srCartId  = data.sr_cart_id || data.order_id;
+      router.push(`/checkout/success?order=${encodeURIComponent(dbOrderId)}&sr_cart_id=${encodeURIComponent(srCartId)}`);
       return true;
     } catch {
       return false;

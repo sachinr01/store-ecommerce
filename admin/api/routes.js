@@ -135,6 +135,7 @@ router.post  ('/wishlist/sync',              requireLogin, wishlist.syncWishlist
 router.post('/orders/place',        orders.placeOrder);
 router.post('/orders/track',        orders.trackOrderByPhone);   // public – no login needed
 router.post('/orders/track-by-id',  orders.trackOrderById);      // public – order ID only
+router.get ('/orders/:orderId/wigzo-data', orders.getOrderWigzoData); // public – Wigzo Thank You page event
 router.post('/shipping-rate',       orders.getShippingRate);
 router.get ('/tracking/:awb',       orders.getTrackingStatus);
 router.get ('/orders/my',           requireLogin, orders.getMyOrders);
