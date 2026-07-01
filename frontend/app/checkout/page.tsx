@@ -1071,6 +1071,28 @@ export default function CheckoutPage() {
     };
   }, [showRegister, googleScriptReady, handleGoogleLogin]);
 
+  // ── Wigzo `order` event — fires when SR redirect is confirmed ────────────────
+  // The custom success screen (rendered below when srRedirectOrderId is set)
+  // never redirects to /checkout/success, so wigzoOrder must fire here too.
+  // Uses the same pattern as checkout/success/page.tsx: fetch wigzo-data using
+  // the verified DB order_id, then call wigzoOrder() once, non-blocking.
+  const wigzoOrderFiredRef = useRef(false);
+  useEffect(() => {
+    if (srVerifyStatus !== 'confirmed' || !srVerifiedOrderId || wigzoOrderFiredRef.current) return;
+    wigzoOrderFiredRef.current = true;
+    const fireWigzo = async () => {
+      try {
+        const res = await fetch(`/api/orders/${srVerifiedOrderId}/wigzo-data`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json?.success || !json?.data) return;
+        const { wigzoOrder } = await import('../lib/wigzo');
+        wigzoOrder(json.data);
+      } catch { /* non-fatal — never break the success screen */ }
+    };
+    void fireWigzo();
+  }, [srVerifyStatus, srVerifiedOrderId]);
+
   const showCardDetails = false;
 
   // ── Shiprocket Checkout redirect screen ──────────────────────────────────────

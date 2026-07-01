@@ -675,8 +675,6 @@ const receiveOrderWebhook = async (req, res) => {
 
     // Track how much discount we've allocated so far (avoid floating-point drift)
     let discountAllocated = 0;
-    let firstOrderItemId = null;  // captured below for Wigzo line_item_id
-    let firstItemDiscount = null; // captured below for Wigzo product_discount
 
     for (const [itemIndex, item] of resolvedItems.entries()) {
       const [itemResult] = await conn.query(
@@ -685,7 +683,6 @@ const receiveOrderWebhook = async (req, res) => {
         [item.title, orderId, item.product_id],
       );
       const orderItemId  = itemResult.insertId;
-      if (firstOrderItemId === null) firstOrderItemId = orderItemId;
       const lineSubtotal = item.price * item.quantity; // original pre-discount amount
 
       // Proportional discount for this line item.
@@ -700,7 +697,6 @@ const receiveOrderWebhook = async (req, res) => {
           discountAllocated += lineDiscount;
         }
       }
-      if (firstItemDiscount === null) firstItemDiscount = lineDiscount;
 
       const lineTotal = Math.max(0, lineSubtotal - lineDiscount); // actual charged amount
 
@@ -829,7 +825,7 @@ const receiveOrderWebhook = async (req, res) => {
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
     // Declared here (outer scope) — not inside the email try{} block below —
-    // because both the email send AND the Wigzo WhatsApp send need it.
+    // so that future additions can access them without redeclaring.
     // Use enteredEmail (typed by user in SR iframe) first, fall back to
     // userEmail only if it's a real address (registered customers).
     const buyerEmail = isRealEmail(enteredEmail)
@@ -1007,54 +1003,6 @@ const receiveOrderWebhook = async (req, res) => {
       console.log(`[SR OrderWebhook] Emails sent for order_id=${orderId}`);
     } catch (emailErr) {
       console.error("[SR OrderWebhook] Email send failed (non-fatal):", emailErr.message);
-    }
-
-    // ── WhatsApp / SMS order confirmation (Wigzo) ─────────────────────────────
-    // This checkout flow (Shiprocket Checkout) never went through
-    try {
-      const { sendWigzoOrderEvent } = require("./orderController");
-      const buyerCity  = shipping.city  || billing.city  || "";
-      const buyerState = shipping.state || billing.state || "";
-      const buyerZip   = shipping.zip   || billing.zip   || "";
-      const wigzoPhone = phone10 || toStr(billing.phone || shipping.phone || "");
-
-      await sendWigzoOrderEvent({
-        orderId,
-        orderName: cartId,
-        // Shiprocket collects payment itself — srOrderId is the closest thing
-        // to a payment-side reference this webhook gives us. Empty for COD,
-        // since there's no payment transaction to point to.
-        gaTransactionId: paymentMethod === "prepaid" ? srOrderId : "",
-        title: resolvedItems.map((i) => i.title || "Product").join(", "),
-        userId,
-        email: buyerEmail,
-        phone: wigzoPhone,
-        firstName: billing.firstName,
-        lastName: billing.lastName,
-        totalPrice: orderTotal,
-        subtotal,
-        shippingCost,
-        discount,
-        city: buyerCity,
-        state: buyerState,
-        postcode: buyerZip,
-        paymentMethod,
-        couponCode: couponFromMeta,
-        firstItem: resolvedItems[0]
-          ? {
-              order_item_id: firstOrderItemId,
-              product_id: resolvedItems[0].product_id,
-              variation_id: resolvedItems[0].variation_id,
-              price: resolvedItems[0].price,
-              quantity: resolvedItems[0].quantity,
-              discount: firstItemDiscount,
-            }
-          : null,
-      });
-
-      console.log(`[SR OrderWebhook] Wigzo WhatsApp/SMS event sent for order_id=${orderId}`);
-    } catch (wigzoErr) {
-      console.error("[SR OrderWebhook] Wigzo notification failed (non-fatal):", wigzoErr.message);
     }
 
     return res.status(200).json({ success: true, order_id: orderId });

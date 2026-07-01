@@ -3264,20 +3264,21 @@ const getOrderWigzoData = async (req, res) => {
          o.order_id,
          o.order_date,
          o.user_id,
-         MAX(ua.first_name)    AS first_name,
-         MAX(ua.last_name)     AS last_name,
-         MAX(ua.phone)         AS phone,
-         MAX(ua.city)          AS city,
-         MAX(ua.state_name)    AS state,
-         MAX(ua.zipcode)       AS zip,
-         MAX(u.user_email)     AS email,
+         o.sr_cart_id                  AS sr_cart_id_direct,
+         MAX(ua.first_name)            AS first_name,
+         MAX(ua.last_name)             AS last_name,
+         MAX(ua.phone)                 AS phone,
+         MAX(ua.city)                  AS city,
+         MAX(ua.state_name)            AS state,
+         MAX(ua.zipcode)               AS zip,
+         MAX(u.user_email)             AS email,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_total'      ORDER BY meta_id DESC LIMIT 1) AS total_price,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_subtotal'   ORDER BY meta_id DESC LIMIT 1) AS subtotal,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_shipping'   ORDER BY meta_id DESC LIMIT 1) AS shipping_cost,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_order_discount'   ORDER BY meta_id DESC LIMIT 1) AS total_discounts,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_payment_method'   ORDER BY meta_id DESC LIMIT 1) AS payment_method,
          (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_coupon_code'      ORDER BY meta_id DESC LIMIT 1) AS coupon_code,
-         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_sr_cart_id'       ORDER BY meta_id DESC LIMIT 1) AS sr_cart_id
+         (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_sr_cart_id'       ORDER BY meta_id DESC LIMIT 1) AS sr_cart_id_meta
        FROM tbl_orders o
        LEFT JOIN tbl_user_address ua ON ua.order_id = o.order_id AND ua.address_billing = 'yes'
        LEFT JOIN tbl_users u ON u.ID = o.user_id
@@ -3290,18 +3291,19 @@ const getOrderWigzoData = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Order not found.' });
     }
 
-    // Fetch first order item for product-level fields
+    // Fetch first order item for product-level fields.
+    // Use oi.order_item_name (title stored at order time) — more reliable than
+    // joining tbl_products.product_title since the product may be edited/deleted later.
     const [[item]] = await db.query(
       `SELECT
          oi.order_item_id,
+         oi.order_item_name            AS title,
          oi.product_id,
          oi.variation_id,
          (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_total'    LIMIT 1) AS price,
          (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_qty'           LIMIT 1) AS quantity,
-         (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_subtotal' LIMIT 1) AS line_subtotal,
-         p.post_title AS title
+         (SELECT meta_value FROM tbl_order_itemmeta WHERE order_item_id = oi.order_item_id AND meta_key = '_line_subtotal' LIMIT 1) AS line_subtotal
        FROM tbl_order_items oi
-       LEFT JOIN tbl_products p ON p.ID = oi.product_id
        WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
        ORDER BY oi.order_item_id ASC
        LIMIT 1`,
@@ -3312,7 +3314,9 @@ const getOrderWigzoData = async (req, res) => {
     const { category, type } = await resolveProductCategoryForWigzo(item?.product_id);
 
     const isCod = toStr(row.payment_method).toLowerCase() === 'cod';
-    const cartToken = row.sr_cart_id || String(orderId);
+    // Prefer sr_cart_id directly from tbl_orders column (most reliable),
+    // fall back to the ordermeta copy (_sr_cart_id key), then DB order_id as last resort.
+    const cartToken = row.sr_cart_id_direct || row.sr_cart_id_meta || String(orderId);
     const cleanPhone = normalizePhone(row.phone || '');
 
     return res.json({
@@ -3346,7 +3350,17 @@ const getOrderWigzoData = async (req, res) => {
         variant_id:             String(item?.variation_id      || ''),
         price:                  Number(item?.price)            || 0,
         quantity:               Number(item?.quantity)         || 1,
-        product_discount:       0,
+        // Proportional discount for this line item:
+        // (line_subtotal / order_subtotal) × total_discount
+        // Both values are already fetched — line_subtotal from tbl_order_itemmeta,
+        // total_discounts from tbl_ordermeta. Matches the formula used in placeOrder.
+        product_discount: (() => {
+          const lineSubtotal   = Number(item?.line_subtotal)    || 0;
+          const orderSubtotal  = Number(row.subtotal)           || 0;
+          const totalDiscount  = Number(row.total_discounts)    || 0;
+          if (totalDiscount <= 0 || orderSubtotal <= 0) return 0;
+          return Math.round((lineSubtotal / orderSubtotal) * totalDiscount * 100) / 100;
+        })(),
         categories:             category,
         type,
       },
