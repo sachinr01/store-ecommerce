@@ -17,9 +17,11 @@ const { createShiprocketOrder } = require('./orderController');
 const toInt   = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n) ? d : n; };
 const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
-const calculateExclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
+// Prices are tax-inclusive — extract GST: tax = taxable × rate / (100 + rate)
+const calculateInclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
   const taxable = Math.max(0, toFloat(subtotal) - toFloat(discountShare));
-  return (taxable * toFloat(taxPercent)) / 100;
+  const rate = toFloat(taxPercent);
+  return rate > 0 ? (taxable * rate) / (100 + rate) : 0;
 };
 
 const BASE_URL = "https://nestcase.in";
@@ -81,12 +83,12 @@ const mapProduct = (p) => {
     : updatedAt;
 
   // ── Prices ──────────────────────────────────────────────────────
-  const sellingPrice  = toFloat(p.price,         0); // _price (base / ex-tax)
+  const sellingPrice  = toFloat(p.price,         0); // _price is ALREADY tax-inclusive
   const regularPrice  = toFloat(p.regular_price, 0); // _regular_price (MRP)
   const taxPercent    = toFloat(p.tax_percent,   0);
 
-  // Tax-inclusive selling price sent to Shiprocket
-  const sellingPriceWithTax = sellingPrice + (sellingPrice * taxPercent) / 100;
+  // _price is already tax-inclusive — use it directly (do NOT add tax again)
+  const sellingPriceWithTax = sellingPrice;
 
   // compare_at_price = MRP only when MRP > selling price (real discount exists)
   const compareAtPrice =

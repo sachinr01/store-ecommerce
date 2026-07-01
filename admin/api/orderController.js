@@ -24,9 +24,11 @@ const toInt = (val, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const calculateExclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
-  const taxable = Math.max(0, toAmount(subtotal) - toAmount(discountShare));
-  return toAmount((taxable * toAmount(taxPercent)) / 100);
+const calculateInclusiveTax = (lineTotal, taxPercent, discountShare = 0) => {
+  // Prices are tax-inclusive. Extract GST: tax = taxable × rate / (100 + rate)
+  const taxable = Math.max(0, toAmount(lineTotal) - toAmount(discountShare));
+  const rate = toAmount(taxPercent);
+  return rate > 0 ? toAmount((taxable * rate) / (100 + rate)) : 0;
 };
 
 const normalizePhone = (raw) => {
@@ -1141,12 +1143,14 @@ const placeOrder = async (req, res) => {
     }
     const discount = couponCheck.discount || 0;
 
+    // Prices are tax-inclusive — extract GST component: tax = taxable × rate / (100 + rate)
     const taxTotal = cartItems.reduce((sum, item) => {
       const lineSubtotal = toAmount(item.price) * Number(item.quantity || 0);
       const discountShare = subtotal > 0 ? (discount * lineSubtotal) / subtotal : 0;
-      return sum + calculateExclusiveTax(lineSubtotal, item.tax_percent, discountShare);
+      return sum + calculateInclusiveTax(lineSubtotal, item.tax_percent, discountShare);
     }, 0);
-    const total = Math.max(0, subtotal - discount) + taxTotal + shippingCost;
+    // Tax is already inside subtotal — do NOT add taxTotal again
+    const total = Math.max(0, subtotal - discount) + shippingCost;
 
     if (paymentMethod === "razorpay" && !razorpayPaymentId) {
       const razorpay = require("../config/razorpay");
@@ -1309,7 +1313,8 @@ const placeOrder = async (req, res) => {
 
       payment_method: paymentMethod.toLowerCase() === "cod" ? "COD" : "Prepaid",
 
-      sub_total: Number(Math.max(0, subtotal - discount + taxTotal)),
+      // Prices are inclusive — sub_total = order value customers pay (tax already inside)
+      sub_total: Number(Math.max(0, subtotal - discount)),
 
       shipping_charges: Number(shippingCost),
 
@@ -1536,7 +1541,8 @@ const placeOrder = async (req, res) => {
       const lineTotal = toAmount(item.price) * Number(item.quantity || 0);
       const discountShare = subtotal > 0 ? (discount * lineTotal) / subtotal : 0;
       if (firstItemDiscount === null) firstItemDiscount = discountShare;
-      const lineTax = calculateExclusiveTax(lineTotal, item.tax_percent, discountShare);
+      // Prices are tax-inclusive — extract GST: tax = taxable × rate / (100 + rate)
+      const lineTax = calculateInclusiveTax(lineTotal, item.tax_percent, discountShare);
 
       const itemMeta = [
         ["_product_id", item.product_id],

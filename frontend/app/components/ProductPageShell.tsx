@@ -416,7 +416,7 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
                     </span>
                   )}
                 </div>
-                <div className="cpd-tax-note">(Excl. of taxes)</div>
+                <div className="cpd-tax-note">(Incl. of all taxes)</div>
               </>
             ) : displayPrice ? (
               <span className="cpd-price">{formatPrice(displayPrice)}</span>

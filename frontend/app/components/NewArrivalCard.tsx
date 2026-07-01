@@ -94,7 +94,7 @@ export default function NewArrivalCard({ p, idx, placeholder, showAddToCart = tr
               </span>
             )}
           </div>
-          <div className="na-tax-note">(Excl. of taxes)</div>
+          <div className="na-tax-note">(Incl. of all taxes)</div>
         </div>
         {showAddToCart && (
           <AddToCartButton

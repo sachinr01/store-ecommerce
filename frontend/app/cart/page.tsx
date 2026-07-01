@@ -36,9 +36,11 @@ export default function CartPage() {
   }, []);
 
   const discount = appliedCoupon?.discount ?? 0;
+  // Prices are tax-inclusive — tax is embedded in subtotal, not added on top
   const taxableAfterDiscount = Math.max(0, subtotal - discount);
   const taxAfterDiscount = subtotal > 0 ? tax * (taxableAfterDiscount / subtotal) : 0;
-  const orderTotal = taxableAfterDiscount + taxAfterDiscount;
+  // Order total = subtotal minus discount (tax is already inside the price)
+  const orderTotal = taxableAfterDiscount;
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -166,7 +168,7 @@ export default function CartPage() {
 
                             <div className="cart-detail cart-detail--total">
                               <span className="cart-detail-value">
-                                {formatPrice(item.price * item.quantity + item.taxAmount)}
+                                {formatPrice(item.price * item.quantity)}
                               </span>
                             </div>
                           </div>
@@ -200,12 +202,7 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    {taxAfterDiscount > 0 && (
-                      <div className="cart-summary-row">
-                        <span>Tax</span>
-                        <span>{formatPrice(taxAfterDiscount)}</span>
-                      </div>
-                    )}
+
 
                     <div className="cart-summary-row total">
                       <span>Order Total</span>

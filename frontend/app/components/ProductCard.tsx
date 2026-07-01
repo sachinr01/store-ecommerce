@@ -84,7 +84,7 @@ export default function ProductCard({
             <span className="price-current">{formatPrice(price)}</span>
           )}
         </div>
-        <div className="price-tax-note">(Excl. of taxes)</div>
+        <div className="price-tax-note">(Incl. of all taxes)</div>
       </div>
     </li>
   );

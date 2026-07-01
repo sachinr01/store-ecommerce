@@ -239,14 +239,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
+  // Prices are tax-inclusive: extract GST component = total × rate / (100 + rate)
   const tax = useMemo(
-    () => items.reduce((sum, i) => sum + (i.price * i.quantity * i.taxPercent / 100), 0),
+    () => items.reduce((sum, i) => {
+      const lineTotal = i.price * i.quantity;
+      return sum + (i.taxPercent > 0 ? (lineTotal * i.taxPercent) / (100 + i.taxPercent) : 0);
+    }, 0),
     [items]
   );
 
   const total = useMemo(
-    () => subtotal + tax,
-    [subtotal, tax]
+    () => subtotal, // tax is already inside subtotal (inclusive pricing)
+    [subtotal]
   );
 
   const count = useMemo(

@@ -722,7 +722,8 @@ export default function CheckoutPage() {
   const taxAfterDiscount = subtotal > 0 ? tax * (taxableAfterDiscount / subtotal) : 0;
 
   // shippingCost added by sumit
-  const orderTotal = taxableAfterDiscount + taxAfterDiscount + shippingCost;
+  // Prices are tax-inclusive — tax is embedded, not added on top
+  const orderTotal = taxableAfterDiscount + shippingCost;
 
   // ─── Resolved addresses ─────────────────────────────────────────────────────
   const resolvedShipping = useMemo<AddressFields>(() => {
@@ -1709,12 +1710,7 @@ export default function CheckoutPage() {
                             <strong>−{formatPrice(discount)}</strong>
                           </div>
                         )}
-                        {taxAfterDiscount > 0 && (
-                          <div className="checkout-summary-row">
-                            <span>Tax</span>
-                            <strong>{formatPrice(taxAfterDiscount)}</strong>
-                          </div>
-                        )}
+
                         <div className="checkout-summary-row">
                           <span>Shipping &amp; Handling</span>
                           <strong className="csp-free-shipping"> 

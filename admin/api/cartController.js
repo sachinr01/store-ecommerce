@@ -208,18 +208,20 @@ const getCart = async (req, res) => {
       const qty = Number(item.quantity || 0);
       const price = Number(item.price || 0);
       const taxPercent = Number(item.tax_percent || 0);
-      const lineSubtotal = price * qty;
-      const lineTax = lineSubtotal * taxPercent / 100;
+      // Prices are tax-inclusive — line_total = price × qty (tax is already embedded)
+      const lineTotal = price * qty;
+      // Extract the GST component from the inclusive price: tax = total × rate / (100 + rate)
+      const lineTax = taxPercent > 0 ? (lineTotal * taxPercent) / (100 + taxPercent) : 0;
       return {
         ...item,
-        line_subtotal: Number(lineSubtotal.toFixed(2)),
+        line_subtotal: Number(lineTotal.toFixed(2)),
         tax_amount: Number(lineTax.toFixed(2)),
-        line_total: Number((lineSubtotal + lineTax).toFixed(2)),
+        line_total: Number(lineTotal.toFixed(2)),
       };
     });
     const subtotal = rows.reduce((sum, item) => sum + Number(item.line_subtotal || 0), 0);
     const tax = rows.reduce((sum, item) => sum + Number(item.tax_amount || 0), 0);
-    const total = subtotal + tax;
+    const total = subtotal; // tax is already inside subtotal (inclusive pricing)
     res.json({ success: true, data: { items: rows, count, subtotal, tax, total } });
   } catch (err) {
     console.error('getCart error:', err);

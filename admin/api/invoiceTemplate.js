@@ -65,7 +65,7 @@ function renderInvoice(data) {
   for (const item of items) {
     const lt  = toAmt(item.line_total);
     const r   = toAmt(item.tax_percent);
-    const itemTax = item.line_tax == null ? (r > 0 ? (lt * r) / 100 : 0) : toAmt(item.line_tax);
+    const itemTax = item.line_tax == null ? (r > 0 ? (lt * r) / (100 + r) : 0) : toAmt(item.line_tax);
     const hsn = String(item.hsn_code || '').trim();
     const k   = `${hsn}|${r}`;
     const tv  = lt;

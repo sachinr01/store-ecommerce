@@ -167,7 +167,7 @@ export default function YouMayAlsoLike({ product }: YouMayAlsoLikeProps) {
                           </span>
                         )}
                       </div>
-                      <div className="ymal-tax-note">(Excl. of taxes)</div>
+                      <div className="ymal-tax-note">(Incl. of all taxes)</div>
 
                     </div>
                   </div>
