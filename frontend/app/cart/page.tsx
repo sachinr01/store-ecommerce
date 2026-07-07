@@ -19,7 +19,7 @@ import { useShiprocketCheckout } from '../lib/useShiprocketCheckout';
 export default function CartPage() {
   const PLACEHOLDER = usePlaceholderImage();
   const { items, removeItem, updateQty, subtotal, tax } = useCart();
-  const { startCheckout, loading: checkoutLoading, stopPolling } = useShiprocketCheckout();
+  const { startCheckout, loading: checkoutLoading, cancelCheckout } = useShiprocketCheckout();
 
   // ── Coupon state ──────────────────────────────────────────────────────────
   const [couponInput,   setCouponInput]   = useState('');
@@ -31,7 +31,9 @@ export default function CartPage() {
     getActiveCoupon()
       .then((c) => { if (c) { setAppliedCoupon(c); setCouponInput(c.code); } })
       .catch(() => {});
-    return () => stopPolling();
+    // On unmount (user navigated away or closed overlay), cancel the checkout
+    // session so stale session data won't trigger a false "Order Confirmed".
+    return () => cancelCheckout();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

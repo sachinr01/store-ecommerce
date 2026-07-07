@@ -101,7 +101,7 @@ function OrderSuccessContent() {
               {srCartId && (
                 <div className="success-order-chip">
                   <div className="success-order-chip-dot" />
-                  Order Reference &nbsp;<strong>#{srCartId}</strong>
+                  Order Reference &nbsp;<strong>{srCartId}</strong>
                 </div>
               )}
 

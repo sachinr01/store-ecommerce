@@ -82,6 +82,15 @@ export function useShiprocketCheckout() {
     overlayHoldsRef.current = 0;
   };
 
+  // Call this when the user dismisses/exits the checkout overlay without
+  // completing the order. Stops polling AND clears session storage so that
+  // a stale ?order_id param on the subsequent redirect doesn't re-trigger
+  // the "Order Confirmed" screen.
+  const cancelCheckout = () => {
+    stopPolling();
+    clearSRStorage();
+  };
+
   const finalizeCheckout = async (srOrderId: string, checkoutRef: string): Promise<boolean> => {
     if (!srOrderId) return false;
     if (srGet(SR_STORAGE_KEYS.checkoutActive) !== '1') { stopPolling(); return false; }
@@ -125,7 +134,13 @@ export function useShiprocketCheckout() {
     const tick = async () => {
       pollAttemptsRef.current += 1;
       const done = await finalizeCheckout(srOrderId, checkoutRef);
-      if (done || pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) stopPolling();
+      if (done) { stopPolling(); return; }
+      if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
+        // Timed out without a confirmed order — clear storage so stale
+        // session data doesn't pollute a future checkout attempt.
+        stopPolling();
+        clearSRStorage();
+      }
     };
     const initialDelay = setTimeout(() => {
       void tick();
@@ -245,5 +260,5 @@ export function useShiprocketCheckout() {
     }
   };
 
-  return { startCheckout, loading, stopPolling };
+  return { startCheckout, loading, stopPolling, cancelCheckout };
 }

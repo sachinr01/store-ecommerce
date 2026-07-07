@@ -195,6 +195,14 @@ export default function CheckoutPage() {
       if (v && v.trim()) {
          // If there's an explicit failure status, don't trigger success flow
          if (status && status.toUpperCase() === 'FAILED') return null;
+
+         // Only treat this as a valid Shiprocket redirect if we actually
+         // started a checkout session. If sr_checkout_active is not set,
+         // the user either exited without completing checkout or navigated
+         // back — don't show "Order Confirmed" for a stale/previous order.
+         const isCheckoutActive = sessionStorage.getItem('sr_checkout_active') === '1';
+         if (!isCheckoutActive) return null;
+
          return v.trim();
       }
       return null;
@@ -1181,7 +1189,7 @@ export default function CheckoutPage() {
                 </p>
                 <div className="success-order-chip">
                   <div className="success-order-chip-dot" />
-                  Order Reference &nbsp;<strong>#{srRedirectOrderId}</strong>
+                  Order Reference &nbsp;<strong>{srRedirectOrderId}</strong>
                 </div>
                 {confirmed && (
                   <>
