@@ -1063,6 +1063,14 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         }
 
         confirmed = srStatus === "SUCCESS" || srStatus === "PAID" || srStatus === "COMPLETED";
+
+        // If Shiprocket explicitly says the order/payment was cancelled or failed,
+        // stop polling and signal the frontend to redirect to cart.
+        const isCancelled = srStatus === "CANCELLED" || srStatus === "CANCEL" ||
+          srStatus === "FAILED" || srStatus === "ABANDONED" || srStatus === "EXPIRED";
+        if (isCancelled && !confirmed) {
+          return res.status(200).json({ success: false, status: "CANCELLED" });
+        }
       } catch (e) {
         console.error("[SR Complete-Checkout] fetchSROrderDetails failed:", e.message);
       }

@@ -193,8 +193,9 @@ export default function CheckoutPage() {
       const status = sp.get('ois') ?? sp.get('status');
       
       if (v && v.trim()) {
-         // If there's an explicit failure status, don't trigger success flow
-         if (status && status.toUpperCase() === 'FAILED') return null;
+         // If there's an explicit failure or cancellation status, don't trigger any flow
+         const upperStatus = status?.toUpperCase() ?? '';
+         if (upperStatus === 'FAILED' || upperStatus === 'CANCELLED' || upperStatus === 'CANCEL' || upperStatus === 'ABANDONED') return null;
 
          // Only treat this as a valid Shiprocket redirect if we actually
          // started a checkout session. If sr_checkout_active is not set,
@@ -214,7 +215,7 @@ export default function CheckoutPage() {
   // Verified DB order id, populated only once our backend has actually
   // confirmed + persisted the order (see verification effect below).
   const [srVerifiedOrderId, setSrVerifiedOrderId] = useState<string | null>(null);
-  const [srVerifyStatus, setSrVerifyStatus] = useState<'idle' | 'verifying' | 'confirmed' | 'failed'>(
+  const [srVerifyStatus, setSrVerifyStatus] = useState<'idle' | 'verifying' | 'confirmed' | 'failed' | 'cancelled'>(
     srRedirectOrderId ? 'verifying' : 'idle',
   );
 
@@ -515,6 +516,13 @@ export default function CheckoutPage() {
         if (res.status === 202) return false; // Shiprocket hasn't confirmed yet
 
         const data = await res.json().catch(() => ({}));
+
+        // Backend signals the order was cancelled — redirect to cart, no error screen
+        if (data?.status === 'CANCELLED') {
+          if (!cancelled) setSrVerifyStatus('cancelled');
+          return true;
+        }
+
         if (!res.ok || !data?.success) return false;
 
         if (cancelled) return true;
@@ -568,6 +576,15 @@ export default function CheckoutPage() {
       setShowForgotRecovery(true);
     }
   }, [srRedirectOrderId]);
+
+  // Redirect to cart immediately when order was cancelled — no error screen
+  useEffect(() => {
+    if (srVerifyStatus === 'cancelled') {
+      sessionStorage.removeItem('sr_checkout_active');
+      sessionStorage.removeItem('sr_checkout_ref');
+      router.replace('/cart');
+    }
+  }, [srVerifyStatus, router]);
 
   const handleGoogleLogin = useCallback(async (credential: string) => {
     if (!credential) {
@@ -1112,6 +1129,9 @@ export default function CheckoutPage() {
   // message can NEVER flash while we're confirming the order with our
   // backend. Three sub-states: verifying → confirmed → failed.
   if (srRedirectOrderId) {
+    // Cancelled: redirect effect is already queued — render nothing to avoid flash
+    if (srVerifyStatus === 'cancelled') return null;
+
     if (srVerifyStatus === 'failed') {
       return (
         <>
