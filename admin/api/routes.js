@@ -13,7 +13,7 @@ const { requireAdmin, requireAgentOrAdmin, requireLogin } = require('./authMiddl
 const contact = require('./contactController');
 const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
-const { receiveOrderWebhook } = require('./shiprocketorderwebhook');
+const { receiveOrderWebhook, cancelShiprocketOrder, receiveShipmentWebhook } = require('./shiprocketorderwebhook');
 const catalogSync = require('./shiprocketcatalogsync');
 
 // ── In-memory rate limiter ─────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ router.post  ('/wishlist/sync',              requireLogin, wishlist.syncWishlist
 router.post('/orders/place',        orders.placeOrder);
 router.post('/orders/track',        orders.trackOrderByPhone);   // public – no login needed
 router.post('/orders/track-by-id',  orders.trackOrderById);      // public – order ID only
-router.post('/orders/:orderId/cancel', orders.cancelOrder);      // public – phone verified
+router.post('/orders/:orderId/cancel', cancelShiprocketOrder);    // public – phone verified, SR panel cancel
 router.get ('/orders/:orderId/wigzo-data', orders.getOrderWigzoData); // public – Wigzo Thank You page event
 router.post('/shipping-rate',       orders.getShippingRate);
 router.get ('/tracking/:awb',       orders.getTrackingStatus);
@@ -170,6 +170,15 @@ router.post('/shiprocket/finalize-checkout', shiprocket.finalizeCheckoutContext)
 
 // ── Shiprocket Order Webhook ──────────────────────────────────────────────────
 router.post('/shiprocket/order-webhook', receiveOrderWebhook);
+
+// ── Shiprocket Shipment Status Webhook ────────────────────────────────────────
+// Shiprocket calls this when shipment status changes (picked up, in transit, delivered, etc.)
+// Configure URL in: Shiprocket Dashboard → Settings → Webhooks
+// Auth: x-api-key header = SHIPROCKET_WEBHOOK_TOKEN from .env
+router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
+
+// ── Shiprocket Order Cancel (public — phone verified) ─────────────────────────
+router.post('/shiprocket/cancel-order', cancelShiprocketOrder);
 
 // ── Shiprocket Admin Catalog Sync Webhooks ────────────────────────────────────
 // Manually push a product or collection update to Shiprocket.

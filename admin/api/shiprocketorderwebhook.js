@@ -1062,4 +1062,368 @@ const fetchSROrderDetails = async (srOrderId) => {
   }
 };
 
-module.exports = { receiveOrderWebhook, fetchSROrderDetails };
+/* ─────────────────────────────────────────────────────────────
+   Shiprocket Panel API — Bearer token (apiv2.shiprocket.in)
+   Uses SHIPROCKET_EMAIL + SHIPROCKET_PASSWORD from .env
+───────────────────────────────────────────────────────────── */
+let _srTokenCache = null; // { token, expiresAt }
+
+const getSRPanelToken = async () => {
+  if (_srTokenCache && _srTokenCache.expiresAt > Date.now()) {
+    return _srTokenCache.token;
+  }
+  const email    = process.env.SHIPROCKET_EMAIL    || "";
+  const password = process.env.SHIPROCKET_PASSWORD || "";
+  if (!email || !password) throw new Error("SHIPROCKET_EMAIL / SHIPROCKET_PASSWORD not set in .env");
+
+  const res = await axios.post(
+    "https://apiv2.shiprocket.in/v1/external/auth/login",
+    { email, password },
+    { headers: { "Content-Type": "application/json" }, timeout: 10000 },
+  );
+  const token = res.data?.data?.token || res.data?.token;
+  if (!token) throw new Error("Shiprocket login returned no token");
+
+  // Cache for 9 hours (tokens last 10 hours on Shiprocket)
+  _srTokenCache = { token, expiresAt: Date.now() + 9 * 60 * 60 * 1000 };
+  return token;
+};
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/shiprocket/cancel-order
+   Public — verified by phone number match
+   Body: { orderId, phone }
+───────────────────────────────────────────────────────────── */
+const cancelShiprocketOrder = async (req, res) => {
+  const rawId      = toStr(req.body.orderId  || req.params.orderId || "");
+  const inputPhone = toStr(req.body.phone || "").replace(/\D/g, "");
+
+  if (!rawId || inputPhone.length < 6) {
+    return res.status(400).json({ success: false, message: "orderId and phone are required" });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // ── 1. Resolve sr_cart_id → internal order_id ──────────────────────────
+    let orderId = Number.parseInt(rawId, 10);
+    if (!Number.isFinite(orderId) || orderId <= 0 || String(orderId) !== rawId) {
+      // rawId looks like a Shiprocket cart_id string
+      const [[metaRow]] = await conn.query(
+        `SELECT order_id FROM tbl_ordermeta
+         WHERE meta_key IN ('_sr_cart_id', '_sr_checkout_order_id')
+           AND meta_value = ? LIMIT 1`,
+        [rawId],
+      );
+      if (!metaRow) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+      orderId = metaRow.order_id;
+    }
+
+    // ── 2. Load order + phone ───────────────────────────────────────────────
+    const [[order]] = await conn.query(
+      `SELECT o.order_id, o.order_status, o.awb_code, o.shipment_id, o.sr_cart_id,
+              MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone END) AS billing_phone,
+              MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone END) AS ship_phone
+       FROM tbl_orders o
+       LEFT JOIN tbl_user_address ua ON ua.order_id = o.order_id
+       WHERE o.order_id = ? AND o.order_type = 'shop_order'
+       GROUP BY o.order_id`,
+      [orderId],
+    );
+    if (!order) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // ── 3. Verify phone ─────────────────────────────────────────────────────
+    const billingDigits = toStr(order.billing_phone).replace(/\D/g, "");
+    const shipDigits    = toStr(order.ship_phone).replace(/\D/g, "");
+    const phoneOk =
+      (billingDigits && (billingDigits.endsWith(inputPhone) || inputPhone.endsWith(billingDigits))) ||
+      (shipDigits    && (shipDigits.endsWith(inputPhone)    || inputPhone.endsWith(shipDigits)));
+
+    if (!phoneOk) {
+      await conn.rollback();
+      return res.status(403).json({ success: false, message: "Mobile number does not match this order" });
+    }
+
+    // ── 4. Guard already-cancelled / non-cancellable ────────────────────────
+    if (order.order_status === "cancelled") {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: "Order is already cancelled" });
+    }
+    const cancellable = ["pending", "processing", "on-hold"];
+    if (!cancellable.includes(order.order_status)) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Order cannot be cancelled at this stage. Please contact support.",
+      });
+    }
+
+    // ── 5. Cancel on Shiprocket panel (apiv2) if AWB exists ─────────────────
+    let srCancelled = false;
+    const awb        = toStr(order.awb_code);
+    const shipmentId = toStr(order.shipment_id);
+
+    if (awb || shipmentId) {
+      try {
+        const token = await getSRPanelToken();
+
+        if (awb) {
+          // Cancel by AWB (preferred — works for all couriers)
+          const srRes = await axios.post(
+            "https://apiv2.shiprocket.in/v1/external/orders/cancel/shipment/awbs",
+            { awbs: [awb] },
+            { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, timeout: 10000 },
+          );
+          srCancelled = srRes.status === 200;
+          console.log(`[cancelShiprocketOrder] AWB cancel response:`, srRes.data);
+        } else if (shipmentId) {
+          // Fallback: cancel by shipment IDs
+          const srRes = await axios.post(
+            "https://apiv2.shiprocket.in/v1/external/shipments/cancel",
+            { shipment_id: [shipmentId] },
+            { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, timeout: 10000 },
+          );
+          srCancelled = srRes.status === 200;
+          console.log(`[cancelShiprocketOrder] Shipment cancel response:`, srRes.data);
+        }
+      } catch (srErr) {
+        // Non-fatal — log and continue with local cancellation
+        console.error(`[cancelShiprocketOrder] SR panel cancel failed:`, srErr.response?.data || srErr.message);
+      }
+    }
+
+    // ── 6. Update local order status ────────────────────────────────────────
+    await conn.query(
+      `UPDATE tbl_orders SET order_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
+      [orderId],
+    );
+
+    // ── 7. Restore stock for all line items ─────────────────────────────────
+    const [orderItems] = await conn.query(
+      `SELECT oi.product_id,
+              MAX(CASE WHEN oim.meta_key = '_variation_id' THEN oim.meta_value END) AS variation_id,
+              MAX(CASE WHEN oim.meta_key = '_qty'          THEN oim.meta_value END) AS qty
+       FROM tbl_order_items oi
+       LEFT JOIN tbl_order_itemmeta oim ON oim.order_item_id = oi.order_item_id
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+       GROUP BY oi.order_item_id, oi.product_id`,
+      [orderId],
+    );
+    for (const item of orderItems) {
+      const qty           = Number(item.qty || 0);
+      const stockProductId = item.variation_id && Number(item.variation_id) > 0
+        ? item.variation_id : item.product_id;
+      if (!qty || !stockProductId) continue;
+
+      await conn.query(
+        `UPDATE tbl_productmeta
+         SET meta_value = CAST(meta_value AS SIGNED) + ?
+         WHERE product_id = ? AND meta_key = '_stock'`,
+        [qty, stockProductId],
+      );
+      await conn.query(
+        `UPDATE tbl_productmeta SET meta_value = 'instock'
+         WHERE product_id = ? AND meta_key = '_stock_status' AND meta_value = 'outofstock'`,
+        [stockProductId],
+      );
+
+      // Fire-and-forget: push updated stock to Shiprocket catalog
+      const { sendProductUpdateWebhook } = require("./shiprocketWebhooks");
+      sendProductUpdateWebhook(stockProductId).catch((e) =>
+        console.error(`[cancelShiprocketOrder] Stock webhook failed for product ${stockProductId}:`, e.message),
+      );
+    }
+
+    await conn.commit();
+    console.log(`[cancelShiprocketOrder] ✅ Order ${orderId} cancelled. SR panel cancelled: ${srCancelled}`);
+
+    return res.json({
+      success: true,
+      message: "Order cancelled successfully",
+      shiprocket_cancelled: srCancelled,
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error("[cancelShiprocketOrder] error:", err.message);
+    return res.status(500).json({ success: false, message: "Failed to cancel order. Please try again or contact support." });
+  } finally {
+    conn.release();
+  }
+};
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/shiprocket/shipment-webhook
+   Shiprocket Shipment Status Webhook
+   
+   Shiprocket calls this URL whenever a shipment status changes
+   (PICKUP SCHEDULED, PICKED UP, IN TRANSIT, OUT FOR DELIVERY,
+   DELIVERED, CANCELLED, RTO INITIATED, RTO DELIVERED, etc.)
+   
+   Configure in Shiprocket Dashboard:
+     Settings → Webhooks → Add Webhook URL
+     URL: https://your-domain.com/api/shiprocket/shipment-webhook
+     Auth: x-api-key header → value matches SHIPROCKET_WEBHOOK_TOKEN
+   
+   Payload fields used:
+     awb         – shipment AWB number (primary lookup key)
+     current_status / status / event  – new status string
+     shipment_id – Shiprocket shipment ID (fallback lookup)
+     order_id    – Shiprocket order ID   (fallback lookup)
+───────────────────────────────────────────────────────────── */
+
+// Map every Shiprocket status string → our internal status
+const SR_STATUS_MAP = {
+  // Forward journey
+  "NEW":                  "processing",
+  "PICKUP SCHEDULED":     "processing",
+  "PICKUP ERROR":         "processing",
+  "PICKUP QUEUED":        "processing",
+  "PICKUP GENERATED":     "processing",
+  "PICKED UP":            "Shipped",
+  "IN TRANSIT":           "Shipped",
+  "REACHED AT SOURCE HUB":"Shipped",
+  "REACHED AT DESTINATION HUB": "Shipped",
+  "OUT FOR DELIVERY":     "Out for Delivery",
+  "DELIVERED":            "Delivered",
+  // Return / RTO
+  "CANCELLED":            "cancelled",
+  "RTO INITIATED":        "Return Initiated",
+  "RTO IN TRANSIT":       "Return Initiated",
+  "RTO OUT FOR PICKUP":   "Return Initiated",
+  "RTO PICKED":           "Return Initiated",
+  "RTO DELIVERED":        "Returned",
+  // Exceptions
+  "SHIPMENT RETURN":      "Return Initiated",
+  "UNDELIVERED":          "Out for Delivery", // re-attempt expected
+  "DELAYED":              "In Transit",
+  "DAMAGED":              "In Transit",
+  "LOST":                 "In Transit",
+};
+
+const receiveShipmentWebhook = async (req, res) => {
+  // ── 1. Token auth ───────────────────────────────────────────────────────────
+  const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN || "";
+  const receivedToken =
+    req.headers["x-api-key"] ||
+    req.headers["authorization"]?.replace(/^Bearer\s+/i, "") ||
+    "";
+
+  if (expectedToken && receivedToken !== expectedToken) {
+    console.warn("[SR ShipmentWebhook] Unauthorised — token mismatch");
+    return res.status(200).json({ success: false, message: "Unauthorised" });
+  }
+
+  const body = req.body || {};
+
+  // ── 2. Extract fields ───────────────────────────────────────────────────────
+  const awb        = toStr(body.awb || body.awb_code || "");
+  const shipmentId = toStr(body.shipment_id || "");
+  const srOrderId  = toStr(body.order_id || "");
+  const rawStatus  = toStr(
+    body.current_status || body.status || body.event || body.shipment_status || ""
+  ).toUpperCase().trim();
+
+  console.log(`[SR ShipmentWebhook] awb=${awb} shipment_id=${shipmentId} status="${rawStatus}" body_keys=${Object.keys(body).join(",")}`);
+
+  if (!rawStatus) {
+    return res.status(200).json({ success: false, message: "Missing status field" });
+  }
+
+  // Map to internal status; if unknown just store as-is (title-cased)
+  const mappedStatus = SR_STATUS_MAP[rawStatus] ||
+    rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+
+  // ── 3. Resolve order_id from DB ─────────────────────────────────────────────
+  let orderId = null;
+
+  if (awb) {
+    const [[row]] = await db.query(
+      `SELECT order_id FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
+      [awb],
+    );
+    if (row) orderId = row.order_id;
+  }
+
+  if (!orderId && shipmentId) {
+    const [[row]] = await db.query(
+      `SELECT order_id FROM tbl_orders WHERE shipment_id = ? AND order_type = 'shop_order' LIMIT 1`,
+      [shipmentId],
+    );
+    if (row) orderId = row.order_id;
+  }
+
+  if (!orderId && srOrderId) {
+    // Try ordermeta _shiprocket_order_id
+    const [[row]] = await db.query(
+      `SELECT order_id FROM tbl_ordermeta WHERE meta_key = '_shiprocket_order_id' AND meta_value = ? LIMIT 1`,
+      [srOrderId],
+    );
+    if (row) orderId = row.order_id;
+  }
+
+  if (!orderId) {
+    console.warn(`[SR ShipmentWebhook] Could not resolve order for awb=${awb} shipment_id=${shipmentId} sr_order_id=${srOrderId}`);
+    return res.status(200).json({ success: false, message: "Order not found" });
+  }
+
+  // ── 4. Skip update if status is already the same or a later terminal status ─
+  const [[current]] = await db.query(
+    `SELECT order_status FROM tbl_orders WHERE order_id = ? LIMIT 1`,
+    [orderId],
+  );
+  const currentStatus = toStr(current?.order_status || "");
+  const terminalStatuses = ["Delivered", "cancelled", "Returned"];
+
+  if (terminalStatuses.includes(currentStatus) && currentStatus === mappedStatus) {
+    console.log(`[SR ShipmentWebhook] order_id=${orderId} already at "${currentStatus}" — skipping`);
+    return res.status(200).json({ success: true, message: "Already at this status" });
+  }
+
+  // ── 5. Update order_status (and awb_code / courier_name if provided) ────────
+  const courier = toStr(
+    body.courier || body.courier_name || body.service_provider || ""
+  );
+
+  let updateQuery = `UPDATE tbl_orders SET order_status = ?, order_modified = NOW()`;
+  const updateParams = [mappedStatus];
+
+  if (awb && !current?.awb_code) {
+    updateQuery += `, awb_code = ?`;
+    updateParams.push(awb);
+  }
+  if (courier) {
+    updateQuery += `, courier_name = ?`;
+    updateParams.push(courier);
+  }
+
+  updateQuery += ` WHERE order_id = ?`;
+  updateParams.push(orderId);
+
+  await db.query(updateQuery, updateParams);
+
+  // ── 6. Append to shipment activity log in ordermeta ─────────────────────────
+  const activityEntry = JSON.stringify({
+    date:     toStr(body.updated_at || body.created_at || new Date().toISOString()),
+    activity: rawStatus,
+    location: toStr(body.city || body.location || body.current_city || ""),
+    remark:   toStr(body.remark || body.description || ""),
+  });
+
+  await db.query(
+    `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_shipment_activity', ?)`,
+    [orderId, activityEntry],
+  ).catch((e) => console.error("[SR ShipmentWebhook] activity log insert failed:", e.message));
+
+  console.log(`[SR ShipmentWebhook] ✅ order_id=${orderId} status updated: "${currentStatus}" → "${mappedStatus}"`);
+
+  return res.status(200).json({ success: true, message: "Status updated", order_id: orderId, status: mappedStatus });
+};
+
+module.exports = { receiveOrderWebhook, fetchSROrderDetails, cancelShiprocketOrder, receiveShipmentWebhook };

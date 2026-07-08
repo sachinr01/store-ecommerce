@@ -513,6 +513,7 @@ async function getTrackingStatus(req, res) {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 8000,
       },
     );
 
@@ -526,7 +527,7 @@ async function getTrackingStatus(req, res) {
       NEW: "Order Confirmed",
       "PICKUP SCHEDULED": "Packed",
       "PICKED UP": "Shipped",
-      "IN TRANSIT": "In Transit",
+      "IN TRANSIT": "Shipped",
       "OUT FOR DELIVERY": "Out for Delivery",
       DELIVERED: "Delivered",
       CANCELLED: "Cancelled",
@@ -538,12 +539,7 @@ async function getTrackingStatus(req, res) {
 
     // update order table
     await db.query(
-      `
-            UPDATE tbl_orders
-            SET
-                order_status=?
-            WHERE awb_code=?
-            `,
+      `UPDATE tbl_orders SET order_status = ? WHERE awb_code = ?`,
       [finalStatus, awb],
     );
 
@@ -555,9 +551,34 @@ async function getTrackingStatus(req, res) {
   } catch (error) {
     console.log("Tracking Error:", error.response?.data || error.message);
 
-    return res.status(500).json({
-      success: false,
-    });
+    // Fallback: return stored activity log from ordermeta so UI shows cached data
+    try {
+      const [[order]] = await db.query(
+        `SELECT order_id, order_status FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
+        [req.params.awb],
+      );
+      if (order) {
+        const [activityRows] = await db.query(
+          `SELECT meta_value FROM tbl_ordermeta
+           WHERE order_id = ? AND meta_key = '_shipment_activity'
+           ORDER BY meta_id ASC`,
+          [order.order_id],
+        );
+        const parsed = activityRows
+          .map((r) => { try { return JSON.parse(r.meta_value); } catch { return null; } })
+          .filter(Boolean);
+        return res.json({
+          success: true,
+          current_status: order.order_status || "",
+          activities: parsed,
+          source: "cached",
+        });
+      }
+    } catch (fallbackErr) {
+      console.error("Tracking fallback error:", fallbackErr.message);
+    }
+
+    return res.status(500).json({ success: false });
   }
 }
 
@@ -2924,6 +2945,10 @@ const trackOrderByPhone = async (req, res) => {
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
               MAX(o.order_date)        AS order_date,
+              MAX(o.awb_code)          AS awb_code,
+              MAX(o.courier_name)      AS courier_name,
+              MAX(o.shipment_id)       AS shipment_id,
+              MAX(o.shipping_status)   AS shipping_status,
               (SELECT om.meta_value FROM tbl_ordermeta om
                WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'
                ORDER BY om.meta_id DESC LIMIT 1) AS total,
@@ -3052,6 +3077,46 @@ const trackOrderByPhone = async (req, res) => {
       items,
       order.subtotal ? Number(order.subtotal) : 0,
     );
+
+    // ── Fetch live Shiprocket tracking if AWB is available ────────────────────
+    const awb = toStr(order.awb_code);
+    if (awb) {
+      try {
+        const token = await getShiprocketToken();
+        const srRes = await axios.get(
+          `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+        );
+        const td = srRes.data?.tracking_data;
+        if (td) {
+          const rawStatus = td.shipment_track?.[0]?.current_status || "";
+          const statusMap = {
+            NEW: "Order Confirmed",
+            "PICKUP SCHEDULED": "Packed",
+            "PICKED UP": "Shipped",
+            "IN TRANSIT": "In Transit",
+            "OUT FOR DELIVERY": "Out for Delivery",
+            DELIVERED: "Delivered",
+            CANCELLED: "Cancelled",
+            "RTO INITIATED": "Return Initiated",
+            "RTO DELIVERED": "Returned",
+          };
+          const liveStatus = statusMap[rawStatus] || rawStatus;
+          if (liveStatus) {
+            order.order_status = liveStatus;
+            // keep local DB in sync
+            await db.query(
+              `UPDATE tbl_orders SET order_status = ? WHERE order_id = ?`,
+              [liveStatus, orderId],
+            ).catch(() => {});
+          }
+          order.courier_name = td.shipment_track?.[0]?.courier_name || order.courier_name || "";
+        }
+      } catch (trackErr) {
+        console.error(`[trackOrderByPhone] SR tracking fetch failed for AWB ${awb}:`, trackErr.message);
+        // non-fatal — continue with DB data
+      }
+    }
 
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
@@ -3200,6 +3265,7 @@ const downloadInvoice = async (req, res) => {
         gstin:        process.env.STORE_GSTIN          || '',
         pan:          process.env.STORE_PAN            || '',
       },
+      defaultGstRate: parseFloat(process.env.DEFAULT_GST_RATE || '18'),
       order: {
         invoiceNo:      orderRow.sr_cart_id || orderId,
         orderId,

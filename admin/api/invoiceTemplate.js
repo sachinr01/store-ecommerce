@@ -60,15 +60,24 @@ function renderInvoice(data) {
     return (r ? r.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + l : l) + '.' + dec;
   }
 
+  // Default GST rate used when a product has no tax_percent stored.
+  // Prices are always tax-inclusive, so we can always extract GST at this rate.
+  const DEFAULT_GST_RATE = toAmt(data.defaultGstRate ?? 18);
+
   // tax groups
   const taxGroups = new Map();
   for (const item of items) {
     const lt  = toAmt(item.line_total);
-    const r   = toAmt(item.tax_percent);
-    const itemTax = item.line_tax == null ? (r > 0 ? (lt * r) / (100 + r) : 0) : toAmt(item.line_tax);
+    // Use stored tax_percent; fall back to DEFAULT_GST_RATE so tax is always shown
+    const r   = toAmt(item.tax_percent) || DEFAULT_GST_RATE;
+    // If line_tax is stored use it directly, otherwise back-calculate from inclusive price
+    const itemTax = (item.line_tax != null && toAmt(item.line_tax) > 0)
+      ? toAmt(item.line_tax)
+      : (r > 0 ? (lt * r) / (100 + r) : 0);
     const hsn = String(item.hsn_code || '').trim();
     const k   = `${hsn}|${r}`;
-    const tv  = lt;
+    // taxable = price before tax (exclusive base)
+    const tv  = lt - itemTax;
     if (!taxGroups.has(k)) taxGroups.set(k, { hsn, rate: r, taxable: 0, taxAmt: 0 });
     const g = taxGroups.get(k);
     g.taxable += tv;
@@ -93,11 +102,15 @@ function renderInvoice(data) {
 
   // line-item rows
   const itemRows = items.map((item, i) => {
-    const qty = Number(item.qty || 1);
-    const lt  = toAmt(item.line_total);
-    const taxRate = toAmt(item.tax_percent);
-    const taxable = lt;
-    const up  = qty > 0 ? taxable / qty : taxable;
+    const qty     = Number(item.qty || 1);
+    const lt      = toAmt(item.line_total);
+    const taxRate = toAmt(item.tax_percent) || DEFAULT_GST_RATE;
+    const itemTax = (item.line_tax != null && toAmt(item.line_tax) > 0)
+      ? toAmt(item.line_tax)
+      : (taxRate > 0 ? (lt * taxRate) / (100 + taxRate) : 0);
+    // taxable = amount before tax (exclusive base)
+    const taxable = lt - itemTax;
+    const up      = qty > 0 ? taxable / qty : taxable;
     return `
       <tr>
         <td class="c">${i + 1}</td>

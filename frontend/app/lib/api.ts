@@ -323,10 +323,10 @@ export const trackOrder = async (orderId: number | string, phone: string): Promi
 };
 
 export const cancelOrder = async (orderId: number | string, phone: string): Promise<{ message: string }> => {
-  const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(String(orderId))}/cancel`, {
+  const res = await fetch(`${API_BASE}/shiprocket/cancel-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ orderId: String(orderId), phone }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));
