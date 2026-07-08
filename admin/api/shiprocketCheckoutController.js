@@ -31,20 +31,7 @@ const buildImageUrl = (path) => {
   return path.startsWith("http") ? path : `${BASE_URL}/${path.replace(/^\/+/, "")}`;
 };
 
-/**
- * Shared SQL fragment: fetches the LATEST non-empty value of a given
- * meta_key for a product from tbl_productmeta.
- *
- * DB-confirmed meta keys used here:
- *   _price          → actual selling price (what customer pays)
- *   _regular_price  → MRP / original price (compare-at / strikethrough)
- *   _sku            → product SKU
- *   _stock          → stock quantity
- *   weight          → weight in kg (NO underscore prefix — confirmed in DB)
- *                     e.g. product 61 has meta_key='weight', meta_value='7'
- *   tax             → GST rate percentage (e.g. "18")
- *   hsn             → HSN/SAC code (e.g. "39269099")
- */
+
 const metaSubQuery = (key, alias) => `
   (
     SELECT meta_value
@@ -58,20 +45,7 @@ const metaSubQuery = (key, alias) => `
   ) AS ${alias}
 `;
 
-/**
- * Map a DB row → Shiprocket-compliant product object.
- *
- * Price logic:
- *   selling_price    = _price         (what customer pays)
- *   compare_at_price = _regular_price (original MRP, shown crossed-out)
- *                    → sent only when strictly greater than selling price
- *                    → sent as "" when not applicable (Shiprocket accepts "")
- *
- * Weight logic:
- *   meta_key = 'weight' (no underscore) — value in kg (e.g. "7")
- *   weight_unit is always "kg" per Shiprocket spec
- *   grams = weight * 1000 (rounded)
- */
+
 const mapProduct = (p) => {
   const imageSrc = buildImageUrl(p.image);
 
@@ -142,12 +116,7 @@ const mapProduct = (p) => {
   };
 };
 
-/* ─────────────────────────────────────────────────────────────
-   Shared product SELECT columns
-   Fetches: price (_price), compare-at (_regular_price),
-            sku (_sku), stock (_stock), weight (weight), image,
-            gst_rate (tax), hsn_code (hsn)
-───────────────────────────────────────────────────────────── */
+
 const PRODUCT_SELECT = `
   p.ID,
   p.product_title,
