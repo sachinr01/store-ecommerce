@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, type FormEvent } from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { trackOrder, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../lib/api';
+import { trackOrder, getLiveTracking, getImageUrl, cancelOrder, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../lib/api';
 import { formatPrice } from '../lib/price';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -112,8 +112,31 @@ function ShipmentActivities({ awb }: { awb: string }) {
 
 // ─── result panel ────────────────────────────────────────────────────────────
 
-function TrackResult({ data }: { data: OrderDetailResponse }) {
+function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailResponse; phone: string; onOrderCancelled: (updated: OrderDetailResponse) => void }) {
   const { order, items } = data;
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
+
+  const handleCancel = async () => {
+    if (!confirm('Are you sure you want to cancel this order? This action cannot be undone.')) return;
+    setCancelling(true);
+    setCancelError('');
+    setCancelSuccess('');
+    try {
+      await cancelOrder(order.sr_cart_id || order.order_id, phone);
+      setCancelSuccess('Your order has been cancelled successfully.');
+      // Update the displayed order status locally
+      onOrderCancelled({
+        ...data,
+        order: { ...data.order, order_status: 'cancelled' },
+      });
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel order. Please contact support.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const summary = useMemo(() => {
     const storedSubtotal = Number(order.subtotal || 0);
@@ -258,6 +281,19 @@ function TrackResult({ data }: { data: OrderDetailResponse }) {
               DOWNLOAD INVOICE
             </a>
 
+            {['pending', 'processing', 'on-hold'].includes(summary.status) && (
+              <button
+                type="button"
+                className="ot-btn ot-btn--cancel"
+                onClick={handleCancel}
+                disabled={cancelling}
+              >
+                {cancelling ? 'Cancelling…' : 'CANCEL ORDER'}
+              </button>
+            )}
+
+            {cancelSuccess && <div className="ot-cancel-success">{cancelSuccess}</div>}
+            {cancelError   && <div className="ot-error">{cancelError}</div>}
           </div>
         </div>
       </div>
@@ -367,7 +403,7 @@ export default function OrderTrackingPage() {
 
                 {error && <div className="ot-error">{error}</div>}
 
-                {result && <TrackResult data={result} />}
+                {result && <TrackResult data={result} phone={mobile} onOrderCancelled={setResult} />}
               </div>
             </div>
           </div>

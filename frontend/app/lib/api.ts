@@ -322,6 +322,20 @@ export const trackOrder = async (orderId: number | string, phone: string): Promi
   return body.data as OrderDetailResponse;
 };
 
+export const cancelOrder = async (orderId: number | string, phone: string): Promise<{ message: string }> => {
+  const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(String(orderId))}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+    cache: 'no-store',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || `Error ${res.status}`);
+  }
+  return body;
+};
+
 export interface ShiprocketTrackingActivity {
   date: string;
   activity: string;
