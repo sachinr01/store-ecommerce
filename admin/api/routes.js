@@ -112,6 +112,8 @@ router.post('/auth/forgot-password', forgotPasswordLimiter, auth.requestPassword
 router.post('/auth/reset-password',  auth.resetPassword);
 router.get ('/auth/me',              auth.me);
 router.put ('/auth/profile',         requireLogin, auth.updateProfile);
+router.post('/auth/send-otp',        loginLimiter, auth.sendOtp);
+router.post('/auth/verify-otp',      auth.verifyOtp);
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
 router.get ('/coupon/active',  coupon.active);

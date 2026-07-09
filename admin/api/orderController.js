@@ -2315,6 +2315,9 @@ async function resolveLinkedUserIds(userId, sessionEmail) {
 // ─────────────────────────────────────────────────────────────────────────────
 // getMyOrders
 // Frontend: GET /api/orders/my
+// Returns orders scoped to the user's verified phone number (billing_phone in
+// usermeta). This ensures a logged-in user only sees orders placed with their
+// own phone, regardless of which guest/user account was used at checkout.
 // ─────────────────────────────────────────────────────────────────────────────
 const getMyOrders = async (req, res) => {
   const user = getSessionUser(req);
@@ -2322,30 +2325,79 @@ const getMyOrders = async (req, res) => {
     return res.status(401).json({ success: false, message: "Login required." });
   }
   try {
-    const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
-
-    // Single JOIN instead of correlated subqueries per row.
-    // CAST inside MAX() ensures numeric comparison, not lexicographic string sort
-    // (e.g. MAX('1000.00','200.00') as strings = '200.00' — wrong; as DECIMAL = 1000.00 — correct).
-    const [orders] = await db.query(
-      `SELECT
-         o.order_id,
-         MAX(o.order_status)    AS order_status,
-         MAX(o.awb_code)        AS awb_code,
-         MAX(o.courier_name)    AS courier_name,
-         MAX(o.shipping_status) AS shipping_status,
-         MAX(o.order_date)      AS order_date,
-         MAX(CAST(CASE WHEN om.meta_key = '_order_total'    THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS total,
-         MAX(CAST(CASE WHEN om.meta_key = '_order_subtotal' THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS subtotal
-       FROM tbl_orders o
-       LEFT JOIN tbl_ordermeta om
-         ON om.order_id = o.order_id
-        AND om.meta_key IN ('_order_total', '_order_subtotal')
-       WHERE o.user_id IN (?) AND o.order_type = 'shop_order'
-       GROUP BY o.order_id
-       ORDER BY MAX(o.order_date) DESC`,
-      [userIdList],
+    // ── Resolve the user's verified phone ─────────────────────────────────────
+    const [[phoneMeta]] = await db.query(
+      `SELECT meta_value FROM tbl_usermeta
+       WHERE user_id = ? AND meta_key = 'billing_phone' LIMIT 1`,
+      [user.id],
     );
+    const verifiedPhone = phoneMeta ? normalizePhone(phoneMeta.meta_value) : "";
+
+    let orders;
+
+    if (verifiedPhone) {
+      // Primary path: fetch all orders whose billing phone in ordermeta OR
+      // in tbl_user_address matches the user's verified 10-digit phone.
+      // Also include orders directly owned by the linked user_id list.
+      const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
+
+      const [rows] = await db.query(
+        `SELECT DISTINCT
+           o.order_id,
+           MAX(o.order_status)    AS order_status,
+           MAX(o.awb_code)        AS awb_code,
+           MAX(o.courier_name)    AS courier_name,
+           MAX(o.shipping_status) AS shipping_status,
+           MAX(o.order_date)      AS order_date,
+           MAX(CAST(CASE WHEN om.meta_key = '_order_total'    THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS total,
+           MAX(CAST(CASE WHEN om.meta_key = '_order_subtotal' THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS subtotal
+         FROM tbl_orders o
+         LEFT JOIN tbl_ordermeta om
+           ON om.order_id = o.order_id
+          AND om.meta_key IN ('_order_total', '_order_subtotal')
+         WHERE o.order_type = 'shop_order'
+           AND (
+             o.user_id IN (?)
+             OR o.order_id IN (
+               SELECT order_id FROM tbl_ordermeta
+               WHERE meta_key = '_billing_phone'
+                 AND RIGHT(REPLACE(REPLACE(REPLACE(meta_value, ' ', ''), '-', ''), '+', ''), 10) = ?
+             )
+             OR o.order_id IN (
+               SELECT order_id FROM tbl_user_address
+               WHERE address_billing = 'yes'
+                 AND RIGHT(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), 10) = ?
+             )
+           )
+         GROUP BY o.order_id
+         ORDER BY MAX(o.order_date) DESC`,
+        [userIdList, verifiedPhone, verifiedPhone],
+      );
+      orders = rows;
+    } else {
+      // Fallback: no verified phone on file — use linked user_id list only.
+      const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
+      const [rows] = await db.query(
+        `SELECT
+           o.order_id,
+           MAX(o.order_status)    AS order_status,
+           MAX(o.awb_code)        AS awb_code,
+           MAX(o.courier_name)    AS courier_name,
+           MAX(o.shipping_status) AS shipping_status,
+           MAX(o.order_date)      AS order_date,
+           MAX(CAST(CASE WHEN om.meta_key = '_order_total'    THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS total,
+           MAX(CAST(CASE WHEN om.meta_key = '_order_subtotal' THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS subtotal
+         FROM tbl_orders o
+         LEFT JOIN tbl_ordermeta om
+           ON om.order_id = o.order_id
+          AND om.meta_key IN ('_order_total', '_order_subtotal')
+         WHERE o.user_id IN (?) AND o.order_type = 'shop_order'
+         GROUP BY o.order_id
+         ORDER BY MAX(o.order_date) DESC`,
+        [userIdList],
+      );
+      orders = rows;
+    }
 
     const orderIds = orders
       .map((order) => Number(order.order_id))

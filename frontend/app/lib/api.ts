@@ -219,8 +219,11 @@ export const getCategoryProducts = async (slug: string): Promise<Product[]> => {
 export const authLogin    = (username: string, password: string) =>
   apiPost<AuthUserResponse>('/auth/login', { username, password });
 
-export const authGoogleLogin = (credential: string) =>
-  apiPost<AuthUserResponse>('/auth/google', { credential });
+export const authSendOtp = (phone: string) =>
+  apiPost('/auth/send-otp', { phone });
+
+export const authVerifyOtp = (phone: string, otp: string) =>
+  apiPost<AuthUserResponse>('/auth/verify-otp', { phone, otp });
 
 export const authRegister = (email: string, password: string) =>
   apiPost<{ userId: number }>('/auth/register', { email, password });
@@ -247,6 +250,9 @@ export interface OrderSummary {
   total: string | number | null;
   item_count?: string | number | null;
   items: string | null;
+  awb_code?: string | null;
+  courier_name?: string | null;
+  shipping_status?: string | null;
 }
 
 export const getMyOrders = () => apiFetch<OrderSummary[]>('/orders/my', true);

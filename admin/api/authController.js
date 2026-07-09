@@ -1037,6 +1037,155 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// ── Twilio Verify OTP ─────────────────────────────────────────────────────────
+const twilio = require('twilio');
+
+function getTwilioClient() {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) throw new Error('Twilio credentials are not configured.');
+  return twilio(sid, token);
+}
+
+function getTwilioVerifySid() {
+  const sid = process.env.TWILIO_VERIFY_SID;
+  if (!sid) throw new Error('TWILIO_VERIFY_SID is not configured.');
+  return sid;
+}
+
+// Normalise a 10-digit Indian mobile number to E.164 (+91XXXXXXXXXX)
+function toE164India(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.startsWith('91') && digits.length === 12) return `+${digits}`;
+  if (digits.length === 10) return `+91${digits}`;
+  return null;
+}
+
+// POST /api/auth/send-otp
+const sendOtp = async (req, res) => {
+  const raw = String((req.body && req.body.phone) || '').trim();
+  const to = toE164India(raw);
+
+  if (!to) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+  }
+
+  try {
+    const client = getTwilioClient();
+    await client.verify.v2
+      .services(getTwilioVerifySid())
+      .verifications.create({ to, channel: 'sms' });
+
+    return res.json({ success: true, message: 'OTP sent successfully.' });
+  } catch (err) {
+    console.error('sendOtp error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+  }
+};
+
+// POST /api/auth/verify-otp
+const verifyOtp = async (req, res) => {
+  const raw = String((req.body && req.body.phone) || '').trim();
+  const code = String((req.body && req.body.otp) || '').trim();
+  const to = toE164India(raw);
+
+  if (!to) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
+  }
+  if (!code || code.length < 4) {
+    return res.status(400).json({ success: false, message: 'Please enter a valid OTP.' });
+  }
+
+  try {
+    const client = getTwilioClient();
+    const check = await client.verify.v2
+      .services(getTwilioVerifySid())
+      .verificationChecks.create({ to, code });
+
+    if (check.status !== 'approved') {
+      return res.status(401).json({ success: false, message: 'Incorrect or expired OTP. Please try again.' });
+    }
+
+    // Find user by phone (meta key 'phone' or 'billing_phone')
+    const digits = raw.replace(/\D/g, '').slice(-10); // last 10 digits
+    const [metaRows] = await db.query(
+      `SELECT user_id FROM tbl_usermeta
+       WHERE meta_key IN ('phone', 'billing_phone')
+         AND REPLACE(meta_value, ' ', '') LIKE ?
+       LIMIT 1`,
+      [`%${digits}`]
+    );
+
+    let user = null;
+
+    if (metaRows.length > 0) {
+      const [[found]] = await db.query(
+        `SELECT u.ID, u.user_login, u.user_email, u.display_name, u.user_type,
+                ut.user_type_slug
+         FROM tbl_users u
+         LEFT JOIN tbl_user_types ut ON ut.user_type_id = u.user_type
+         WHERE u.ID = ? LIMIT 1`,
+        [metaRows[0].user_id]
+      );
+      user = found || null;
+    }
+
+    if (!user) {
+      // Auto-create a customer account for this phone number
+      const username = `user_${digits}`;
+      const displayName = `User ${digits.slice(-4)}`;
+      const [result] = await db.query(
+        `INSERT INTO tbl_users
+         (user_type, user_login, user_email, user_pass, user_nicename, display_name, user_registered)
+         VALUES (3, ?, '', '', ?, ?, NOW())`,
+        [username, username, displayName]
+      );
+      const newUserId = result.insertId;
+
+      // Store phone in usermeta
+      await db.query(
+        `INSERT INTO tbl_usermeta (user_id, meta_key, meta_value) VALUES (?, 'phone', ?)
+         ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+        [newUserId, raw]
+      );
+
+      user = {
+        ID: newUserId,
+        user_login: username,
+        user_email: '',
+        display_name: displayName,
+        user_type: 3,
+        user_type_slug: 'customers',
+      };
+    }
+
+    const oldSessionId = req.sessionId;
+    const guestCookieId = req.guestId || null;
+    await req.rotateSession();
+    await mergeGuestCart(user.ID, oldSessionId, guestCookieId);
+    setSessionUser(req, user);
+
+    return res.json({
+      success: true,
+      message: 'OTP verified. Login successful.',
+      data: {
+        user: {
+          id: user.ID,
+          username: user.user_login,
+          email: user.user_email,
+          displayName: user.display_name,
+          phone: raw,
+          role: user.user_type_slug || roleSlugFromType(user.user_type),
+          userType: user.user_type,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('verifyOtp error:', err);
+    return res.status(500).json({ success: false, message: 'OTP verification failed. Please try again.' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -1046,4 +1195,6 @@ module.exports = {
   updateProfile,
   requestPasswordReset,
   resetPassword,
+  sendOtp,
+  verifyOtp,
 };

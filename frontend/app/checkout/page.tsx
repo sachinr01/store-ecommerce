@@ -7,9 +7,9 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../lib/cartContext';
 import {
-  authGoogleLogin,
+  authSendOtp,
+  authVerifyOtp,
   authForgotPassword,
-  authLogin,
   authResetPassword,
   authRegister,
   getRecentOrderAddresses,
@@ -28,16 +28,6 @@ import Script from 'next/script';
 declare global {
   interface Window {
     Razorpay: RazorpayConstructor;
-    google?: {
-      accounts?: {
-        id?: {
-          initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void }) => void;
-          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-          prompt: () => void;
-          cancel?: () => void;
-        };
-      };
-    };
   }
 }
 
@@ -49,8 +39,7 @@ interface RazorpayConstructor {
   new (options: Record<string, unknown>): RazorpayInstance;
 }
 
-const GOOGLE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,8 +150,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { isLoggedIn, setUser } = useAuth();
   const PLACEHOLDER = usePlaceholderImage();
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const regGoogleRef = useRef<HTMLDivElement | null>(null);
+
 
   // ─── Shiprocket Checkout success state ─────────────────────────────────────
   // Populated when Shiprocket redirects back to /checkout?order_id=XXX
@@ -224,9 +212,11 @@ export default function CheckoutPage() {
   const [showCoupon, setShowCoupon] = useState(false);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleScriptReady, setGoogleScriptReady] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [loginMobile, setLoginMobile] = useState('');
+  const [loginOtp, setLoginOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpResendTimer, setOtpResendTimer] = useState(0);
   const [showForgotRecovery, setShowForgotRecovery] = useState(false);
   const [showResetRecovery, setShowResetRecovery] = useState(false);
   const [forgotIdentifier, setForgotIdentifier] = useState('');
@@ -274,8 +264,6 @@ export default function CheckoutPage() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [notes, setNotes] = useState('');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
   const [shipForm, setShipForm] = useState<AddressFields>({ ...emptyAddress });
   const [billForm, setBillForm] = useState<AddressFields>({ ...emptyAddress });
 
@@ -290,8 +278,9 @@ export default function CheckoutPage() {
     setUser(payload ?? null);
     await refreshCart();
     setLoginError('');
-    setLoginEmail('');
-    setLoginPassword('');
+    setLoginMobile('');
+    setLoginOtp('');
+    setOtpSent(false);
     setShowLogin(false);
   }, [refreshCart, setUser]);
 
@@ -317,12 +306,12 @@ export default function CheckoutPage() {
     setShowLogin(true);
     setShowForgotRecovery(true);
     setShowResetRecovery(false);
-    setForgotIdentifier(loginEmail.trim());
+    setForgotIdentifier(loginMobile.trim());
     setForgotError('');
     setForgotSuccess('');
     setResetError('');
     setResetSuccess('');
-  }, [loginEmail]);
+  }, [loginMobile]);
 
   const handleRegister = async () => {
     setRegError('');
@@ -368,8 +357,8 @@ export default function CheckoutPage() {
 
   const handleForgotRecovery = async () => {
     const value = forgotIdentifier.trim();
-    if (!value) {
-      setForgotError('Please enter your email address.');
+    if (!value || value.length < 10) {
+      setForgotError('Please enter a valid mobile number.');
       return;
     }
 
@@ -431,29 +420,6 @@ export default function CheckoutPage() {
       setResetError('Could not connect to the server.');
     } finally {
       setResetLoading(false);
-    }
-  };
-
-  const handlePasswordLogin = async () => {
-    if (!loginEmail.trim() || !loginPassword.trim()) {
-      setLoginError('Please enter your email and password.');
-      return;
-    }
-
-    setLoginLoading(true);
-    setLoginError('');
-
-    try {
-      const res = await authLogin(loginEmail.trim(), loginPassword);
-      if (res.success && res.data) {
-        await handleLoginSuccess(res.data);
-      } else {
-        setLoginError(res.message || 'Login failed.');
-      }
-    } catch {
-      setLoginError('Could not connect to the server.');
-    } finally {
-      setLoginLoading(false);
     }
   };
 
@@ -586,80 +552,98 @@ export default function CheckoutPage() {
     }
   }, [srVerifyStatus, router]);
 
-  const handleGoogleLogin = useCallback(async (credential: string) => {
-    if (!credential) {
-      setLoginError('Google did not return a sign-in credential.');
+  const handleSendOtp = async () => {
+    if (!loginMobile || loginMobile.length < 10) {
+      setLoginError('Please enter a valid mobile number.');
       return;
     }
 
-    setGoogleLoading(true);
     setLoginError('');
+    setLoginLoading(true);
 
     try {
-      const res = await authGoogleLogin(credential);
+      const res = await authSendOtp(loginMobile);
+      if (res.success) {
+        setOtpSent(true);
+        setOtpResendTimer(60);
+        const timer = setInterval(() => {
+          setOtpResendTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setLoginError(res.message || 'Failed to send OTP.');
+      }
+    } catch {
+      setLoginError('Could not connect to server.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!loginMobile || !loginOtp || loginOtp.length < 4) {
+      setLoginError('Please enter a valid OTP.');
+      return;
+    }
+
+    setLoginError('');
+    setLoginLoading(true);
+
+    try {
+      const res = await authVerifyOtp(loginMobile, loginOtp);
       if (res.success && res.data) {
         await handleLoginSuccess(res.data);
       } else {
-        setLoginError(res.message || 'Google sign-in failed.');
+        setLoginError(res.message || 'OTP verification failed.');
       }
     } catch {
-      setLoginError('Could not complete Google sign-in.');
+      setLoginError('Could not connect to server.');
     } finally {
-      setGoogleLoading(false);
+      setLoginLoading(false);
     }
-  }, [handleLoginSuccess]);
+  };
 
-  // ─── Google button for login panel ──────────────────────────────────────────
-  useEffect(() => {
-    if (!showLogin) return;
-    if (!GOOGLE_CLIENT_ID) {
-      setLoginError('Google sign-in is not configured for this environment.');
-      return;
+  const handleResendOtp = async () => {
+    if (otpResendTimer > 0) return;
+
+    setLoginError('');
+    setLoginLoading(true);
+
+    try {
+      const res = await authSendOtp(loginMobile);
+      if (res.success) {
+        setOtpResendTimer(60);
+        const timer = setInterval(() => {
+          setOtpResendTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        setLoginError(res.message || 'Failed to resend OTP.');
+      }
+    } catch {
+      setLoginError('Could not connect to server.');
+    } finally {
+      setLoginLoading(false);
     }
+  };
 
-    const tryRender = () => {
-      if (!googleButtonRef.current || !window.google?.accounts?.id) return false;
-      const w = googleButtonRef.current.offsetWidth || 400;
-      const google = window.google.accounts.id;
-      googleButtonRef.current.innerHTML = '';
-      google.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (response: { credential?: string }) => {
-          if (response.credential) {
-            void handleGoogleLogin(response.credential);
-          } else {
-            setLoginError('Google sign-in did not return a credential.');
-          }
-        },
-      });
-      google.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        text: 'signin_with',
-        shape: 'rectangular',
-        width: w,
-        logo_alignment: 'left',
-      });
-      return true;
-    };
-
-    if (googleScriptReady) {
-      tryRender();
-    } else {
-      // Script not ready yet — poll until it is
-      const interval = setInterval(() => {
-        if (window.google?.accounts?.id) {
-          clearInterval(interval);
-          tryRender();
-        }
-      }, 200);
-      return () => clearInterval(interval);
+  const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLoginMobile(e.target.value);
+    if (otpSent) {
+      setOtpSent(false);
+      setLoginOtp('');
     }
-
-    return () => {
-      if (googleButtonRef.current) googleButtonRef.current.innerHTML = '';
-    };
-  }, [showLogin, googleScriptReady, handleGoogleLogin]);
+  };
 
   // Load previous order addresses for logged-in users
   useEffect(() => {
@@ -1051,51 +1035,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // Google button in register modal
-  useEffect(() => {
-    if (!showRegister || !GOOGLE_CLIENT_ID) return;
 
-    const tryRender = () => {
-      if (!regGoogleRef.current || !window.google?.accounts?.id) return false;
-      const w = regGoogleRef.current.offsetWidth || 400;
-      const google = window.google.accounts.id;
-      regGoogleRef.current.innerHTML = '';
-      google.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (response: { credential?: string }) => {
-          if (response.credential) {
-            void handleGoogleLogin(response.credential);
-            setShowRegister(false);
-          }
-        },
-      });
-      google.renderButton(regGoogleRef.current, {
-        theme: 'outline',
-        size: 'large',
-        text: 'signup_with',
-        shape: 'rectangular',
-        width: w,
-        logo_alignment: 'left',
-      });
-      return true;
-    };
-
-    if (googleScriptReady) {
-      tryRender();
-    } else {
-      const interval = setInterval(() => {
-        if (window.google?.accounts?.id) {
-          clearInterval(interval);
-          tryRender();
-        }
-      }, 200);
-      return () => clearInterval(interval);
-    }
-
-    return () => {
-      if (regGoogleRef.current) regGoogleRef.current.innerHTML = '';
-    };
-  }, [showRegister, googleScriptReady, handleGoogleLogin]);
 
   // ── Wigzo `order` event — fires when SR redirect is confirmed ────────────────
   // The custom success screen (rendered below when srRedirectOrderId is set)
@@ -1259,16 +1199,17 @@ export default function CheckoutPage() {
             <div className="register-modal">
               <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
               <p className="register-modal-title">Forgot Password?</p>
-              <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
+              <p className="register-modal-sub">Enter your mobile number and we&apos;ll send a secure reset link to your registered number.</p>
               <div className="register-modal-field">
-                <label className="register-modal-label">Email <span>*</span></label>
+                <label className="register-modal-label">Mobile Number <span>*</span></label>
                 <input
                   className="register-modal-input"
-                  type="email"
-                  placeholder="Email address"
+                  type="tel"
+                  placeholder="Mobile number"
                   value={forgotIdentifier}
                   onChange={(e) => setForgotIdentifier(e.target.value)}
-                  autoComplete="email"
+                  maxLength={10}
+                  autoComplete="tel"
                   onKeyDown={(e) => { if (e.key === 'Enter') void handleForgotRecovery(); }}
                 />
               </div>
@@ -1343,12 +1284,6 @@ export default function CheckoutPage() {
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
       />
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onLoad={() => setGoogleScriptReady(true)}
-        onError={() => { setLoginError('Google sign-in could not load right now.'); }}
-      />
       <Header />
       <div className="dima-main checkout-page">
         <nav className="cart-breadcrumb">
@@ -1415,40 +1350,69 @@ export default function CheckoutPage() {
 
               {showLogin && (
                 <div className="checkout-login-box checkout-box">
-                  <p>If you have shopped with us before, please enter your email and password below. If you are a new customer, continue to the billing and shipping section.</p>
-                  <div className="checkout-inline-row">
-                    <div className="field">
-                      <label>Email</label>
-                      <input type="email" placeholder="Email address" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} autoComplete="email" />
+                  <p>If you have shopped with us before, please enter your mobile number below. If you are a new customer, continue to the billing and shipping section.</p>
+                  {!otpSent ? (
+                    <div className="checkout-inline-row">
+                      <div className="field">
+                        <label>Mobile Number</label>
+                        <input 
+                          type="tel" 
+                          placeholder="Mobile number" 
+                          value={loginMobile} 
+                          onChange={handleMobileChange}
+                          maxLength={10}
+                          autoComplete="tel"
+                        />
+                      </div>
                     </div>
-                    <div className="field">
-                      <label>Password</label>
-                      <input type="password" placeholder="Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+                  ) : (
+                    <div className="checkout-inline-row">
+                      <div className="field">
+                        <label>Mobile Number</label>
+                        <input 
+                          type="tel" 
+                          placeholder="Mobile number" 
+                          value={loginMobile} 
+                          onChange={handleMobileChange}
+                          maxLength={10}
+                          disabled={loginLoading}
+                          autoComplete="tel"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>OTP</label>
+                        <input 
+                          type="text" 
+                          placeholder="Enter OTP" 
+                          value={loginOtp} 
+                          onChange={(e) => setLoginOtp(e.target.value)}
+                          maxLength={6}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="checkout-login-actions">
-                    <button type="button" className="btn-view-product btn-view-product--inline" onClick={() => void handlePasswordLogin()} disabled={loginLoading}>
-                      {loginLoading ? 'Logging in...' : 'Login'}
-                    </button>
-                    <button
-                      type="button"
-                      className="lost-pass"
-                      onClick={() => {
-                        openForgotRecovery();
-                      }}
-                    >
-                      Forgot Password?
-                    </button>
+                    {!otpSent ? (
+                      <button type="button" className="btn-view-product btn-view-product--inline" onClick={handleSendOtp} disabled={loginLoading}>
+                        {loginLoading ? 'Sending OTP...' : 'Send OTP'}
+                      </button>
+                    ) : (
+                      <>
+                        <button type="button" className="btn-view-product btn-view-product--inline" onClick={handleVerifyOtp} disabled={loginLoading}>
+                          {loginLoading ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                        <button
+                          type="button"
+                          className="lost-pass"
+                          onClick={handleResendOtp}
+                          disabled={otpResendTimer > 0 || loginLoading}
+                        >
+                          {otpResendTimer > 0 ? `Resend OTP in ${otpResendTimer}s` : 'Resend OTP'}
+                        </button>
+                      </>
+                    )}
                   </div>
                   {loginError && <p className="checkout-auth-feedback error">{loginError}</p>}
-                  <div className="checkout-google-wrap">
-                    <div className="checkout-auth-divider"><span>or</span></div>
-                    <p className="checkout-google-hint">
-                      Sign in with Google to reuse your saved account and checkout details.
-                    </p>
-                    <div ref={googleButtonRef} className="checkout-google-button" />
-                    {googleLoading && <p className="checkout-auth-feedback">Completing Google sign-in...</p>}
-                  </div>
                 </div>
               )}
 
@@ -1878,13 +1842,6 @@ export default function CheckoutPage() {
             >
               {regLoading ? 'Registering...' : 'Register'}
             </button>
-            {GOOGLE_CLIENT_ID && (
-              <>
-                <div className="register-modal-divider"><span>or</span></div>
-                <div ref={regGoogleRef} className="register-modal-google" />
-                {googleLoading && <p className="register-modal-google-msg">Completing Google sign-in...</p>}
-              </>
-            )}
           </div>
         </div>
       )}
@@ -1893,17 +1850,18 @@ export default function CheckoutPage() {
           <div className="register-modal">
             <button type="button" className="register-modal-close" onClick={closeForgotRecovery} aria-label="Close">&#x2715;</button>
             <p className="register-modal-title">Forgot Password?</p>
-            <p className="register-modal-sub">Enter your email address and we&apos;ll send a secure reset link to your registered email.</p>
+            <p className="register-modal-sub">Enter your mobile number and we&apos;ll send a secure reset link to your registered number.</p>
 
             <div className="register-modal-field">
-              <label className="register-modal-label">Email <span>*</span></label>
+              <label className="register-modal-label">Mobile Number <span>*</span></label>
               <input
                 className="register-modal-input"
-                type="email"
-                placeholder="Email address"
+                type="tel"
+                placeholder="Mobile number"
                 value={forgotIdentifier}
                 onChange={(e) => setForgotIdentifier(e.target.value)}
-                autoComplete="email"
+                maxLength={10}
+                autoComplete="tel"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void handleForgotRecovery();
                 }}

@@ -16,6 +16,9 @@ type OrderCard = {
   dateLabel: string;
   totalLabel: string;
   itemCount: number;
+  awb: string;
+  courier: string;
+  shippingStatus: string;
 };
 
 function formatDate(value: string) {
@@ -27,8 +30,12 @@ function formatDate(value: string) {
 function normalizeStatus(status: string) {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  if (s.includes('complete')) return 'completed';
+  if (s.includes('deliver')) return 'delivered';
+  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
+  if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
+  if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
   return s;
 }
@@ -109,10 +116,13 @@ export default function OrdersPage() {
       return {
         id: Number(o.order_id),
         status,
-        statusLabel: toTitleCase(status),
+        statusLabel: toTitleCase(status.replace(/_/g, ' ')),
         dateLabel: formatDate(o.order_date || ''),
         totalLabel: o.total ? formatPrice(Number(o.total)) : formatPrice(0),
         itemCount: (o.item_count != null && Number.isFinite(backendCount)) ? backendCount : fallbackCount,
+        awb: o.awb_code || '',
+        courier: o.courier_name || '',
+        shippingStatus: o.shipping_status || '',
       };
     })
   ), [orders]);
@@ -184,7 +194,26 @@ export default function OrdersPage() {
                                 <div key={order.id} className="orders-row">
                                   <div className="orders-row-id">#{order.id}</div>
                                   <div className="orders-row-value">{order.dateLabel}</div>
-                                  <div className={`orders-row-status ${order.status}`}>{order.statusLabel}</div>
+                                  <div className="orders-row-status-cell">
+                                    <span className={`orders-row-status ${order.status}`}>{order.statusLabel}</span>
+                                    {order.shippingStatus && order.shippingStatus !== order.status && (
+                                      <span className={`shipping-badge ${order.shippingStatus}`} style={{ marginLeft: 6 }}>
+                                        {order.shippingStatus.replace(/_/g, ' ')}
+                                      </span>
+                                    )}
+                                    {order.awb && (
+                                      <div className="orders-row-awb">
+                                        <a
+                                          href={`https://shiprocket.co/tracking/${order.awb}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="orders-awb-link"
+                                        >
+                                          {order.courier ? `${order.courier} · ` : ''}{order.awb}
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
                                   <div className="orders-row-value">
                                     {order.totalLabel} for {order.itemCount} item{order.itemCount === 1 ? '' : 's'}
                                   </div>
@@ -192,6 +221,7 @@ export default function OrdersPage() {
                                     {showPendingActions && (
                                       <Link href={`/orders/${order.id}`} className="btn-view-product">Pay</Link>
                                     )}
+                                    <Link href={`/order-tracking`} className="btn-view-product">Track</Link>
                                     <Link href={`/orders/${order.id}`} className="btn-view-product">View</Link>
                                     {showPendingActions && (
                                       <button

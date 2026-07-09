@@ -11408,6 +11408,10 @@ input[type="checkbox"] {
   background: #fff;
   border: 1px solid #ece8df;
   padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .account-edit-login-text {
@@ -12443,6 +12447,107 @@ a.ot-btn {
   flex-direction: column;
   gap: 12px;
   margin-bottom: 50px;
+}
+
+/* ── Cancel Order Confirmation Modal ── */
+.ot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 16, 25, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+  animation: ot-overlay-in 0.18s ease;
+}
+
+@keyframes ot-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ot-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 36px 32px 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  animation: ot-modal-in 0.2s ease;
+}
+
+@keyframes ot-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.ot-modal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff5f5;
+  color: #c0392b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.ot-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 10px;
+  letter-spacing: 0.01em;
+}
+
+.ot-modal-body {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.ot-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ot-modal-btn {
+  flex: 1;
+  height: 48px;
+  border: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+}
+
+.ot-modal-btn:active {
+  transform: scale(0.98);
+}
+
+.ot-modal-btn--secondary {
+  background: #f0f2f5;
+  color: #333;
+}
+
+.ot-modal-btn--secondary:hover {
+  background: #e4e7ec;
+}
+
+.ot-modal-btn--danger {
+  background: #c0392b;
+  color: #fff;
+}
+
+.ot-modal-btn--danger:hover {
+  background: #a93226;
 }
 
 .ot-reset-bar {
@@ -15876,6 +15981,68 @@ a.ot-btn {
   margin-left: 20px;
 }
 
+/* OTP step — mobile display row */
+.otp-mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.otp-mobile-number {
+  font-size: 15px;
+  color: #1a1a1a;
+  letter-spacing: 0.3px;
+}
+
+.otp-change-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #1a1a1a;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.otp-change-link:hover {
+  color: #22311d;
+}
+
+/* OTP action row: verify button + resend inline */
+.otp-action-row {
+  display: flex !important;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.otp-resend-timer {
+  font-size: 14px;
+  color: #555;
+}
+
+.otp-resend-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #1a1a1a;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.otp-resend-btn:hover {
+  color: #22311d;
+}
+
+.otp-resend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .checkout-google-hint {
   margin: 0 !important;
   font-size: 13px !important;
@@ -16392,6 +16559,10 @@ a.ot-btn {
   padding: 24px 0;
   color: #888;
   font-size: 14px !important;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .account-switch-hint {
