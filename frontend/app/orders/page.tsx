@@ -53,6 +53,7 @@ export default function OrdersPage() {
   const [needsLogin, setNeedsLogin] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState('');
+  const [cancelNotice, setCancelNotice] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -91,13 +92,23 @@ export default function OrdersPage() {
     if (!confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
     setCancellingId(orderId);
     setCancelError('');
+    setCancelNotice('');
     try {
-      await cancelMyOrder(orderId);
+      const result = await cancelMyOrder(orderId);
       setOrders((prev) =>
         prev.map((o) =>
           Number(o.order_id) === orderId ? { ...o, order_status: 'cancelled' } : o,
         ),
       );
+      // Order is cancelled on our side either way, but if the Shiprocket-side
+      // cancel didn't confirm, say so instead of implying everything is done —
+      // matches what the backend actually verified (shiprocket_cancelled).
+      if (result.requires_manual_review || result.shiprocket_cancelled === false) {
+        setCancelNotice(
+          result.message ||
+            "Your order has been marked for cancellation. We're confirming this with our shipping partner and will notify you if anything needs your attention.",
+        );
+      }
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order.');
     } finally {
@@ -169,6 +180,10 @@ export default function OrdersPage() {
 
                         {cancelError && (
                           <div className="orders-error">{cancelError}</div>
+                        )}
+
+                        {cancelNotice && (
+                          <div className="orders-notice">{cancelNotice}</div>
                         )}
 
                         {!loading && !error && cards.length === 0 && (
