@@ -931,6 +931,13 @@ const receiveOrderWebhook = async (req, res) => {
           [shiprocketResponse.shipment_id, orderId],
         );
       }
+      if (shiprocketResponse?.order_id) {
+        await db.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_shiprocket_order_id', ?)`,
+          [orderId, String(shiprocketResponse.order_id)],
+        );
+        console.log(`[SR OrderWebhook] Stored _shiprocket_order_id=${shiprocketResponse.order_id}`);
+      }
     } catch (e) {
       // Logged inside createShiprocketOrder too — keep this short
       console.error("[SR OrderWebhook] Fulfillment push failed (non-fatal):", e.message);
@@ -1089,16 +1096,157 @@ const getSRPanelToken = async () => {
   return token;
 };
 
+/** Resolve Shiprocket panel order ID (numeric) for cancel API. */
+const resolveShiprocketPanelOrderId = async (conn, orderId, hints = {}) => {
+  const [[metaRow]] = await conn.query(
+    `SELECT meta_value FROM tbl_ordermeta
+     WHERE order_id = ? AND meta_key = '_shiprocket_order_id'
+     LIMIT 1`,
+    [orderId],
+  );
+  if (metaRow?.meta_value) {
+    const stored = Number(metaRow.meta_value);
+    if (Number.isFinite(stored) && stored > 0) return stored;
+  }
+
+  let channelOrderId = toStr(hints.srCartId || hints.channelOrderId);
+  if (!channelOrderId) {
+    const [[cartMeta]] = await conn.query(
+      `SELECT meta_value FROM tbl_ordermeta
+       WHERE order_id = ? AND meta_key IN ('_sr_cart_id', '_sr_checkout_order_id')
+       ORDER BY FIELD(meta_key, '_sr_cart_id', '_sr_checkout_order_id')
+       LIMIT 1`,
+      [orderId],
+    );
+    channelOrderId = toStr(cartMeta?.meta_value);
+  }
+  if (!channelOrderId) return null;
+
+  try {
+    const token = await getSRPanelToken();
+    const searchRes = await axios.get(
+      "https://apiv2.shiprocket.in/v1/external/orders",
+      {
+        params: { search: channelOrderId, per_page: 10 },
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      },
+    );
+    const orders = searchRes.data?.data || [];
+    if (!Array.isArray(orders) || !orders.length) return null;
+
+    const match =
+      orders.find((o) => toStr(o.channel_order_id) === channelOrderId) ||
+      orders.find((o) => toStr(o.id) === channelOrderId) ||
+      orders[0];
+    const srPanelOrderId = Number(match?.id);
+    if (!Number.isFinite(srPanelOrderId) || srPanelOrderId <= 0) return null;
+
+    const [[existing]] = await conn.query(
+      `SELECT meta_id FROM tbl_ordermeta
+       WHERE order_id = ? AND meta_key = '_shiprocket_order_id' LIMIT 1`,
+      [orderId],
+    );
+    if (existing) {
+      await conn.query(
+        `UPDATE tbl_ordermeta SET meta_value = ? WHERE meta_id = ?`,
+        [String(srPanelOrderId), existing.meta_id],
+      );
+    } else {
+      await conn.query(
+        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_shiprocket_order_id', ?)`,
+        [orderId, String(srPanelOrderId)],
+      );
+    }
+    return srPanelOrderId;
+  } catch (err) {
+    console.error(
+      `[resolveShiprocketPanelOrderId] lookup failed for order ${orderId}:`,
+      err.response?.data || err.message,
+    );
+    return null;
+  }
+};
+
+/** Cancel on Shiprocket fulfillment panel — order first, then shipment/AWB fallback. */
+const cancelOnShiprocketPanel = async ({ srPanelOrderId, awb, shipmentId }) => {
+  const token = await getSRPanelToken();
+  const srHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  if (srPanelOrderId) {
+    try {
+      const orderRes = await axios.post(
+        "https://apiv2.shiprocket.in/v1/external/orders/cancel",
+        { ids: [Number(srPanelOrderId)] },
+        { headers: srHeaders, timeout: 10000 },
+      );
+      const ok =
+        orderRes.status === 200 &&
+        (orderRes.data?.status === 200 ||
+          /cancel/i.test(toStr(orderRes.data?.message)));
+      console.log(`[cancelOnShiprocketPanel] order cancel id=${srPanelOrderId}:`, orderRes.data);
+      if (ok) return true;
+    } catch (err) {
+      console.error(
+        `[cancelOnShiprocketPanel] order cancel failed id=${srPanelOrderId}:`,
+        err.response?.data || err.message,
+      );
+    }
+  }
+
+  if (awb) {
+    try {
+      const awbRes = await axios.post(
+        "https://apiv2.shiprocket.in/v1/external/orders/cancel/shipment/awbs",
+        { awbs: [awb] },
+        { headers: srHeaders, timeout: 10000 },
+      );
+      console.log(`[cancelOnShiprocketPanel] AWB cancel awb=${awb}:`, awbRes.data);
+      if (awbRes.status === 200) return true;
+    } catch (err) {
+      console.error(
+        `[cancelOnShiprocketPanel] AWB cancel failed awb=${awb}:`,
+        err.response?.data || err.message,
+      );
+    }
+  }
+
+  if (shipmentId) {
+    try {
+      const shipRes = await axios.post(
+        "https://apiv2.shiprocket.in/v1/external/shipments/cancel",
+        { ids: [Number(shipmentId)] },
+        { headers: srHeaders, timeout: 10000 },
+      );
+      console.log(`[cancelOnShiprocketPanel] shipment cancel id=${shipmentId}:`, shipRes.data);
+      if (shipRes.status === 200) return true;
+    } catch (err) {
+      console.error(
+        `[cancelOnShiprocketPanel] shipment cancel failed id=${shipmentId}:`,
+        err.response?.data || err.message,
+      );
+    }
+  }
+
+  return false;
+};
+
 /* ─────────────────────────────────────────────────────────────
    POST /api/shiprocket/cancel-order
-   Public — verified by phone number match
-   Body: { orderId, phone }
+   POST /api/orders/:orderId/cancel
+   Public — verified by phone match OR logged-in order owner
+   Body: { orderId?, phone? }
 ───────────────────────────────────────────────────────────── */
 const cancelShiprocketOrder = async (req, res) => {
+  const { getSessionUser } = require("./session");
   const rawId      = toStr(req.body.orderId  || req.params.orderId || "");
   const inputPhone = toStr(req.body.phone || "").replace(/\D/g, "");
+  const sessionUser = getSessionUser(req);
 
-  if (!rawId || inputPhone.length < 6) {
+  if (!rawId) {
+    return res.status(400).json({ success: false, message: "orderId is required" });
+  }
+  if (inputPhone.length < 6 && !sessionUser) {
     return res.status(400).json({ success: false, message: "orderId and phone are required" });
   }
 
@@ -1125,7 +1273,7 @@ const cancelShiprocketOrder = async (req, res) => {
 
     // ── 2. Load order + phone ───────────────────────────────────────────────
     const [[order]] = await conn.query(
-      `SELECT o.order_id, o.order_status, o.awb_code, o.shipment_id, o.sr_cart_id,
+      `SELECT o.order_id, o.user_id, o.order_status, o.awb_code, o.shipment_id, o.sr_cart_id,
               MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone END) AS billing_phone,
               MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone END) AS ship_phone
        FROM tbl_orders o
@@ -1139,16 +1287,28 @@ const cancelShiprocketOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // ── 3. Verify phone ─────────────────────────────────────────────────────
-    const billingDigits = toStr(order.billing_phone).replace(/\D/g, "");
-    const shipDigits    = toStr(order.ship_phone).replace(/\D/g, "");
-    const phoneOk =
-      (billingDigits && (billingDigits.endsWith(inputPhone) || inputPhone.endsWith(billingDigits))) ||
-      (shipDigits    && (shipDigits.endsWith(inputPhone)    || inputPhone.endsWith(shipDigits)));
-
-    if (!phoneOk) {
+    // ── 3. Verify caller — logged-in owner OR matching phone ────────────────
+    let authorized = false;
+    if (sessionUser) {
+      const { resolveLinkedUserIds } = require("./orderController");
+      const linkedIds = await resolveLinkedUserIds(sessionUser.id, sessionUser.email || "");
+      authorized = linkedIds.includes(Number(order.user_id));
+    }
+    if (!authorized && inputPhone.length >= 6) {
+      const billingDigits = toStr(order.billing_phone).replace(/\D/g, "");
+      const shipDigits    = toStr(order.ship_phone).replace(/\D/g, "");
+      authorized =
+        (billingDigits && (billingDigits.endsWith(inputPhone) || inputPhone.endsWith(billingDigits))) ||
+        (shipDigits    && (shipDigits.endsWith(inputPhone)    || inputPhone.endsWith(shipDigits)));
+    }
+    if (!authorized) {
       await conn.rollback();
-      return res.status(403).json({ success: false, message: "Mobile number does not match this order" });
+      return res.status(403).json({
+        success: false,
+        message: sessionUser
+          ? "You are not allowed to cancel this order."
+          : "Mobile number does not match this order",
+      });
     }
 
     // ── 4. Guard already-cancelled / non-cancellable ────────────────────────
@@ -1165,38 +1325,28 @@ const cancelShiprocketOrder = async (req, res) => {
       });
     }
 
-    // ── 5. Cancel on Shiprocket panel (apiv2) if AWB exists ─────────────────
+    // ── 5. Cancel on Shiprocket panel (apiv2) ───────────────────────────────
     let srCancelled = false;
     const awb        = toStr(order.awb_code);
     const shipmentId = toStr(order.shipment_id);
+    const srCartId   = toStr(order.sr_cart_id);
 
-    if (awb || shipmentId) {
-      try {
-        const token = await getSRPanelToken();
-
-        if (awb) {
-          // Cancel by AWB (preferred — works for all couriers)
-          const srRes = await axios.post(
-            "https://apiv2.shiprocket.in/v1/external/orders/cancel/shipment/awbs",
-            { awbs: [awb] },
-            { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, timeout: 10000 },
-          );
-          srCancelled = srRes.status === 200;
-          console.log(`[cancelShiprocketOrder] AWB cancel response:`, srRes.data);
-        } else if (shipmentId) {
-          // Fallback: cancel by shipment IDs
-          const srRes = await axios.post(
-            "https://apiv2.shiprocket.in/v1/external/shipments/cancel",
-            { shipment_id: [shipmentId] },
-            { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, timeout: 10000 },
-          );
-          srCancelled = srRes.status === 200;
-          console.log(`[cancelShiprocketOrder] Shipment cancel response:`, srRes.data);
-        }
-      } catch (srErr) {
-        // Non-fatal — log and continue with local cancellation
-        console.error(`[cancelShiprocketOrder] SR panel cancel failed:`, srErr.response?.data || srErr.message);
+    try {
+      const srPanelOrderId = await resolveShiprocketPanelOrderId(conn, orderId, { srCartId });
+      srCancelled = await cancelOnShiprocketPanel({
+        srPanelOrderId,
+        awb: awb || null,
+        shipmentId: shipmentId || null,
+      });
+      if (!srCancelled) {
+        console.warn(
+          `[cancelShiprocketOrder] SR panel cancel returned false for order ${orderId}` +
+          ` (srPanelOrderId=${srPanelOrderId || "—"}, awb=${awb || "—"}, shipmentId=${shipmentId || "—"})`,
+        );
       }
+    } catch (srErr) {
+      // Non-fatal — log and continue with local cancellation
+      console.error(`[cancelShiprocketOrder] SR panel cancel failed:`, srErr.response?.data || srErr.message);
     }
 
     // ── 6. Update local order status ────────────────────────────────────────

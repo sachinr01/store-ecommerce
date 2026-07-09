@@ -336,6 +336,22 @@ export const cancelOrder = async (orderId: number | string, phone: string): Prom
   return body;
 };
 
+/** Cancel own order when logged in (no phone needed). */
+export const cancelMyOrder = async (orderId: number | string): Promise<{ message: string; shiprocket_cancelled?: boolean }> => {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({}),
+    cache: 'no-store',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || `Error ${res.status}`);
+  }
+  return body;
+};
+
 export interface ShiprocketTrackingActivity {
   date: string;
   activity: string;

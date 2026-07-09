@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import AccountSidebar from '../components/AccountSidebar';
-import { getMyOrders, type OrderSummary } from '../lib/api';
+import { getMyOrders, cancelMyOrder, type OrderSummary } from '../lib/api';
 import { useAuth } from '../lib/authContext';
 import { formatPrice } from '../lib/price';
 
@@ -44,6 +44,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelError, setCancelError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -77,6 +79,24 @@ export default function OrdersPage() {
   }, []);
 
   const accountHandle = user?.username ? `@${user.username}` : user?.email || '@account';
+
+  const handleCancel = async (orderId: number) => {
+    if (!confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
+    setCancellingId(orderId);
+    setCancelError('');
+    try {
+      await cancelMyOrder(orderId);
+      setOrders((prev) =>
+        prev.map((o) =>
+          Number(o.order_id) === orderId ? { ...o, order_status: 'cancelled' } : o,
+        ),
+      );
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel order.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const cards: OrderCard[] = useMemo(() => (
     (orders || []).map((o) => {
@@ -137,6 +157,10 @@ export default function OrdersPage() {
                           <div className="orders-error">{error}</div>
                         )}
 
+                        {cancelError && (
+                          <div className="orders-error">{cancelError}</div>
+                        )}
+
                         {!loading && !error && cards.length === 0 && (
                           <div className="orders-empty-panel">
                             <div className="orders-empty-text">No order has been made yet.</div>
@@ -170,7 +194,14 @@ export default function OrdersPage() {
                                     )}
                                     <Link href={`/orders/${order.id}`} className="btn-view-product">View</Link>
                                     {showPendingActions && (
-                                      <Link href={`/orders/${order.id}`} className="btn-view-product">Cancel</Link>
+                                      <button
+                                        type="button"
+                                        className="btn-view-product"
+                                        onClick={() => void handleCancel(order.id)}
+                                        disabled={cancellingId === order.id}
+                                      >
+                                        {cancellingId === order.id ? 'Cancelling…' : 'Cancel'}
+                                      </button>
                                     )}
                                   </div>
                                 </div>

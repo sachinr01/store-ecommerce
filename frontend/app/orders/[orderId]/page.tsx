@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { getMyOrderById, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../../lib/api';
+import { cancelMyOrder, getMyOrderById, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../../lib/api';
 import { formatPrice } from '../../lib/price';
 
 function formatDate(value: string) {
@@ -74,6 +74,9 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
 
   useEffect(() => {
     if (!orderId) return;
@@ -184,6 +187,29 @@ export default function OrderDetailPage() {
       active: i <= activeIndex,
     }));
   }, [summary]);
+
+  const canCancel = summary?.status === 'pending' || summary?.status === 'processing';
+
+  const handleCancel = async () => {
+    if (!summary || !orderId) return;
+    if (!confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
+    setCancelling(true);
+    setCancelError('');
+    setCancelSuccess('');
+    try {
+      await cancelMyOrder(summary.id);
+      setCancelSuccess('Your order has been cancelled successfully.');
+      setData((prev) =>
+        prev
+          ? { ...prev, order: { ...prev.order, order_status: 'cancelled' } }
+          : prev,
+      );
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel order. Please contact support.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <>
@@ -331,6 +357,23 @@ export default function OrderDetailPage() {
                       </a>
                     )}
                   </div>
+
+                  {canCancel && (
+                    <div className="order-detail-card">
+                      <h3 className="order-detail-card-title">Cancel order</h3>
+                      <p className="orders-section-copy">You can cancel this order before it ships.</p>
+                      <button
+                        type="button"
+                        className="btn-view-product ot-btn--cancel"
+                        onClick={handleCancel}
+                        disabled={cancelling}
+                      >
+                        {cancelling ? 'Cancelling…' : 'Cancel Order'}
+                      </button>
+                      {cancelSuccess && <div className="ot-cancel-success">{cancelSuccess}</div>}
+                      {cancelError && <div className="order-detail-error">{cancelError}</div>}
+                    </div>
+                  )}
 
                   
                 </div>

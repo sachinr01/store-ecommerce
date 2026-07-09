@@ -3627,6 +3627,7 @@ module.exports = {
   trackOrderByPhone,
   trackOrderById,
   getAllOrders,
+  resolveLinkedUserIds,
   updateOrderStatus,
   getDefaultAddress,
   setDefaultAddress,
