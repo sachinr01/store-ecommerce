@@ -35,7 +35,7 @@ function buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
       <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;">
         <tr><td style="padding:10px 8px;text-align:center;">
           <div style="font-size:10px;color:#888;margin-bottom:3px;font-family:Arial,sans-serif;">Order Reference ID</div>
-          <div style="font-size:11px;font-weight:700;color:#222;font-family:Arial,sans-serif;">SR_CART_ID: ${escHtml(srCartId)}</div>
+          <div style="font-size:11px;font-weight:700;color:#222;font-family:Arial,sans-serif;">${escHtml(srCartId)}</div>
         </td></tr>
       </table>
     </td>` : "";
@@ -384,12 +384,30 @@ const receiveOrderWebhook = async (req, res) => {
   console.log("[SR OW][EMAIL-DEBUG] enteredEmail=", enteredEmail, "body.email=", body.email, "billing_address.email=", body.billing_address?.email);
 
 
-  const rawPaymentType = toStr(body.payment_type || body.payment_method || "").toUpperCase();
+  // Shiprocket's checkout webhook sends the actual payment info nested under
+  // `paymentDetails` (paymentMode/paymentGateway/transactionId/amount) — it does
+  // NOT send top-level `payment_type`/`payment_method` fields. Those top-level
+  // fields are kept as a fallback in case SR changes the payload shape later,
+  // but `paymentDetails.paymentMode` is the primary, authoritative source.
+  const paymentDetails = body.paymentDetails || {};
+  const rawPaymentType = toStr(
+    body.payment_type || body.payment_method || paymentDetails.paymentMode || "",
+  ).toUpperCase();
   const paymentMethod  =
     rawPaymentType.includes("COD") || rawPaymentType.includes("CASH") ? "cod" :
-    rawPaymentType.includes("PREPAID") || rawPaymentType.includes("PAID") ? "prepaid" :
-    "cod"; // store default — change here if you later enable prepaid too
+    rawPaymentType ? "prepaid" : // any non-empty, non-COD mode (UPI/CARD/NETBANKING/WALLET/etc.) = paid online
+    "cod"; // no payment info at all in the payload — safe default
+  const paymentGateway = toStr(paymentDetails.paymentGateway || "");
+  const paymentTransactionId = toStr(
+    paymentDetails.transactionId || body.transaction_id || "",
+  );
+  const paymentAmount = toFloat(paymentDetails.amount, 0);
   const srOrderId = toStr(body.order_id || body.sr_order_id || cartId);
+  console.log(
+    `[SR OW][PAYMENT-CHECK] cart_id=${cartId} paymentMode(raw)=${paymentDetails.paymentMode || "—"} ` +
+    `gateway=${paymentGateway || "—"} transactionId=${paymentTransactionId || "—"} ` +
+    `amount=${paymentAmount || "—"} resolved_paymentMethod=${paymentMethod}`,
+  );
 
   // ── COUPON/DISCOUNT DEBUG
   const couponLikeKeys = Object.keys(body).filter((k) =>
@@ -675,6 +693,7 @@ const receiveOrderWebhook = async (req, res) => {
 
     // Track how much discount we've allocated so far (avoid floating-point drift)
     let discountAllocated = 0;
+    let firstOrderItemId  = null; // captured below for the WhatsApp/SMS (Wigzo) line_item_id
 
     for (const [itemIndex, item] of resolvedItems.entries()) {
       const [itemResult] = await conn.query(
@@ -683,6 +702,7 @@ const receiveOrderWebhook = async (req, res) => {
         [item.title, orderId, item.product_id],
       );
       const orderItemId  = itemResult.insertId;
+      if (firstOrderItemId === null) firstOrderItemId = orderItemId;
       const lineSubtotal = item.price * item.quantity; // original pre-discount amount
 
       // Proportional discount for this line item.
@@ -792,6 +812,20 @@ const receiveOrderWebhook = async (req, res) => {
 
     const metaEntries = [
       ["_payment_method",       paymentMethod],
+      ["_payment_method_title", paymentMethod === "cod"
+                                   ? "Cash on Delivery"
+                                   : (paymentGateway || rawPaymentType || "Online Payment")],
+      // Real payment reference for online/prepaid orders — used to reconcile
+      // with the payment gateway dashboard. Left unset for COD (no transaction).
+      ...(paymentMethod !== "cod" && paymentTransactionId
+          ? [["_transaction_id",  paymentTransactionId]]
+          : []),
+      ...(paymentMethod !== "cod" && paymentGateway
+          ? [["_payment_gateway", paymentGateway]]
+          : []),
+      ...(paymentMethod !== "cod"
+          ? [["_date_paid", createdAt]]
+          : []),
       ["_order_currency",       currency],
       ["_order_total",          orderTotal.toFixed(2)],
       ["_order_subtotal",       subtotal.toFixed(2)],
@@ -1010,6 +1044,46 @@ const receiveOrderWebhook = async (req, res) => {
       console.log(`[SR OrderWebhook] Emails sent for order_id=${orderId}`);
     } catch (emailErr) {
       console.error("[SR OrderWebhook] Email send failed (non-fatal):", emailErr.message);
+    }
+
+    // WhatsApp / SMS order confirmation (Wigzo) - fire-and-forget.
+    // Uses the same resolved paymentMethod as the email, so COD vs online shows
+    // correctly here too. gaTransactionId is the real payment reference for
+    // online orders (empty for COD, since there is no transaction to reference).
+    try {
+      const wigzoLib = require("./orderController");
+      const firstItem = resolvedItems[0];
+      await wigzoLib.sendWigzoOrderEvent({
+        orderId: orderId,
+        orderName: "#NC" + orderId,
+        gaTransactionId: paymentMethod !== "cod" ? paymentTransactionId : "",
+        title: resolvedItems.map(function (i) { return i.title; }).join(", "),
+        userId: userId,
+        email: buyerEmail,
+        phone: phone10 || toStr(billing.phone || shipping.phone || ""),
+        firstName: billing.firstName || shipping.firstName || "",
+        lastName: billing.lastName || shipping.lastName || "",
+        totalPrice: orderTotal,
+        subtotal: subtotal,
+        shippingCost: shippingCost,
+        discount: discount,
+        city: shipping.city || billing.city || "",
+        state: shipping.state || billing.state || "",
+        postcode: shipping.zip || billing.zip || "",
+        paymentMethod: paymentMethod,
+        couponCode: couponFromMeta,
+        firstItem: firstItem ? {
+          order_item_id: firstOrderItemId,
+          product_id: firstItem.product_id,
+          variation_id: 0,
+          price: firstItem.price,
+          quantity: firstItem.quantity,
+          discount: 0,
+        } : null,
+      });
+      console.log("[SR OrderWebhook] WhatsApp/SMS notification sent for order_id=" + orderId);
+    } catch (wigzoErr) {
+      console.error("[SR OrderWebhook] WhatsApp/SMS notification failed (non-fatal):", wigzoErr.message);
     }
 
     return res.status(200).json({ success: true, order_id: orderId });
