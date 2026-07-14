@@ -1037,48 +1037,61 @@ const resetPassword = async (req, res) => {
   }
 };
 
-// ── Twilio Verify OTP ─────────────────────────────────────────────────────────
-const twilio = require('twilio');
+// ── MSG91 OTP ─────────────────────────────────────────────────────────
+const axios = require('axios');
 
-function getTwilioClient() {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) throw new Error('Twilio credentials are not configured.');
-  return twilio(sid, token);
+const MSG91_BASE_URL = 'https://control.msg91.com/api/v5';
+
+function getMsg91AuthKey() {
+  const key = process.env.MSG91_AUTH_KEY;
+  if (!key) throw new Error('MSG91_AUTH_KEY is not configured.');
+  return key;
 }
 
-function getTwilioVerifySid() {
-  const sid = process.env.TWILIO_VERIFY_SID;
-  if (!sid) throw new Error('TWILIO_VERIFY_SID is not configured.');
-  return sid;
+function getMsg91TemplateId() {
+  const id = process.env.MSG91_OTP_TEMPLATE_ID;
+  if (!id) throw new Error('MSG91_OTP_TEMPLATE_ID is not configured.');
+  return id;
 }
 
-// Normalise a 10-digit Indian mobile number to E.164 (+91XXXXXXXXXX)
-function toE164India(phone) {
+// Normalise a 10-digit Indian mobile number to MSG91's expected format (91XXXXXXXXXX, no '+')
+function toMsg91India(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
-  if (digits.startsWith('91') && digits.length === 12) return `+${digits}`;
-  if (digits.length === 10) return `+91${digits}`;
+  if (digits.startsWith('91') && digits.length === 12) return digits;
+  if (digits.length === 10) return `91${digits}`;
   return null;
 }
 
 // POST /api/auth/send-otp
 const sendOtp = async (req, res) => {
   const raw = String((req.body && req.body.phone) || '').trim();
-  const to = toE164India(raw);
+  const to = toMsg91India(raw);
 
   if (!to) {
     return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
   }
 
   try {
-    const client = getTwilioClient();
-    await client.verify.v2
-      .services(getTwilioVerifySid())
-      .verifications.create({ to, channel: 'sms' });
+    const { data } = await axios.request({
+      method: 'POST',
+      url: `${MSG91_BASE_URL}/otp`,
+      params: {
+        template_id: getMsg91TemplateId(),
+        mobile: to,
+        authkey: getMsg91AuthKey(),
+      },
+      headers: { 'content-type': 'application/json' },
+      data: {},
+    });
+
+    if (data && data.type !== 'success') {
+      console.error('sendOtp MSG91 error:', data);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
+    }
 
     return res.json({ success: true, message: 'OTP sent successfully.' });
   } catch (err) {
-    console.error('sendOtp error:', err);
+    console.error('sendOtp error:', err?.response?.data || err);
     return res.status(500).json({ success: false, message: 'Failed to send OTP. Please try again.' });
   }
 };
@@ -1087,7 +1100,7 @@ const sendOtp = async (req, res) => {
 const verifyOtp = async (req, res) => {
   const raw = String((req.body && req.body.phone) || '').trim();
   const code = String((req.body && req.body.otp) || '').trim();
-  const to = toE164India(raw);
+  const to = toMsg91India(raw);
 
   if (!to) {
     return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
@@ -1097,12 +1110,14 @@ const verifyOtp = async (req, res) => {
   }
 
   try {
-    const client = getTwilioClient();
-    const check = await client.verify.v2
-      .services(getTwilioVerifySid())
-      .verificationChecks.create({ to, code });
+    const { data: check } = await axios.request({
+      method: 'GET',
+      url: `${MSG91_BASE_URL}/otp/verify`,
+      params: { otp: code, mobile: to },
+      headers: { authkey: getMsg91AuthKey() },
+    });
 
-    if (check.status !== 'approved') {
+    if (!check || check.type !== 'success') {
       return res.status(401).json({ success: false, message: 'Incorrect or expired OTP. Please try again.' });
     }
 
