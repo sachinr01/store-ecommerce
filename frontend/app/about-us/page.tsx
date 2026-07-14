@@ -138,7 +138,7 @@ export default function AboutUsPage() {
         ------------------------------------------------------- */}
         <section className="aboutus-banner">
           <img
-            src="/images/about/about-banner.jpeg"
+            src="/images/about/about-banner.webp"
             alt="About nestcase"
             className="aboutus-banner-img"
           />
@@ -205,7 +205,7 @@ export default function AboutUsPage() {
             {/* Image column */}
             <div className="aboutus-art aboutus-art-bowl">
               <img
-                src="/images/about/about-cn.jpeg"
+                src="/images/about/about-cn.webp"
                 alt="Minimal ceramic bowl and plates"
               />
             </div>
@@ -267,7 +267,7 @@ export default function AboutUsPage() {
             {/* Lifestyle image column */}
             <div className="aboutus-art aboutus-art-vase">
               <img
-                src="/images/about/about-ls.jpeg"
+                src="/images/about/about-ls.webp"
                 alt="Ceramic vase and bowl on stacked books"
               />
             </div>
