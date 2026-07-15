@@ -499,14 +499,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
   }
 };
 
-/**
- * The Order Webhook (shiprocketorderwebhook.js) is the ONLY place that
- * should decide a checkout is genuinely complete — it inserts this meta
- * row exclusively when Shiprocket's webhook payload says status === "SUCCESS".
- *
- * If a row exists here, the order is real. If it doesn't, all we know is
- * that a checkout was *initiated* — NOT that the customer finished paying.
- */
+
 const findOrderBySrOrderId = async (srOrderId) => {
   const orderId = toStr(srOrderId);
   if (!orderId) return null;
@@ -758,11 +751,7 @@ const fetchCollections = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────────
-   POST /api/shiprocket/token
-   Called by the frontend cart page when the user clicks
-   "Proceed to Checkout".
-───────────────────────────────────────────────────────────── */
+
 const getCheckoutToken = async (req, res) => {
   try {
     const apiKey    = process.env.CHECKOUT_API_KEY    || "";
@@ -835,14 +824,7 @@ const getCheckoutToken = async (req, res) => {
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
     };
 
-    // ── COUPON/DISCOUNT DEBUG LOG — what THIS site sends to Shiprocket ────────
-    // This is the only place the actual coupon CODE (text) exists in your
-    // system — Shiprocket's order webhook never echoes the code back later,
-    // only the resulting total_discount amount. Compare this line against the
-    // [COUPON-CHECK] SUMMARY log in shiprocketorderwebhook.js for the same
-    // order (match by checkout_ref / cart_id) to confirm the discount carried
-    // through end-to-end, from "coupon applied on your site" all the way to
-    // "discounted price stored on the order."
+
     console.log(
       `[SR Checkout][COUPON-CHECK][TOKEN-GEN] checkout_ref=${toStr(req.body?.checkout_ref || "") || "—"} ` +
       `coupon_code_from_frontend=${toStr(req.body?.coupon_code || "") || "—"} ` +
@@ -927,10 +909,6 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       return res.json({ success: true, order_id: existingOrderId, sr_cart_id: sr_order_id });
     }
 
-    // ── 1b. Walk checkout context via checkout_ref ──────────────────────────
-    // The redirect ?order_id= Shiprocket puts in the URL is NOT the cart_id
-    // the webhook stores. Use checkout_ref to find the context, get the real
-    // cart_id (ctx.sr_order_id), then look that up against _sr_cart_id.
     if (checkout_ref) {
       const ctx = await findCheckoutContext({ checkout_ref });
       // (ctx lookup log removed — was repeating every poll attempt)
@@ -964,10 +942,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       }
     }
 
-    // ── 1c. Last-resort: find most recent shiprocket/fastrr order in last 10 min ──
-    // Covers both webhook-created orders (source='fastrr') and polling-created
-    // orders (source='shiprocket_checkout'). The webhook fires before the
-    // redirect arrives so this will almost always catch it.
+
     {
       const [recentRows] = await db.query(
         `SELECT om.order_id
@@ -993,31 +968,13 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     }
 
     // ── 2. Webhook hasn't arrived yet — fall back to asking Shiprocket. ────
-    // This mirrors the documented fallback path in Shiprocket's integration
-    // guide ("Order Webhook Not Received" → "Call Order Details API using
-    // Order ID"). Crucially: we do NOT treat the mere existence of a
-    // checkout context as proof of payment — that context is written the
-    // instant the customer clicks "Proceed to Checkout", before the iframe
-    // even opens, so it proves nothing about whether they actually paid.
-    //
-    // KNOWN ISSUE (2026-06-23): this fallback currently fails with
-    // "511 NETWORK_AUTHENTICATION_REQUIRED" against fastrr-api-dev.pickrr.com
-    // — the host name suggests it needs separate sandbox credentials, not
-    // your production CHECKOUT_API_KEY/SECRET. Until Shiprocket support
-    // confirms the correct production host + credentials, this call is
-    // gated behind SR_ORDER_DETAILS_ENABLED so it doesn't spam guaranteed
-    // failures on every 2.5s poll tick. Set that env var to "true" once you
-    // have working credentials to re-enable this fallback.
+   
     let confirmed = false;
     let srDetails = null; // hoisted so it's visible after the try block below
     if (toStr(process.env.SR_ORDER_DETAILS_ENABLED).toLowerCase() === "true") {
       try {
         srDetails = await fetchSROrderDetails(sr_order_id);
-        // NOTE: confirm the exact field name against your Shiprocket sandbox
-        // response (log it below) and adjust if it differs — defaulting to
-        // "not confirmed" on any unrecognized shape is intentional, since a
-        // false negative just means "keep polling," while a false positive
-        // means creating an order nobody paid for.
+        
         const srStatus = toStr(
           srDetails?.status ??
           srDetails?.order_status ??
@@ -1073,9 +1030,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     }
 
     if (!userId && email) {
-      // Deduplicate by email OR user_login (Shiprocket uses phone@shiprocket.guest
-      // as both email and login — check both columns to avoid duplicate rows when
-      // the same guest checks out more than once).
+     
       const [guestRows] = await db.query(
         `SELECT ID FROM tbl_users
          WHERE user_email = ? OR user_login = ?
@@ -1088,9 +1043,7 @@ const completeCheckoutFromShiprocket = async (req, res) => {
       }
     }
 
-    // Extra safety: if Shiprocket guest email carries the phone number
-    // (e.g. "8459908676@shiprocket.guest"), try to match an existing guest
-    // row by that phone so we don't create yet another duplicate.
+   
     if (!userId && phone) {
       const [phoneRows] = await db.query(
         `SELECT u.ID
