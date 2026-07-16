@@ -2962,8 +2962,6 @@ const trackOrderById = async (req, res) => {
 };
 
 // ── Public order tracking (no login required) ─────────────────────────────────
-// POST /orders/track  { orderId, phone }
-// Verifies the phone matches the order's billing/shipping phone server-side.
 const trackOrderByPhone = async (req, res) => {
   const { orderId: rawId, phone: rawPhone } = req.body || {};
 
