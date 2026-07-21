@@ -2602,40 +2602,68 @@ const updateOrderStatus = async (req, res) => {
     );
     const previousStatus = currentOrder ? currentOrder.order_status : "";
 
-    // ── Guard: admin sets status → "cancelled" on an order that already has
-    //    an AWB. Shiprocket won't let us cancel this via API once a courier
-    //    is assigned, so writing order_status = 'cancelled' here would be a
-    //    lie — the shipment is still physically moving. Redirect this to the
-    //    same 'cancellation_requested' + admin-email flow the customer-facing
-    //    cancel endpoint uses, instead of restoring stock and telling the
-    //    customer it's done when it isn't. ─────────────────────────────────
-    const awb = toStr(currentOrder?.awb_code);
-    if (status === "cancelled" && awb && previousStatus !== "cancelled" && previousStatus !== "cancellation_requested") {
-      const requestedAt = new Date().toISOString();
-      await conn.query(
-        "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
-        [orderId],
-      );
-      await conn.query(
-        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
-        [orderId, requestedAt],
-      );
-      await conn.commit();
+    // ── Guard: admin sets status → "cancelled". Always attempt the real
+    //    Shiprocket cancel first, same as the customer-facing cancel
+    //    endpoint — AWB assignment alone does NOT mean Shiprocket will
+    //    reject the cancel call; it accepts it right up until a courier has
+    //    actually picked the shipment up. Only fall back to
+    //    'cancellation_requested' + admin email if Shiprocket genuinely
+    //    can't cancel it (already picked up / in transit). ─────────────────
+    const awb        = toStr(currentOrder?.awb_code);
+    const shipmentId = toStr(currentOrder?.shipment_id);
+    const srCartId   = toStr(currentOrder?.sr_cart_id);
 
-      const { notifyAdminOfCancellationRequest } = require("./shiprocketorderwebhook");
-      notifyAdminOfCancellationRequest({
-        orderId,
-        srCartId: toStr(currentOrder.sr_cart_id),
-        requestedAt,
-        awb,
-        shipmentId: toStr(currentOrder.shipment_id),
-      }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
+    if (status === "cancelled" && previousStatus !== "cancelled" && previousStatus !== "cancellation_requested") {
+      const {
+        resolveShiprocketPanelOrderId,
+        cancelOnShiprocketPanel,
+        notifyAdminOfCancellationRequest,
+      } = require("./shiprocketorderwebhook");
 
-      return res.json({
-        success: true,
-        message: "Order has an AWB assigned — flagged as cancellation_requested and ops notified instead of cancelling directly.",
-        cancellation_status: "pending",
-      });
+      let srResult = { cancelled: false, stage: "not_attempted", reason: null };
+      try {
+        const srPanelOrderId = await resolveShiprocketPanelOrderId(conn, orderId, { srCartId });
+        srResult = await cancelOnShiprocketPanel({
+          srPanelOrderId,
+          awb: awb || null,
+          shipmentId: shipmentId || null,
+          alreadyShipped: Boolean(awb),
+        });
+      } catch (srErr) {
+        console.error(`[updateOrderStatus] Shiprocket cancel attempt threw for order ${orderId}:`, srErr.response?.data || srErr.message);
+      }
+
+      if (!srResult.cancelled && awb) {
+        // Genuinely couldn't cancel — likely already picked up. Go pending
+        // rather than falsely marking it cancelled.
+        const requestedAt = new Date().toISOString();
+        await conn.query(
+          "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
+          [orderId],
+        );
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
+          [orderId, requestedAt],
+        );
+        await conn.commit();
+
+        notifyAdminOfCancellationRequest({
+          orderId, srCartId, requestedAt, awb, shipmentId,
+        }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
+
+        return res.json({
+          success: true,
+          message: "Shiprocket could not cancel this order automatically (likely already picked up) — flagged as cancellation_requested and ops notified.",
+          cancellation_status: "pending",
+        });
+      }
+      // Otherwise: cancelled successfully via the API (with or without an
+      // AWB), or the call failed for a reason unrelated to shipment status
+      // (e.g. an auth hiccup on a pre-AWB order) — fall through and write
+      // order_status = 'cancelled' below either way, same as cancelShiprocketOrder.
+      if (!srResult.cancelled) {
+        console.warn(`[updateOrderStatus] Shiprocket cancel failed for order ${orderId} (stage=${srResult.stage}): ${srResult.reason} — proceeding with local cancel anyway.`);
+      }
     }
 
     await conn.query(
@@ -2693,17 +2721,6 @@ const updateOrderStatus = async (req, res) => {
     await conn.commit();
     res.json({ success: true });
 
-    // ── If ops cancelled this order manually here (instead of it flowing
-    //    through the Shiprocket cancellation webhook), the customer still
-    //    needs their WhatsApp cancellation notice — that used to only fire
-    //    from the webhook path, so a manual override here silently skipped
-    //    it. Fire-and-forget, after the response, so a slow/broken Wigzo
-    //    call never blocks or fails the status update itself. ─────────────
-    if (status === "cancelled" && previousStatus !== "cancelled") {
-      triggerShiprocketCancelForManualStatusChange(orderId).catch((e) =>
-        console.error(`[updateOrderStatus] Shiprocket cancel trigger failed for order ${orderId} (non-fatal):`, e.message),
-      );
-    }
   } catch (err) {
     await conn.rollback();
     console.error("updateOrderStatus error:", err);
@@ -2714,69 +2731,6 @@ const updateOrderStatus = async (req, res) => {
     conn.release();
   }
 };
-
-/**
- * When an order is set to "cancelled" through the admin status-update
- * endpoint directly (as opposed to via cancelShiprocketOrder or the
- * Shiprocket webhook), Shiprocket's own order status was never touched.
- *
- * We use Shiprocket Engage for the customer's WhatsApp cancellation notice,
- * not Wigzo. Engage is wired into the Shiprocket account itself and fires
- * automatically off Shiprocket's own status events — there's no API to push
- * a custom notification to it. So the only way for the customer to actually
- * get notified here is to make Shiprocket's status change too, by calling
- * the same cancel-on-panel logic cancelShiprocketOrder uses.
- *
- * If the order already has an AWB, Shiprocket won't let us cancel it via API
- * (courier already assigned) — in that case this just logs and does nothing;
- * an admin who is hand-setting status to "cancelled" on an already-shipped
- * order should be doing that AFTER cancelling on the Shiprocket panel
- * themselves, which is what actually triggers Engage.
- */
-async function triggerShiprocketCancelForManualStatusChange(orderId) {
-  const {
-    resolveShiprocketPanelOrderId,
-    cancelOnShiprocketPanel,
-  } = require("./shiprocketorderwebhook");
-
-  const [[order]] = await db.query(
-    `SELECT awb_code, shipment_id, sr_cart_id FROM tbl_orders WHERE order_id = ? LIMIT 1`,
-    [orderId],
-  );
-  if (!order) return;
-
-  const awb        = toStr(order.awb_code);
-  const shipmentId = toStr(order.shipment_id);
-  const srCartId   = toStr(order.sr_cart_id);
-
-  if (awb) {
-    // Already has a courier assigned — Shiprocket won't cancel via API here.
-    // Nothing for us to trigger; the admin needs to cancel on the Shiprocket
-    // panel directly (that's what makes Engage fire).
-    console.log(
-      `[updateOrderStatus] order_id=${orderId} has AWB=${awb} — cannot cancel via API; ` +
-      `cancel on the Shiprocket panel directly so Engage notifies the customer.`,
-    );
-    return;
-  }
-
-  const srPanelOrderId = await resolveShiprocketPanelOrderId(db, orderId, { srCartId });
-  const result = await cancelOnShiprocketPanel({
-    srPanelOrderId,
-    awb: null,
-    shipmentId: null,
-    alreadyShipped: false,
-  });
-
-  if (result.cancelled) {
-    console.log(`[updateOrderStatus] Shiprocket order cancelled for order_id=${orderId} — Engage will notify the customer.`);
-  } else {
-    console.warn(
-      `[updateOrderStatus] Shiprocket cancel failed for order_id=${orderId} ` +
-      `(stage=${result.stage}): ${result.reason} — customer will not get a WhatsApp notice.`,
-    );
-  }
-}
 
 // ── Track order by order ID only (no auth, public) ────────────────────────────
 // POST /orders/track-by-id  { orderId }
@@ -3310,6 +3264,13 @@ const downloadInvoice = async (req, res) => {
   }
 };
 
+// ── getOrderWigzoData ─────────────────────────────────────────────────────────
+// Public endpoint — no login required. Returns the minimal fields the
+// client-side Wigzo `order` event needs, fetched by DB order_id.
+// Called from the /checkout?oid=...&ost=SUCCESS Thank You page immediately
+// after srVerifyStatus === 'confirmed', so the browser-side wigzo('track',
+// 'order', {...}) call fires with real data instead of the broken server-side
+// POST to /api/v1/track (which returned 404 — wrong endpoint, not documented).
 const getOrderWigzoData = async (req, res) => {
   const orderId = Number.parseInt(req.params.orderId, 10);
   if (!Number.isFinite(orderId) || orderId <= 0) {
@@ -3409,6 +3370,10 @@ const getOrderWigzoData = async (req, res) => {
         variant_id:             String(item?.variation_id      || ''),
         price:                  Number(item?.price)            || 0,
         quantity:               Number(item?.quantity)         || 1,
+        // Proportional discount for this line item:
+        // (line_subtotal / order_subtotal) × total_discount
+        // Both values are already fetched — line_subtotal from tbl_order_itemmeta,
+        // total_discounts from tbl_ordermeta. Matches the formula used in placeOrder.
         product_discount: (() => {
           const lineSubtotal   = Number(item?.line_subtotal)    || 0;
           const orderSubtotal  = Number(row.subtotal)           || 0;
