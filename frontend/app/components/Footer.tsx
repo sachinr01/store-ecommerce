@@ -119,6 +119,7 @@ export default function Footer() {
               {contactHref && <li><Link href={contactHref} className="link-faded">Contact Us</Link></li>}
               <li><Link href="/order-tracking" className="link-faded">Order Tracking</Link></li>
               <li><Link href="/careers" className="link-faded">Careers</Link></li>
+              <li><Link href="/blog" className="link-faded">Blog</Link></li>
             </ul>
           </div>
           <div>

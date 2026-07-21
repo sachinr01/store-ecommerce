@@ -246,7 +246,7 @@ export function useShiprocketCheckout() {
       });
 
       window.HeadlessCheckout.addToCart(e.nativeEvent, token, {
-        fallbackUrl: `${window.location.origin}/checkout`,
+        fallbackUrl: `${window.location.origin}/`,
       });
 
       if (srOrderId) startPolling(srOrderId, checkoutRef);

@@ -9,11 +9,9 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: [
           '/cart',
-          '/checkout',
           '/my-account',
           '/orders',
           '/wishlist',
-          '/reset-password',
         ],
       },
     ],

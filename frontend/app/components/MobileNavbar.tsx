@@ -76,7 +76,7 @@ export default function MobileNavbar() {
             <Link href="/shop" onClick={closeMenu} className="mn-top-link">Shop</Link>
             <Link href="/my-account" onClick={closeMenu} className="mn-top-link">My Account</Link>
             <Link href="/cart" onClick={closeMenu} className="mn-top-link">Cart</Link>
-            <Link href="/checkout" onClick={closeMenu} className="mn-top-link">Checkout</Link>
+            {/* <Link href="/checkout" onClick={closeMenu} className="mn-top-link">Checkout</Link> */}
             <Link href="/contact-us" onClick={closeMenu} className="mn-top-link">Contact Us</Link>
           </nav>
         </div>
