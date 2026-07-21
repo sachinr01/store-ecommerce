@@ -1444,6 +1444,7 @@ input[type="checkbox"] {
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2543,6 +2544,7 @@ input[type="checkbox"] {
 .footer-post-title {
   display: -webkit-box !important;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal !important;
@@ -3310,9 +3312,7 @@ input[type="checkbox"] {
   transform: translateY(0);
 }
 
-.na-quick-view {
-  /* styles in this centralized stylesheet as .btn-view-product */
-}
+
 
 .na-info {
   padding: 12px 14px 14px;
@@ -3333,6 +3333,7 @@ input[type="checkbox"] {
   line-height: 1;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   transition: color 150ms ease;
@@ -3424,9 +3425,7 @@ input[type="checkbox"] {
   margin-top: 8px;
 }
 
-.na-view-all-btn {
-  /* styles in this centralized stylesheet as .btn-view-product btn-view-product--inline */
-}
+
 
 @media (max-width: 1024px) {
   .na-grid {
@@ -3851,6 +3850,7 @@ input[type="checkbox"] {
   margin: 0 0 16px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -4141,6 +4141,7 @@ input[type="checkbox"] {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -4491,9 +4492,7 @@ input[type="checkbox"] {
     padding: 36px 4%;
   }
 
-  .section-title {
-    /* margin-bottom: 22px; */
-  }
+
 
   .collection-grid-2x2 {
     grid-template-rows: repeat(2, 150px);
@@ -5759,6 +5758,7 @@ input[type="checkbox"] {
   margin: 6px 0 0;
   display: -webkit-box;
   -webkit-line-clamp: 6;
+  line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -5766,6 +5766,7 @@ input[type="checkbox"] {
 @media (max-width: 767px) {
   .csp-list-desc {
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     font-size: 12px;
   }
 }
@@ -5902,9 +5903,7 @@ input[type="checkbox"] {
   transform: translateY(0);
 }
 
-.csp-quick-view {
-  /* styles in this centralized stylesheet as .btn-view-product */
-}
+
 
 .csp-info {
   padding: 12px 14px 14px;
@@ -5924,6 +5923,7 @@ input[type="checkbox"] {
   line-height: 20px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   transition: color var(--transition-fast);
@@ -8888,11 +8888,14 @@ input[type="checkbox"] {
 .cart-qty input[type="number"]::-webkit-inner-spin-button,
 .cart-qty input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
+  -moz-appearance: none;
   appearance: none;
 }
 
 .cart-qty input[type="number"] {
+  -webkit-appearance: textfield;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .cart-actions {
@@ -10511,6 +10514,10 @@ input[type="checkbox"] {
   color: #9b1c1c;
 }
 
+.orders-row-status.cancellation_pending {
+  color: #8a5a13;
+}
+
 .orders-actions {
   display: flex;
   flex-direction: column;
@@ -10734,6 +10741,11 @@ input[type="checkbox"] {
 .order-detail-status.cancelled {
   background: #fdecea;
   color: #9b1c1c;
+}
+
+.order-detail-status.cancellation_pending {
+  background: #fff8e1;
+  color: #8a5a13;
 }
 
 /* Timeline */
@@ -11552,14 +11564,6 @@ input[type="checkbox"] {
   margin-bottom: 42px;
 }
 
-.account-address-copy {
-  /* margin: 0;
-  color: #33465c;
-  font-size: 18px;
-  line-height: 1.75;
-  max-width: 760px; */
-}
-
 .account-address-card {
   min-width: 0;
 }
@@ -11773,14 +11777,6 @@ input[type="checkbox"] {
   color: #14544f;
   text-decoration: none;
   font-size: 14px;
-}
-
-.account-address-copy {
-  /* margin: 0;
-  color: #33465c;
-  font-size: 18px;
-  line-height: 1.75;
-  max-width: 760px; */
 }
 
 .account-address-title {
@@ -13026,6 +13022,7 @@ a.ot-btn {
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -16905,6 +16902,7 @@ a.ot-btn {
   color: inherit;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   transition: color 150ms ease;

@@ -328,7 +328,7 @@ export const trackOrder = async (orderId: number | string, phone: string): Promi
   return body.data as OrderDetailResponse;
 };
 
-export const cancelOrder = async (orderId: number | string, phone: string): Promise<{ message: string }> => {
+export const cancelOrder = async (orderId: number | string, phone: string): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean; cancellation_status?: 'cancelled' | 'pending' }> => {
   const res = await fetch(`${API_BASE}/shiprocket/cancel-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -345,7 +345,7 @@ export const cancelOrder = async (orderId: number | string, phone: string): Prom
 /** Cancel own order when logged in (no phone needed). */
 export const cancelMyOrder = async (
   orderId: number | string,
-): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean }> => {
+): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean; cancellation_status?: 'cancelled' | 'pending' }> => {
   const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

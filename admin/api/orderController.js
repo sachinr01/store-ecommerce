@@ -110,33 +110,7 @@ const DEFAULT_COUNTRY = process.env.DEFAULT_COUNTRY || "India";
 
 const axios = require("axios");
 const { sendEmail: sendBrevoEmail } = require('./mailer');
-const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL;
-const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD;
-
-// ================================
-// GET SHIPROCKET TOKEN
-// ================================
-
-async function getShiprocketToken() {
-  try {
-    const response = await axios.post(
-      "https://apiv2.shiprocket.in/v1/external/auth/login",
-      {
-        email: SHIPROCKET_EMAIL,
-        password: SHIPROCKET_PASSWORD,
-      },
-    );
-
-    return response.data.token;
-  } catch (error) {
-    console.log(
-      "Shiprocket Auth Error:",
-      error.response?.data || error.message,
-    );
-
-    throw new Error("Unable to authenticate Shiprocket");
-  }
-}
+const { getShiprocketToken } = require('./shiprocketAuth');
 
 // ================================
 // CREATE SHIPROCKET ORDER
@@ -200,23 +174,11 @@ async function generateAWB(shipment_id, courierId) {
 }
 
 // ================================
-// WIGZO ORDER EVENT (WhatsApp / SMS confirmation)
-// ================================
-//
-// Fires the Wigzo `order` event so the customer gets a WhatsApp (and/or SMS)
-// order-confirmation message on the phone number they entered at checkout.
-// Shared by BOTH checkout flows:
-//   1. Direct checkout  → orderController.placeOrder
-//   2. Shiprocket Checkout flow → shiprocketorderwebhook.receiveOrderWebhook
-//      (called only once Shiprocket confirms latest_stage === "ORDER_PLACED",
-//       i.e. the order is genuinely placed — never on initiation alone)
-//
-// Non-blocking by design: any failure here is logged but must NEVER fail or
-// delay the order response — the order is already saved at this point.
-//
-// "fullName" is sent as the *customer's* name; the WhatsApp template / sender
-// identity ("Nestcase") is configured on the Wigzo dashboard side, not here.
-const WIGZO_TOKEN = process.env.WIGZO_TOKEN;
+// resolveProductCategoryForWigzo is still used by getOrderWigzoData below,
+// which feeds the client-side Wigzo Engage360 tracking script (product view /
+// cart / purchase pixel — a separate product from Shiprocket Engage, and
+// still in active use). It has nothing to do with order-status WhatsApp
+// notifications, which now go entirely through Shiprocket Engage.
 
 // Resolves a product's category for the Wigzo `order` event.
 // Mirrors the same parent/child walk used for YMAL in controller.js:
@@ -250,111 +212,6 @@ async function resolveProductCategoryForWigzo(productId) {
   } catch (err) {
     console.error("[wigzo] resolveProductCategoryForWigzo failed (non-fatal):", err.message);
     return { category: "", type: "" };
-  }
-}
-
-async function sendWigzoOrderEvent({
-  orderId,
-  orderName,
-  gaTransactionId, // online payment reference: Razorpay payment id, or Shiprocket's order id — empty for COD
-  title,
-  userId,
-  email,
-  phone, // raw phone, will be normalized to clean 10-digit here
-  firstName,
-  lastName,
-  totalPrice,
-  subtotal,
-  shippingCost,
-  discount,
-  city,
-  state,
-  postcode,
-  paymentMethod,
-  couponCode,
-  firstItem, // { product_id, variation_id, price, quantity, discount }
-}) {
-  if (!WIGZO_TOKEN) {
-    console.warn("[wigzo] WIGZO_TOKEN not set — skipping WhatsApp/SMS notification");
-    return;
-  }
-
-  const cleanPhone = normalizePhone(phone); // clean 10-digit
-  if (!cleanPhone) {
-    console.warn(`[wigzo] No usable phone for order ${orderId} — skipping WhatsApp/SMS notification`);
-    return;
-  }
-
-  const fullName = `${firstName || ""} ${lastName || ""}`.trim() || "Customer";
-  const nowIso = new Date().toISOString();
-  const isCod = toStr(paymentMethod).toLowerCase() === "cod";
-  const { category: firstItemCategory, type: firstItemType } =
-    await resolveProductCategoryForWigzo(firstItem?.product_id);
-
-  const payload = {
-    token: WIGZO_TOKEN,
-    event: "order",
-    identity: {
-      email: email || "",
-      phone: cleanPhone,
-      fullName,
-    },
-    data: {
-      // Customer-facing order reference — Shiprocket cart id for SR checkout,
-      // or the internal order-name string for direct checkout. NOT the raw
-      // DB order_id, since that's an internal id the customer never sees.
-      orderId: orderName || String(orderId),
-      title: title || "Product",
-      customer_id: String(userId || 0),
-      phone: `+91${cleanPhone}`,
-      fullName,
-      email: email || "",
-      total_price: toAmount(totalPrice),
-      total_line_items_price: toAmount(subtotal),
-      cart_token: orderName || String(orderId),
-      checkout_token: orderName || String(orderId),
-      // Online payment reference — Razorpay payment id for direct checkout,
-      // Shiprocket's own order id for the SR flow. Empty for COD, since
-      // there is no payment transaction to reference.
-      ga_transaction_id: gaTransactionId || "",
-      created_at: nowIso,
-      updated_at: nowIso,
-      shipping_cost: toAmount(shippingCost),
-      total_discounts: toAmount(discount),
-      city: city || "",
-      state: state || "",
-      country: "India",
-      zip: postcode || "",
-      financial_status: isCod ? "COD" : "Prepaid",
-      taxes_included: true,
-      coupons: couponCode ? [couponCode] : [],
-      fulfillment_status: "Pending",
-      // First line item details (Wigzo's flat-field convention)
-      line_item_id: String(firstItem?.order_item_id || ""),
-      product_id: String(firstItem?.product_id || ""),
-      variant_id: String(firstItem?.variation_id || ""),
-      price: toAmount(firstItem?.price),
-      quantity: Number(firstItem?.quantity || 1),
-      product_discount: toAmount(firstItem?.discount),
-      categories: firstItemCategory,
-      type: firstItemType,
-    },
-  };
-
-  try {
-    const wigzoRes = await axios.post(
-      "https://app.wigzo.com/api/v1/track",
-      payload,
-      { headers: { "Content-Type": "application/json" }, timeout: 8000 },
-    );
-    console.log(`[wigzo] Order event sent for order ${orderId}:`, wigzoRes.data);
-    return wigzoRes.data;
-  } catch (wigzoErr) {
-    // Non-fatal — order/email already handled by the caller.
-    console.error(
-      `[wigzo] WhatsApp/SMS notification failed for order ${orderId} (non-fatal):`,
-      wigzoErr.response?.data || wigzoErr.message,
-    );
   }
 }
 
@@ -1940,42 +1797,12 @@ const placeOrder = async (req, res) => {
       console.error("Order email error:", emailErr);
     }
 
-    // ── WhatsApp / SMS order confirmation (Wigzo) ─────────────────────────────
-    // Non-blocking — failure here never fails or delays the order response.
-    try {
-      await sendWigzoOrderEvent({
-        orderId,
-        orderName,
-        gaTransactionId: razorpayPaymentId || "",
-        title: cartItems.map((i) => i.title || "Product").join(", "),
-        userId,
-        email: billing.email,
-        phone: billing.phone,
-        firstName: billing.first_name,
-        lastName: billing.last_name,
-        totalPrice: total,
-        subtotal,
-        shippingCost,
-        discount,
-        city: billing.city,
-        state: billing.state,
-        postcode: billing.postcode,
-        paymentMethod,
-        couponCode: appliedCoupon ? appliedCoupon.coupon_code : "",
-        firstItem: cartItems[0]
-          ? {
-              order_item_id: firstOrderItemId,
-              product_id: cartItems[0].product_id,
-              variation_id: cartItems[0].variation_id,
-              price: cartItems[0].price,
-              quantity: cartItems[0].quantity,
-              discount: firstItemDiscount,
-            }
-          : null,
-      });
-    } catch (wigzoErr) {
-      console.error("[wigzo] Unexpected error sending order event (non-fatal):", wigzoErr.message);
-    }
+    // NOTE: no server-side WhatsApp/SMS push here. Order confirmation for
+    // this checkout path is handled by client-side Wigzo Engage360 tracking
+    // on the Thank You page (see getOrderWigzoData) — the server-side push to
+    // app.wigzo.com/api/v1/track used to live here but 404'd (wrong/undocumented
+    // endpoint) and duplicated that client-side event anyway, so it's removed
+    // rather than fixed.
 
     res.json({
       success: true,
@@ -2745,6 +2572,7 @@ const updateOrderStatus = async (req, res) => {
     "pending",
     "processing",
     "on-hold",
+    "cancellation_requested",
     "completed",
     "cancelled",
     "refunded",
@@ -2762,12 +2590,53 @@ const updateOrderStatus = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Get current status before updating
+    // FOR UPDATE locks this row for the rest of the transaction — if two
+    // requests for the same order land concurrently (e.g. a double-click,
+    // or this racing against the Shiprocket cancellation webhook), the
+    // second one blocks here until the first commits, then reads the
+    // ALREADY-UPDATED status. Without this lock, both could read the same
+    // stale previousStatus and both decide to restore stock / notify.
     const [[currentOrder]] = await conn.query(
-      "SELECT order_status FROM tbl_orders WHERE order_id = ? LIMIT 1",
+      "SELECT order_status, awb_code, shipment_id, sr_cart_id FROM tbl_orders WHERE order_id = ? LIMIT 1 FOR UPDATE",
       [orderId],
     );
     const previousStatus = currentOrder ? currentOrder.order_status : "";
+
+    // ── Guard: admin sets status → "cancelled" on an order that already has
+    //    an AWB. Shiprocket won't let us cancel this via API once a courier
+    //    is assigned, so writing order_status = 'cancelled' here would be a
+    //    lie — the shipment is still physically moving. Redirect this to the
+    //    same 'cancellation_requested' + admin-email flow the customer-facing
+    //    cancel endpoint uses, instead of restoring stock and telling the
+    //    customer it's done when it isn't. ─────────────────────────────────
+    const awb = toStr(currentOrder?.awb_code);
+    if (status === "cancelled" && awb && previousStatus !== "cancelled" && previousStatus !== "cancellation_requested") {
+      const requestedAt = new Date().toISOString();
+      await conn.query(
+        "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
+        [orderId],
+      );
+      await conn.query(
+        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
+        [orderId, requestedAt],
+      );
+      await conn.commit();
+
+      const { notifyAdminOfCancellationRequest } = require("./shiprocketorderwebhook");
+      notifyAdminOfCancellationRequest({
+        orderId,
+        srCartId: toStr(currentOrder.sr_cart_id),
+        requestedAt,
+        awb,
+        shipmentId: toStr(currentOrder.shipment_id),
+      }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
+
+      return res.json({
+        success: true,
+        message: "Order has an AWB assigned — flagged as cancellation_requested and ops notified instead of cancelling directly.",
+        cancellation_status: "pending",
+      });
+    }
 
     await conn.query(
       "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
@@ -2823,6 +2692,18 @@ const updateOrderStatus = async (req, res) => {
 
     await conn.commit();
     res.json({ success: true });
+
+    // ── If ops cancelled this order manually here (instead of it flowing
+    //    through the Shiprocket cancellation webhook), the customer still
+    //    needs their WhatsApp cancellation notice — that used to only fire
+    //    from the webhook path, so a manual override here silently skipped
+    //    it. Fire-and-forget, after the response, so a slow/broken Wigzo
+    //    call never blocks or fails the status update itself. ─────────────
+    if (status === "cancelled" && previousStatus !== "cancelled") {
+      triggerShiprocketCancelForManualStatusChange(orderId).catch((e) =>
+        console.error(`[updateOrderStatus] Shiprocket cancel trigger failed for order ${orderId} (non-fatal):`, e.message),
+      );
+    }
   } catch (err) {
     await conn.rollback();
     console.error("updateOrderStatus error:", err);
@@ -2833,6 +2714,69 @@ const updateOrderStatus = async (req, res) => {
     conn.release();
   }
 };
+
+/**
+ * When an order is set to "cancelled" through the admin status-update
+ * endpoint directly (as opposed to via cancelShiprocketOrder or the
+ * Shiprocket webhook), Shiprocket's own order status was never touched.
+ *
+ * We use Shiprocket Engage for the customer's WhatsApp cancellation notice,
+ * not Wigzo. Engage is wired into the Shiprocket account itself and fires
+ * automatically off Shiprocket's own status events — there's no API to push
+ * a custom notification to it. So the only way for the customer to actually
+ * get notified here is to make Shiprocket's status change too, by calling
+ * the same cancel-on-panel logic cancelShiprocketOrder uses.
+ *
+ * If the order already has an AWB, Shiprocket won't let us cancel it via API
+ * (courier already assigned) — in that case this just logs and does nothing;
+ * an admin who is hand-setting status to "cancelled" on an already-shipped
+ * order should be doing that AFTER cancelling on the Shiprocket panel
+ * themselves, which is what actually triggers Engage.
+ */
+async function triggerShiprocketCancelForManualStatusChange(orderId) {
+  const {
+    resolveShiprocketPanelOrderId,
+    cancelOnShiprocketPanel,
+  } = require("./shiprocketorderwebhook");
+
+  const [[order]] = await db.query(
+    `SELECT awb_code, shipment_id, sr_cart_id FROM tbl_orders WHERE order_id = ? LIMIT 1`,
+    [orderId],
+  );
+  if (!order) return;
+
+  const awb        = toStr(order.awb_code);
+  const shipmentId = toStr(order.shipment_id);
+  const srCartId   = toStr(order.sr_cart_id);
+
+  if (awb) {
+    // Already has a courier assigned — Shiprocket won't cancel via API here.
+    // Nothing for us to trigger; the admin needs to cancel on the Shiprocket
+    // panel directly (that's what makes Engage fire).
+    console.log(
+      `[updateOrderStatus] order_id=${orderId} has AWB=${awb} — cannot cancel via API; ` +
+      `cancel on the Shiprocket panel directly so Engage notifies the customer.`,
+    );
+    return;
+  }
+
+  const srPanelOrderId = await resolveShiprocketPanelOrderId(db, orderId, { srCartId });
+  const result = await cancelOnShiprocketPanel({
+    srPanelOrderId,
+    awb: null,
+    shipmentId: null,
+    alreadyShipped: false,
+  });
+
+  if (result.cancelled) {
+    console.log(`[updateOrderStatus] Shiprocket order cancelled for order_id=${orderId} — Engage will notify the customer.`);
+  } else {
+    console.warn(
+      `[updateOrderStatus] Shiprocket cancel failed for order_id=${orderId} ` +
+      `(stage=${result.stage}): ${result.reason} — customer will not get a WhatsApp notice.`,
+    );
+  }
+}
 
 // ── Track order by order ID only (no auth, public) ────────────────────────────
 // POST /orders/track-by-id  { orderId }
@@ -3366,13 +3310,6 @@ const downloadInvoice = async (req, res) => {
   }
 };
 
-// ── getOrderWigzoData ─────────────────────────────────────────────────────────
-// Public endpoint — no login required. Returns the minimal fields the
-// client-side Wigzo `order` event needs, fetched by DB order_id.
-// Called from the /checkout?oid=...&ost=SUCCESS Thank You page immediately
-// after srVerifyStatus === 'confirmed', so the browser-side wigzo('track',
-// 'order', {...}) call fires with real data instead of the broken server-side
-// POST to /api/v1/track (which returned 404 — wrong endpoint, not documented).
 const getOrderWigzoData = async (req, res) => {
   const orderId = Number.parseInt(req.params.orderId, 10);
   if (!Number.isFinite(orderId) || orderId <= 0) {
@@ -3472,10 +3409,6 @@ const getOrderWigzoData = async (req, res) => {
         variant_id:             String(item?.variation_id      || ''),
         price:                  Number(item?.price)            || 0,
         quantity:               Number(item?.quantity)         || 1,
-        // Proportional discount for this line item:
-        // (line_subtotal / order_subtotal) × total_discount
-        // Both values are already fetched — line_subtotal from tbl_order_itemmeta,
-        // total_discounts from tbl_ordermeta. Matches the formula used in placeOrder.
         product_discount: (() => {
           const lineSubtotal   = Number(item?.line_subtotal)    || 0;
           const orderSubtotal  = Number(row.subtotal)           || 0;
@@ -3511,7 +3444,6 @@ module.exports = {
   getShippingRate,
   getTrackingStatus,
   createShiprocketOrder,
-  sendWigzoOrderEvent,
   getOrderWigzoData,
   downloadInvoice,
 };

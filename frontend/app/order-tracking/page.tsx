@@ -23,6 +23,11 @@ function normalizeStatus(raw: string) {
   if (s.includes('ship')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
+  // Checked before the generic 'cancel' match — an order that's already
+  // shipped can't be cancelled outright, so it sits as a pending request
+  // until ops cancels it on Shiprocket. That's a different state from an
+  // actually-cancelled order (stock restored, WhatsApp notice sent).
+  if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
   return s;
@@ -45,7 +50,7 @@ const STEP_INDEX: Record<string, number> = {
 };
 
 function TrackingTimeline({ status }: { status: string }) {
-  const isCancelled = status === 'cancelled';
+  const isCancelled = status === 'cancelled' || status === 'cancellation_pending';
   const activeIdx = isCancelled ? -1 : (STEP_INDEX[status] ?? 0);
   return (
     <div className={`order-timeline${isCancelled ? ' cancelled' : ''}`}>
@@ -127,13 +132,26 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     setCancelError('');
     setCancelSuccess('');
     try {
-      await cancelOrder(order.sr_cart_id || order.order_id, phone);
-      setCancelSuccess('Your order has been cancelled successfully.');
-      // Update the displayed order status locally
-      onOrderCancelled({
-        ...data,
-        order: { ...data.order, order_status: 'cancelled' },
-      });
+      const result = await cancelOrder(order.sr_cart_id || order.order_id, phone);
+      // An already-shipped order can't be cancelled outright — it goes to
+      // "cancellation_requested" while our team cancels it on Shiprocket,
+      // and only becomes truly "cancelled" once that's confirmed.
+      if (result.cancellation_status === 'pending') {
+        setCancelSuccess(
+          result.message ||
+            "Your cancellation request has been received. We're confirming this with our shipping partner and will notify you once it's done.",
+        );
+        onOrderCancelled({
+          ...data,
+          order: { ...data.order, order_status: 'cancellation_requested' },
+        });
+      } else {
+        setCancelSuccess('Your order has been cancelled successfully.');
+        onOrderCancelled({
+          ...data,
+          order: { ...data.order, order_status: 'cancelled' },
+        });
+      }
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order. Please contact support.');
     } finally {

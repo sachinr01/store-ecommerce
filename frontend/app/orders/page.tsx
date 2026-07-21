@@ -35,6 +35,11 @@ function normalizeStatus(status: string) {
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
+  // Must be checked before the generic 'cancel' match below — a cancellation
+  // that's only been *requested* (order already shipped, awaiting manual
+  // cancellation on Shiprocket) is not the same as an actually-cancelled
+  // order: stock hasn't been restored and nothing is final yet.
+  if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
   return s;
@@ -42,7 +47,11 @@ function normalizeStatus(status: string) {
 
 function toTitleCase(value: string) {
   if (!value) return 'Pending';
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 export default function OrdersPage() {
@@ -95,9 +104,14 @@ export default function OrdersPage() {
     setCancelNotice('');
     try {
       const result = await cancelMyOrder(orderId);
+      // Only stamp it 'cancelled' when the backend actually confirms that —
+      // an already-shipped order goes to 'cancellation_requested' instead,
+      // since stock hasn't been restored and Shiprocket hasn't cancelled it
+      // yet (that happens once ops cancels it on the Shiprocket panel).
+      const nextStatus = result.cancellation_status === 'pending' ? 'cancellation_requested' : 'cancelled';
       setOrders((prev) =>
         prev.map((o) =>
-          Number(o.order_id) === orderId ? { ...o, order_status: 'cancelled' } : o,
+          Number(o.order_id) === orderId ? { ...o, order_status: nextStatus } : o,
         ),
       );
       // Order is cancelled on our side either way, but if the Shiprocket-side

@@ -20,6 +20,11 @@ function normalizeStatus(status: string) {
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
   if (s.includes('ship')) return 'shipped';
+  // Must be checked before a generic 'cancel' catch-all elsewhere in this
+  // file (canCancel guard) — a requested-but-not-yet-confirmed cancellation
+  // is a distinct state from an actually-cancelled order.
+  if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
+  if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
   return s;
 }
@@ -197,13 +202,28 @@ export default function OrderDetailPage() {
     setCancelError('');
     setCancelSuccess('');
     try {
-      await cancelMyOrder(summary.id);
-      setCancelSuccess('Your order has been cancelled successfully.');
-      setData((prev) =>
-        prev
-          ? { ...prev, order: { ...prev.order, order_status: 'cancelled' } }
-          : prev,
-      );
+      const result = await cancelMyOrder(summary.id);
+      // An already-shipped order can't be cancelled outright — it goes to
+      // "cancellation_requested" while our team cancels it on Shiprocket,
+      // and only becomes truly "cancelled" once that's confirmed.
+      if (result.cancellation_status === 'pending') {
+        setCancelSuccess(
+          result.message ||
+            "Your cancellation request has been received. We're confirming this with our shipping partner and will notify you once it's done.",
+        );
+        setData((prev) =>
+          prev
+            ? { ...prev, order: { ...prev.order, order_status: 'cancellation_requested' } }
+            : prev,
+        );
+      } else {
+        setCancelSuccess('Your order has been cancelled successfully.');
+        setData((prev) =>
+          prev
+            ? { ...prev, order: { ...prev.order, order_status: 'cancelled' } }
+            : prev,
+        );
+      }
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Failed to cancel order. Please contact support.');
     } finally {
@@ -250,7 +270,9 @@ export default function OrderDetailPage() {
                         <h1 className="order-detail-title">Order #{summary.id}</h1>
                         <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
                       </div>
-                      <span className={`order-detail-status ${summary.status}`}>{summary.status}</span>
+                      <span className={`order-detail-status ${summary.status}`}>
+                        {summary.status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                      </span>
                     </div>
                     <div className="order-timeline">
                       {statusSteps.map(step => (
