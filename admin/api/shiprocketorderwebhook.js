@@ -1609,11 +1609,30 @@ const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt
    Public — verified by phone match OR logged-in order owner
    Body: { orderId?, phone? }
 ───────────────────────────────────────────────────────────── */
+// Valid cancellation reason keys (stored in DB, sent from frontend)
+const CANCEL_REASON_KEYS = [
+  "found_better_price",
+  "delivery_too_long",
+  "no_longer_needed",
+  "wrong_product",
+  "other",
+];
+
 const cancelShiprocketOrder = async (req, res) => {
   const { getSessionUser } = require("./session");
   const rawId      = toStr(req.body.orderId  || req.params.orderId || "");
   const inputPhone = toStr(req.body.phone || "").replace(/\D/g, "");
   const sessionUser = getSessionUser(req);
+
+  // ── Validate cancellation reason ─────────────────────────────────────────
+  const rawReason = toStr(req.body.reason || "");
+  if (!rawReason || !CANCEL_REASON_KEYS.includes(rawReason)) {
+    return res.status(400).json({ success: false, message: "A valid cancellation reason is required." });
+  }
+  const customReason = rawReason === "other" ? toStr(req.body.customReason || "").slice(0, 300) : "";
+  if (rawReason === "other" && !customReason) {
+    return res.status(400).json({ success: false, message: "Please describe your cancellation reason." });
+  }
 
   if (!rawId) {
     return res.status(400).json({ success: false, message: "orderId is required" });
@@ -1765,10 +1784,22 @@ const cancelShiprocketOrder = async (req, res) => {
         `UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?`,
         [orderId],
       );
-      await conn.query(
-        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
-        [orderId, requestedAt],
-      );
+      // Persist reason and timestamp
+      const reasonMeta = [
+        [orderId, '_cancel_requested_at',   requestedAt],
+        [orderId, '_cancellation_reason',   rawReason],
+        [orderId, '_cancellation_reason_text', customReason || null],
+      ];
+      for (const [oid, key, val] of reasonMeta) {
+        if (val !== null) {
+          await conn.query(
+            `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+            [oid, key, val],
+          );
+        }
+      }
 
       await conn.commit();
       console.log(`[cancelShiprocketOrder] ⏳ Order ${orderId} could not be auto-cancelled (AWB=${awb}, stage=${srResult.stage}) — flagged cancellation_requested, ops notified.`);
@@ -1813,6 +1844,24 @@ const cancelShiprocketOrder = async (req, res) => {
       `UPDATE tbl_orders SET order_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
       [orderId],
     );
+
+    // Persist cancellation reason
+    const cancelledAt = new Date().toISOString();
+    const cancelReasonMeta = [
+      [orderId, '_cancel_requested_at',      cancelledAt],
+      [orderId, '_cancellation_reason',      rawReason],
+      [orderId, '_cancellation_reason_text', customReason || null],
+    ];
+    for (const [oid, key, val] of cancelReasonMeta) {
+      if (val !== null) {
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+          [oid, key, val],
+        );
+      }
+    }
 
     // ── 7. Restore stock for all line items ─────────────────────────────────
     await restoreOrderStock(conn, orderId);

@@ -377,19 +377,34 @@ async function getTrackingStatus(req, res) {
     const tracking = response.data?.tracking_data;
 
     const shiprocketStatus =
-      tracking?.shipment_track?.[0]?.current_status || "Pending";
+      (tracking?.shipment_track?.[0]?.current_status || "Pending").toUpperCase().trim();
 
-    // Map Shiprocket statuses
+    // Aligned with SR_STATUS_MAP in shiprocketorderwebhook.js.
+    // AWB is always present here (it's the route param), so processing-tier
+    // statuses resolve to "Ready to Ship" rather than "processing".
     const statusMap = {
-      NEW: "Order Confirmed",
-      "PICKUP SCHEDULED": "Packed",
-      "PICKED UP": "Shipped",
-      "IN TRANSIT": "Shipped",
-      "OUT FOR DELIVERY": "Out for Delivery",
-      DELIVERED: "Delivered",
-      CANCELLED: "Cancelled",
-      "RTO INITIATED": "Return Initiated",
-      "RTO DELIVERED": "Returned",
+      "NEW":                           "Ready to Ship",
+      "PICKUP SCHEDULED":              "Ready to Ship",
+      "PICKUP ERROR":                  "Ready to Ship",
+      "PICKUP QUEUED":                 "Ready to Ship",
+      "PICKUP GENERATED":              "Ready to Ship",
+      "PICKED UP":                     "Shipped",
+      "IN TRANSIT":                    "Shipped",
+      "REACHED AT SOURCE HUB":         "Shipped",
+      "REACHED AT DESTINATION HUB":    "Shipped",
+      "OUT FOR DELIVERY":              "Out for Delivery",
+      "DELIVERED":                     "Delivered",
+      "CANCELLED":                     "cancelled",
+      "RTO INITIATED":                 "Return Initiated",
+      "RTO IN TRANSIT":                "Return Initiated",
+      "RTO OUT FOR PICKUP":            "Return Initiated",
+      "RTO PICKED":                    "Return Initiated",
+      "RTO DELIVERED":                 "Returned",
+      "SHIPMENT RETURN":               "Return Initiated",
+      "UNDELIVERED":                   "Undelivered",
+      "DELAYED":                       "Delayed",
+      "DAMAGED":                       "Damaged",
+      "LOST":                          "Lost",
     };
 
     const finalStatus = statusMap[shiprocketStatus] || shiprocketStatus;
@@ -3037,17 +3052,34 @@ const trackOrderByPhone = async (req, res) => {
         );
         const td = srRes.data?.tracking_data;
         if (td) {
-          const rawStatus = td.shipment_track?.[0]?.current_status || "";
+          const rawStatus = (td.shipment_track?.[0]?.current_status || "").toUpperCase().trim();
+          // Aligned with SR_STATUS_MAP in shiprocketorderwebhook.js.
+          // AWB already exists at this point (we're inside `if (awb)`), so
+          // "processing-tier" statuses promote straight to "Ready to Ship".
           const statusMap = {
-            NEW: "Order Confirmed",
-            "PICKUP SCHEDULED": "Packed",
-            "PICKED UP": "Shipped",
-            "IN TRANSIT": "In Transit",
-            "OUT FOR DELIVERY": "Out for Delivery",
-            DELIVERED: "Delivered",
-            CANCELLED: "Cancelled",
-            "RTO INITIATED": "Return Initiated",
-            "RTO DELIVERED": "Returned",
+            "NEW":                           "Ready to Ship",
+            "PICKUP SCHEDULED":              "Ready to Ship",
+            "PICKUP ERROR":                  "Ready to Ship",
+            "PICKUP QUEUED":                 "Ready to Ship",
+            "PICKUP GENERATED":              "Ready to Ship",
+            "PICKED UP":                     "Shipped",
+            "IN TRANSIT":                    "Shipped",
+            "REACHED AT SOURCE HUB":         "Shipped",
+            "REACHED AT DESTINATION HUB":    "Shipped",
+            "OUT FOR DELIVERY":              "Out for Delivery",
+            "DELIVERED":                     "Delivered",
+            "CANCELLED":                     "cancelled",
+            "RTO INITIATED":                 "Return Initiated",
+            "RTO IN TRANSIT":                "Return Initiated",
+            "RTO OUT FOR PICKUP":            "Return Initiated",
+            "RTO PICKED":                    "Return Initiated",
+            "RTO DELIVERED":                 "Returned",
+            "SHIPMENT RETURN":               "Return Initiated",
+            // Exception states — preserve as-is for frontend badge rendering
+            "UNDELIVERED":                   "Undelivered",
+            "DELAYED":                       "Delayed",
+            "DAMAGED":                       "Damaged",
+            "LOST":                          "Lost",
           };
           const liveStatus = statusMap[rawStatus] || rawStatus;
           if (liveStatus) {

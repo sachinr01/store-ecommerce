@@ -328,11 +328,11 @@ export const trackOrder = async (orderId: number | string, phone: string): Promi
   return body.data as OrderDetailResponse;
 };
 
-export const cancelOrder = async (orderId: number | string, phone: string): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean; cancellation_status?: 'cancelled' | 'pending' }> => {
+export const cancelOrder = async (orderId: number | string, phone: string, reason: string, customReason?: string): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean; cancellation_status?: 'cancelled' | 'pending' }> => {
   const res = await fetch(`${API_BASE}/shiprocket/cancel-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId: String(orderId), phone }),
+    body: JSON.stringify({ orderId: String(orderId), phone, reason, ...(customReason ? { customReason } : {}) }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));
@@ -345,12 +345,14 @@ export const cancelOrder = async (orderId: number | string, phone: string): Prom
 /** Cancel own order when logged in (no phone needed). */
 export const cancelMyOrder = async (
   orderId: number | string,
+  reason: string,
+  customReason?: string,
 ): Promise<{ message: string; shiprocket_cancelled?: boolean; requires_manual_review?: boolean; cancellation_status?: 'cancelled' | 'pending' }> => {
   const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ reason, ...(customReason ? { customReason } : {}) }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));

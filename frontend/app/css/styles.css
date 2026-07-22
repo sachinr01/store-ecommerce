@@ -12546,6 +12546,132 @@ a.ot-btn {
   background: #a93226;
 }
 
+/* ── Reason-selection modal variant ── */
+.ot-modal--reason {
+  max-width: 480px;
+  text-align: left;
+  padding: 32px 28px 28px;
+}
+
+.ot-modal-subtitle {
+  font-size: 14px;
+  color: #555;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+/* Accessibility: visually hide <legend> while keeping it in the a11y tree */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cr-reasons {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cr-reason {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1.5px solid #dde2e8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+}
+
+.cr-reason:hover {
+  border-color: #22311d;
+  background: #f7faf7;
+}
+
+.cr-reason--selected {
+  border-color: #22311d;
+  background: #f2f7f2;
+}
+
+.cr-reason input[type="radio"] {
+  accent-color: #22311d;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.cr-reason-label {
+  font-size: 14px;
+  color: #222;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.cr-custom-wrap {
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.cr-custom-textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  border: 1.5px solid #ccd3da;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.cr-custom-textarea:focus {
+  border-color: #22311d;
+}
+
+.cr-char-count {
+  font-size: 12px;
+  color: #888;
+  text-align: right;
+  margin-top: 4px;
+}
+
+.cr-field-error {
+  font-size: 12px;
+  color: #c0392b;
+  margin-top: 6px;
+}
+
+/* Loading spinner for submit button */
+.ot-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ot-spin 0.65s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes ot-spin {
+  to { transform: rotate(360deg); }
+}
+
 .ot-reset-bar {
   display: flex;
   align-items: center;
@@ -12583,6 +12709,64 @@ a.ot-btn {
 .ot-result .order-timeline {
   margin-top: 4px;
   margin-bottom: 32px;
+}
+
+/* ── Warning step (exception states: Undelivered / Delayed / Damaged / Lost) ── */
+.timeline-step.warning .timeline-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+.timeline-step.warning .timeline-label {
+  color: #b45309;
+  font-weight: 600;
+}
+.timeline-dot-warn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  font-weight: 900;
+  line-height: 1;
+}
+.timeline-exception-badge {
+  display: block;
+  margin-top: 3px;
+  padding: 2px 7px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* ── Return / RTO states ── */
+.order-timeline--return {
+  display: flex;
+  align-items: center;
+  padding: 14px 0 18px;
+}
+.timeline-return-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.timeline-return-icon {
+  font-size: 18px;
 }
 
 /* Responsive */

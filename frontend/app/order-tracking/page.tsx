@@ -15,21 +15,44 @@ function formatDate(value: string) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function normalizeStatus(raw: string) {
+// Exception statuses: displayed as a warning badge on the last real step,
+// not as a distinct timeline step.
+const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
+
+/**
+ * Derives the canonical timeline key from the DB order_status string and the
+ * presence of an AWB code.
+ *
+ * AWB presence takes priority over raw status for the "ready_to_ship" step:
+ * once Shiprocket assigns an AWB the order has a confirmed pickup slot, even
+ * if the raw status string is still "processing" / "Pickup Scheduled".
+ */
+function normalizeStatus(raw: string, awbCode?: string | null): string {
   if (!raw) return 'pending';
   const s = raw.replace('wc-', '').toLowerCase();
+
+  // Exception states — return as-is so the caller can render a warning badge
+  if (EXCEPTION_STATUSES.has(s)) return s;
+
+  if (s.includes('rto delivered') || s === 'returned') return 'returned';
+  if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
   if (s.includes('deliver')) return 'delivered';
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
-  if (s.includes('ship')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
-  if (s.includes('process')) return 'processing';
-  // Checked before the generic 'cancel' match — an order that's already
-  // shipped can't be cancelled outright, so it sits as a pending request
-  // until ops cancels it on Shiprocket. That's a different state from an
-  // actually-cancelled order (stock restored, WhatsApp notice sent).
+  // AWB present but still showing "processing" → already ready to ship
+  if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
+      s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
+    return awbCode ? 'ready_to_ship' : 'processing';
+  }
+  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
+      s.includes('reached') || s.includes('picked up')) return 'shipped';
+  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
+  // AWB assigned but status not yet updated — promote to ready_to_ship
+  if (awbCode && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
+  if (s.includes('confirm')) return 'confirmed';
   return s;
 }
 
@@ -44,25 +67,99 @@ function digitsOnly(v: string) {
 
 // ─── timeline ────────────────────────────────────────────────────────────────
 
-const STEPS = ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'] as const;
+// Main forward-journey steps in order.
+// "Pending" = local only (pre-Shiprocket). "ready_to_ship" = AWB assigned.
+// Return / cancelled states are handled separately below.
+const STEPS = [
+  'pending',
+  'processing',
+  'ready_to_ship',
+  'shipped',
+  'out_for_delivery',
+  'delivered',
+] as const;
+
+const STEP_LABELS: Record<string, string> = {
+  pending:          'Pending',
+  processing:       'Processing',
+  ready_to_ship:    'Ready to Ship',
+  shipped:          'Shipped',
+  out_for_delivery: 'Out for Delivery',
+  delivered:        'Delivered',
+};
+
 const STEP_INDEX: Record<string, number> = {
-  pending: 0, confirmed: 0, processing: 1, shipped: 2, out_for_delivery: 3, delivered: 4,
+  pending:          0,
+  confirmed:        1, // "confirmed" maps to same visual slot as processing
+  processing:       1,
+  ready_to_ship:    2,
+  shipped:          3,
+  out_for_delivery: 4,
+  delivered:        5,
+};
+
+// Exception statuses that overlay a warning badge on the last real step
+// rather than advancing the timeline.
+const EXCEPTION_LABEL: Record<string, string> = {
+  undelivered: 'Delivery Attempted',
+  delayed:     'Delayed',
+  damaged:     'Damaged',
+  lost:        'Lost',
 };
 
 function TrackingTimeline({ status }: { status: string }) {
   const isCancelled = status === 'cancelled' || status === 'cancellation_pending';
-  const activeIdx = isCancelled ? -1 : (STEP_INDEX[status] ?? 0);
+  const isReturnInitiated = status === 'return_initiated';
+  const isReturned = status === 'returned';
+  const isException = status in EXCEPTION_LABEL;
+
+  // For exception states, show the timeline up to "shipped" (last safe step)
+  const effectiveStatus = isException ? 'shipped' : status;
+  const activeIdx = isCancelled ? -1 : (STEP_INDEX[effectiveStatus] ?? 0);
+
+  // Return states: show a distinct terminal banner instead of the main steps
+  if (isReturnInitiated || isReturned) {
+    return (
+      <div className="order-timeline order-timeline--return">
+        <div className="timeline-return-banner">
+          <span className="timeline-return-icon">↩</span>
+          <span className="timeline-return-label">
+            {isReturned ? 'Order Returned' : 'Return Initiated'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`order-timeline${isCancelled ? ' cancelled' : ''}`}>
       {STEPS.map((step, i) => {
-        const active = !isCancelled && i <= activeIdx;
-        const current = !isCancelled && i === activeIdx;
+        const active  = !isCancelled && i <= activeIdx;
+        const current = !isCancelled && i === activeIdx && !isException;
+        // On exception states highlight the last real step with a warning
+        const isWarningStep = isException && step === 'shipped';
         return (
-          <div key={step} className={`timeline-step${active ? ' active' : ''}${current ? ' current' : ''}`}>
+          <div
+            key={step}
+            className={[
+              'timeline-step',
+              active        ? 'active'   : '',
+              current       ? 'current'  : '',
+              isWarningStep ? 'warning'  : '',
+            ].filter(Boolean).join(' ')}
+          >
             <span className="timeline-dot">
-              {active && <span className="timeline-dot-check">✓</span>}
+              {active && !isWarningStep && <span className="timeline-dot-check">✓</span>}
+              {isWarningStep && <span className="timeline-dot-warn">!</span>}
             </span>
-            <span className="timeline-label">{toLabel(step)}</span>
+            <span className="timeline-label">
+              {STEP_LABELS[step] ?? toLabel(step)}
+              {isWarningStep && (
+                <span className="timeline-exception-badge">
+                  {EXCEPTION_LABEL[status]}
+                </span>
+              )}
+            </span>
           </div>
         );
       })}
@@ -115,6 +212,129 @@ function ShipmentActivities({ awb }: { awb: string }) {
   );
 }
 
+// ─── cancellation reason modal ──────────────────────────────────────────────
+
+const CANCEL_REASONS = [
+  { key: 'found_better_price', label: 'Found a better price elsewhere' },
+  { key: 'delivery_too_long',  label: 'Delivery is taking too long' },
+  { key: 'no_longer_needed',   label: 'No longer need this item' },
+  { key: 'wrong_product',      label: 'Ordered the wrong product / variant' },
+  { key: 'other',              label: 'Other (please specify)' },
+] as const;
+
+type CancelReasonKey = typeof CANCEL_REASONS[number]['key'];
+
+function CancelReasonModal({
+  onConfirm,
+  onClose,
+  submitting,
+}: {
+  onConfirm: (reason: CancelReasonKey, customReason: string) => void;
+  onClose: () => void;
+  submitting: boolean;
+}) {
+  const [selected, setSelected] = useState<CancelReasonKey | ''>('');
+  const [custom, setCustom]     = useState('');
+  const [touched, setTouched]   = useState(false);
+
+  const isOther    = selected === 'other';
+  const customOk   = !isOther || custom.trim().length > 0;
+  const canSubmit  = selected !== '' && customOk;
+  const MAX_CHARS  = 300;
+
+  // Close on Esc
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleSubmit = () => {
+    setTouched(true);
+    if (!canSubmit) return;
+    onConfirm(selected as CancelReasonKey, isOther ? custom.trim() : '');
+  };
+
+  return (
+    <div
+      className="ot-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cr-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="ot-modal ot-modal--reason" onClick={(e) => e.stopPropagation()}>
+        <h3 className="ot-modal-title" id="cr-modal-title">Cancel Order</h3>
+        <p className="ot-modal-subtitle">Please tell us why you&apos;re cancelling this order</p>
+
+        <fieldset className="cr-reasons" role="radiogroup" aria-label="Cancellation reason">
+          <legend className="sr-only">Select a reason</legend>
+          {CANCEL_REASONS.map(({ key, label }) => (
+            <label key={key} className={`cr-reason${selected === key ? ' cr-reason--selected' : ''}`}>
+              <input
+                type="radio"
+                name="cancel-reason"
+                value={key}
+                checked={selected === key}
+                onChange={() => {
+                  setSelected(key);
+                  if (key !== 'other') setCustom('');
+                }}
+                disabled={submitting}
+              />
+              <span className="cr-reason-label">{label}</span>
+            </label>
+          ))}
+
+          {isOther && (
+            <div className="cr-custom-wrap">
+              <textarea
+                className="cr-custom-textarea"
+                placeholder="Please tell us more…"
+                value={custom}
+                maxLength={MAX_CHARS}
+                onChange={(e) => setCustom(e.target.value)}
+                disabled={submitting}
+                aria-label="Additional details"
+              />
+              <div className="cr-char-count">{custom.length} / {MAX_CHARS}</div>
+              {touched && !custom.trim() && (
+                <div className="cr-field-error">Please describe your reason before submitting.</div>
+              )}
+            </div>
+          )}
+        </fieldset>
+
+        {touched && !selected && (
+          <div className="cr-field-error" style={{ marginTop: 8 }}>Please select a reason to continue.</div>
+        )}
+
+        <div className="ot-modal-actions" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="ot-modal-btn ot-modal-btn--secondary"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Keep Order
+          </button>
+          <button
+            type="button"
+            className="ot-modal-btn ot-modal-btn--danger"
+            onClick={handleSubmit}
+            disabled={submitting}
+            aria-busy={submitting}
+          >
+            {submitting ? (
+              <span className="ot-spinner" aria-hidden="true" />
+            ) : 'Cancel Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── result panel ────────────────────────────────────────────────────────────
 
 function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailResponse; phone: string; onOrderCancelled: (updated: OrderDetailResponse) => void }) {
@@ -126,20 +346,22 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
   const handleCancel = () => setShowCancelModal(true);
 
-  const confirmCancel = async () => {
-    setShowCancelModal(false);
+  const confirmCancel = async (reason: CancelReasonKey, customReason: string) => {
     setCancelling(true);
     setCancelError('');
     setCancelSuccess('');
     try {
-      const result = await cancelOrder(order.sr_cart_id || order.order_id, phone);
+      const result = await cancelOrder(order.sr_cart_id || order.order_id, phone, reason, customReason || undefined);
+      // Close modal on success
+      setShowCancelModal(false);
+
       // An already-shipped order can't be cancelled outright — it goes to
       // "cancellation_requested" while our team cancels it on Shiprocket,
       // and only becomes truly "cancelled" once that's confirmed.
       if (result.cancellation_status === 'pending') {
         setCancelSuccess(
           result.message ||
-            "Your cancellation request has been received. We're confirming this with our shipping partner and will notify you once it's done.",
+            "Your cancellation request has been received. If your order hasn't been shipped yet, it will be cancelled shortly. You'll receive an email once the cancellation is processed.",
         );
         onOrderCancelled({
           ...data,
@@ -178,7 +400,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
     return {
       id:            Number(order.order_id),
-      status:        normalizeStatus(order.order_status || ''),
+      status:        normalizeStatus(order.order_status || '', order.awb_code),
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
@@ -313,35 +535,26 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               </button>
             )}
 
-            {cancelSuccess && <div className="ot-cancel-success">{cancelSuccess}</div>}
+            {cancelSuccess && (
+              <div className="ot-cancel-success">
+                <strong>Your cancellation request has been submitted successfully.</strong>
+                <p style={{ margin: '6px 0 0' }}>
+                  If your order hasn&apos;t been shipped yet, it will be cancelled shortly. You&apos;ll receive an email once the cancellation is processed.
+                </p>
+              </div>
+            )}
             {cancelError   && <div className="ot-error">{cancelError}</div>}
           </div>
         </div>
       </div>
 
-      {/* Cancel confirmation modal */}
+      {/* Cancel reason modal */}
       {showCancelModal && (
-        <div className="ot-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
-          <div className="ot-modal">
-            <div className="ot-modal-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <h3 className="ot-modal-title" id="cancel-modal-title">Cancel this order?</h3>
-            <p className="ot-modal-body">This action cannot be undone. Your order will be permanently cancelled.</p>
-            <div className="ot-modal-actions">
-              <button type="button" className="ot-modal-btn ot-modal-btn--secondary" onClick={() => setShowCancelModal(false)}>
-                Keep Order
-              </button>
-              <button type="button" className="ot-modal-btn ot-modal-btn--danger" onClick={confirmCancel}>
-                Yes, Cancel Order
-              </button>
-            </div>
-          </div>
-        </div>
+        <CancelReasonModal
+          onConfirm={confirmCancel}
+          onClose={() => setShowCancelModal(false)}
+          submitting={cancelling}
+        />
       )}
     </div>
   );

@@ -14,18 +14,43 @@ function formatDate(value: string) {
   return d.toLocaleString();
 }
 
-function normalizeStatus(status: string) {
+// Exception statuses displayed as warning badge on last real step.
+const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
+
+const EXCEPTION_LABEL: Record<string, string> = {
+  undelivered: 'Delivery Attempted',
+  delayed:     'Delayed',
+  damaged:     'Damaged',
+  lost:        'Lost',
+};
+
+/**
+ * Derives canonical timeline key from DB order_status + awb_code presence.
+ * AWB present + still "processing" → ready_to_ship.
+ */
+function normalizeStatus(status: string, awbCode?: string | null): string {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
+
+  if (EXCEPTION_STATUSES.has(s)) return s;
+
+  if (s.includes('rto delivered') || s === 'returned') return 'returned';
+  if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
   if (s.includes('complete')) return 'delivered';
-  if (s.includes('process')) return 'processing';
-  if (s.includes('ship')) return 'shipped';
-  // Must be checked before a generic 'cancel' catch-all elsewhere in this
-  // file (canCancel guard) — a requested-but-not-yet-confirmed cancellation
-  // is a distinct state from an actually-cancelled order.
+  if (s.includes('deliver')) return 'delivered';
+  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
+      s.includes('reached') || s.includes('picked up')) return 'shipped';
+  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
+  if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
+      s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
+    return awbCode ? 'ready_to_ship' : 'processing';
+  }
+  // Must be checked before the generic 'cancel' catch-all.
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
+  if (s.includes('confirm')) return 'confirmed';
   return s;
 }
 
@@ -154,7 +179,7 @@ export default function OrderDetailPage() {
     ].filter(Boolean).join(', ');
     return {
       id: Number(order.order_id),
-      status: normalizeStatus(order.order_status || ''),
+      status: normalizeStatus(order.order_status || '', order.awb_code),
       dateLabel: formatDate(order.order_date || ''),
       totalLabel: formatPrice(totalValue || 0),
       subtotalLabel: formatPrice(subtotalValue || 0),
@@ -176,20 +201,29 @@ export default function OrderDetailPage() {
 
   const statusSteps = useMemo(() => {
     const current = summary?.status || 'pending';
-    const all = ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
-    const map = {
-      pending: 0,
-      confirmed: 0,
-      processing: 1,
-      shipped: 2,
-      out_for_delivery: 3,
-      delivered: 4,
-    } as Record<string, number>;
-    const activeIndex = map[current] ?? 0;
-    return all.map((step, i) => ({
-      key: step,
-      label: step.replace(/_/g, ' '),
-      active: i <= activeIndex,
+    const isCancelled = current === 'cancelled' || current === 'cancellation_pending';
+    const isException = current in EXCEPTION_LABEL;
+    const effectiveStatus = isException ? 'shipped' : current;
+
+    const STEPS = [
+      'pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered',
+    ];
+    const STEP_LABELS: Record<string, string> = {
+      pending: 'Pending', processing: 'Processing', ready_to_ship: 'Ready to Ship',
+      shipped: 'Shipped', out_for_delivery: 'Out for Delivery', delivered: 'Delivered',
+    };
+    const STEP_INDEX: Record<string, number> = {
+      pending: 0, confirmed: 1, processing: 1, ready_to_ship: 2,
+      shipped: 3, out_for_delivery: 4, delivered: 5,
+    };
+    const activeIndex = isCancelled ? -1 : (STEP_INDEX[effectiveStatus] ?? 0);
+
+    return STEPS.map((step, i) => ({
+      key:        step,
+      label:      STEP_LABELS[step] ?? step.replace(/_/g, ' '),
+      active:     !isCancelled && i <= activeIndex,
+      current:    !isCancelled && i === activeIndex && !isException,
+      isWarning:  isException && step === 'shipped',
     }));
   }, [summary]);
 
@@ -274,14 +308,44 @@ export default function OrderDetailPage() {
                         {summary.status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                       </span>
                     </div>
-                    <div className="order-timeline">
-                      {statusSteps.map(step => (
-                        <div key={step.key} className={`timeline-step${step.active ? ' active' : ''}`}>
-                          <span className="timeline-dot" />
-                          <span className="timeline-label">{step.label}</span>
+                    {/* Order timeline */}
+                    {(summary.status === 'return_initiated' || summary.status === 'returned') ? (
+                      <div className="order-timeline order-timeline--return">
+                        <div className="timeline-return-banner">
+                          <span className="timeline-return-icon">↩</span>
+                          <span className="timeline-return-label">
+                            {summary.status === 'returned' ? 'Order Returned' : 'Return Initiated'}
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className={`order-timeline${summary.status === 'cancelled' || summary.status === 'cancellation_pending' ? ' cancelled' : ''}`}>
+                        {statusSteps.map(step => (
+                          <div
+                            key={step.key}
+                            className={[
+                              'timeline-step',
+                              step.active   ? 'active'  : '',
+                              step.current  ? 'current' : '',
+                              step.isWarning ? 'warning' : '',
+                            ].filter(Boolean).join(' ')}
+                          >
+                            <span className="timeline-dot">
+                              {step.active && !step.isWarning && <span className="timeline-dot-check">✓</span>}
+                              {step.isWarning && <span className="timeline-dot-warn">!</span>}
+                            </span>
+                            <span className="timeline-label">
+                              {step.label}
+                              {step.isWarning && summary.status in EXCEPTION_LABEL && (
+                                <span className="timeline-exception-badge">
+                                  {EXCEPTION_LABEL[summary.status]}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="order-detail-card">
