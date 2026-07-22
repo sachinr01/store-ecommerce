@@ -1980,31 +1980,45 @@ const notifyAdminOfFailedShiprocketCancel = async ({ orderId, stage, reason, alr
 
 // Map every Shiprocket status string → our internal status
 const SR_STATUS_MAP = {
-  // Forward journey
-  "NEW":                  "processing",
-  "PICKUP SCHEDULED":     "processing",
-  "PICKUP ERROR":         "processing",
-  "PICKUP QUEUED":        "processing",
-  "PICKUP GENERATED":     "processing",
-  "PICKED UP":            "Shipped",
-  "IN TRANSIT":           "Shipped",
-  "REACHED AT SOURCE HUB":"Shipped",
-  "REACHED AT DESTINATION HUB": "Shipped",
-  "OUT FOR DELIVERY":     "Out for Delivery",
-  "DELIVERED":            "Delivered",
-  // Return / RTO
-  "CANCELLED":            "cancelled",
-  "RTO INITIATED":        "Return Initiated",
-  "RTO IN TRANSIT":       "Return Initiated",
-  "RTO OUT FOR PICKUP":   "Return Initiated",
-  "RTO PICKED":           "Return Initiated",
-  "RTO DELIVERED":        "Returned",
-  // Exceptions
-  "SHIPMENT RETURN":      "Return Initiated",
-  "UNDELIVERED":          "Out for Delivery", // re-attempt expected
-  "DELAYED":              "In Transit",
-  "DAMAGED":              "In Transit",
-  "LOST":                 "In Transit",
+  // ── Forward journey (pre-pickup) ──────────────────────────────────────────
+  "NEW":                           "processing",
+  "PICKUP SCHEDULED":              "processing",
+  "PICKUP QUEUED":                 "processing",
+  "PICKUP GENERATED":              "processing",
+  "PICKUP ERROR":                  "processing",
+  "PICKUP EXCEPTION":              "processing",   // field exec couldn't pickup
+  "PICKUP RESCHEDULED":            "processing",   // rescheduled for next business day
+  "OUT FOR PICKUP":                "processing",   // field exec en route to collect
+  "MANIFEST GENERATED":            "processing",   // manifest created, pre-physical-pickup
+  "AWB ASSIGNED":                  "processing",   // AWB number assigned, not yet picked
+  "FUTURE_PICKUP":                 "processing",   // scheduled future pickup slot
+  // ── In transit ───────────────────────────────────────────────────────────
+  "PICKED UP":                     "Shipped",
+  "IN TRANSIT":                    "Shipped",
+  "REACHED AT SOURCE HUB":         "Shipped",
+  "REACHED AT DESTINATION HUB":    "Shipped",
+  "MISROUTED":                     "Shipped",      // misdirected but still in transit
+  // ── Last mile ────────────────────────────────────────────────────────────
+  "OUT FOR DELIVERY":              "Out for Delivery",
+  "DELIVERED":                     "Delivered",
+  // ── Return / RTO ─────────────────────────────────────────────────────────
+  "CANCELLED":                     "cancelled",
+  "RTO INITIATED":                 "Return Initiated",
+  "RTO IN TRANSIT":                "Return Initiated",
+  "RTO OUT FOR PICKUP":            "Return Initiated",
+  "RTO PICKED":                    "Return Initiated",
+  "RTO DELIVERED":                 "Returned",
+  "SHIPMENT RETURN":               "Return Initiated",
+  "DESTROYED":                     "Return Initiated", // unclaimed NDR shipment destroyed
+  // ── QC / operational ─────────────────────────────────────────────────────
+  "QC FAILED":                     "processing",   // quality check failed at source hub
+  // ── Delivery exceptions (modifiers, NOT separate pipeline stages) ────────
+  // order_status still reflects the pipeline stage; the exception is stored
+  // separately in tbl_ordermeta._shipment_exception (see receiveShipmentWebhook).
+  "UNDELIVERED":                   "Out for Delivery", // NDR — re-attempt expected
+  "DELAYED":                       "Shipped",          // was "In Transit" — inconsistent, now aligned
+  "DAMAGED":                       "Shipped",          // was "In Transit" — inconsistent, now aligned
+  "LOST":                          "Shipped",          // was "In Transit" — inconsistent, now aligned
 };
 
 const receiveShipmentWebhook = async (req, res) => {
@@ -2143,6 +2157,36 @@ const receiveShipmentWebhook = async (req, res) => {
     `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_shipment_activity', ?)`,
     [orderId, activityEntry],
   ).catch((e) => console.error("[SR ShipmentWebhook] activity log insert failed:", e.message));
+
+  // ── 7. Exception flag in ordermeta (_shipment_exception) ────────────────────
+  // Delivery exceptions are pipeline-stage modifiers, not separate stages.
+  // We store them in a dedicated ordermeta key so the frontend can show a
+  // warning badge on the current step without polluting order_status.
+  const EXCEPTION_RAW_STATUSES = new Set(["UNDELIVERED", "DELAYED", "DAMAGED", "LOST"]);
+
+  if (EXCEPTION_RAW_STATUSES.has(rawStatus)) {
+    const exceptionValue = JSON.stringify({
+      type:       rawStatus.toLowerCase(),       // "undelivered" | "delayed" | "damaged" | "lost"
+      raw_status: rawStatus,
+      at:         toStr(body.updated_at || body.created_at || new Date().toISOString()),
+      remark:     toStr(body.remark || body.description || ""),
+    });
+    await db.query(
+      `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value)
+       VALUES (?, '_shipment_exception', ?)
+       ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+      [orderId, exceptionValue],
+    ).catch((e) => console.error("[SR ShipmentWebhook] exception flag upsert failed:", e.message));
+    console.log(`[SR ShipmentWebhook] ⚠️  Exception flag set for order_id=${orderId}: ${rawStatus}`);
+  } else {
+    // Non-exception event — clear any previously set exception flag so the
+    // warning badge disappears once the shipment makes forward progress
+    // (e.g. DELAYED → OUT FOR DELIVERY → DELIVERED).
+    await db.query(
+      `DELETE FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_shipment_exception'`,
+      [orderId],
+    ).catch((e) => console.error("[SR ShipmentWebhook] exception flag clear failed:", e.message));
+  }
 
   console.log(`[SR ShipmentWebhook] ✅ order_id=${orderId} status updated: "${currentStatus}" → "${mappedStatus}"`);
   if (justCancelled) {

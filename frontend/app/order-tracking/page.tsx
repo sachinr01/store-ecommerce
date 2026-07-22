@@ -15,8 +15,10 @@ function formatDate(value: string) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// Exception statuses: displayed as a warning badge on the last real step,
-// not as a distinct timeline step.
+// Exception statuses: surfaced as a warning badge via the shipment_exception
+// field in the API response, NOT encoded in order_status. This set is kept
+// as a safety net for any stale DB rows that might still carry the old strings,
+// but the backend no longer writes these values to order_status.
 const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
 
 /**
@@ -36,17 +38,21 @@ function normalizeStatus(raw: string, awbCode?: string | null): string {
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery check MUST precede the generic 'deliver' check — "Out for Delivery"
+  // lowercased contains 'deliver' so the wrong order would misread it as 'delivered'.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
-  if (s.includes('complete')) return 'delivered';
+  if (s.includes('deliver') || s.includes('complete')) return 'delivered';
   // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return awbCode ? 'ready_to_ship' : 'processing';
   }
+  // 'ready_to_ship' contains the substring 'ship', so the ready check MUST
+  // precede the generic ship check or a raw "ready_to_ship" value would be
+  // misread as 'shipped'.
+  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
-  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
   // AWB assigned but status not yet updated — promote to ready_to_ship
   if (awbCode && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
@@ -107,15 +113,17 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
-function TrackingTimeline({ status }: { status: string }) {
+function TrackingTimeline({ status, exception }: {
+  status: string;
+  exception?: { type: string; at: string; remark?: string } | null;
+}) {
   const isCancelled = status === 'cancelled' || status === 'cancellation_pending';
   const isReturnInitiated = status === 'return_initiated';
   const isReturned = status === 'returned';
-  const isException = status in EXCEPTION_LABEL;
 
-  // For exception states, show the timeline up to "shipped" (last safe step)
-  const effectiveStatus = isException ? 'shipped' : status;
-  const activeIdx = isCancelled ? -1 : (STEP_INDEX[effectiveStatus] ?? 0);
+  // exception prop is the authoritative source — never derived from status string
+  const hasException = Boolean(exception);
+  const activeIdx = isCancelled ? -1 : (STEP_INDEX[status] ?? 0);
 
   // Return states: show a distinct terminal banner instead of the main steps
   if (isReturnInitiated || isReturned) {
@@ -135,9 +143,9 @@ function TrackingTimeline({ status }: { status: string }) {
     <div className={`order-timeline${isCancelled ? ' cancelled' : ''}`}>
       {STEPS.map((step, i) => {
         const active  = !isCancelled && i <= activeIdx;
-        const current = !isCancelled && i === activeIdx && !isException;
-        // On exception states highlight the last real step with a warning
-        const isWarningStep = isException && step === 'shipped';
+        const current = !isCancelled && i === activeIdx && !hasException;
+        // Warning badge attaches to whatever step is currently active, not a hardcoded step
+        const isWarningStep = hasException && i === activeIdx;
         return (
           <div
             key={step}
@@ -154,9 +162,9 @@ function TrackingTimeline({ status }: { status: string }) {
             </span>
             <span className="timeline-label">
               {STEP_LABELS[step] ?? toLabel(step)}
-              {isWarningStep && (
+              {isWarningStep && exception && (
                 <span className="timeline-exception-badge">
-                  {EXCEPTION_LABEL[status]}
+                  {EXCEPTION_LABEL[exception.type] ?? toLabel(exception.type)}
                 </span>
               )}
             </span>
@@ -421,7 +429,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
   return (
     <div className="ot-result">
       {/* Timeline at the very top */}
-      <TrackingTimeline status={summary.status} />
+      <TrackingTimeline status={summary.status} exception={order.shipment_exception} />
 
       {/* Hero */}
       <div className="order-detail-card order-hero">

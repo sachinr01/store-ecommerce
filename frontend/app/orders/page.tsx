@@ -30,8 +30,9 @@ function formatDate(value: string) {
 function normalizeStatus(status: string) {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery MUST precede the generic 'deliver' check
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('deliver')) return 'delivered';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';

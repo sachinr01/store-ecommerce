@@ -37,11 +37,13 @@ function normalizeStatus(status: string, awbCode?: string | null): string {
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
   if (s.includes('complete')) return 'delivered';
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery MUST precede the generic 'deliver' check
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('deliver')) return 'delivered';
+  // 'ready_to_ship' contains 'ship' — ready check must precede ship check
+  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
-  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return awbCode ? 'ready_to_ship' : 'processing';

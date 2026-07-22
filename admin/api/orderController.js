@@ -2807,7 +2807,7 @@ const trackOrderById = async (req, res) => {
             NEW: "Order Confirmed",
             "PICKUP SCHEDULED": "Packed",
             "PICKED UP": "Shipped",
-            "IN TRANSIT": "In Transit",
+            "IN TRANSIT": "Shipped",
             "OUT FOR DELIVERY": "Out for Delivery",
             DELIVERED: "Delivered",
             CANCELLED: "Cancelled",
@@ -2985,6 +2985,15 @@ const trackOrderByPhone = async (req, res) => {
     );
     order.sr_cart_id = cartIdRow?.meta_value || null;
 
+    // Attach shipment_exception flag from ordermeta (null = no active exception)
+    const [[exceptionRow]] = await db.query(
+      `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_shipment_exception' AND order_id = ? LIMIT 1`,
+      [orderId],
+    );
+    order.shipment_exception = exceptionRow
+      ? (() => { try { return JSON.parse(exceptionRow.meta_value); } catch { return null; } })()
+      : null;
+
     // Verify phone server-side
     const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");
     const billingDigits = String(order.billing_phone || "").replace(/\D/g, "");
@@ -3053,20 +3062,32 @@ const trackOrderByPhone = async (req, res) => {
         const td = srRes.data?.tracking_data;
         if (td) {
           const rawStatus = (td.shipment_track?.[0]?.current_status || "").toUpperCase().trim();
-          // Aligned with SR_STATUS_MAP in shiprocketorderwebhook.js.
-          // AWB already exists at this point (we're inside `if (awb)`), so
-          // "processing-tier" statuses promote straight to "Ready to Ship".
+          // Must mirror SR_STATUS_MAP in shiprocketorderwebhook.js exactly.
+          // Exception statuses (UNDELIVERED/DELAYED/DAMAGED/LOST) now map to
+          // the correct pipeline-stage order_status, not a separate exception
+          // string. The exception badge is driven by _shipment_exception ordermeta.
           const statusMap = {
             "NEW":                           "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
             "PICKUP ERROR":                  "Ready to Ship",
             "PICKUP QUEUED":                 "Ready to Ship",
             "PICKUP GENERATED":              "Ready to Ship",
+            "PICKUP EXCEPTION":              "Ready to Ship",
+            "PICKUP RESCHEDULED":            "Ready to Ship",
+            "OUT FOR PICKUP":                "Ready to Ship",
+            "MANIFEST GENERATED":            "Ready to Ship",
+            "AWB ASSIGNED":                  "Ready to Ship",
+            "FUTURE_PICKUP":                 "Ready to Ship",
             "PICKED UP":                     "Shipped",
             "IN TRANSIT":                    "Shipped",
             "REACHED AT SOURCE HUB":         "Shipped",
             "REACHED AT DESTINATION HUB":    "Shipped",
+            "MISROUTED":                     "Shipped",
+            "DELAYED":                       "Shipped",   // exception modifier, NOT a separate stage
+            "DAMAGED":                       "Shipped",   // exception modifier
+            "LOST":                          "Shipped",   // exception modifier
             "OUT FOR DELIVERY":              "Out for Delivery",
+            "UNDELIVERED":                   "Out for Delivery", // NDR, re-attempt expected
             "DELIVERED":                     "Delivered",
             "CANCELLED":                     "cancelled",
             "RTO INITIATED":                 "Return Initiated",
@@ -3075,11 +3096,8 @@ const trackOrderByPhone = async (req, res) => {
             "RTO PICKED":                    "Return Initiated",
             "RTO DELIVERED":                 "Returned",
             "SHIPMENT RETURN":               "Return Initiated",
-            // Exception states — preserve as-is for frontend badge rendering
-            "UNDELIVERED":                   "Undelivered",
-            "DELAYED":                       "Delayed",
-            "DAMAGED":                       "Damaged",
-            "LOST":                          "Lost",
+            "DESTROYED":                     "Return Initiated",
+            "QC FAILED":                     "Ready to Ship",
           };
           const liveStatus = statusMap[rawStatus] || rawStatus;
           if (liveStatus) {
@@ -3090,6 +3108,32 @@ const trackOrderByPhone = async (req, res) => {
               [liveStatus, orderId],
             ).catch(() => {});
           }
+
+          // Sync exception flag from live status
+          const EXCEPTION_RAW = new Set(["UNDELIVERED", "DELAYED", "DAMAGED", "LOST"]);
+          if (EXCEPTION_RAW.has(rawStatus)) {
+            const exceptionValue = JSON.stringify({
+              type:       rawStatus.toLowerCase(),
+              raw_status: rawStatus,
+              at:         new Date().toISOString(),
+              remark:     "",
+            });
+            await db.query(
+              `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value)
+               VALUES (?, '_shipment_exception', ?)
+               ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)`,
+              [orderId, exceptionValue],
+            ).catch(() => {});
+            order.shipment_exception = { type: rawStatus.toLowerCase(), raw_status: rawStatus, at: new Date().toISOString(), remark: "" };
+          } else if (liveStatus) {
+            // Forward progress — clear any stale exception flag
+            await db.query(
+              `DELETE FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_shipment_exception'`,
+              [orderId],
+            ).catch(() => {});
+            order.shipment_exception = null;
+          }
+
           order.courier_name = td.shipment_track?.[0]?.courier_name || order.courier_name || "";
         }
       } catch (trackErr) {
