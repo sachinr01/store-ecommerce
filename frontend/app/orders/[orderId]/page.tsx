@@ -236,7 +236,7 @@ export default function OrderDetailPage() {
     setCancelError('');
     setCancelSuccess('');
     try {
-      const result = await cancelMyOrder(summary.id);
+      const result = await cancelMyOrder(summary.id, 'Customer requested cancellation');
       // An already-shipped order can't be cancelled outright — it goes to
       // "cancellation_requested" while our team cancels it on Shiprocket,
       // and only becomes truly "cancelled" once that's confirmed.
