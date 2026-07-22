@@ -42,6 +42,10 @@ function normalizeStatus(status: string) {
   return s;
 }
 
+// Mirrors the backend's cancellable list in cancelShiprocketOrder:
+// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
+const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'shipped', 'out_for_delivery']);
+
 function toTitleCase(value: string) {
   if (!value) return 'Pending';
   return value.split(' ').filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -311,7 +315,8 @@ export default function OrdersPage() {
                             </div>
 
                             {cards.map((order) => {
-                              const showPendingActions = order.status === 'pending';
+                              const showPayAction = order.status === 'pending';
+                              const canCancelOrder = CANCELLABLE_STATUSES.has(order.status);
                               return (
                                 <div key={order.id} className="orders-row">
                                   <div className="orders-row-id">#{order.id}</div>
@@ -340,12 +345,12 @@ export default function OrdersPage() {
                                     {order.totalLabel} for {order.itemCount} item{order.itemCount === 1 ? '' : 's'}
                                   </div>
                                   <div className="orders-actions">
-                                    {showPendingActions && (
+                                    {showPayAction && (
                                       <Link href={`/orders/${order.id}`} className="btn-view-product">Pay</Link>
                                     )}
                                     <Link href={`/order-tracking`} className="btn-view-product">Track</Link>
                                     <Link href={`/orders/${order.id}`} className="btn-view-product">View</Link>
-                                    {showPendingActions && (
+                                    {canCancelOrder && (
                                       <button
                                         type="button"
                                         className="btn-view-product"

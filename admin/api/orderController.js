@@ -51,20 +51,6 @@ function normalizeOrderLineItems(items) {
 }
 
 // Selects the correct line items for an order from potentially dirty data.
-//
-// Background: legacy orders (and orders placed during checkout bugs) can have
-// multiple sets of line_item rows for the same order_id — one set per checkout
-// attempt. Only the LAST set (highest order_item_ids) represents what was
-// actually paid.
-//
-// Strategy (in order of preference):
-//   1. Walk backward from the last item, accumulating a running sum.
-//      The first contiguous suffix whose sum matches targetSubtotal (within
-//      per-item epsilon) is the correct set.
-//   2. If no exact suffix match: try the same walk with a relaxed tolerance
-//      (handles accumulated floating-point drift across many items).
-//   3. If still no match (subtotal missing / zero / very stale order):
-//      return ALL items sorted by order_item_id — never hide order data.
 function selectEffectiveOrderItems(items, targetSubtotal) {
   const sorted = normalizeOrderLineItems(items);
   if (!sorted.length) return [];
@@ -91,8 +77,6 @@ function selectEffectiveOrderItems(items, targetSubtotal) {
   }
 
   // Fallback: subtotal is stored but no suffix matched at all.
-  // This should be extremely rare (e.g. admin manually edited the subtotal meta).
-  // Return all items rather than silently hiding them.
   return sorted;
 }
 
@@ -173,19 +157,6 @@ async function generateAWB(shipment_id, courierId) {
   return response.data;
 }
 
-// ================================
-// resolveProductCategoryForWigzo is still used by getOrderWigzoData below,
-// which feeds the client-side Wigzo Engage360 tracking script (product view /
-// cart / purchase pixel — a separate product from Shiprocket Engage, and
-// still in active use). It has nothing to do with order-status WhatsApp
-// notifications, which now go entirely through Shiprocket Engage.
-
-// Resolves a product's category for the Wigzo `order` event.
-// Mirrors the same parent/child walk used for YMAL in controller.js:
-//   - `category` = the direct linked category name (most specific, e.g. "Tumblers")
-//   - `type`     = the top-level parent category name (e.g. "Drinkware"),
-//                  or the same as `category` if it has no parent.
-// Returns { category: "", type: "" } if the product has no category link.
 async function resolveProductCategoryForWigzo(productId) {
   if (!productId) return { category: "", type: "" };
   try {
@@ -702,20 +673,7 @@ async function getLatestOrderAddressFallback(userId) {
   return fallback;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // insertAddress helper
-//
-// address_primary → ALWAYS 'no' for order rows.
-//   Only set to 'yes' from profile/address-book page (like Amazon "Set as default").
-//
-// address_billing → identifies billing vs shipping ROW for this order:
-//   'yes' = billing address row
-//   'no'  = shipping address row
-//
-// Two types of rows in tbl_user_address:
-//   ORDER rows        → order_id = real ID, address_primary = 'no'
-//   SAVED ADDR rows   → order_id = NULL,    address_primary = 'yes'/'no'
-// ─────────────────────────────────────────────────────────────────────────────
 async function insertAddress(
   conn,
   { userId, orderId, address, isBilling, createdAt, notes = null },
@@ -789,26 +747,9 @@ const placeOrder = async (req, res) => {
   }
 
   // ── 0. Resolve userId — guest checkout gets a real row in tbl_users ─────────
-  // Logged-in users keep their existing ID.
-  // Guests are upserted by email so:
-  //   (a) per-user coupon limits work for guests, and
-  //   (b) when a guest later registers/logs in with the same email their
-  //       full order history is automatically visible (same user_id on tbl_orders).
-  // user_pass stays '' so the guest row can never be used to log in directly —
-  // verifyPassword() returns { ok: false } whenever storedHash is falsy.
-  // user_type = 4 (Guests) distinguishes these rows from real customers (type 3).
   let userId = user ? user.id : 0;
 
   if (!user) {
-    // ── Guest: store details from billing info (first_name, last_name, email) ─
-    // Email comes from the Contact Info section on checkout (contactEmail state),
-    // which is injected into resolvedBilling.email before the order is sent.
-    // first_name + last_name come from the Shipping/Billing address form.
-    // We use INSERT IGNORE so that if two orders arrive at the exact same
-    // millisecond with the same email (race condition), only one row is created
-    // and both orders correctly resolve to the same user_id via the re-fetch.
-    // UNIQUE KEY uq_user_email on tbl_users is required for INSERT IGNORE to work
-    // — see migration in comments below.
     const guestEmail   = billing.email.toLowerCase().trim();
     const guestDisplay = `${billing.first_name} ${billing.last_name}`.trim();
 
@@ -843,12 +784,7 @@ const placeOrder = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // ── 1. Fetch cart items ───────────────────────────────────────────────────
-    // Logged-in users: cart rows are stored with user_id.
-    // Guests: we just created/found a userId above, but their cart rows are still
-    // stored anonymously (user_id IS NULL) under cookie_id or session_id.
-    // So for guests we fetch by cookie/session first, and fall back to user_id
-    // only for proper logged-in customers.
+    // ── 1. Fetch cart items ─────────────────────────────────────────────────
     let cartItems;
     if (user) {
       // Real logged-in user — cart rows carry user_id
@@ -1366,14 +1302,7 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    // ── 5. tbl_user_address: always 2 rows per order ─────────────────────────
-    //    Whether user used saved address or typed new address — always insert fresh.
-    //    Saved address (order_id = NULL) is just a template to pre-fill the form.
-    //    Order rows always get a real order_id.
-    //
-    //    address_primary = 'no' always for order rows
-    //    address_billing = 'yes' → billing row
-    //    address_billing = 'no'  → shipping row
+    // ── 5. tbl_user_address: always 2 rows per order ─────────────
     const addressUserId = userId > 0 ? userId : null;
     const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
 
@@ -1515,10 +1444,7 @@ const placeOrder = async (req, res) => {
       );
     }
 
-    // ── 8. Clear cart ─────────────────────────────────────────────────────────
-    // Logged-in users: cart rows are keyed by user_id.
-    // Guests: even though we now have a userId (from upsert), their cart rows
-    // are still stored anonymously (user_id IS NULL) under cookie/session.
+    // ── 8. Clear cart ──────────────────────────────────────────────────────
     if (user) {
       await conn.query("DELETE FROM cart_items WHERE user_id = ?", [userId]);
     } else if (key === "cookie_id") {
@@ -1575,10 +1501,6 @@ const placeOrder = async (req, res) => {
       const srCartId = srCartRow ? srCartRow.meta_value : null;
 
       // Logo served from public folder
-      // (matches the BASE_URL convention used by shiprocketorderwebhook.js /
-      //  shiprocketCheckoutController.js — SITE_URL was never set anywhere in this
-      //  codebase, so this previously resolved to a bare "/images/logo-white.png"
-      //  with no domain, which is broken in every email client.)
       const siteBase = process.env.BASE_URL || process.env.SITE_URL || "https://nestcase.in";
       const logoUrl  = `${siteBase}/images/logo-white.png`;
 
@@ -1813,11 +1735,6 @@ const placeOrder = async (req, res) => {
     }
 
     // NOTE: no server-side WhatsApp/SMS push here. Order confirmation for
-    // this checkout path is handled by client-side Wigzo Engage360 tracking
-    // on the Thank You page (see getOrderWigzoData) — the server-side push to
-    // app.wigzo.com/api/v1/track used to live here but 404'd (wrong/undocumented
-    // endpoint) and duplicated that client-side event anyway, so it's removed
-    // rather than fixed.
 
     res.json({
       success: true,
@@ -1843,12 +1760,7 @@ const placeOrder = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // getDefaultAddress
-// Pre-fills checkout form with user's default saved address.
-// Only looks at saved address rows (order_id IS NULL).
-// Frontend: GET /api/address/default
-// ─────────────────────────────────────────────────────────────────────────────
 const getDefaultAddress = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -1870,13 +1782,7 @@ const getDefaultAddress = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // setDefaultAddress
-// User sets a saved address as default from profile/address-book page.
-// Only touches saved address rows (order_id IS NULL).
-// Order rows are never affected.
-// Frontend: PUT /api/address/default/:addressId
-// ─────────────────────────────────────────────────────────────────────────────
 const setDefaultAddress = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -2091,13 +1997,7 @@ const updateProfileAddress = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // resolveLinkedUserIds
-// Orders placed via Shiprocket Checkout are stored under a guest user ID
-// resolved from phone/email — NOT the logged-in customer's ID. This helper
-// collects ALL user IDs (real + guest) that belong to the same customer so
-// getMyOrders and getMyOrderById can include those orders.
-// ─────────────────────────────────────────────────────────────────────────────
 async function resolveLinkedUserIds(userId, sessionEmail) {
   const userIds = new Set([userId]);
 
@@ -2154,13 +2054,7 @@ async function resolveLinkedUserIds(userId, sessionEmail) {
   return Array.from(userIds);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // getMyOrders
-// Frontend: GET /api/orders/my
-// Returns orders scoped to the user's verified phone number (billing_phone in
-// usermeta). This ensures a logged-in user only sees orders placed with their
-// own phone, regardless of which guest/user account was used at checkout.
-// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrders = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -2178,9 +2072,6 @@ const getMyOrders = async (req, res) => {
     let orders;
 
     if (verifiedPhone) {
-      // Primary path: fetch all orders whose billing phone in ordermeta OR
-      // in tbl_user_address matches the user's verified 10-digit phone.
-      // Also include orders directly owned by the linked user_id list.
       const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
 
       const [rows] = await db.query(
@@ -2358,13 +2249,7 @@ const getAllOrders = async (_req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // getMyOrderById
-// name/email  → tbl_users via user_id        (sir's instruction)
-// address     → tbl_user_address via order_id (sir's instruction)
-// financials  → tbl_ordermeta
-// Frontend: GET /api/orders/:orderId
-// ─────────────────────────────────────────────────────────────────────────────
 const getMyOrderById = async (req, res) => {
   const user = getSessionUser(req);
   if (!user) {
@@ -2606,11 +2491,6 @@ const updateOrderStatus = async (req, res) => {
     await conn.beginTransaction();
 
     // FOR UPDATE locks this row for the rest of the transaction — if two
-    // requests for the same order land concurrently (e.g. a double-click,
-    // or this racing against the Shiprocket cancellation webhook), the
-    // second one blocks here until the first commits, then reads the
-    // ALREADY-UPDATED status. Without this lock, both could read the same
-    // stale previousStatus and both decide to restore stock / notify.
     const [[currentOrder]] = await conn.query(
       "SELECT order_status, awb_code, shipment_id, sr_cart_id FROM tbl_orders WHERE order_id = ? LIMIT 1 FOR UPDATE",
       [orderId],
@@ -2618,12 +2498,6 @@ const updateOrderStatus = async (req, res) => {
     const previousStatus = currentOrder ? currentOrder.order_status : "";
 
     // ── Guard: admin sets status → "cancelled". Always attempt the real
-    //    Shiprocket cancel first, same as the customer-facing cancel
-    //    endpoint — AWB assignment alone does NOT mean Shiprocket will
-    //    reject the cancel call; it accepts it right up until a courier has
-    //    actually picked the shipment up. Only fall back to
-    //    'cancellation_requested' + admin email if Shiprocket genuinely
-    //    can't cancel it (already picked up / in transit). ─────────────────
     const awb        = toStr(currentOrder?.awb_code);
     const shipmentId = toStr(currentOrder?.shipment_id);
     const srCartId   = toStr(currentOrder?.sr_cart_id);
@@ -2634,6 +2508,30 @@ const updateOrderStatus = async (req, res) => {
         cancelOnShiprocketPanel,
         notifyAdminOfCancellationRequest,
       } = require("./shiprocketorderwebhook");
+
+      const goPending = async () => {
+        const requestedAt = new Date().toISOString();
+        await conn.query(
+          "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
+          [orderId],
+        );
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
+          [orderId, requestedAt],
+        );
+        await conn.commit();
+
+        notifyAdminOfCancellationRequest({
+          orderId, srCartId, requestedAt, awb, shipmentId,
+          alreadyShipped: Boolean(awb),
+        }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
+
+        return res.json({
+          success: true,
+          message: "Shiprocket could not cancel this order automatically — flagged as cancellation_requested and ops notified.",
+          cancellation_status: "pending",
+        });
+      };
 
       let srResult = { cancelled: false, stage: "not_attempted", reason: null };
       try {
@@ -2648,37 +2546,11 @@ const updateOrderStatus = async (req, res) => {
         console.error(`[updateOrderStatus] Shiprocket cancel attempt threw for order ${orderId}:`, srErr.response?.data || srErr.message);
       }
 
-      if (!srResult.cancelled && awb) {
-        // Genuinely couldn't cancel — likely already picked up. Go pending
-        // rather than falsely marking it cancelled.
-        const requestedAt = new Date().toISOString();
-        await conn.query(
-          "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
-          [orderId],
-        );
-        await conn.query(
-          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_cancel_requested_at', ?)`,
-          [orderId, requestedAt],
-        );
-        await conn.commit();
-
-        notifyAdminOfCancellationRequest({
-          orderId, srCartId, requestedAt, awb, shipmentId,
-        }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
-
-        return res.json({
-          success: true,
-          message: "Shiprocket could not cancel this order automatically (likely already picked up) — flagged as cancellation_requested and ops notified.",
-          cancellation_status: "pending",
-        });
-      }
-      // Otherwise: cancelled successfully via the API (with or without an
-      // AWB), or the call failed for a reason unrelated to shipment status
-      // (e.g. an auth hiccup on a pre-AWB order) — fall through and write
-      // order_status = 'cancelled' below either way, same as cancelShiprocketOrder.
       if (!srResult.cancelled) {
-        console.warn(`[updateOrderStatus] Shiprocket cancel failed for order ${orderId} (stage=${srResult.stage}): ${srResult.reason} — proceeding with local cancel anyway.`);
+        return goPending();
       }
+      // Cancelled successfully via the API — fall through and write
+      // order_status = 'cancelled' below, same as cancelShiprocketOrder.
     }
 
     await conn.query(
@@ -3063,9 +2935,6 @@ const trackOrderByPhone = async (req, res) => {
         if (td) {
           const rawStatus = (td.shipment_track?.[0]?.current_status || "").toUpperCase().trim();
           // Must mirror SR_STATUS_MAP in shiprocketorderwebhook.js exactly.
-          // Exception statuses (UNDELIVERED/DELAYED/DAMAGED/LOST) now map to
-          // the correct pipeline-stage order_status, not a separate exception
-          // string. The exception badge is driven by _shipment_exception ordermeta.
           const statusMap = {
             "NEW":                           "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
@@ -3340,13 +3209,6 @@ const downloadInvoice = async (req, res) => {
   }
 };
 
-// ── getOrderWigzoData ─────────────────────────────────────────────────────────
-// Public endpoint — no login required. Returns the minimal fields the
-// client-side Wigzo `order` event needs, fetched by DB order_id.
-// Called from the /checkout?oid=...&ost=SUCCESS Thank You page immediately
-// after srVerifyStatus === 'confirmed', so the browser-side wigzo('track',
-// 'order', {...}) call fires with real data instead of the broken server-side
-// POST to /api/v1/track (which returned 404 — wrong endpoint, not documented).
 const getOrderWigzoData = async (req, res) => {
   const orderId = Number.parseInt(req.params.orderId, 10);
   if (!Number.isFinite(orderId) || orderId <= 0) {

@@ -66,6 +66,14 @@ function toLabel(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Mirrors the backend's cancellable list in cancelShiprocketOrder:
+// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
+// "ready_to_ship" is included because normalizeStatus() above maps a
+// backend status of "processing" + an assigned AWB to "ready_to_ship" —
+// the backend still treats that order as "processing" and will attempt
+// the cancel, so the button must stay visible in that window too.
+const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery']);
+
 // strip non-digits for phone comparison
 function digitsOnly(v: string) {
   return v.replace(/\D/g, '');
@@ -532,7 +540,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               DOWNLOAD INVOICE
             </a>
 
-            {['pending', 'processing', 'on-hold'].includes(summary.status) && (
+            {CANCELLABLE_STATUSES.has(summary.status) && (
               <button
                 type="button"
                 className="ot-btn ot-btn--cancel"

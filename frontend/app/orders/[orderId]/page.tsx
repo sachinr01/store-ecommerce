@@ -24,6 +24,14 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
+// Mirrors the backend's cancellable list in cancelShiprocketOrder:
+// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
+// "ready_to_ship" is included because our own normalizeStatus() maps a
+// backend status of "processing" + an assigned AWB to "ready_to_ship" —
+// the backend still treats that order as "processing" and will attempt
+// the cancel, so the button must stay visible in that window too.
+const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery']);
+
 /**
  * Derives canonical timeline key from DB order_status + awb_code presence.
  * AWB present + still "processing" → ready_to_ship.
@@ -229,7 +237,7 @@ export default function OrderDetailPage() {
     }));
   }, [summary]);
 
-  const canCancel = summary?.status === 'pending' || summary?.status === 'processing';
+  const canCancel = Boolean(summary?.status && CANCELLABLE_STATUSES.has(summary.status));
 
   const handleCancel = async () => {
     if (!summary || !orderId) return;

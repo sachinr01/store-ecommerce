@@ -174,17 +174,12 @@ router.post('/shiprocket/finalize-checkout', shiprocket.finalizeCheckoutContext)
 router.post('/shiprocket/order-webhook', receiveOrderWebhook);
 
 // ── Shiprocket Shipment Status Webhook ────────────────────────────────────────
-// Shiprocket calls this when shipment status changes (picked up, in transit, delivered, etc.)
-// Configure URL in: Shiprocket Dashboard → Settings → Webhooks
-// Auth: x-api-key header = SHIPROCKET_WEBHOOK_TOKEN from .env
 router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
 
 // ── Shiprocket Order Cancel (public — phone verified) ─────────────────────────
 router.post('/shiprocket/cancel-order', cancelShiprocketOrder);
 
 // ── Shiprocket Admin Catalog Sync Webhooks ────────────────────────────────────
-// Manually push a product or collection update to Shiprocket.
-// Can also be wired into your admin save handlers automatically.
 router.post(
   '/admin/shiprocket/webhook/product/:productId',
   requireAdmin,
@@ -197,17 +192,6 @@ router.post(
 );
 
 // ── Shiprocket Catalog Auto-Sync ───────────────────────────────────────────────
-// FIX (2026-06-25): Shiprocket caches your product catalog and only refreshes
-// it when the Product Update webhook fires. Nothing was calling that webhook
-// automatically, so price edits (e.g. ₹899 → ₹799) never reached Shiprocket
-// and the checkout kept charging the old price.
-//
-// 1) startCatalogSync() below runs a background watcher that polls for price/
-//    stock changes every 2 minutes and auto-pushes the webhook — works no
-//    matter which tool edited the price.
-// 2) This route gives your (separate) admin app an INSTANT option: call it
-//    right after saving a product and the new price reaches Shiprocket
-//    immediately instead of waiting for the next poll tick.
 router.post(
   '/admin/shiprocket/sync-now/:productId',
   requireAdmin,

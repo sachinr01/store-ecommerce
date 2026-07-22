@@ -385,10 +385,6 @@ const receiveOrderWebhook = async (req, res) => {
 
 
   // Shiprocket's checkout webhook sends the actual payment info nested under
-  // `paymentDetails` (paymentMode/paymentGateway/transactionId/amount) — it does
-  // NOT send top-level `payment_type`/`payment_method` fields. Those top-level
-  // fields are kept as a fallback in case SR changes the payload shape later,
-  // but `paymentDetails.paymentMode` is the primary, authoritative source.
   const paymentDetails = body.paymentDetails || {};
   const rawPaymentType = toStr(
     body.payment_type || body.payment_method || paymentDetails.paymentMode || "",
@@ -859,9 +855,6 @@ const receiveOrderWebhook = async (req, res) => {
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
     // Declared here (outer scope) — not inside the email try{} block below —
-    // so that future additions can access them without redeclaring.
-    // Use enteredEmail (typed by user in SR iframe) first, fall back to
-    // userEmail only if it's a real address (registered customers).
     const buyerEmail = isRealEmail(enteredEmail)
       ? enteredEmail
       : isRealEmail(userEmail) ? userEmail : "";
@@ -1047,12 +1040,6 @@ const receiveOrderWebhook = async (req, res) => {
     }
 
     // NOTE: no server-side WhatsApp/SMS push here. This fires from inside
-    // Shiprocket's own "order placed" webhook, so Shiprocket Engage already
-    // sends the order-confirmation WhatsApp natively off that same event —
-    // there's nothing for us to trigger. The old Wigzo push that used to
-    // live here posted to app.wigzo.com/api/v1/track, which 404'd (wrong/
-    // undocumented endpoint — see getOrderWigzoData) and duplicated Engage
-    // anyway, so it's removed rather than fixed.
 
     return res.status(200).json({ success: true, order_id: orderId });
 
@@ -1111,18 +1098,6 @@ const fetchSROrderDetails = async (srOrderId) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────────
-   Shiprocket Panel API — Bearer token (apiv2.shiprocket.in)
-   Uses SHIPROCKET_EMAIL + SHIPROCKET_PASSWORD from .env
-
-   Token fetching itself now lives in shiprocketAuth.js — a single shared,
-   cached implementation used by every Shiprocket-calling module in the
-   app. There used to be a second, independent, UNCACHED login function in
-   orderController.js (called on every order/AWB/courier action) sharing
-   the same Shiprocket account — that was very likely tripping Shiprocket's
-   login rate limit and causing the 403s seen here, on a completely
-   unrelated code path (cancellation). See shiprocketAuth.js for details.
-───────────────────────────────────────────────────────────── */
 const { getShiprocketToken: getSRPanelToken } = require("./shiprocketAuth");
 
 /** Resolve Shiprocket panel order ID (numeric) for cancel API. */
@@ -1197,16 +1172,6 @@ const resolveShiprocketPanelOrderId = async (conn, orderId, hints = {}) => {
   }
 };
 
-/**
- * Cancel on Shiprocket fulfillment panel — order first, then shipment/AWB fallback.
- *
- * Returns a result object (never throws) so the caller always knows exactly
- * what happened and why, instead of a bare boolean that hides the reason:
- *   { cancelled: boolean, stage: string, reason?: string }
- *
- * stage is one of: "order" | "awb" | "shipment" (on success),
- *                   "auth" | "exhausted" (on failure)
- */
 const cancelOnShiprocketPanel = async ({ srPanelOrderId, awb, shipmentId, alreadyShipped }) => {
   // ── 0. Get a token, with one forced-refresh retry if the cached one is bad ──
   let token;
@@ -1288,12 +1253,6 @@ const cancelOnShiprocketPanel = async ({ srPanelOrderId, awb, shipmentId, alread
     }
   }
 
-  // ── 4. Everything failed. If the order was already picked up by a courier,
-  //      a plain "cancel" call often can't undo that — Shiprocket generally
-  //      requires an RTO (return-to-origin) flow instead, which isn't something
-  //      this endpoint can trigger safely on its own. Flag it distinctly so the
-  //      caller can route it to manual review rather than silently retrying
-  //      the same calls forever. ───────────────────────────────────────────────
   return {
     cancelled: false,
     stage: "exhausted",
@@ -1303,16 +1262,6 @@ const cancelOnShiprocketPanel = async ({ srPanelOrderId, awb, shipmentId, alread
   };
 };
 
-/**
- * Restore stock for every line item on an order. Shared by:
- *   - cancelShiprocketOrder (pre-shipment orders, cancelled immediately)
- *   - receiveShipmentWebhook (post-shipment orders, once Shiprocket confirms
- *     the manual cancellation with a CANCELLED shipment status)
- *
- * `runner` can be a transaction connection (has .query, mid-transaction) or
- * the plain db pool (auto-commits each statement) — both expose the same
- * .query(sql, params) shape, so this works either way.
- */
 const restoreOrderStock = async (runner, orderId) => {
   const [orderItems] = await runner.query(
     `SELECT oi.product_id,
@@ -1351,21 +1300,62 @@ const restoreOrderStock = async (runner, orderId) => {
   }
 };
 
-/**
- * Builds the admin/ops email fired when a customer requests cancellation on
- * an order that has ALREADY been shipped (AWB assigned). Shiprocket doesn't
- * let us cancel those over the API, so a human has to cancel it manually on
- * the Shiprocket seller panel — this email is what tells them to.
- *
- * The Shiprocket cart id (sr_cart_id) is surfaced prominently since every
- * order is filed/searchable on the Shiprocket panel under that reference,
- * not the internal order id.
- */
+const CANCEL_REASON_LABELS = {
+  found_better_price: "Found a better price elsewhere",
+  delivery_too_long:  "Delivery is taking too long",
+  no_longer_needed:   "No longer need this item",
+  wrong_product:       "Ordered the wrong product / variant",
+  other:               "Other",
+};
+
 function buildCancellationRequestEmailHtml({
   orderId, srCartId, requestedAt, customerName, customerEmail, customerPhone,
   shippingAddr, items, total, paymentMethod, awb, shipmentId, courierName,
+  mode = "pending", // "pending" = needs manual action | "auto_cancelled" = already done, FYI only
+  alreadyShipped = false,
+  reason = null,
+  customReasonText = null,
 }) {
   const payLabel = (paymentMethod || "").toLowerCase() === "cod" ? "Cash on Delivery" : "Online Payment";
+  const isAutoCancelled = mode === "auto_cancelled";
+
+  const reasonLabel = reason ? (CANCEL_REASON_LABELS[reason] || reason) : null;
+
+  const banner = isAutoCancelled
+    ? (alreadyShipped
+        ? `&#9989; <strong>FYI — no action needed:</strong> this order had already shipped (AWB assigned), but
+           Shiprocket accepted the cancellation automatically. It's marked <strong>Cancelled</strong> and the
+           customer has been notified via WhatsApp. Sharing the details below for your records.`
+        : `&#9989; <strong>FYI — no action needed:</strong> this order was cancelled successfully before it
+           shipped. It's marked <strong>Cancelled</strong> and the customer has been notified. Sharing the
+           details below for your records.`)
+    : (alreadyShipped
+        ? `&#9888;&#65039; <strong>Action needed:</strong> this order has already been shipped (AWB assigned), so it
+           couldn't be cancelled automatically. Please cancel it manually on the
+           <a href="https://app.shiprocket.in/seller/orders/all" style="color:#7a4a00;">Shiprocket seller panel</a>
+           using the reference below.`
+        : `&#9888;&#65039; <strong>Action needed:</strong> this order could not be cancelled automatically on
+           Shiprocket (the cancel call did not go through), even though it hasn't shipped yet. Please cancel it
+           manually on the
+           <a href="https://app.shiprocket.in/seller/orders/all" style="color:#7a4a00;">Shiprocket seller panel</a>
+           and check the server logs for the underlying reason.`);
+  const bannerBg     = isAutoCancelled ? "#e8f5e9" : "#fff3e0";
+  const bannerBorder = isAutoCancelled ? "#c8e6c9" : "#ffe0b2";
+  const bannerColor  = isAutoCancelled ? "#256029" : "#7a4a00";
+
+  const heading = isAutoCancelled ? "Order Cancelled" : "Cancellation Requested";
+  const introText = isAutoCancelled
+    ? `The customer requested cancellation of order <strong>#NC${escHtml(String(orderId))}</strong> on
+       ${escHtml(requestedAt)}. Shiprocket cancelled it successfully — it's now showing as
+       <strong>"Cancelled"</strong> to the customer.`
+    : `The customer has requested cancellation of order <strong>#NC${escHtml(String(orderId))}</strong> on
+       ${escHtml(requestedAt)}. It is showing as <strong>"Cancellation Requested"</strong> to the customer
+       until it's cancelled on Shiprocket.`;
+  const footerNote = isAutoCancelled
+    ? `This order is fully cancelled — nothing further to do. Stock has been restored automatically.`
+    : `Once this order is cancelled on the Shiprocket panel, Shiprocket's status webhook will automatically
+       mark it cancelled here and the customer will get a WhatsApp cancellation notice — no further action
+       needed beyond cancelling it there.`;
 
   const itemRows = (items || []).map((item) => `
     <tr>
@@ -1396,22 +1386,17 @@ function buildCancellationRequestEmailHtml({
       </tr>
 
       <tr><td style="padding:0;">
-        <table cellpadding="0" cellspacing="0" width="100%" style="background:#fff3e0;border-bottom:1px solid #ffe0b2;">
-          <tr><td style="padding:14px 26px;font-family:Arial,sans-serif;font-size:14px;color:#7a4a00;">
-            &#9888;&#65039; <strong>Action needed:</strong> this order has already been shipped (AWB assigned), so it
-            can't be cancelled automatically. Please cancel it manually on the
-            <a href="https://app.shiprocket.in/seller/orders/all" style="color:#7a4a00;">Shiprocket seller panel</a>
-            using the reference below.
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:${bannerBg};border-bottom:1px solid ${bannerBorder};">
+          <tr><td style="padding:14px 26px;font-family:Arial,sans-serif;font-size:14px;color:${bannerColor};">
+            ${banner}
           </td></tr>
         </table>
       </td></tr>
 
       <tr><td style="padding:26px 26px 10px;">
-        <h2 style="margin:0 0 6px;font-size:20px;color:#1b1b1b;font-family:Arial,sans-serif;">Cancellation Requested</h2>
+        <h2 style="margin:0 0 6px;font-size:20px;color:#1b1b1b;font-family:Arial,sans-serif;">${escHtml(heading)}</h2>
         <p style="margin:0 0 22px;font-size:14px;color:#555;font-family:Arial,sans-serif;">
-          The customer has requested cancellation of order <strong>#NC${escHtml(String(orderId))}</strong> on
-          ${escHtml(requestedAt)}. It is showing as <strong>"Cancellation Requested"</strong> to the customer
-          until it's cancelled on Shiprocket.
+          ${introText}
         </p>
 
         <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;">
@@ -1433,6 +1418,14 @@ function buildCancellationRequestEmailHtml({
               </table>
             </td>
           </tr>
+        </table>
+
+        <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Cancellation Reason</h3>
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;margin:0 0 20px;">
+          <tr><td style="padding:10px 14px;font-size:13px;color:#1b1b1b;font-family:Arial,sans-serif;">
+            ${reasonLabel ? escHtml(reasonLabel) : "<span style=\"color:#999;\">Not provided</span>"}
+            ${customReasonText ? `<div style="margin-top:4px;font-size:12px;color:#555;">"${escHtml(customReasonText)}"</div>` : ""}
+          </td></tr>
         </table>
 
         <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Shipment Details</h3>
@@ -1480,9 +1473,7 @@ function buildCancellationRequestEmailHtml({
         </table>
 
         <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.7;font-family:Arial,sans-serif;">
-          Once this order is cancelled on the Shiprocket panel, Shiprocket's status webhook will automatically
-          mark it cancelled here and the customer will get a WhatsApp cancellation notice — no further action
-          needed beyond cancelling it there.
+          ${footerNote}
         </p>
       </td></tr>
 
@@ -1496,23 +1487,7 @@ function buildCancellationRequestEmailHtml({
 </body></html>`;
 }
 
-/**
- * Fires the "please cancel this manually on Shiprocket" email to ops, with
- * full order context, when a customer's cancel request comes in for an
- * order that's already shipped (AWB present). Best-effort / non-throwing —
- * a broken SMTP config must never block the cancellation-request flow.
- */
-const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt, awb, shipmentId }) => {
-  const recipients = OWNER_EMAILS.length
-    ? OWNER_EMAILS
-    : (process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_SENDER_EMAIL || "")
-        .split(",").map((e) => e.trim()).filter(Boolean);
-
-  if (!recipients.length) {
-    console.warn(`[notifyAdminOfCancellationRequest] No RECEIVED_EMAIL configured — skipping alert for order ${orderId}`);
-    return;
-  }
-
+async function gatherCancellationEmailData(orderId) {
   const [[order]] = await db.query(
     `SELECT o.order_id, o.courier_name, o.user_id,
             MAX(u.user_email) AS user_email,
@@ -1540,10 +1515,7 @@ const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt
      GROUP BY o.order_id`,
     [orderId],
   );
-  if (!order) {
-    console.warn(`[notifyAdminOfCancellationRequest] order ${orderId} not found — skipping alert`);
-    return;
-  }
+  if (!order) return null;
 
   const [items] = await db.query(
     `SELECT oi.order_item_name AS title, oi.product_id,
@@ -1569,10 +1541,7 @@ const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt
     });
   }
 
-  const html = buildCancellationRequestEmailHtml({
-    orderId,
-    srCartId,
-    requestedAt,
+  return {
     customerName: [order.ship_first_name || order.bill_first_name, order.ship_last_name || order.bill_last_name].filter(Boolean).join(" ") || "Customer",
     customerEmail: toStr(order.billing_email || order.user_email),
     customerPhone: toStr(order.ship_phone || order.bill_phone),
@@ -1586,8 +1555,36 @@ const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt
     items: itemsWithSku,
     total: order.total,
     paymentMethod: order.payment_method,
-    awb, shipmentId,
     courierName: order.courier_name,
+  };
+}
+
+function getCancellationEmailRecipients() {
+  return OWNER_EMAILS.length
+    ? OWNER_EMAILS
+    : (process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_SENDER_EMAIL || "")
+        .split(",").map((e) => e.trim()).filter(Boolean);
+}
+
+const notifyAdminOfCancellationRequest = async ({
+  orderId, srCartId, requestedAt, awb, shipmentId,
+  alreadyShipped = false, reason = null, customReasonText = null,
+}) => {
+  const recipients = getCancellationEmailRecipients();
+  if (!recipients.length) {
+    console.warn(`[notifyAdminOfCancellationRequest] No RECEIVED_EMAIL configured — skipping alert for order ${orderId}`);
+    return;
+  }
+
+  const data = await gatherCancellationEmailData(orderId);
+  if (!data) {
+    console.warn(`[notifyAdminOfCancellationRequest] order ${orderId} not found — skipping alert`);
+    return;
+  }
+
+  const html = buildCancellationRequestEmailHtml({
+    orderId, srCartId, requestedAt, awb, shipmentId, mode: "pending",
+    alreadyShipped, reason, customReasonText, ...data,
   });
 
   await Promise.all(
@@ -1603,12 +1600,40 @@ const notifyAdminOfCancellationRequest = async ({ orderId, srCartId, requestedAt
   );
 };
 
-/* ─────────────────────────────────────────────────────────────
-   POST /api/shiprocket/cancel-order
-   POST /api/orders/:orderId/cancel
-   Public — verified by phone match OR logged-in order owner
-   Body: { orderId?, phone? }
-───────────────────────────────────────────────────────────── */
+const notifyAdminOfOrderAutoCancelled = async ({
+  orderId, srCartId, requestedAt, awb, shipmentId,
+  alreadyShipped = false, reason = null, customReasonText = null,
+}) => {
+  const recipients = getCancellationEmailRecipients();
+  if (!recipients.length) {
+    console.warn(`[notifyAdminOfOrderAutoCancelled] No RECEIVED_EMAIL configured — skipping FYI for order ${orderId}`);
+    return;
+  }
+
+  const data = await gatherCancellationEmailData(orderId);
+  if (!data) {
+    console.warn(`[notifyAdminOfOrderAutoCancelled] order ${orderId} not found — skipping FYI`);
+    return;
+  }
+
+  const html = buildCancellationRequestEmailHtml({
+    orderId, srCartId, requestedAt, awb, shipmentId, mode: "auto_cancelled",
+    alreadyShipped, reason, customReasonText, ...data,
+  });
+
+  await Promise.all(
+    recipients.map((toEmail) =>
+      sendBrevoEmail({
+        toEmail,
+        subject: `✅ Order Cancelled — Order #NC${orderId} (SR Cart: ${srCartId || "—"}) — shipped order, cancelled automatically`,
+        html,
+      }).catch((e) =>
+        console.error(`[notifyAdminOfOrderAutoCancelled] alert email to ${toEmail} failed:`, e.message),
+      ),
+    ),
+  );
+};
+
 // Valid cancellation reason keys (stored in DB, sent from frontend)
 const CANCEL_REASON_KEYS = [
   "found_better_price",
@@ -1663,8 +1688,6 @@ const cancelShiprocketOrder = async (req, res) => {
     }
 
     // ── 2. Load order + phone (FOR UPDATE: locks this row so a double-click
-    //      or duplicate request for the same order can't race past the
-    //      "already cancelled" guard below before either commits) ───────────
     const [[order]] = await conn.query(
       `SELECT o.order_id, o.user_id, o.order_status, o.awb_code, o.shipment_id, o.sr_cart_id,
               MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone END) AS billing_phone,
@@ -1717,7 +1740,7 @@ const cancelShiprocketOrder = async (req, res) => {
         message: "Your cancellation request is already being processed. We'll notify you once it's confirmed.",
       });
     }
-    const cancellable = ["pending", "processing", "on-hold"];
+    const cancellable = ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"];
     if (!cancellable.includes(order.order_status)) {
       await conn.rollback();
       return res.status(400).json({
@@ -1729,56 +1752,13 @@ const cancelShiprocketOrder = async (req, res) => {
     const awb        = toStr(order.awb_code);
     const shipmentId = toStr(order.shipment_id);
     const srCartId   = toStr(order.sr_cart_id);
-    // awb_code is only populated once a courier has actually been assigned
-    // (see receiveShipmentWebhook / order creation) — best available proxy
-    // for "this has already left pre-shipment state". Shiprocket does not
-    // allow cancelling an order over the API once a courier/AWB is assigned,
-    // so those go to the "pending manual cancellation" branch below instead
-    // of pretending the cancel succeeded.
-    const alreadyShipped = Boolean(awb);
 
-    // ── 5. Always attempt the real cancel first — regardless of AWB.
-    //      cancelOnShiprocketPanel already has its own fallback chain
-    //      (order-level cancel → AWB cancel → shipment cancel), and
-    //      Shiprocket accepts order-level cancellation right up until a
-    //      courier has actually picked the shipment up — AWB assignment
-    //      alone does NOT block it (confirmed: an AWB-assigned, "Out for
-    //      Pickup" order cancelled successfully via this same call). So we
-    //      try for real first, and only fall back to "pending + admin
-    //      email" if Shiprocket genuinely rejects it (already picked up /
-    //      manifested / in transit — the one case the API truly can't undo). ──
-    let srResult = { cancelled: false, stage: "not_attempted", reason: null };
-    let srPanelOrderId = null;
-    try {
-      srPanelOrderId = await resolveShiprocketPanelOrderId(conn, orderId, { srCartId });
-      srResult = await cancelOnShiprocketPanel({
-        srPanelOrderId,
-        awb: awb || null,
-        shipmentId: shipmentId || null,
-        alreadyShipped,
-      });
-      if (!srResult.cancelled) {
-        console.warn(
-          `[cancelShiprocketOrder] SR panel cancel failed for order ${orderId} ` +
-          `(stage=${srResult.stage}, srPanelOrderId=${srPanelOrderId || "—"}, awb=${awb || "—"}): ${srResult.reason}`,
-        );
-      }
-    } catch (srErr) {
-      // Should be unreachable now that cancelOnShiprocketPanel never throws,
-      // but keep this as a last-resort safety net.
-      srResult = { cancelled: false, stage: "unexpected_error", reason: srErr.message };
-      console.error(`[cancelShiprocketOrder] SR panel cancel threw unexpectedly:`, srErr.response?.data || srErr.message);
-    }
+    // ── Business rule (per direction from ops): always attempt the direct
+    const POST_SHIPMENT_STATUSES = ["Shipped", "Out for Delivery"];
+    const hasEnteredShipping = Boolean(awb) || POST_SHIPMENT_STATUSES.includes(order.order_status);
 
-    // ── 5a. Shiprocket genuinely couldn't cancel it (already picked up by a
-    //       courier, or in transit) — THIS is the real "already shipped"
-    //       case, not merely having an AWB. Mark it pending, leave stock
-    //       untouched, email ops the full order details so a human either
-    //       cancels it manually on the panel or initiates an RTO. Once
-    //       Shiprocket's webhook confirms the cancellation, receiveShipmentWebhook
-    //       takes over: restores stock and Engage sends the customer's
-    //       WhatsApp notice. ──────────────────────────────────────────────
-    if (!srResult.cancelled && alreadyShipped) {
+    // Fallback path — Shiprocket genuinely rejected the cancel (or the call
+    const goPending = async () => {
       const requestedAt = new Date().toISOString();
       await conn.query(
         `UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?`,
@@ -1802,44 +1782,52 @@ const cancelShiprocketOrder = async (req, res) => {
       }
 
       await conn.commit();
-      console.log(`[cancelShiprocketOrder] ⏳ Order ${orderId} could not be auto-cancelled (AWB=${awb}, stage=${srResult.stage}) — flagged cancellation_requested, ops notified.`);
+      console.log(`[cancelShiprocketOrder] ⏳ Order ${orderId} (status=${order.order_status}) → cancellation_requested, ops notified.`);
 
       notifyAdminOfCancellationRequest({
         orderId, srCartId, requestedAt, awb, shipmentId,
+        alreadyShipped: hasEnteredShipping, reason: rawReason, customReasonText: customReason || null,
       }).catch((e) => console.error(`[cancelShiprocketOrder] cancellation-request admin email failed for order ${orderId}:`, e.message));
 
       return res.json({
         success: true,
-        message: "Your cancellation request has been received. This order has already shipped, so our team will cancel it with our courier partner — you'll get a WhatsApp confirmation once it's done.",
+        message: hasEnteredShipping
+          ? "Your order has already been shipped. Your cancellation request has been sent to our support team. We'll review your request and notify you once it's processed."
+          : "We couldn't cancel your order automatically. Your cancellation request has been sent to our support team. We'll review your request and notify you once it's processed.",
         shiprocket_cancelled: false,
         requires_manual_review: true,
         cancellation_status: "pending",
       });
-    }
+    };
 
-    // ── 5b. Cancelled (either it was pre-shipment, or Shiprocket accepted the
-    //       cancel despite an AWB being assigned) — proceed as a real,
-    //       immediate cancellation: restore stock right away. ─────────────
-    const srCancelled = srResult.cancelled;
-
-    // If the Shiprocket-side cancel call itself failed (e.g. an auth/API
-    // hiccup — not an "already shipped" situation), flag it for manual
-    // review instead of only logging it, since the order is still going
-    // cancelled locally either way.
-    if (!srCancelled) {
-      const flagPayload = JSON.stringify({
-        stage: srResult.stage,
-        reason: srResult.reason,
-        alreadyShipped,
-        flaggedAt: new Date().toISOString(),
+    // ── Always attempt the real cancel — cancelOnShiprocketPanel has its own
+    let srResult = { cancelled: false, stage: "not_attempted", reason: null };
+    try {
+      const srPanelOrderId = await resolveShiprocketPanelOrderId(conn, orderId, { srCartId });
+      srResult = await cancelOnShiprocketPanel({
+        srPanelOrderId,
+        awb: awb || null,
+        shipmentId: shipmentId || null,
+        alreadyShipped: hasEnteredShipping,
       });
-      await conn.query(
-        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_sr_cancel_needs_review', ?)`,
-        [orderId, flagPayload],
-      );
+      if (!srResult.cancelled) {
+        console.warn(
+          `[cancelShiprocketOrder] SR panel cancel failed for order ${orderId} ` +
+          `(stage=${srResult.stage}, srPanelOrderId=${srPanelOrderId || "—"}, awb=${awb || "—"}): ${srResult.reason}`,
+        );
+      }
+    } catch (srErr) {
+      // Should be unreachable now that cancelOnShiprocketPanel never throws,
+      // but keep this as a last-resort safety net.
+      srResult = { cancelled: false, stage: "unexpected_error", reason: srErr.message };
+      console.error(`[cancelShiprocketOrder] SR panel cancel threw unexpectedly:`, srErr.response?.data || srErr.message);
     }
 
-    // ── 6. Update local order status ────────────────────────────────────────
+    if (!srResult.cancelled) {
+      return goPending();
+    }
+
+    // ── Cancelled for real — restore stock and finalize. ─────────────────────
     await conn.query(
       `UPDATE tbl_orders SET order_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
       [orderId],
@@ -1867,34 +1855,19 @@ const cancelShiprocketOrder = async (req, res) => {
     await restoreOrderStock(conn, orderId);
 
     await conn.commit();
-    console.log(`[cancelShiprocketOrder] ✅ Order ${orderId} cancelled. SR panel cancelled: ${srCancelled}`);
+    console.log(`[cancelShiprocketOrder] ✅ Order ${orderId} cancelled (Shiprocket confirmed, stage=${srResult.stage}).`);
 
-    // ── 8. Alert ops on Shiprocket-side failure (fire-and-forget, after commit
-    //      so a slow/broken SMTP server can never block or fail the cancel) ────
-    if (!srCancelled) {
-      notifyAdminOfFailedShiprocketCancel({
-        orderId,
-        stage: srResult.stage,
-        reason: srResult.reason,
-        alreadyShipped,
-        awb,
-        shipmentId,
-      }).catch((e) => console.error(`[cancelShiprocketOrder] admin alert email failed for order ${orderId}:`, e.message));
-    }
-
-    // ── 9. Respond honestly — don't claim Shiprocket-side success when it
-    //      didn't happen. The frontend uses shiprocket_cancelled /
-    //      requires_manual_review to decide whether to show a plain success
-    //      state or a "we're confirming this" pending state. ──────────────────
-    const message = srCancelled
-      ? "Order cancelled successfully."
-      : "Your order has been cancelled. We're confirming this with our shipping partner and will notify you if anything needs your attention.";
+    // FYI email to ops for EVERY cancellation Shiprocket confirmed, pre- or
+    notifyAdminOfOrderAutoCancelled({
+      orderId, srCartId, requestedAt: new Date().toISOString(), awb, shipmentId,
+      alreadyShipped: hasEnteredShipping, reason: rawReason, customReasonText: customReason || null,
+    }).catch((e) => console.error(`[cancelShiprocketOrder] auto-cancelled FYI email failed for order ${orderId}:`, e.message));
 
     return res.json({
       success: true,
-      message,
-      shiprocket_cancelled: srCancelled,
-      requires_manual_review: !srCancelled,
+      message: "Order cancelled successfully.",
+      shiprocket_cancelled: true,
+      requires_manual_review: false,
       cancellation_status: "cancelled",
     });
   } catch (err) {
@@ -1906,77 +1879,6 @@ const cancelShiprocketOrder = async (req, res) => {
   }
 };
 
-/**
- * Fire an admin alert email when a Shiprocket-side cancel fails. Best-effort:
- * never throws into the caller, since a broken SMTP config shouldn't hide
- * behind the cancel endpoint either — it just logs loudly here.
- *
- * Recipients come from RECEIVED_EMAIL in .env — comma-separated for multiple
- * people, e.g.:
- *   RECEIVED_EMAIL=rupeshmutkule2005@gmail.com,sushantnamurte@gmail.com
- */
-const notifyAdminOfFailedShiprocketCancel = async ({ orderId, stage, reason, alreadyShipped, awb, shipmentId }) => {
-  const configured = process.env.RECEIVED_EMAIL || process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_SENDER_EMAIL || "";
-  const recipients = configured
-    .split(",")
-    .map((e) => e.trim())
-    .filter(Boolean);
-
-  if (!recipients.length) {
-    console.warn(`[cancelShiprocketOrder] No RECEIVED_EMAIL configured — skipping alert for order ${orderId}`);
-    return;
-  }
-  const { sendEmail } = require("./mailer");
-  const html = `
-    <p><strong>Shiprocket cancellation did not go through for order #${orderId}.</strong></p>
-    <ul>
-      <li>Stage reached: ${toStr(stage)}</li>
-      <li>Reason: ${toStr(reason)}</li>
-      <li>Already shipped (AWB present): ${alreadyShipped ? "Yes" : "No"}</li>
-      <li>AWB: ${toStr(awb) || "—"}</li>
-      <li>Shipment ID: ${toStr(shipmentId) || "—"}</li>
-    </ul>
-    <p>The order has been marked <strong>cancelled</strong> on the site, but Shiprocket may still try to
-    ship it${alreadyShipped ? " or may need a manual RTO initiated" : ""}. Please check the Shiprocket
-    seller panel for this order and cancel it manually if needed.</p>
-  `;
-
-  // Send individually rather than one combined "to" string — keeps delivery
-  // failures for one bad address from silently swallowing the others, and
-  // avoids toName quoting issues when there's more than one recipient.
-  await Promise.all(
-    recipients.map((toEmail) =>
-      sendEmail({
-        toEmail,
-        subject: `⚠️ Shiprocket cancel failed — Order #${orderId}`,
-        html,
-      }).catch((e) =>
-        console.error(`[cancelShiprocketOrder] alert email to ${toEmail} failed:`, e.message),
-      ),
-    ),
-  );
-};
-
-
-/* ─────────────────────────────────────────────────────────────
-   POST /api/shiprocket/shipment-webhook
-   Shiprocket Shipment Status Webhook
-   
-   Shiprocket calls this URL whenever a shipment status changes
-   (PICKUP SCHEDULED, PICKED UP, IN TRANSIT, OUT FOR DELIVERY,
-   DELIVERED, CANCELLED, RTO INITIATED, RTO DELIVERED, etc.)
-   
-   Configure in Shiprocket Dashboard:
-     Settings → Webhooks → Add Webhook URL
-     URL: https://your-domain.com/api/shiprocket/shipment-webhook
-     Auth: x-api-key header → value matches SHIPROCKET_WEBHOOK_TOKEN
-   
-   Payload fields used:
-     awb         – shipment AWB number (primary lookup key)
-     current_status / status / event  – new status string
-     shipment_id – Shiprocket shipment ID (fallback lookup)
-     order_id    – Shiprocket order ID   (fallback lookup)
-───────────────────────────────────────────────────────────── */
 
 // Map every Shiprocket status string → our internal status
 const SR_STATUS_MAP = {
@@ -2088,13 +1990,6 @@ const receiveShipmentWebhook = async (req, res) => {
   }
 
   // ── 4-5. Read + update order_status atomically ──────────────────────────────
-  // Wrapped in a transaction with SELECT ... FOR UPDATE: if Shiprocket ever
-  // delivers the same webhook twice concurrently (it does retry sometimes),
-  // the second call blocks here until the first transaction commits, then
-  // reads the ALREADY-UPDATED status — so only one of them ever sees
-  // "this order just became cancelled" and fires stock-restore/WhatsApp.
-  // Without the lock, both could read the same stale pre-update status and
-  // both fire those side effects.
   const courier = toStr(
     body.courier || body.courier_name || body.service_provider || ""
   );
@@ -2159,9 +2054,6 @@ const receiveShipmentWebhook = async (req, res) => {
   ).catch((e) => console.error("[SR ShipmentWebhook] activity log insert failed:", e.message));
 
   // ── 7. Exception flag in ordermeta (_shipment_exception) ────────────────────
-  // Delivery exceptions are pipeline-stage modifiers, not separate stages.
-  // We store them in a dedicated ordermeta key so the frontend can show a
-  // warning badge on the current step without polluting order_status.
   const EXCEPTION_RAW_STATUSES = new Set(["UNDELIVERED", "DELAYED", "DAMAGED", "LOST"]);
 
   if (EXCEPTION_RAW_STATUSES.has(rawStatus)) {
@@ -2189,6 +2081,8 @@ const receiveShipmentWebhook = async (req, res) => {
   }
 
   console.log(`[SR ShipmentWebhook] ✅ order_id=${orderId} status updated: "${currentStatus}" → "${mappedStatus}"`);
+
+  // ── 7. Shiprocket just confirmed this order as CANCELLED — this is the
   if (justCancelled) {
     restoreOrderStock(db, orderId)
       .then(() => console.log(`[SR ShipmentWebhook] Stock restored for cancelled order_id=${orderId}`))
@@ -2206,4 +2100,5 @@ module.exports = {
   resolveShiprocketPanelOrderId,
   cancelOnShiprocketPanel,
   notifyAdminOfCancellationRequest,
+  notifyAdminOfOrderAutoCancelled,
 };
