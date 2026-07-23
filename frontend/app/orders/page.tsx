@@ -30,9 +30,8 @@ function formatDate(value: string) {
 function normalizeStatus(status: string) {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  // out_for_delivery MUST precede the generic 'deliver' check
-  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
+  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
@@ -41,10 +40,6 @@ function normalizeStatus(status: string) {
   if (s.includes('pending')) return 'pending';
   return s;
 }
-
-// Mirrors the backend's cancellable list in cancelShiprocketOrder:
-// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
-const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'shipped', 'out_for_delivery']);
 
 function toTitleCase(value: string) {
   if (!value) return 'Pending';
@@ -316,7 +311,7 @@ export default function OrdersPage() {
 
                             {cards.map((order) => {
                               const showPayAction = order.status === 'pending';
-                              const canCancelOrder = CANCELLABLE_STATUSES.has(order.status);
+                              const canCancelOrder = order.status === 'pending' || order.status === 'processing' || order.status === 'shipped';
                               return (
                                 <div key={order.id} className="orders-row">
                                   <div className="orders-row-id">#{order.id}</div>

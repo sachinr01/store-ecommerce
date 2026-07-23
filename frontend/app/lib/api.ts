@@ -306,12 +306,6 @@ export interface OrderDetailResponse {
     shipping_status?: string | null;
     shipment_id?: string | null;
     sr_cart_id?: string | null;
-    shipment_exception?: {
-      type: string;       // "undelivered" | "delayed" | "damaged" | "lost"
-      raw_status: string;
-      at: string;         // ISO timestamp
-      remark?: string;
-    } | null;
   };
   items: OrderItemDetail[];
 }

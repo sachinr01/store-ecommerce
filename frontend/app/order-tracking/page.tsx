@@ -15,10 +15,8 @@ function formatDate(value: string) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// Exception statuses: surfaced as a warning badge via the shipment_exception
-// field in the API response, NOT encoded in order_status. This set is kept
-// as a safety net for any stale DB rows that might still carry the old strings,
-// but the backend no longer writes these values to order_status.
+// Exception statuses: displayed as a warning badge on the last real step,
+// not as a distinct timeline step.
 const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
 
 /**
@@ -29,33 +27,28 @@ const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']
  * once Shiprocket assigns an AWB the order has a confirmed pickup slot, even
  * if the raw status string is still "processing" / "Pickup Scheduled".
  */
-function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: string | null): string {
+function normalizeStatus(raw: string, awbCode?: string | null): string {
   if (!raw) return 'pending';
   const s = raw.replace('wc-', '').toLowerCase();
-  const hasShipment = Boolean(awbCode || shipmentId);
 
   // Exception states — return as-is so the caller can render a warning badge
   if (EXCEPTION_STATUSES.has(s)) return s;
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  // out_for_delivery check MUST precede the generic 'deliver' check — "Out for Delivery"
-  // lowercased contains 'deliver' so the wrong order would misread it as 'delivered'.
+  if (s.includes('deliver')) return 'delivered';
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
-  if (s.includes('deliver') || s.includes('complete')) return 'delivered';
+  if (s.includes('complete')) return 'delivered';
   // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
-    return hasShipment ? 'ready_to_ship' : 'processing';
+    return awbCode ? 'ready_to_ship' : 'processing';
   }
-  // 'ready_to_ship' contains the substring 'ship', so the ready check MUST
-  // precede the generic ship check or a raw "ready_to_ship" value would be
-  // misread as 'shipped'.
-  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
+  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
   // AWB assigned but status not yet updated — promote to ready_to_ship
-  if (hasShipment && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
+  if (awbCode && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
@@ -66,14 +59,6 @@ function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: stri
 function toLabel(key: string) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
-
-// Mirrors the backend's cancellable list in cancelShiprocketOrder:
-// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
-// "ready_to_ship" is included because normalizeStatus() above maps a
-// backend status of "processing" + an assigned AWB to "ready_to_ship" —
-// the backend still treats that order as "processing" and will attempt
-// the cancel, so the button must stay visible in that window too.
-const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery']);
 
 // strip non-digits for phone comparison
 function digitsOnly(v: string) {
@@ -122,17 +107,15 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
-function TrackingTimeline({ status, exception }: {
-  status: string;
-  exception?: { type: string; at: string; remark?: string } | null;
-}) {
+function TrackingTimeline({ status }: { status: string }) {
   const isCancelled = status === 'cancelled' || status === 'cancellation_pending';
   const isReturnInitiated = status === 'return_initiated';
   const isReturned = status === 'returned';
+  const isException = status in EXCEPTION_LABEL;
 
-  // exception prop is the authoritative source — never derived from status string
-  const hasException = Boolean(exception);
-  const activeIdx = isCancelled ? -1 : (STEP_INDEX[status] ?? 0);
+  // For exception states, show the timeline up to "shipped" (last safe step)
+  const effectiveStatus = isException ? 'shipped' : status;
+  const activeIdx = isCancelled ? -1 : (STEP_INDEX[effectiveStatus] ?? 0);
 
   // Return states: show a distinct terminal banner instead of the main steps
   if (isReturnInitiated || isReturned) {
@@ -152,9 +135,9 @@ function TrackingTimeline({ status, exception }: {
     <div className={`order-timeline${isCancelled ? ' cancelled' : ''}`}>
       {STEPS.map((step, i) => {
         const active  = !isCancelled && i <= activeIdx;
-        const current = !isCancelled && i === activeIdx && !hasException;
-        // Warning badge attaches to whatever step is currently active, not a hardcoded step
-        const isWarningStep = hasException && i === activeIdx;
+        const current = !isCancelled && i === activeIdx && !isException;
+        // On exception states highlight the last real step with a warning
+        const isWarningStep = isException && step === 'shipped';
         return (
           <div
             key={step}
@@ -171,9 +154,9 @@ function TrackingTimeline({ status, exception }: {
             </span>
             <span className="timeline-label">
               {STEP_LABELS[step] ?? toLabel(step)}
-              {isWarningStep && exception && (
+              {isWarningStep && (
                 <span className="timeline-exception-badge">
-                  {EXCEPTION_LABEL[exception.type] ?? toLabel(exception.type)}
+                  {EXCEPTION_LABEL[status]}
                 </span>
               )}
             </span>
@@ -217,7 +200,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
       {activities.length > 0 && (
         <ul className="tracking-activities">
           {activities.map((act, i) => (
-            <li key={i} className="tracking-activity-item">
+            <li key={`${act.date}-${act.activity}-${i}`} className="tracking-activity-item">
               <div className="tracking-activity-date">{act.date}</div>
               <div className="tracking-activity-desc">{act.activity}</div>
               {act.location && <div className="tracking-activity-location">{act.location}</div>}
@@ -385,7 +368,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
           order: { ...data.order, order_status: 'cancellation_requested' },
         });
       } else {
-        setCancelSuccess('Your order has been cancelled successfully.');
+        setCancelSuccess(result.message || 'Your order has been cancelled successfully.');
         onOrderCancelled({
           ...data,
           order: { ...data.order, order_status: 'cancelled' },
@@ -417,7 +400,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
     return {
       id:            Number(order.order_id),
-      status:        normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
+      status:        normalizeStatus(order.order_status || '', order.awb_code),
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
@@ -438,7 +421,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
   return (
     <div className="ot-result">
       {/* Timeline at the very top */}
-      <TrackingTimeline status={summary.status} exception={order.shipment_exception} />
+      <TrackingTimeline status={summary.status} />
 
       {/* Hero */}
       <div className="order-detail-card order-hero">
@@ -541,7 +524,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               DOWNLOAD INVOICE
             </a>
 
-            {CANCELLABLE_STATUSES.has(summary.status) && (
+            {['pending', 'processing', 'on-hold', 'shipped'].includes(summary.status) && (
               <button
                 type="button"
                 className="ot-btn ot-btn--cancel"
@@ -554,10 +537,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
             {cancelSuccess && (
               <div className="ot-cancel-success">
-                <strong>Your cancellation request has been submitted successfully.</strong>
-                <p style={{ margin: '6px 0 0' }}>
-                  If your order hasn&apos;t been shipped yet, it will be cancelled shortly. You&apos;ll receive an email once the cancellation is processed.
-                </p>
+                <strong>{cancelSuccess}</strong>
               </div>
             )}
             {cancelError   && <div className="ot-error">{cancelError}</div>}

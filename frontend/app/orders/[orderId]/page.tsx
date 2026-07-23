@@ -24,14 +24,6 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
-// Mirrors the backend's cancellable list in cancelShiprocketOrder:
-// ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"].
-// "ready_to_ship" is included because our own normalizeStatus() maps a
-// backend status of "processing" + an assigned AWB to "ready_to_ship" —
-// the backend still treats that order as "processing" and will attempt
-// the cancel, so the button must stay visible in that window too.
-const CANCELLABLE_STATUSES = new Set(['pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery']);
-
 /**
  * Derives canonical timeline key from DB order_status + awb_code presence.
  * AWB present + still "processing" → ready_to_ship.
@@ -45,13 +37,11 @@ function normalizeStatus(status: string, awbCode?: string | null): string {
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
   if (s.includes('complete')) return 'delivered';
-  // out_for_delivery MUST precede the generic 'deliver' check
-  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
-  // 'ready_to_ship' contains 'ship' — ready check must precede ship check
-  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
+  if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
+  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return awbCode ? 'ready_to_ship' : 'processing';
@@ -95,7 +85,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
       {activities.length > 0 && (
         <ul className="tracking-activities">
           {activities.map((act, i) => (
-            <li key={i} className="tracking-activity-item">
+            <li key={`${act.date}-${act.activity}-${i}`} className="tracking-activity-item">
               <div className="tracking-activity-date">{act.date}</div>
               <div className="tracking-activity-desc">{act.activity}</div>
               {act.location && <div className="tracking-activity-location">{act.location}</div>}
@@ -103,6 +93,112 @@ function ShipmentActivities({ awb }: { awb: string }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ─── cancellation reason modal — kept in sync with orders/page.tsx and
+//     order-tracking/page.tsx so all three cancel entry points collect the
+//     same structured reason for the admin email / audit trail. ─────────────
+
+const CANCEL_REASONS = [
+  { key: 'found_better_price', label: 'Found a better price elsewhere' },
+  { key: 'delivery_too_long',  label: 'Delivery is taking too long' },
+  { key: 'no_longer_needed',   label: 'No longer need this item' },
+  { key: 'wrong_product',      label: 'Ordered the wrong product / variant' },
+  { key: 'other',              label: 'Other (please specify)' },
+] as const;
+
+type CancelReasonKey = typeof CANCEL_REASONS[number]['key'];
+
+function CancelReasonModal({
+  onConfirm,
+  onClose,
+  submitting,
+}: {
+  onConfirm: (reason: CancelReasonKey, customReason: string) => void;
+  onClose: () => void;
+  submitting: boolean;
+}) {
+  const [selected, setSelected] = useState<CancelReasonKey | ''>('');
+  const [custom, setCustom]     = useState('');
+  const [touched, setTouched]   = useState(false);
+  const isOther   = selected === 'other';
+  const customOk  = !isOther || custom.trim().length > 0;
+  const canSubmit = selected !== '' && customOk;
+  const MAX_CHARS = 300;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleSubmit = () => {
+    setTouched(true);
+    if (!canSubmit) return;
+    onConfirm(selected as CancelReasonKey, isOther ? custom.trim() : '');
+  };
+
+  return (
+    <div
+      className="ot-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cr-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="ot-modal ot-modal--reason" onClick={(e) => e.stopPropagation()}>
+        <h3 className="ot-modal-title" id="cr-modal-title">Cancel Order</h3>
+        <p className="ot-modal-subtitle">Please tell us why you&apos;re cancelling this order</p>
+
+        <fieldset className="cr-reasons" role="radiogroup" aria-label="Cancellation reason">
+          <legend className="sr-only">Select a reason</legend>
+          {CANCEL_REASONS.map(({ key, label }) => (
+            <label key={key} className={`cr-reason${selected === key ? ' cr-reason--selected' : ''}`}>
+              <input
+                type="radio"
+                name="cancel-reason"
+                value={key}
+                checked={selected === key}
+                onChange={() => { setSelected(key); if (key !== 'other') setCustom(''); }}
+                disabled={submitting}
+              />
+              <span className="cr-reason-label">{label}</span>
+            </label>
+          ))}
+          {isOther && (
+            <div className="cr-custom-wrap">
+              <textarea
+                className="cr-custom-textarea"
+                placeholder="Please tell us more…"
+                value={custom}
+                maxLength={MAX_CHARS}
+                onChange={(e) => setCustom(e.target.value)}
+                disabled={submitting}
+                aria-label="Additional details"
+              />
+              <div className="cr-char-count">{custom.length} / {MAX_CHARS}</div>
+              {touched && !custom.trim() && (
+                <div className="cr-field-error">Please describe your reason before submitting.</div>
+              )}
+            </div>
+          )}
+        </fieldset>
+
+        {touched && !selected && (
+          <div className="cr-field-error" style={{ marginTop: 8 }}>Please select a reason to continue.</div>
+        )}
+
+        <div className="ot-modal-actions" style={{ marginTop: 24 }}>
+          <button type="button" className="ot-modal-btn ot-modal-btn--secondary" onClick={onClose} disabled={submitting}>
+            Keep Order
+          </button>
+          <button type="button" className="ot-modal-btn ot-modal-btn--danger" onClick={handleSubmit} disabled={submitting} aria-busy={submitting}>
+            {submitting ? <span className="ot-spinner" aria-hidden="true" /> : 'Cancel Order'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -117,6 +213,7 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState('');
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -237,16 +334,18 @@ export default function OrderDetailPage() {
     }));
   }, [summary]);
 
-  const canCancel = Boolean(summary?.status && CANCELLABLE_STATUSES.has(summary.status));
+  const canCancel = summary?.status === 'pending' || summary?.status === 'processing' || summary?.status === 'shipped';
 
-  const handleCancel = async () => {
+  const handleCancel = () => setShowCancelModal(true);
+
+  const confirmCancel = async (reason: CancelReasonKey, customReason: string) => {
     if (!summary || !orderId) return;
-    if (!confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
     setCancelling(true);
     setCancelError('');
     setCancelSuccess('');
     try {
-      const result = await cancelMyOrder(summary.id, 'Customer requested cancellation');
+      const result = await cancelMyOrder(summary.id, reason, customReason || undefined);
+      setShowCancelModal(false);
       // An already-shipped order can't be cancelled outright — it goes to
       // "cancellation_requested" while our team cancels it on Shiprocket,
       // and only becomes truly "cancelled" once that's confirmed.
@@ -261,7 +360,7 @@ export default function OrderDetailPage() {
             : prev,
         );
       } else {
-        setCancelSuccess('Your order has been cancelled successfully.');
+        setCancelSuccess(result.message || 'Your order has been cancelled successfully.');
         setData((prev) =>
           prev
             ? { ...prev, order: { ...prev.order, order_status: 'cancelled' } }
@@ -457,7 +556,10 @@ export default function OrderDetailPage() {
                   {canCancel && (
                     <div className="order-detail-card">
                       <h3 className="order-detail-card-title">Cancel order</h3>
-                      <p className="orders-section-copy">You can cancel this order before it ships.</p>
+                      <p className="orders-section-copy">
+                        You can cancel this order. If it has already shipped, we&apos;ll send your
+                        cancellation request to our team and notify you once it&apos;s confirmed.
+                      </p>
                       <button
                         type="button"
                         className="btn-view-product ot-btn--cancel"
@@ -479,6 +581,13 @@ export default function OrderDetailPage() {
         </div>
       </div>
       <Footer />
+      {showCancelModal && (
+        <CancelReasonModal
+          onConfirm={(reason, customReason) => void confirmCancel(reason, customReason)}
+          onClose={() => setShowCancelModal(false)}
+          submitting={cancelling}
+        />
+      )}
     </>
   );
 }
