@@ -64,7 +64,9 @@ function renderInvoice(data) {
   // Prices are always tax-inclusive, so we can always extract GST at this rate.
   const DEFAULT_GST_RATE = toAmt(data.defaultGstRate ?? 18);
 
-  // tax groups
+  // tax groups — computed from line_total which may be post-discount (SR webhook)
+  // or pre-discount (direct checkout). Either way, tax extraction is correct
+  // because prices are always tax-inclusive regardless of discount.
   const taxGroups = new Map();
   for (const item of items) {
     const lt  = toAmt(item.line_total);
@@ -88,6 +90,15 @@ function renderInvoice(data) {
   const totalQty = items.reduce((s, i) => s + Number(i.qty || 1), 0);
   const totalTax = hasTax ? taxRows.reduce((s, g) => s + g.taxAmt, 0) : 0;
 
+  // Resolved totals — always trust stored values from DB; derive only as fallback.
+  // _order_subtotal is pre-discount in all paths (webhook + direct + SR checkout).
+  // _line_total may be post-discount (SR webhook) so we don't sum it for subtotal display.
+  const subtotal = toAmt(totals.subtotal) || items.reduce((s, i) => s + toAmt(i.line_total), 0);
+  const discount = toAmt(totals.discount);
+  const shipping = toAmt(totals.shipping);
+  // Use stored total if present; otherwise derive: subtotal − discount + shipping
+  const grandTotal = toAmt(totals.total) || Math.max(0, subtotal - discount) + shipping;
+
   // address helpers
   const billAddr = [billing.addr1, billing.addr2].filter(Boolean).map(esc).join(', ');
   const billCity = [billing.city, billing.state].filter(Boolean).map(esc).join(', ')
@@ -100,7 +111,28 @@ function renderInvoice(data) {
   // Other Reference(s): AWB / tracking number if available, else blank
   const otherRef = order.otherRef ? esc(order.otherRef) : '';
 
-  // line-item rows
+  const _pm = String(order.payMethod || '').toLowerCase();
+  const _rzMethod = String(order.razorpayMethod || '').toLowerCase();
+  const _rzMethodLabel = {
+    card:        'Card',
+    upi:         'UPI',
+    netbanking:  'Net Banking',
+    wallet:      'Wallet',
+    emi:         'EMI',
+  }[_rzMethod] || '';
+
+  const paymentMode = order.isCOD
+    ? 'Cash on Delivery'
+    : _rzMethodLabel
+      ? _rzMethodLabel
+      : _pm === 'razorpay'
+        ? 'Razorpay'
+        : 'Online Payment';
+
+  // line-item rows — show pre-tax rate and taxable amount per item
+  // line_total may be post-discount (SR webhook) or pre-discount (direct checkout).
+  // The Rate and Amount columns show the pre-tax exclusive value, which is correct
+  // for a GST invoice regardless of whether discount is applied at item or order level.
   const itemRows = items.map((item, i) => {
     const qty     = Number(item.qty || 1);
     const lt      = toAmt(item.line_total);
@@ -123,9 +155,10 @@ function renderInvoice(data) {
       </tr>`;
   }).join('');
 
+  // spacer subtotal = pre-tax exclusive value of items (from tax groups, same source as item rows)
   const taxableTotal = hasTax
     ? taxRows.reduce((sum, group) => sum + group.taxable, 0)
-    : toAmt(totals.subtotal);
+    : subtotal;
 
   const taxSummaryRows = hasTax ? `
       <tr>
@@ -147,16 +180,16 @@ function renderInvoice(data) {
         <td class="r">${inr(totalTax / 2)}</td>
       </tr>` : '';
 
-  const discountRow = totals.discount > 0 ? `
+  const discountRow = discount > 0 ? `
       <tr>
         <td colspan="6" class="r">Discount${totals.couponCode ? ' (' + esc(totals.couponCode) + ')' : ''}</td>
-        <td class="r">-${inr(totals.discount)}</td>
+        <td class="r">-${inr(discount)}</td>
       </tr>` : '';
 
-  const shippingRow = totals.shipping > 0 ? `
+  const shippingRow = shipping > 0 ? `
       <tr>
         <td colspan="6" class="r">Shipping Charges</td>
-        <td class="r">${inr(totals.shipping)}</td>
+        <td class="r">${inr(shipping)}</td>
       </tr>` : '';
 
   // tax breakdown — only built when hasTax
@@ -341,15 +374,15 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
           </tr>
           <tr>
             <td><span class="lbl">Delivery Note</span></td>
-            <td><span class="lbl">Mode/Terms of Payment</span>${order.isCOD ? 'Cash on Delivery' : ''}</td>
+            <td><span class="lbl">Mode/Terms of Payment</span><span class="strong-value">${esc(paymentMode)}</span></td>
           </tr>
           <tr>
             <td><span class="lbl">Supplier's Ref</span></td>
             <td><span class="lbl">Other Reference(s)</span></td>
           </tr>
           <tr>
-            <td><span class="lbl">Buyer's Order No.</span>${esc(String(order.orderId))}</td>
-            <td><span class="lbl">Dated</span>${esc(order.dateStr)}</td>
+            <td><span class="lbl">Buyer's Order No.</span><span class="strong-value">${esc(String(order.orderId))}</span></td>
+            <td><span class="lbl"></span></td>
           </tr>
         </table>
       </td>
@@ -378,7 +411,7 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
             <td><span class="lbl">Destination</span><strong>${billing.city ? esc(billing.city) : ''}</strong></td>
           </tr>
           <tr>
-            <td colspan="2"><span class="lbl">Terms of Delivery</span></td>
+            <td rowspan="2"><span class="lbl">Terms of Delivery</span></td>
           </tr>
         </table>
       </td>
@@ -414,7 +447,7 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
       <tr class="grand-total">
         <td colspan="5" class="r">Total</td>
         <td class="c">${totalQty}</td>
-        <td class="r">&#8377;&nbsp;${inr(totals.total)}</td>
+        <td class="r">&#8377;&nbsp;${inr(grandTotal)}</td>
       </tr>
     </tbody>
   </table>
@@ -424,7 +457,7 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
     <tr>
       <td class="words-cell">
         <span class="lbl">Amount Chargeable (in words)</span>
-        <strong>Indian Rupee ${esc(amountToWords(totals.total))} Only</strong>
+        <strong>Indian Rupee ${esc(amountToWords(grandTotal))} Only</strong>
       </td>
     </tr>
   </table>

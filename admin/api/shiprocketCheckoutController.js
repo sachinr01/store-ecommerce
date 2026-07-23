@@ -446,6 +446,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       ["_shiprocket_checkout_ref", toStr(checkoutContext?.checkout_ref || "")],
       ["_order_source", "shiprocket_checkout"],
     ];
+    metaEntries.push(["_order_discount", discount.toFixed(2)]);
     if (checkoutCouponCode) {
       metaEntries.push(["_coupon_code", checkoutCouponCode]);
       metaEntries.push(["_coupon_discount", discount.toFixed(2)]);

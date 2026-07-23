@@ -312,6 +312,7 @@ export interface OrderDetailResponse {
       at: string;         // ISO timestamp
       remark?: string;
     } | null;
+    transaction_id?: string | null;
   };
   items: OrderItemDetail[];
 }
