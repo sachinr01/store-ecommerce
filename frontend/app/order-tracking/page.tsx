@@ -387,10 +387,14 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     const storedTotal    = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
     const itemsSubtotal  = items.reduce((s, it) => s + Number(it.line_total || 0), 0);
-    const subtotal = storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
-      ? storedSubtotal : itemsSubtotal || storedSubtotal;
+    // _line_total is post-discount in SR webhook orders, pre-discount in direct checkout.
+    // When a discount exists, always trust _order_subtotal (pre-discount) from the DB.
+    // Only fall back to summing line items when there's no discount and no stored subtotal.
+    const subtotal = storedSubtotal > 0
+      ? storedSubtotal
+      : itemsSubtotal + storedDiscount;
     const derived = Math.max(0, subtotal - storedDiscount) + storedShipping;
-    const total   = storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01 ? storedTotal : derived || storedTotal;
+    const total   = storedTotal > 0 ? storedTotal : derived;
 
     const shipName = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
     const billName = [order.billing_first_name, order.billing_last_name].filter(Boolean).join(' ').trim();
@@ -506,6 +510,9 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             <h3 className="order-detail-card-title">Order Details</h3>
             <div className="order-details-grid">
               <div><strong>Payment:</strong> {toLabel(summary.payment)}</div>
+              {order.transaction_id && (
+                <div><strong>Transaction ID:</strong> {order.transaction_id}</div>
+              )}
               <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
               {summary.couponCode   && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
               <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>

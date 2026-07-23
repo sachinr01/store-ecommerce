@@ -252,17 +252,14 @@ export default function OrderDetailPage() {
     const storedShipping = Number(order.shipping || 0);
     const storedTotal = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
-    const subtotalValue =
-      Number.isFinite(storedSubtotal) && storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
-        ? storedSubtotal
-        : itemsSubtotal || storedSubtotal;
-    const totalValue = (() => {
-      const derived = Math.max(0, subtotalValue - storedDiscount) + storedShipping;
-      if (Number.isFinite(storedTotal) && storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01) {
-        return storedTotal;
-      }
-      return derived || storedTotal;
-    })();
+    // _line_total is post-discount in SR webhook orders, pre-discount in direct checkout.
+    // Always trust _order_subtotal (pre-discount) from the DB when available.
+    const subtotalValue = storedSubtotal > 0
+      ? storedSubtotal
+      : itemsSubtotal + storedDiscount;
+    const totalValue = storedTotal > 0
+      ? storedTotal
+      : Math.max(0, subtotalValue - storedDiscount) + storedShipping;
     const shipNameRaw = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
     const billingNameRaw = [order.billing_first_name, order.billing_last_name].filter(Boolean).join(' ').trim();
     const name = shipNameRaw || billingNameRaw || order.user_display_name || '';
@@ -510,6 +507,9 @@ export default function OrderDetailPage() {
                       <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
                       <div><strong>Total:</strong> {summary.totalLabel}</div>
                       <div><strong>Payment:</strong> {summary.payment}</div>
+                      {data?.order?.transaction_id && (
+                        <div><strong>Transaction ID:</strong> {data.order.transaction_id}</div>
+                      )}
                     </div>
                   </div>
 

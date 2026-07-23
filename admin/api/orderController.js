@@ -1002,6 +1002,8 @@ const placeOrder = async (req, res) => {
       });
     }
 
+    let razorpayMethodType = null; // e.g. 'card', 'upi', 'netbanking', 'wallet'
+
     if (paymentMethod === "razorpay" && razorpayPaymentId) {
       const crypto = require("crypto");
 
@@ -1017,6 +1019,15 @@ const placeOrder = async (req, res) => {
           success: false,
           message: "Payment verification failed",
         });
+      }
+
+      // Fetch payment details to capture the actual payment method (card/upi/netbanking/wallet)
+      try {
+        const razorpay = require("../config/razorpay");
+        const paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
+        razorpayMethodType = paymentDetails.method || null; // 'card', 'upi', 'netbanking', 'wallet'
+      } catch (e) {
+        console.warn("Could not fetch Razorpay payment details:", e.message);
       }
     }
 
@@ -1253,6 +1264,7 @@ const placeOrder = async (req, res) => {
       ["_order_subtotal", subtotal.toFixed(2)],
       ["_order_tax", taxTotal.toFixed(2)],
       ["_order_shipping", shippingCost.toFixed(2)],
+      ["_order_discount", discount.toFixed(2)],
       ["_session_id", sessionId],
       ["_cookie_id", cookieId || ""],
     ];
@@ -1265,6 +1277,9 @@ const placeOrder = async (req, res) => {
     if (paymentMethod === "razorpay") {
       metaEntries.push(["_razorpay_payment_id", razorpayPaymentId]);
       metaEntries.push(["_razorpay_order_id", razorpayOrderId]);
+      if (razorpayMethodType) {
+        metaEntries.push(["_razorpay_method", razorpayMethodType]);
+      }
     }
 
     if (shiprocketResponse.shipment_id) {
@@ -2303,12 +2318,22 @@ const getMyOrderById = async (req, res) => {
                 LIMIT 1
               ) AS coupon_code,
               (
+                SELECT COALESCE(
+                  (SELECT om2.meta_value FROM tbl_ordermeta om2
+                   WHERE om2.order_id = o.order_id AND om2.meta_key = '_coupon_discount'
+                   ORDER BY om2.meta_id DESC LIMIT 1),
+                  (SELECT om3.meta_value FROM tbl_ordermeta om3
+                   WHERE om3.order_id = o.order_id AND om3.meta_key = '_order_discount'
+                   ORDER BY om3.meta_id DESC LIMIT 1)
+                )
+              ) AS coupon_discount,
+              (
                 SELECT om.meta_value
                 FROM tbl_ordermeta om
-                WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_discount'
+                WHERE om.order_id = o.order_id AND om.meta_key = '_razorpay_payment_id'
                 ORDER BY om.meta_id DESC
                 LIMIT 1
-              ) AS coupon_discount,
+              ) AS transaction_id,
               MAX(u.display_name)      AS user_display_name,
               MAX(u.user_email)        AS user_email,
               MAX(ub.first_name)       AS billing_first_name,
@@ -2799,9 +2824,17 @@ const trackOrderByPhone = async (req, res) => {
               (SELECT om.meta_value FROM tbl_ordermeta om
                WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'
                ORDER BY om.meta_id DESC LIMIT 1) AS coupon_code,
+              (SELECT COALESCE(
+                 (SELECT om2.meta_value FROM tbl_ordermeta om2
+                  WHERE om2.order_id = o.order_id AND om2.meta_key = '_coupon_discount'
+                  ORDER BY om2.meta_id DESC LIMIT 1),
+                 (SELECT om3.meta_value FROM tbl_ordermeta om3
+                  WHERE om3.order_id = o.order_id AND om3.meta_key = '_order_discount'
+                  ORDER BY om3.meta_id DESC LIMIT 1)
+               )) AS coupon_discount,
               (SELECT om.meta_value FROM tbl_ordermeta om
-               WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_discount'
-               ORDER BY om.meta_id DESC LIMIT 1) AS coupon_discount,
+               WHERE om.order_id = o.order_id AND om.meta_key = '_razorpay_payment_id'
+               ORDER BY om.meta_id DESC LIMIT 1) AS transaction_id,
               MAX(u.display_name)      AS user_display_name,
               MAX(ub.first_name)       AS billing_first_name,
               MAX(ub.last_name)        AS billing_last_name,
@@ -3018,6 +3051,40 @@ const trackOrderByPhone = async (req, res) => {
   }
 };
 
+// ── Invoice Number ────────────────────────────────────────────────────────────
+// Format: NEST-YYYY-NNNN  (year from order_date, sequential per-year counter)
+// Stored in tbl_ordermeta under key '_invoice_number' so it never changes.
+async function getOrCreateInvoiceNumber(orderId, orderDate) {
+  // Return existing invoice number if already generated
+  const [[existing]] = await db.query(
+    `SELECT meta_value FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_invoice_number' LIMIT 1`,
+    [orderId]
+  );
+  if (existing) return existing.meta_value;
+
+  const year = new Date(orderDate).getFullYear();
+
+  // Count how many invoices were already issued for this year (excluding current order)
+  const [[{ count }]] = await db.query(
+    `SELECT COUNT(*) AS count
+     FROM tbl_ordermeta om
+     JOIN tbl_orders o ON o.order_id = om.order_id
+     WHERE om.meta_key = '_invoice_number'
+       AND YEAR(o.order_date) = ?`,
+    [year]
+  );
+
+  const seq = Number(count) + 1;
+  const invoiceNo = `NEST-${year}-${String(seq).padStart(4, '0')}`;
+
+  await db.query(
+    `INSERT IGNORE INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_invoice_number', ?)`,
+    [orderId, invoiceNo]
+  );
+
+  return invoiceNo;
+}
+
 // ── Download Invoice ──────────────────────────────────────────────────────────
 // GET /orders/invoice/:orderId?phone=xxxx
 // Returns HTML invoice that can be printed as PDF
@@ -3053,8 +3120,16 @@ const downloadInvoice = async (req, res) => {
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal' ORDER BY om.meta_id DESC LIMIT 1) AS subtotal,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping' ORDER BY om.meta_id DESC LIMIT 1) AS shipping,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method' ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_razorpay_method' ORDER BY om.meta_id DESC LIMIT 1) AS razorpay_method,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'    ORDER BY om.meta_id DESC LIMIT 1) AS coupon_code,
-              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_discount' ORDER BY om.meta_id DESC LIMIT 1) AS coupon_discount,
+              (SELECT COALESCE(
+                 (SELECT om2.meta_value FROM tbl_ordermeta om2
+                  WHERE om2.order_id = o.order_id AND om2.meta_key = '_coupon_discount'
+                  ORDER BY om2.meta_id DESC LIMIT 1),
+                 (SELECT om3.meta_value FROM tbl_ordermeta om3
+                  WHERE om3.order_id = o.order_id AND om3.meta_key = '_order_discount'
+                  ORDER BY om3.meta_id DESC LIMIT 1)
+               )) AS coupon_discount,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_sr_cart_id'     ORDER BY om.meta_id DESC LIMIT 1) AS sr_cart_id,
               MAX(u.display_name)   AS user_display_name,
               MAX(u.user_email)     AS user_email,
@@ -3147,6 +3222,8 @@ const downloadInvoice = async (req, res) => {
     const orderDate    = new Date(orderRow.order_date);
     const orderDateStr = orderDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
 
+    const invoiceNumber = await getOrCreateInvoiceNumber(orderId, orderRow.order_date);
+
     const html = renderInvoice({
       store: {
         name:         process.env.STORE_NAME           || 'Nestcase',
@@ -3160,11 +3237,12 @@ const downloadInvoice = async (req, res) => {
       },
       defaultGstRate: parseFloat(process.env.DEFAULT_GST_RATE || '18'),
       order: {
-        invoiceNo:      orderRow.sr_cart_id || orderId,
-        orderId,
+        invoiceNo:      invoiceNumber,
+        orderId:        orderRow.sr_cart_id || orderId,
         dateStr:        orderDateStr,
         payMethod:      (orderRow.payment_method || 'cod').toUpperCase(),
         isCOD:          (orderRow.payment_method || 'cod').toLowerCase() === 'cod',
+        razorpayMethod: orderRow.razorpay_method || null, // 'card', 'upi', 'netbanking', 'wallet'
         awbCode:        orderRow.awb_code     || '',
         courierName:    orderRow.courier_name || '',
         supplierRef:    orderRow.sr_cart_id   || String(orderId),   // Supplier's Ref
