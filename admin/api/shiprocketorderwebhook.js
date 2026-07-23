@@ -300,6 +300,24 @@ const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
 const toInt   = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n) ? d : n; };
 
+const pickFirst = (...values) => {
+  for (const value of values) {
+    const str = toStr(value);
+    if (str) return str;
+  }
+  return "";
+};
+
+const extractShipmentIdentity = (payload = {}) => {
+  const data = payload?.data || payload?.response?.data || payload?.result || {};
+  return {
+    shipmentId: pickFirst(payload.shipment_id, data.shipment_id),
+    awb: pickFirst(payload.awb_code, payload.awb, data.awb_code, data.awb),
+    courier: pickFirst(payload.courier_name, payload.courier, data.courier_name, data.courier),
+    status: pickFirst(payload.status, payload.shipment_status, data.status, data.shipment_status),
+  };
+};
+
 /* ─────────────────────────────────────────────────────────────
    HMAC Verification
    Shiprocket signs the raw request body with your CHECKOUT_API_SECRET.
@@ -951,11 +969,27 @@ const receiveOrderWebhook = async (req, res) => {
       };
 
       const shiprocketResponse = await createShiprocketOrder(srPayload);
-      if (shiprocketResponse?.shipment_id) {
+      if (extractShipmentIdentity(shiprocketResponse).shipmentId) {
         console.log(`[SR OrderWebhook] ✅ Pushed to SR fulfillment panel — shipment_id=${shiprocketResponse.shipment_id}`);
+        const shipment = extractShipmentIdentity(shiprocketResponse);
+        const updateFields = ["shipment_id = ?", "shipping_status = ?", "order_status = ?"];
+        const updateParams = [
+          shipment.shipmentId || shiprocketResponse.shipment_id,
+          shipment.status || "new",
+          "Ready to Ship",
+        ];
+        if (shipment.awb) {
+          updateFields.push("awb_code = ?");
+          updateParams.push(shipment.awb);
+        }
+        if (shipment.courier) {
+          updateFields.push("courier_name = ?");
+          updateParams.push(shipment.courier);
+        }
+        updateParams.push(orderId);
         await db.query(
-          `UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`,
-          [shiprocketResponse.shipment_id, orderId],
+          `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
+          updateParams,
         );
       }
       if (shiprocketResponse?.order_id) {
@@ -1883,17 +1917,19 @@ const cancelShiprocketOrder = async (req, res) => {
 // Map every Shiprocket status string → our internal status
 const SR_STATUS_MAP = {
   // ── Forward journey (pre-pickup) ──────────────────────────────────────────
-  "NEW":                           "processing",
-  "PICKUP SCHEDULED":              "processing",
-  "PICKUP QUEUED":                 "processing",
-  "PICKUP GENERATED":              "processing",
-  "PICKUP ERROR":                  "processing",
-  "PICKUP EXCEPTION":              "processing",   // field exec couldn't pickup
-  "PICKUP RESCHEDULED":            "processing",   // rescheduled for next business day
-  "OUT FOR PICKUP":                "processing",   // field exec en route to collect
-  "MANIFEST GENERATED":            "processing",   // manifest created, pre-physical-pickup
-  "AWB ASSIGNED":                  "processing",   // AWB number assigned, not yet picked
-  "FUTURE_PICKUP":                 "processing",   // scheduled future pickup slot
+  "READY TO SHIP":                 "Ready to Ship",
+  "READY_TO_SHIP":                 "Ready to Ship",
+  "NEW":                           "Ready to Ship",
+  "PICKUP SCHEDULED":              "Ready to Ship",
+  "PICKUP QUEUED":                 "Ready to Ship",
+  "PICKUP GENERATED":              "Ready to Ship",
+  "PICKUP ERROR":                  "Ready to Ship",
+  "PICKUP EXCEPTION":              "Ready to Ship", // field exec couldn't pickup
+  "PICKUP RESCHEDULED":            "Ready to Ship", // rescheduled for next business day
+  "OUT FOR PICKUP":                "Ready to Ship", // field exec en route to collect
+  "MANIFEST GENERATED":            "Ready to Ship", // manifest created, pre-physical-pickup
+  "AWB ASSIGNED":                  "Ready to Ship", // AWB number assigned, not yet picked
+  "FUTURE_PICKUP":                 "Ready to Ship", // scheduled future pickup slot
   // ── In transit ───────────────────────────────────────────────────────────
   "PICKED UP":                     "Shipped",
   "IN TRANSIT":                    "Shipped",
@@ -1913,7 +1949,7 @@ const SR_STATUS_MAP = {
   "SHIPMENT RETURN":               "Return Initiated",
   "DESTROYED":                     "Return Initiated", // unclaimed NDR shipment destroyed
   // ── QC / operational ─────────────────────────────────────────────────────
-  "QC FAILED":                     "processing",   // quality check failed at source hub
+  "QC FAILED":                     "Ready to Ship", // quality check failed at source hub
   // ── Delivery exceptions (modifiers, NOT separate pipeline stages) ────────
   // order_status still reflects the pipeline stage; the exception is stored
   // separately in tbl_ordermeta._shipment_exception (see receiveShipmentWebhook).
@@ -2100,5 +2136,9 @@ module.exports = {
   resolveShiprocketPanelOrderId,
   cancelOnShiprocketPanel,
   notifyAdminOfCancellationRequest,
+<<<<<<< Updated upstream
   notifyAdminOfOrderAutoCancelled,
 };
+=======
+};
+>>>>>>> Stashed changes

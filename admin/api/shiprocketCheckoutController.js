@@ -17,6 +17,24 @@ const { createShiprocketOrder } = require('./orderController');
 const toInt   = (v, d = 0) => { const n = parseInt(v, 10); return Number.isNaN(n) ? d : n; };
 const toStr   = (v)         => (v == null ? "" : String(v).trim());
 const toFloat = (v, d = 0) => { const n = parseFloat(v);   return Number.isNaN(n) ? d : n; };
+
+const pickFirst = (...values) => {
+  for (const value of values) {
+    const str = toStr(value);
+    if (str) return str;
+  }
+  return "";
+};
+
+const extractShipmentIdentity = (payload = {}) => {
+  const data = payload?.data || payload?.response?.data || payload?.result || {};
+  return {
+    shipmentId: pickFirst(payload.shipment_id, data.shipment_id),
+    awb: pickFirst(payload.awb_code, payload.awb, data.awb_code, data.awb),
+    courier: pickFirst(payload.courier_name, payload.courier, data.courier_name, data.courier),
+    status: pickFirst(payload.status, payload.shipment_status, data.status, data.shipment_status),
+  };
+};
 // Prices are tax-inclusive — extract GST: tax = taxable × rate / (100 + rate)
 const calculateInclusiveTax = (subtotal, taxPercent, discountShare = 0) => {
   const taxable = Math.max(0, toFloat(subtotal) - toFloat(discountShare));
@@ -480,11 +498,29 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
 
       const shiprocketResponse = await createShiprocketOrder(srPayload);
       
-      if (shiprocketResponse && shiprocketResponse.shipment_id) {
+      if (extractShipmentIdentity(shiprocketResponse).shipmentId) {
         //  console.log(`[SR Polling] ✅ Order pushed to SR Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
          // Save the shipment ID back to your local order (outside the main transaction)
-         await db.query(`UPDATE tbl_orders SET shipment_id = ?, shipping_status = 'new' WHERE order_id = ?`, 
-            [shiprocketResponse.shipment_id, orderId]);
+         const shipment = extractShipmentIdentity(shiprocketResponse);
+         const updateFields = ["shipment_id = ?", "shipping_status = ?", "order_status = ?"];
+         const updateParams = [
+           shipment.shipmentId,
+           shipment.status || "new",
+           "Ready to Ship",
+         ];
+         if (shipment.awb) {
+           updateFields.push("awb_code = ?");
+           updateParams.push(shipment.awb);
+         }
+         if (shipment.courier) {
+           updateFields.push("courier_name = ?");
+           updateParams.push(shipment.courier);
+         }
+         updateParams.push(orderId);
+         await db.query(
+           `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
+           updateParams,
+         );
       }
     } catch (e) {
       console.error("[SR Polling] Failed to push to SR Panel:", e.message);

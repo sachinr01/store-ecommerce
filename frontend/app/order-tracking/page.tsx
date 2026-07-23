@@ -29,9 +29,10 @@ const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']
  * once Shiprocket assigns an AWB the order has a confirmed pickup slot, even
  * if the raw status string is still "processing" / "Pickup Scheduled".
  */
-function normalizeStatus(raw: string, awbCode?: string | null): string {
+function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!raw) return 'pending';
   const s = raw.replace('wc-', '').toLowerCase();
+  const hasShipment = Boolean(awbCode || shipmentId);
 
   // Exception states — return as-is so the caller can render a warning badge
   if (EXCEPTION_STATUSES.has(s)) return s;
@@ -45,7 +46,7 @@ function normalizeStatus(raw: string, awbCode?: string | null): string {
   // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
-    return awbCode ? 'ready_to_ship' : 'processing';
+    return hasShipment ? 'ready_to_ship' : 'processing';
   }
   // 'ready_to_ship' contains the substring 'ship', so the ready check MUST
   // precede the generic ship check or a raw "ready_to_ship" value would be
@@ -54,7 +55,7 @@ function normalizeStatus(raw: string, awbCode?: string | null): string {
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
   // AWB assigned but status not yet updated — promote to ready_to_ship
-  if (awbCode && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
+  if (hasShipment && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
@@ -416,7 +417,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
     return {
       id:            Number(order.order_id),
-      status:        normalizeStatus(order.order_status || '', order.awb_code),
+      status:        normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
