@@ -2136,9 +2136,5 @@ module.exports = {
   resolveShiprocketPanelOrderId,
   cancelOnShiprocketPanel,
   notifyAdminOfCancellationRequest,
-<<<<<<< Updated upstream
   notifyAdminOfOrderAutoCancelled,
 };
-=======
-};
->>>>>>> Stashed changes
