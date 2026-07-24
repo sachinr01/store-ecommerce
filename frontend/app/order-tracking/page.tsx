@@ -27,9 +27,10 @@ const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']
  * once Shiprocket assigns an AWB the order has a confirmed pickup slot, even
  * if the raw status string is still "processing" / "Pickup Scheduled".
  */
-function normalizeStatus(raw: string, awbCode?: string | null): string {
+function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!raw) return 'pending';
   const s = raw.replace('wc-', '').toLowerCase();
+  const hasShipment = Boolean(awbCode || shipmentId);
 
   // Exception states — return as-is so the caller can render a warning badge
   if (EXCEPTION_STATUSES.has(s)) return s;
@@ -45,13 +46,13 @@ function normalizeStatus(raw: string, awbCode?: string | null): string {
   // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
-    return awbCode ? 'ready_to_ship' : 'processing';
+    return hasShipment ? 'ready_to_ship' : 'processing';
   }
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
   if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
   // AWB assigned but status not yet updated — promote to ready_to_ship
-  if (awbCode && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
+  if (hasShipment && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
@@ -421,7 +422,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
 
     return {
       id:            Number(order.order_id),
-      status:        normalizeStatus(order.order_status || '', order.awb_code),
+      status:        normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
@@ -482,7 +483,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             </div>
           </div>
 
-          {(summary.awb || summary.courier || summary.shippingStatus) && (
+          {(summary.awb || summary.courier || summary.shippingStatus || summary.shipmentId) && (
             <div className="order-detail-card">
               <h3 className="order-detail-subtitle">Shipment Info</h3>
               <div className="order-summary-grid">
@@ -492,7 +493,9 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
                   </div>
                 )}
                 {summary.courier   && <div><strong>Courier:</strong> {summary.courier}</div>}
-                {summary.awb       && <div><strong>AWB Number:</strong> {summary.awb}</div>}
+                {(summary.awb || summary.shipmentId) && (
+                  <div><strong>AWB Number:</strong> {summary.awb || 'Not assigned yet'}</div>
+                )}
                 {summary.shipmentId && <div><strong>Shipment ID:</strong> {summary.shipmentId}</div>}
               </div>
               {summary.awb && (

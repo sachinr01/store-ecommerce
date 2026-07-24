@@ -448,6 +448,95 @@ async function getTrackingStatus(req, res) {
   }
 }
 
+const SHIPROCKET_TRACKING_STATUS_MAP = {
+  "NEW":                           "Ready to Ship",
+  "PICKUP SCHEDULED":              "Ready to Ship",
+  "PICKUP ERROR":                  "Ready to Ship",
+  "PICKUP QUEUED":                 "Ready to Ship",
+  "PICKUP GENERATED":              "Ready to Ship",
+  "PICKUP EXCEPTION":              "Ready to Ship",
+  "PICKUP RESCHEDULED":            "Ready to Ship",
+  "OUT FOR PICKUP":                "Ready to Ship",
+  "MANIFEST GENERATED":            "Ready to Ship",
+  "AWB ASSIGNED":                  "Ready to Ship",
+  "FUTURE_PICKUP":                 "Ready to Ship",
+  "PICKED UP":                     "Shipped",
+  "IN TRANSIT":                    "Shipped",
+  "REACHED AT SOURCE HUB":         "Shipped",
+  "REACHED AT DESTINATION HUB":    "Shipped",
+  "MISROUTED":                     "Shipped",
+  "DELAYED":                       "Shipped",
+  "DAMAGED":                       "Shipped",
+  "LOST":                          "Shipped",
+  "OUT FOR DELIVERY":              "Out for Delivery",
+  "UNDELIVERED":                   "Out for Delivery",
+  "DELIVERED":                     "Delivered",
+  "CANCELLED":                     "cancelled",
+  "RTO INITIATED":                 "Return Initiated",
+  "RTO IN TRANSIT":                "Return Initiated",
+  "RTO OUT FOR PICKUP":            "Return Initiated",
+  "RTO PICKED":                    "Return Initiated",
+  "RTO DELIVERED":                 "Returned",
+  "SHIPMENT RETURN":               "Return Initiated",
+  "DESTROYED":                     "Return Initiated",
+  "QC FAILED":                     "Ready to Ship",
+};
+
+function mapShiprocketTrackingStatus(rawStatus) {
+  const key = toStr(rawStatus).toUpperCase().trim();
+  return SHIPROCKET_TRACKING_STATUS_MAP[key] || key;
+}
+
+function extractShiprocketTrackingIdentity(trackingData = {}) {
+  const track = trackingData?.shipment_track?.[0] || {};
+  return {
+    rawStatus: toStr(track.current_status || trackingData.current_status || ""),
+    awb: toStr(track.awb_code || track.awb || trackingData.awb_code || trackingData.awb || ""),
+    courier: toStr(track.courier_name || trackingData.courier_name || ""),
+  };
+}
+
+async function syncShipmentByShipmentId(orderId, shipmentId) {
+  const cleanShipmentId = toStr(shipmentId);
+  if (!cleanShipmentId) return null;
+
+  const token = await getShiprocketToken();
+  const srRes = await axios.get(
+    `https://apiv2.shiprocket.in/v1/external/courier/track/shipment/${encodeURIComponent(cleanShipmentId)}`,
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+  );
+  const trackingData = srRes.data?.tracking_data || {};
+  const identity = extractShiprocketTrackingIdentity(trackingData);
+  const mappedStatus = identity.rawStatus
+    ? mapShiprocketTrackingStatus(identity.rawStatus)
+    : "";
+
+  const fields = [];
+  const params = [];
+  if (identity.awb) {
+    fields.push("awb_code = ?");
+    params.push(identity.awb);
+  }
+  if (identity.courier) {
+    fields.push("courier_name = ?");
+    params.push(identity.courier);
+  }
+  if (mappedStatus) {
+    fields.push("order_status = ?");
+    params.push(mappedStatus);
+  }
+  if (fields.length) {
+    fields.push("order_modified = NOW()");
+    params.push(orderId);
+    await db.query(
+      `UPDATE tbl_orders SET ${fields.join(", ")} WHERE order_id = ?`,
+      params,
+    );
+  }
+
+  return { ...identity, status: mappedStatus, activities: trackingData.shipment_track_activities || [] };
+}
+
 function formatMoney(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value)) return "0.00";
@@ -2564,6 +2653,25 @@ const getMyOrderById = async (req, res) => {
       items,
       order.subtotal ? Number(order.subtotal) : 0,
     );
+
+    const awb = toStr(order.awb_code);
+    const shipmentId = toStr(order.shipment_id);
+    if (!awb && shipmentId) {
+      try {
+        const shipmentSync = await syncShipmentByShipmentId(orderId, shipmentId);
+        if (shipmentSync?.awb) {
+          order.awb_code = shipmentSync.awb;
+        }
+        if (shipmentSync?.courier) {
+          order.courier_name = shipmentSync.courier;
+        }
+        if (shipmentSync?.status) {
+          order.order_status = shipmentSync.status;
+        }
+      } catch (shipmentTrackErr) {
+        console.error(`[getMyOrderById] SR shipment tracking fetch failed for shipment ${shipmentId}:`, shipmentTrackErr.message);
+      }
+    }
 
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {

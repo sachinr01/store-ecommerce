@@ -306,15 +306,43 @@ const pickFirst = (...values) => {
 
 const extractShipmentIdentity = (payload = {}) => {
   const data = payload?.data || payload?.response?.data || payload?.result || {};
+  const shipmentTrack = payload?.tracking_data?.shipment_track?.[0] ||
+    data?.tracking_data?.shipment_track?.[0] ||
+    {};
   return {
-    shipmentId: pickFirst(payload.shipment_id, data.shipment_id),
-    awb:        pickFirst(payload.awb_code, payload.awb, data.awb_code, data.awb),
-    courier:    pickFirst(payload.courier_name, payload.courier, data.courier_name, data.courier),
-    status:     pickFirst(payload.status, payload.shipment_status, data.status, data.shipment_status),
-    // Shiprocket's own order id (distinct from our internal orderId) — used
-    // as the last-resort lookup key in receiveShipmentWebhook when a
-    // webhook payload only carries `order_id` and no awb/shipment_id yet.
-    srOrderId:  pickFirst(payload.order_id, data.order_id),
+    shipmentId: pickFirst(payload.shipment_id, data.shipment_id, shipmentTrack.shipment_id),
+    awb: pickFirst(
+      payload.awb,
+      payload.awb_code,
+      payload.awbCode,
+      data.awb,
+      data.awb_code,
+      data.awbCode,
+      shipmentTrack.awb_code,
+      shipmentTrack.awb,
+    ),
+    courier: pickFirst(
+      payload.courier,
+      payload.courier_name,
+      payload.service_provider,
+      data.courier,
+      data.courier_name,
+      data.service_provider,
+      shipmentTrack.courier_name,
+    ),
+    status: pickFirst(
+      payload.current_status,
+      payload.status,
+      payload.event,
+      payload.shipment_status,
+      data.current_status,
+      data.status,
+      data.event,
+      data.shipment_status,
+      shipmentTrack.current_status,
+    ),
+    // Shiprocket's own order id, distinct from our internal order_id.
+    srOrderId: pickFirst(payload.order_id, data.order_id, shipmentTrack.order_id),
   };
 };
 
@@ -987,6 +1015,8 @@ const receiveOrderWebhook = async (req, res) => {
         }
         updateParams.push(orderId);
         await db.query(
+          `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
+          updateParams,
           `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
           updateParams,
         );
@@ -2031,8 +2061,9 @@ const receiveShipmentWebhook = async (req, res) => {
   const body = req.body || {};
 
   // ── 2. Extract fields ───────────────────────────────────────────────────────
-  const awb        = toStr(body.awb || body.awb_code || "");
-  const shipmentId = toStr(body.shipment_id || "");
+  const shipment = extractShipmentIdentity(body);
+  const awb        = shipment.awb;
+  const shipmentId = shipment.shipmentId;
   const srOrderId  = toStr(body.order_id || "");
   // Some Shiprocket webhook payload variants carry only the channel's own
   // reference order id (what we passed in at checkout as sr_cart_id), with
@@ -2114,7 +2145,7 @@ const receiveShipmentWebhook = async (req, res) => {
     await conn.beginTransaction();
 
     const [[current]] = await conn.query(
-      `SELECT order_status, awb_code FROM tbl_orders WHERE order_id = ? LIMIT 1 FOR UPDATE`,
+      `SELECT order_status, awb_code, shipment_id FROM tbl_orders WHERE order_id = ? LIMIT 1 FOR UPDATE`,
       [orderId],
     );
     currentStatus = toStr(current?.order_status || "");
@@ -2132,6 +2163,10 @@ const receiveShipmentWebhook = async (req, res) => {
     if (awb && !current?.awb_code) {
       updateQuery += `, awb_code = ?`;
       updateParams.push(awb);
+    }
+    if (shipmentId && !current?.shipment_id) {
+      updateQuery += `, shipment_id = ?`;
+      updateParams.push(shipmentId);
     }
     if (courier) {
       updateQuery += `, courier_name = ?`;

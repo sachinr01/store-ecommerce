@@ -28,9 +28,10 @@ const EXCEPTION_LABEL: Record<string, string> = {
  * Derives canonical timeline key from DB order_status + awb_code presence.
  * AWB present + still "processing" → ready_to_ship.
  */
-function normalizeStatus(status: string, awbCode?: string | null): string {
+function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
+  const hasShipment = Boolean(awbCode || shipmentId);
 
   if (EXCEPTION_STATUSES.has(s)) return s;
 
@@ -47,7 +48,7 @@ function normalizeStatus(status: string, awbCode?: string | null): string {
   if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
-    return awbCode ? 'ready_to_ship' : 'processing';
+    return hasShipment ? 'ready_to_ship' : 'processing';
   }
   // Must be checked before the generic 'cancel' catch-all.
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
@@ -307,7 +308,7 @@ export default function OrderDetailPage() {
     ].filter(Boolean).join(', ');
     return {
       id: Number(order.order_id),
-      status: normalizeStatus(order.order_status || '', order.awb_code),
+      status: normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
       dateLabel: formatDate(order.order_date || ''),
       totalLabel: formatPrice(totalValue || 0),
       subtotalLabel: formatPrice(subtotalValue || 0),
@@ -553,7 +554,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <strong>AWB Number:</strong>{' '}
-                        {summary.awb || '-'}
+                        {summary.awb || (summary.shipmentId ? 'Not assigned yet' : '-')}
                       </div>
 
                       <div>
