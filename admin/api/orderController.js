@@ -2794,28 +2794,79 @@ const trackOrderById = async (req, res) => {
     }
 
     // Fetch live Shiprocket tracking if we have an AWB
+    // Guard against overwriting a protected status (same rationale as
+    // getTrackingStatus / trackOrderByPhone) — never let a read-only page
+    // view revert a cancellation/refund back to a shipping status.
+    const PROTECTED_STATUSES = [
+      "cancelled", "cancellation_requested", "refunded", "failed",
+      "Delivered", "Returned",
+    ];
+    const isProtected = PROTECTED_STATUSES.includes(order.order_status);
     let trackingData = null;
     const awb = toStr(order.awb_code);
-    if (awb) {
+    if (awb && !isProtected) {
       try {
-        const token = await getShiprocketToken();
-        const srRes = await axios.get(
-          `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
-          { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
-        );
+        let token = await getShiprocketToken();
+        let srRes;
+        try {
+          srRes = await axios.get(
+            `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+            { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+          );
+        } catch (fetchErr) {
+          // Retry once with a forced token refresh instead of silently
+          // swallowing a stale-token 401 and leaving the DB status stuck.
+          if (fetchErr.response?.status === 401) {
+            token = await getShiprocketToken(true);
+            srRes = await axios.get(
+              `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+              { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+            );
+          } else {
+            throw fetchErr;
+          }
+        }
         const td = srRes.data?.tracking_data;
         if (td) {
-          const rawStatus = td.shipment_track?.[0]?.current_status || "";
+          const rawStatus = (td.shipment_track?.[0]?.current_status || "").toUpperCase().trim();
+          // Must mirror SR_STATUS_MAP in shiprocketorderwebhook.js exactly —
+          // previously this used its own smaller, inconsistent map
+          // ("Order Confirmed", "Packed") that didn't match the timeline
+          // stages the frontend actually renders (Pending/Processing/Ready
+          // to Ship/Shipped/Out for Delivery/Delivered), so live pulls here
+          // could write a status string the UI didn't recognize.
           const statusMap = {
-            NEW: "Order Confirmed",
-            "PICKUP SCHEDULED": "Packed",
-            "PICKED UP": "Shipped",
-            "IN TRANSIT": "Shipped",
-            "OUT FOR DELIVERY": "Out for Delivery",
-            DELIVERED: "Delivered",
-            CANCELLED: "Cancelled",
-            "RTO INITIATED": "Return Initiated",
-            "RTO DELIVERED": "Returned",
+            "NEW":                           "Ready to Ship",
+            "PICKUP SCHEDULED":              "Ready to Ship",
+            "PICKUP ERROR":                  "Ready to Ship",
+            "PICKUP QUEUED":                 "Ready to Ship",
+            "PICKUP GENERATED":              "Ready to Ship",
+            "PICKUP EXCEPTION":              "Ready to Ship",
+            "PICKUP RESCHEDULED":            "Ready to Ship",
+            "OUT FOR PICKUP":                "Ready to Ship",
+            "MANIFEST GENERATED":            "Ready to Ship",
+            "AWB ASSIGNED":                  "Ready to Ship",
+            "FUTURE_PICKUP":                 "Ready to Ship",
+            "PICKED UP":                     "Shipped",
+            "IN TRANSIT":                    "Shipped",
+            "REACHED AT SOURCE HUB":         "Shipped",
+            "REACHED AT DESTINATION HUB":    "Shipped",
+            "MISROUTED":                     "Shipped",
+            "DELAYED":                       "Shipped",
+            "DAMAGED":                       "Shipped",
+            "LOST":                          "Shipped",
+            "OUT FOR DELIVERY":              "Out for Delivery",
+            "UNDELIVERED":                   "Out for Delivery",
+            "DELIVERED":                     "Delivered",
+            "CANCELLED":                     "cancelled",
+            "RTO INITIATED":                 "Return Initiated",
+            "RTO IN TRANSIT":                "Return Initiated",
+            "RTO OUT FOR PICKUP":            "Return Initiated",
+            "RTO PICKED":                    "Return Initiated",
+            "RTO DELIVERED":                 "Returned",
+            "SHIPMENT RETURN":               "Return Initiated",
+            "DESTROYED":                     "Return Initiated",
+            "QC FAILED":                     "Ready to Ship",
           };
           trackingData = {
             current_status: statusMap[rawStatus] || rawStatus || order.order_status,
@@ -3062,14 +3113,38 @@ const trackOrderByPhone = async (req, res) => {
     );
 
     // ── Fetch live Shiprocket tracking if AWB is available ────────────────────
+    // Never let a live pull overwrite an order that's already in a protected
+    // terminal / in-progress state (same rationale as getTrackingStatus above) —
+    // otherwise viewing this page mid-cancellation could silently revert
+    // "cancellation_requested" back to a shipping status.
+    const PROTECTED_STATUSES = [
+      "cancelled", "cancellation_requested", "refunded", "failed",
+      "Delivered", "Returned",
+    ];
+    const isProtected = PROTECTED_STATUSES.includes(order.order_status);
     const awb = toStr(order.awb_code);
-    if (awb) {
+    if (awb && !isProtected) {
       try {
-        const token = await getShiprocketToken();
-        const srRes = await axios.get(
-          `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
-          { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
-        );
+        let token = await getShiprocketToken();
+        let srRes;
+        try {
+          srRes = await axios.get(
+            `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+            { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+          );
+        } catch (fetchErr) {
+          // Retry once with a forced token refresh — a stale cached token
+          // (401) was silently swallowed before, leaving the DB status stuck.
+          if (fetchErr.response?.status === 401) {
+            token = await getShiprocketToken(true);
+            srRes = await axios.get(
+              `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${awb}`,
+              { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 },
+            );
+          } else {
+            throw fetchErr;
+          }
+        }
         const td = srRes.data?.tracking_data;
         if (td) {
           const rawStatus = (td.shipment_track?.[0]?.current_status || "").toUpperCase().trim();
