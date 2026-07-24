@@ -190,7 +190,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
           if (cancelled) return;
           if (res.success) {
             setActivities(res.activities || []);
-            setLiveStatus(res.current_status || '');
+            setLiveStatus(res.raw_status || res.current_status || '');
           }
         })
         .catch(() => { /* silently skip if tracking unavailable */ })
@@ -423,6 +423,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     return {
       id:            Number(order.order_id),
       status:        normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
+      statusLabel:   order.shipping_status ? toLabel(order.shipping_status) : '',
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
@@ -452,7 +453,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             <h2 className="order-detail-title">Order {order.sr_cart_id || summary.id}</h2>
             <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
           </div>
-          <span className={`order-detail-status ${summary.status}`}>{toLabel(summary.status)}</span>
+          <span className={`order-detail-status ${summary.status}`}>{summary.statusLabel || toLabel(summary.status)}</span>
         </div>
       </div>
 

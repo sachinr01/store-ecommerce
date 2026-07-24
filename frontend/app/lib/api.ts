@@ -380,6 +380,7 @@ export interface ShiprocketTrackingActivity {
 export interface LiveTrackingResponse {
   success: boolean;
   current_status: string;
+  raw_status?: string;
   activities: ShiprocketTrackingActivity[];
 }
 

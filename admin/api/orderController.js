@@ -402,8 +402,8 @@ async function getTrackingStatus(req, res) {
       console.log(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
     } else {
       await db.query(
-        `UPDATE tbl_orders SET order_status = ? WHERE awb_code = ?`,
-        [finalStatus, awb],
+        `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE awb_code = ?`,
+        [finalStatus, shiprocketStatus, awb],
       );
     }
 
@@ -412,6 +412,7 @@ async function getTrackingStatus(req, res) {
     return res.json({
       success: true,
       current_status: isProtected ? currentOrderRow.order_status : finalStatus,
+      raw_status: shiprocketStatus,
       activities: tracking?.shipment_track_activities || [],
     });
   } catch (error) {
@@ -488,11 +489,35 @@ function mapShiprocketTrackingStatus(rawStatus) {
 }
 
 function extractShiprocketTrackingIdentity(trackingData = {}) {
-  const track = trackingData?.shipment_track?.[0] || {};
+  const track = trackingData?.shipment_track?.[0] ||
+    trackingData?.shipment?.shipment_track?.[0] ||
+    trackingData?.shipments?.[0] ||
+    trackingData?.shipment ||
+    {};
   return {
     rawStatus: toStr(track.current_status || trackingData.current_status || ""),
-    awb: toStr(track.awb_code || track.awb || trackingData.awb_code || trackingData.awb || ""),
-    courier: toStr(track.courier_name || trackingData.courier_name || ""),
+    awb: toStr(
+      track.awb_code || track.awb || track.awb_number || track.awbNumber ||
+      trackingData.awb_code || trackingData.awb || trackingData.awb_number || trackingData.awbNumber || ""
+    ),
+    courier: toStr(track.courier_name || track.courier || trackingData.courier_name || trackingData.courier || ""),
+  };
+}
+
+function extractShiprocketOrderIdentity(orderData = {}) {
+  const shipment = orderData?.shipments?.[0] ||
+    orderData?.shipment ||
+    orderData?.shipment_track?.[0] ||
+    orderData?.tracking_data?.shipment_track?.[0] ||
+    {};
+  return {
+    awb: toStr(
+      orderData.awb_code || orderData.awb || orderData.awb_number || orderData.awbNumber ||
+      shipment.awb_code || shipment.awb || shipment.awb_number || shipment.awbNumber || ""
+    ),
+    shipmentId: toStr(orderData.shipment_id || orderData.shipmentId || shipment.shipment_id || shipment.id || ""),
+    courier: toStr(orderData.courier_name || orderData.courier || shipment.courier_name || shipment.courier || ""),
+    rawStatus: toStr(orderData.status || orderData.current_status || orderData.shipment_status || shipment.current_status || shipment.status || ""),
   };
 }
 
@@ -525,6 +550,10 @@ async function syncShipmentByShipmentId(orderId, shipmentId) {
     fields.push("order_status = ?");
     params.push(mappedStatus);
   }
+  if (identity.rawStatus) {
+    fields.push("shipping_status = ?");
+    params.push(identity.rawStatus);
+  }
   if (fields.length) {
     fields.push("order_modified = NOW()");
     params.push(orderId);
@@ -534,7 +563,127 @@ async function syncShipmentByShipmentId(orderId, shipmentId) {
     );
   }
 
-  return { ...identity, status: mappedStatus, activities: trackingData.shipment_track_activities || [] };
+  return { ...identity, status: mappedStatus, shippingStatus: identity.rawStatus, activities: trackingData.shipment_track_activities || [] };
+}
+
+async function syncShipmentByOrderReferences(order) {
+  const orderId = Number(order?.order_id || 0);
+  if (!orderId) return null;
+
+  const refs = [
+    toStr(order.sr_cart_id),
+    toStr(order.shiprocket_order_id),
+  ].filter(Boolean);
+
+  if (!refs.length) {
+    const [metaRows] = await db.query(
+      `SELECT meta_key, meta_value FROM tbl_ordermeta
+       WHERE order_id = ?
+         AND meta_key IN ('_sr_cart_id', '_sr_checkout_order_id', '_shiprocket_order_id', '_shiprocket_checkout_ref')
+       ORDER BY FIELD(meta_key, '_sr_cart_id', '_sr_checkout_order_id', '_shiprocket_order_id', '_shiprocket_checkout_ref')`,
+      [orderId],
+    );
+    for (const row of metaRows) {
+      const value = toStr(row.meta_value);
+      if (value && !refs.includes(value)) refs.push(value);
+    }
+  }
+  if (!refs.length) return null;
+
+  const token = await getShiprocketToken();
+  for (const ref of refs) {
+    const searchRes = await axios.get(
+      "https://apiv2.shiprocket.in/v1/external/orders",
+      {
+        params: { search: ref, per_page: 10 },
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      },
+    );
+    const orders = searchRes.data?.data || [];
+    if (!Array.isArray(orders) || !orders.length) continue;
+
+    const match = orders.find((o) => toStr(o.channel_order_id) === ref) ||
+      orders.find((o) => toStr(o.id) === ref) ||
+      orders[0];
+    const identity = extractShiprocketOrderIdentity(match);
+    const mappedStatus = identity.rawStatus ? mapShiprocketTrackingStatus(identity.rawStatus) : "";
+    const fields = [];
+    const params = [];
+    if (identity.awb) {
+      fields.push("awb_code = ?");
+      params.push(identity.awb);
+    }
+    if (identity.shipmentId) {
+      fields.push("shipment_id = ?");
+      params.push(identity.shipmentId);
+    }
+    if (identity.courier) {
+      fields.push("courier_name = ?");
+      params.push(identity.courier);
+    }
+    if (mappedStatus) {
+      fields.push("order_status = ?");
+      params.push(mappedStatus);
+    }
+    if (identity.rawStatus) {
+      fields.push("shipping_status = ?");
+      params.push(identity.rawStatus.toUpperCase());
+    }
+    if (!fields.length) continue;
+
+    fields.push("order_modified = NOW()");
+    params.push(orderId);
+    await db.query(`UPDATE tbl_orders SET ${fields.join(", ")} WHERE order_id = ?`, params);
+    return {
+      awb: identity.awb,
+      shipmentId: identity.shipmentId,
+      courier: identity.courier,
+      status: mappedStatus,
+      shippingStatus: identity.rawStatus.toUpperCase(),
+    };
+  }
+
+  return null;
+}
+
+async function syncMissingAwbFromShipment(order, logScope) {
+  const orderId = Number(order?.order_id || 0);
+  const shipmentId = toStr(order?.shipment_id);
+  if (!orderId || toStr(order?.awb_code)) return null;
+
+  try {
+    let shipmentSync = null;
+    if (shipmentId) {
+      try {
+        shipmentSync = await syncShipmentByShipmentId(orderId, shipmentId);
+      } catch (shipmentErr) {
+        console.error(`[${logScope}] SR shipment tracking fetch failed for shipment ${shipmentId}:`, shipmentErr.message);
+      }
+    }
+    if (!shipmentSync?.awb) {
+      shipmentSync = await syncShipmentByOrderReferences(order);
+    }
+    if (shipmentSync?.awb) {
+      order.awb_code = shipmentSync.awb;
+    }
+    if (shipmentSync?.shipmentId) {
+      order.shipment_id = shipmentSync.shipmentId;
+    }
+    if (shipmentSync?.courier) {
+      order.courier_name = shipmentSync.courier;
+    }
+    if (shipmentSync?.status) {
+      order.order_status = shipmentSync.status;
+    }
+    if (shipmentSync?.shippingStatus) {
+      order.shipping_status = shipmentSync.shippingStatus;
+    }
+    return shipmentSync;
+  } catch (shipmentTrackErr) {
+    console.error(`[${logScope}] SR AWB recovery failed for order ${orderId}:`, shipmentTrackErr.message);
+    return null;
+  }
 }
 
 function formatMoney(amount) {
@@ -2654,24 +2803,7 @@ const getMyOrderById = async (req, res) => {
       order.subtotal ? Number(order.subtotal) : 0,
     );
 
-    const awb = toStr(order.awb_code);
-    const shipmentId = toStr(order.shipment_id);
-    if (!awb && shipmentId) {
-      try {
-        const shipmentSync = await syncShipmentByShipmentId(orderId, shipmentId);
-        if (shipmentSync?.awb) {
-          order.awb_code = shipmentSync.awb;
-        }
-        if (shipmentSync?.courier) {
-          order.courier_name = shipmentSync.courier;
-        }
-        if (shipmentSync?.status) {
-          order.order_status = shipmentSync.status;
-        }
-      } catch (shipmentTrackErr) {
-        console.error(`[getMyOrderById] SR shipment tracking fetch failed for shipment ${shipmentId}:`, shipmentTrackErr.message);
-      }
-    }
+    await syncMissingAwbFromShipment(order, "getMyOrderById");
 
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
@@ -2911,6 +3043,7 @@ const trackOrderById = async (req, res) => {
     ];
     const isProtected = PROTECTED_STATUSES.includes(order.order_status);
     let trackingData = null;
+    await syncMissingAwbFromShipment(order, "trackOrderById");
     const awb = toStr(order.awb_code);
     if (awb && !isProtected) {
       try {
@@ -2978,6 +3111,7 @@ const trackOrderById = async (req, res) => {
           };
           trackingData = {
             current_status: statusMap[rawStatus] || rawStatus || order.order_status,
+            raw_status: rawStatus,
             activities: td.shipment_track_activities || [],
             courier_name: td.shipment_track?.[0]?.courier_name || order.courier_name || "",
             awb_code: awb,
@@ -2985,9 +3119,10 @@ const trackOrderById = async (req, res) => {
           // keep local status in sync
           if (trackingData.current_status) {
             await db.query(
-              `UPDATE tbl_orders SET order_status = ? WHERE order_id = ?`,
-              [trackingData.current_status, orderId],
+              `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE order_id = ?`,
+              [trackingData.current_status, rawStatus, orderId],
             );
+            order.shipping_status = rawStatus;
           }
         }
       } catch (trackErr) {
@@ -3025,6 +3160,8 @@ const trackOrderById = async (req, res) => {
           billing_state: order.billing_state,
           awb_code: awb || null,
           courier_name: order.courier_name || null,
+          shipping_status: order.shipping_status || trackingData?.raw_status || null,
+          shipment_id: order.shipment_id || null,
         },
         items,
         tracking: trackingData,
@@ -3221,6 +3358,8 @@ const trackOrderByPhone = async (req, res) => {
     );
 
     // ── Fetch live Shiprocket tracking if AWB is available ────────────────────
+    await syncMissingAwbFromShipment(order, "trackOrderByPhone");
+
     // Never let a live pull overwrite an order that's already in a protected
     // terminal / in-progress state (same rationale as getTrackingStatus above) —
     // otherwise viewing this page mid-cancellation could silently revert
@@ -3293,10 +3432,11 @@ const trackOrderByPhone = async (req, res) => {
           const liveStatus = statusMap[rawStatus] || rawStatus;
           if (liveStatus) {
             order.order_status = liveStatus;
+            order.shipping_status = rawStatus;
             // keep local DB in sync
             await db.query(
-              `UPDATE tbl_orders SET order_status = ? WHERE order_id = ?`,
-              [liveStatus, orderId],
+              `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE order_id = ?`,
+              [liveStatus, rawStatus, orderId],
             ).catch(() => {});
           }
 

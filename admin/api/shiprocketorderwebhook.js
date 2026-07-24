@@ -308,18 +308,37 @@ const extractShipmentIdentity = (payload = {}) => {
   const data = payload?.data || payload?.response?.data || payload?.result || {};
   const shipmentTrack = payload?.tracking_data?.shipment_track?.[0] ||
     data?.tracking_data?.shipment_track?.[0] ||
+    payload?.shipment_track?.[0] ||
+    data?.shipment_track?.[0] ||
+    payload?.shipments?.[0] ||
+    data?.shipments?.[0] ||
+    payload?.shipment ||
+    data?.shipment ||
     {};
   return {
-    shipmentId: pickFirst(payload.shipment_id, data.shipment_id, shipmentTrack.shipment_id),
+    shipmentId: pickFirst(
+      payload.shipment_id,
+      payload.shipmentId,
+      data.shipment_id,
+      data.shipmentId,
+      shipmentTrack.shipment_id,
+      shipmentTrack.id,
+    ),
     awb: pickFirst(
       payload.awb,
       payload.awb_code,
       payload.awbCode,
+      payload.awb_number,
+      payload.awbNumber,
       data.awb,
       data.awb_code,
       data.awbCode,
+      data.awb_number,
+      data.awbNumber,
       shipmentTrack.awb_code,
       shipmentTrack.awb,
+      shipmentTrack.awb_number,
+      shipmentTrack.awbNumber,
     ),
     courier: pickFirst(
       payload.courier,
@@ -2064,7 +2083,7 @@ const receiveShipmentWebhook = async (req, res) => {
   const shipment = extractShipmentIdentity(body);
   const awb        = shipment.awb;
   const shipmentId = shipment.shipmentId;
-  const srOrderId  = toStr(body.order_id || "");
+  const srOrderId  = toStr(shipment.srOrderId || body.order_id || "");
   // Some Shiprocket webhook payload variants carry only the channel's own
   // reference order id (what we passed in at checkout as sr_cart_id), with
   // no awb/shipment_id/SR order id yet — e.g. very early lifecycle events.
@@ -2130,12 +2149,24 @@ const receiveShipmentWebhook = async (req, res) => {
     if (row) orderId = row.order_id;
   }
 
+  if (!orderId && channelOrderId) {
+    const [[row]] = await db.query(
+      `SELECT order_id FROM tbl_ordermeta
+       WHERE meta_key IN ('_sr_cart_id', '_sr_checkout_order_id', '_shiprocket_checkout_ref')
+         AND meta_value = ?
+       ORDER BY FIELD(meta_key, '_sr_cart_id', '_sr_checkout_order_id', '_shiprocket_checkout_ref')
+       LIMIT 1`,
+      [channelOrderId],
+    );
+    if (row) orderId = row.order_id;
+  }
+
   if (!orderId) {
     console.warn(`[SR ShipmentWebhook] Could not resolve order for awb=${awb} shipment_id=${shipmentId} sr_order_id=${srOrderId}`);
     return res.status(200).json({ success: false, message: "Order not found" });
   }
   const courier = toStr(
-    body.courier || body.courier_name || body.service_provider || ""
+    shipment.courier || body.courier || body.courier_name || body.service_provider || ""
   );
 
   const conn = await db.getConnection();
@@ -2150,15 +2181,19 @@ const receiveShipmentWebhook = async (req, res) => {
     );
     currentStatus = toStr(current?.order_status || "");
     const terminalStatuses = ["Delivered", "cancelled", "Returned"];
+    const hasMissingShipmentIdentity =
+      (awb && !current?.awb_code) ||
+      (shipmentId && !current?.shipment_id) ||
+      Boolean(courier);
 
-    if (terminalStatuses.includes(currentStatus) && currentStatus === mappedStatus) {
+    if (terminalStatuses.includes(currentStatus) && currentStatus === mappedStatus && !hasMissingShipmentIdentity) {
       await conn.commit();
       console.log(`[SR ShipmentWebhook] order_id=${orderId} already at "${currentStatus}" — skipping`);
       return res.status(200).json({ success: true, message: "Already at this status" });
     }
 
-    let updateQuery = `UPDATE tbl_orders SET order_status = ?, order_modified = NOW()`;
-    const updateParams = [mappedStatus];
+    let updateQuery = `UPDATE tbl_orders SET order_status = ?, shipping_status = ?, order_modified = NOW()`;
+    const updateParams = [mappedStatus, rawStatus];
 
     if (awb && !current?.awb_code) {
       updateQuery += `, awb_code = ?`;

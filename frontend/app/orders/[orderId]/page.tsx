@@ -14,6 +14,10 @@ function formatDate(value: string) {
   return d.toLocaleString();
 }
 
+function toLabel(key: string) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // Exception statuses displayed as warning badge on last real step.
 const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
 
@@ -75,7 +79,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
           if (cancelled) return;
           if (res.success) {
             setActivities(res.activities || []);
-            setLiveStatus(res.current_status || '');
+            setLiveStatus(res.raw_status || res.current_status || '');
           }
         })
         .catch(() => {})
@@ -309,6 +313,7 @@ export default function OrderDetailPage() {
     return {
       id: Number(order.order_id),
       status: normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
+      statusLabel: '',
       dateLabel: formatDate(order.order_date || ''),
       totalLabel: formatPrice(totalValue || 0),
       subtotalLabel: formatPrice(subtotalValue || 0),
@@ -436,7 +441,7 @@ export default function OrderDetailPage() {
                         <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
                       </div>
                       <span className={`order-detail-status ${summary.status}`}>
-                        {summary.status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                        {summary.statusLabel || toLabel(summary.status)}
                       </span>
                     </div>
                     {/* Order timeline */}
