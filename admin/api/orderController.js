@@ -2042,26 +2042,39 @@ async function resolveLinkedUserIds(userId, sessionEmail) {
     ordersByEmail.forEach((r) => userIds.add(r.user_id));
   }
 
-  const [[phoneMeta]] = await db.query(
-    `SELECT meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key = 'billing_phone' LIMIT 1`,
+  const [phoneMetaLinkedRows] = await db.query(
+    `SELECT meta_key, meta_value FROM tbl_usermeta WHERE user_id = ? AND meta_key IN ('phone', 'billing_phone')`,
     [userId],
   );
-  if (phoneMeta && phoneMeta.meta_value) {
-    const phone = phoneMeta.meta_value;
+  const phoneMetaLinkedMap = Object.fromEntries(phoneMetaLinkedRows.map(r => [r.meta_key, r.meta_value]));
+  const rawLinkedPhone = phoneMetaLinkedMap['phone'] || phoneMetaLinkedMap['billing_phone'] || '';
+  if (rawLinkedPhone) {
+    const phone = rawLinkedPhone;
+    // Normalize to last 10 digits for matching
+    const digits10 = phone.replace(/\D/g, '').slice(-10);
+
+    // Guest user_login can be stored as "9876543210@guest.local" or "919876543210@guest.local"
     const [guestByPhone] = await db.query(
       `SELECT ID FROM tbl_users
-       WHERE user_type = 4 AND user_login LIKE ? AND ID != ?`,
-      [`${phone}@%`, userId],
+       WHERE user_type = 4
+         AND (user_login LIKE ? OR user_login LIKE ?)
+         AND ID != ?`,
+      [`${digits10}@%`, `91${digits10}@%`, userId],
     );
     guestByPhone.forEach((r) => userIds.add(r.ID));
 
+    // _billing_phone in ordermeta can be stored with or without country code
     const [ordersByPhone] = await db.query(
       `SELECT DISTINCT o.user_id
        FROM tbl_orders o
        JOIN tbl_ordermeta om ON om.order_id = o.order_id
-         AND om.meta_key = '_billing_phone' AND om.meta_value = ?
+         AND om.meta_key = '_billing_phone'
+         AND (
+           REPLACE(REPLACE(om.meta_value, '+', ''), ' ', '') LIKE ?
+           OR REPLACE(REPLACE(om.meta_value, '+', ''), ' ', '') LIKE ?
+         )
        WHERE o.order_type = 'shop_order' AND o.user_id != ?`,
-      [phone, userId],
+      [`%${digits10}`, `%91${digits10}`, userId],
     );
     ordersByPhone.forEach((r) => userIds.add(r.user_id));
   }
@@ -2077,12 +2090,15 @@ const getMyOrders = async (req, res) => {
   }
   try {
     // ── Resolve the user's verified phone ─────────────────────────────────────
-    const [[phoneMeta]] = await db.query(
-      `SELECT meta_value FROM tbl_usermeta
-       WHERE user_id = ? AND meta_key = 'billing_phone' LIMIT 1`,
+    // OTP users store phone under 'phone'; checkout/guest users under 'billing_phone'
+    const [phoneMetaRows] = await db.query(
+      `SELECT meta_key, meta_value FROM tbl_usermeta
+       WHERE user_id = ? AND meta_key IN ('phone', 'billing_phone')`,
       [user.id],
     );
-    const verifiedPhone = phoneMeta ? normalizePhone(phoneMeta.meta_value) : "";
+    const phoneMetaMap = Object.fromEntries(phoneMetaRows.map(r => [r.meta_key, r.meta_value]));
+    const rawPhone = phoneMetaMap['phone'] || phoneMetaMap['billing_phone'] || '';
+    const verifiedPhone = rawPhone ? normalizePhone(rawPhone) : "";
 
     let orders;
 
@@ -2278,6 +2294,58 @@ const getMyOrderById = async (req, res) => {
   }
 
   try {
+    // ── Resolve verified phone (same logic as getMyOrders) ───────────────────
+    const [phoneMetaRows] = await db.query(
+      `SELECT meta_key, meta_value FROM tbl_usermeta
+       WHERE user_id = ? AND meta_key IN ('phone', 'billing_phone')`,
+      [user.id],
+    );
+    const phoneMetaMap = Object.fromEntries(phoneMetaRows.map(r => [r.meta_key, r.meta_value]));
+    const rawPhone = phoneMetaMap['phone'] || phoneMetaMap['billing_phone'] || '';
+    const verifiedPhone = rawPhone ? rawPhone.replace(/\D/g, '').slice(-10) : '';
+
+    const userIdList = await resolveLinkedUserIds(user.id, user.email || "");
+
+    // ── Check if this order belongs to the user (by linked user_id or phone) ─
+    // This mirrors the same OR logic used in getMyOrders so phone-login users
+    // who placed orders as guests can still view their order details.
+    let ownerCheck = null;
+    if (verifiedPhone) {
+      const [[row]] = await db.query(
+        `SELECT o.order_id FROM tbl_orders o
+         WHERE o.order_id = ? AND o.order_type = 'shop_order'
+           AND (
+             o.user_id IN (?)
+             OR o.order_id IN (
+               SELECT order_id FROM tbl_ordermeta
+               WHERE meta_key = '_billing_phone'
+                 AND RIGHT(REPLACE(REPLACE(REPLACE(meta_value, ' ', ''), '-', ''), '+', ''), 10) = ?
+             )
+             OR o.order_id IN (
+               SELECT order_id FROM tbl_user_address
+               WHERE address_billing = 'yes'
+                 AND RIGHT(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', ''), 10) = ?
+             )
+           )
+         LIMIT 1`,
+        [orderId, userIdList, verifiedPhone, verifiedPhone],
+      );
+      ownerCheck = row || null;
+    } else {
+      const [[row]] = await db.query(
+        `SELECT o.order_id FROM tbl_orders o
+         WHERE o.order_id = ? AND o.order_type = 'shop_order'
+           AND o.user_id IN (?)
+         LIMIT 1`,
+        [orderId, userIdList],
+      );
+      ownerCheck = row || null;
+    }
+
+    if (!ownerCheck) {
+      return res.status(404).json({ success: false, message: "Order not found." });
+    }
+
     const [orderRows] = await db.query(
       `SELECT o.order_id,
               MAX(o.order_status)      AS order_status,
@@ -2352,7 +2420,11 @@ const getMyOrderById = async (req, res) => {
               MAX(us.address_line2)    AS ship_address_2,
               MAX(us.city)             AS ship_city,
               MAX(us.state_name)       AS ship_state,
-              MAX(us.zipcode)          AS ship_postcode
+              MAX(us.zipcode)          AS ship_postcode,
+              MAX(o.awb_code)          AS awb_code,
+              MAX(o.courier_name)      AS courier_name,
+              MAX(o.shipping_status)   AS shipping_status,
+              MAX(o.shipment_id)       AS shipment_id
        FROM tbl_orders o
        LEFT JOIN tbl_users u ON u.ID = o.user_id
        LEFT JOIN (
@@ -2384,9 +2456,9 @@ const getMyOrderById = async (req, res) => {
          WHERE address_billing = 'no'
          GROUP BY order_id
        ) us ON us.order_id = o.order_id
-       WHERE o.order_id = ? AND o.user_id IN (?) AND o.order_type = 'shop_order'
+       WHERE o.order_id = ? AND o.order_type = 'shop_order'
        GROUP BY o.order_id`,
-      [orderId, await resolveLinkedUserIds(user.id, user.email || "")],
+      [orderId],
     );
 
     if (!orderRows.length) {
@@ -3407,6 +3479,172 @@ const getOrderWigzoData = async (req, res) => {
   }
 };
 
+/**
+ * GET /orders/my/invoice/:orderId
+ * Authenticated invoice download — no phone verification needed.
+ * Only the order owner can download their own invoice.
+ */
+const downloadMyInvoice = async (req, res) => {
+  try {
+    const user = getSessionUser(req);
+    if (!user) return res.status(401).send('Login required');
+
+    const orderId = Number.parseInt(req.params.orderId, 10);
+    if (!Number.isFinite(orderId) || orderId <= 0) {
+      return res.status(400).send('Invalid order ID');
+    }
+
+    const linkedIds = await resolveLinkedUserIds(user.id, user.email || '');
+
+    const [orderRows] = await db.query(
+      `SELECT o.order_id,
+              MAX(o.order_status)   AS order_status,
+              MAX(o.order_date)     AS order_date,
+              MAX(o.awb_code)       AS awb_code,
+              MAX(o.courier_name)   AS courier_name,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'     ORDER BY om.meta_id DESC LIMIT 1) AS total,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal'  ORDER BY om.meta_id DESC LIMIT 1) AS subtotal,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping'  ORDER BY om.meta_id DESC LIMIT 1) AS shipping,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'  ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_razorpay_method' ORDER BY om.meta_id DESC LIMIT 1) AS razorpay_method,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'     ORDER BY om.meta_id DESC LIMIT 1) AS coupon_code,
+              (SELECT COALESCE(
+                 (SELECT om2.meta_value FROM tbl_ordermeta om2 WHERE om2.order_id = o.order_id AND om2.meta_key = '_coupon_discount' ORDER BY om2.meta_id DESC LIMIT 1),
+                 (SELECT om3.meta_value FROM tbl_ordermeta om3 WHERE om3.order_id = o.order_id AND om3.meta_key = '_order_discount'  ORDER BY om3.meta_id DESC LIMIT 1)
+               )) AS coupon_discount,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_sr_cart_id'      ORDER BY om.meta_id DESC LIMIT 1) AS sr_cart_id,
+              MAX(u.display_name)   AS user_display_name,
+              MAX(u.user_email)     AS user_email,
+              MAX(ub.first_name)    AS billing_first_name,
+              MAX(ub.last_name)     AS billing_last_name,
+              MAX(ub.phone)         AS billing_phone,
+              MAX(ub.address_line1) AS billing_address_1,
+              MAX(ub.address_line2) AS billing_address_2,
+              MAX(ub.city)          AS billing_city,
+              MAX(ub.state_name)    AS billing_state,
+              MAX(ub.zipcode)       AS billing_postcode,
+              MAX(us.first_name)    AS ship_first_name,
+              MAX(us.last_name)     AS ship_last_name,
+              MAX(us.address_line1) AS ship_address_1,
+              MAX(us.address_line2) AS ship_address_2,
+              MAX(us.city)          AS ship_city,
+              MAX(us.state_name)    AS ship_state,
+              MAX(us.zipcode)       AS ship_postcode
+       FROM tbl_orders o
+       LEFT JOIN tbl_users u ON u.ID = o.user_id
+       LEFT JOIN (
+         SELECT order_id, MAX(first_name) AS first_name, MAX(last_name) AS last_name,
+                MAX(phone) AS phone, MAX(address_line1) AS address_line1,
+                MAX(address_line2) AS address_line2, MAX(city) AS city,
+                MAX(state_name) AS state_name, MAX(zipcode) AS zipcode
+         FROM tbl_user_address WHERE address_billing = 'yes' GROUP BY order_id
+       ) ub ON ub.order_id = o.order_id
+       LEFT JOIN (
+         SELECT order_id, MAX(first_name) AS first_name, MAX(last_name) AS last_name,
+                MAX(address_line1) AS address_line1, MAX(address_line2) AS address_line2,
+                MAX(city) AS city, MAX(state_name) AS state_name, MAX(zipcode) AS zipcode
+         FROM tbl_user_address WHERE address_billing = 'no' GROUP BY order_id
+       ) us ON us.order_id = o.order_id
+       WHERE o.order_id = ? AND o.user_id IN (?) AND o.order_type = 'shop_order'
+       GROUP BY o.order_id`,
+      [orderId, linkedIds],
+    );
+
+    if (!orderRows.length) return res.status(404).send('Order not found');
+    const orderRow = orderRows[0];
+
+    const [allItems] = await db.query(
+      `SELECT oi.order_item_id, oi.order_item_name, oi.product_id,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_qty'          ORDER BY oim.meta_id DESC LIMIT 1) AS qty,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_total'   ORDER BY oim.meta_id DESC LIMIT 1) AS line_total,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_line_tax'     ORDER BY oim.meta_id DESC LIMIT 1) AS line_tax,
+              (SELECT oim.meta_value FROM tbl_order_itemmeta oim WHERE oim.order_item_id = oi.order_item_id AND oim.meta_key = '_variation_id' ORDER BY oim.meta_id DESC LIMIT 1) AS variation_id,
+              (SELECT COALESCE(
+                NULLIF((SELECT pm.meta_value FROM tbl_productmeta pm
+                        WHERE pm.product_id = CAST(NULLIF((SELECT oim2.meta_value FROM tbl_order_itemmeta oim2
+                                                           WHERE oim2.order_item_id = oi.order_item_id AND oim2.meta_key = '_variation_id' LIMIT 1), '0') AS UNSIGNED)
+                          AND pm.meta_key = 'hsn' LIMIT 1), ''),
+                (SELECT pm2.meta_value FROM tbl_productmeta pm2 WHERE pm2.product_id = oi.product_id AND pm2.meta_key = 'hsn' LIMIT 1)
+              )) AS hsn_code,
+              (SELECT COALESCE(
+                NULLIF((SELECT pm.meta_value FROM tbl_productmeta pm
+                        WHERE pm.product_id = CAST(NULLIF((SELECT oim2.meta_value FROM tbl_order_itemmeta oim2
+                                                           WHERE oim2.order_item_id = oi.order_item_id AND oim2.meta_key = '_variation_id' LIMIT 1), '0') AS UNSIGNED)
+                          AND pm.meta_key = 'tax' LIMIT 1), ''),
+                (SELECT pm2.meta_value FROM tbl_productmeta pm2 WHERE pm2.product_id = oi.product_id AND pm2.meta_key = 'tax' LIMIT 1)
+              )) AS tax_percent
+       FROM tbl_order_items oi
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
+       GROUP BY oi.order_item_id, oi.order_item_name, oi.product_id`,
+      [orderId],
+    );
+
+    const effectiveItems = selectEffectiveOrderItems(allItems, orderRow.subtotal);
+    const orderDate      = new Date(orderRow.order_date);
+    const orderDateStr   = orderDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+    const invoiceNumber  = await getOrCreateInvoiceNumber(orderId, orderRow.order_date);
+
+    const html = renderInvoice({
+      store: {
+        name:         process.env.STORE_NAME           || 'Nestcase',
+        address1:     process.env.STORE_ADDRESS_1      || '',
+        address2:     process.env.STORE_ADDRESS_2      || '',
+        cityStatePin: process.env.STORE_CITY_STATE_PIN || '',
+        phone:        process.env.STORE_PHONE          || '',
+        email:        process.env.SMTP_SENDER_EMAIL    || '',
+        gstin:        process.env.STORE_GSTIN          || '',
+        pan:          process.env.STORE_PAN            || '',
+      },
+      defaultGstRate: parseFloat(process.env.DEFAULT_GST_RATE || '18'),
+      order: {
+        invoiceNo:      invoiceNumber,
+        orderId:        orderRow.sr_cart_id || orderId,
+        dateStr:        orderDateStr,
+        payMethod:      (orderRow.payment_method || 'cod').toUpperCase(),
+        isCOD:          (orderRow.payment_method || 'cod').toLowerCase() === 'cod',
+        razorpayMethod: orderRow.razorpay_method || null,
+        awbCode:        orderRow.awb_code     || '',
+        courierName:    orderRow.courier_name || '',
+        supplierRef:    orderRow.sr_cart_id   || String(orderId),
+        otherRef:       orderRow.awb_code     || '',
+      },
+      billing: {
+        name:  [orderRow.billing_first_name, orderRow.billing_last_name].filter(Boolean).join(' '),
+        addr1: orderRow.billing_address_1 || '',
+        addr2: orderRow.billing_address_2 || '',
+        city:  orderRow.billing_city      || '',
+        state: orderRow.billing_state     || '',
+        pin:   orderRow.billing_postcode  || '',
+        phone: orderRow.billing_phone     || '',
+        email: orderRow.user_email        || '',
+      },
+      shipping: {
+        name:  [orderRow.ship_first_name, orderRow.ship_last_name].filter(Boolean).join(' ')
+               || [orderRow.billing_first_name, orderRow.billing_last_name].filter(Boolean).join(' '),
+        addr1: orderRow.ship_address_1 || orderRow.billing_address_1 || '',
+        addr2: orderRow.ship_address_2 || orderRow.billing_address_2 || '',
+        city:  orderRow.ship_city      || orderRow.billing_city      || '',
+        state: orderRow.ship_state     || orderRow.billing_state     || '',
+        pin:   orderRow.ship_postcode  || orderRow.billing_postcode  || '',
+      },
+      totals: {
+        subtotal:   toAmount(orderRow.subtotal        || 0),
+        shipping:   toAmount(orderRow.shipping        || 0),
+        discount:   toAmount(orderRow.coupon_discount || 0),
+        total:      toAmount(orderRow.total           || 0),
+        couponCode: orderRow.coupon_code || '',
+      },
+      items: effectiveItems,
+    });
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    console.error('downloadMyInvoice error:', err);
+    res.status(500).send('Failed to generate invoice');
+  }
+};
+
 module.exports = {
   placeOrder,
   getMyOrders,
@@ -3427,4 +3665,5 @@ module.exports = {
   createShiprocketOrder,
   getOrderWigzoData,
   downloadInvoice,
+  downloadMyInvoice,
 };

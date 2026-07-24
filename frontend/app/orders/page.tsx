@@ -343,7 +343,6 @@ export default function OrdersPage() {
                                     {showPayAction && (
                                       <Link href={`/orders/${order.id}`} className="btn-view-product">Pay</Link>
                                     )}
-                                    <Link href={`/order-tracking`} className="btn-view-product">Track</Link>
                                     <Link href={`/orders/${order.id}`} className="btn-view-product">View</Link>
                                     {canCancelOrder && (
                                       <button

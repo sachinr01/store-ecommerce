@@ -411,7 +411,7 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
             <td><span class="lbl">Destination</span><strong>${billing.city ? esc(billing.city) : ''}</strong></td>
           </tr>
           <tr>
-            <td rowspan="2"><span class="lbl">Terms of Delivery</span></td>
+            <td colspan="2"><span class="lbl">Terms of Delivery</span></td>
           </tr>
         </table>
       </td>

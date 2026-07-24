@@ -553,6 +553,19 @@ export default function OrderDetailPage() {
                     )}
                   </div>
 
+                  <div className="order-detail-card">
+                    <h3 className="order-detail-card-title">Invoice</h3>
+                    {/* <p className="orders-section-copy">Download your tax invoice for this order.</p> */}
+                    <a
+                      href={`/api/orders/my/invoice/${summary.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-view-product"
+                    >
+                      Download Invoice
+                    </a>
+                  </div>
+
                   {canCancel && (
                     <div className="order-detail-card">
                       <h3 className="order-detail-card-title">Cancel order</h3>

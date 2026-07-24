@@ -1649,6 +1649,24 @@ const cancelShiprocketOrder = async (req, res) => {
       const { resolveLinkedUserIds } = require("./orderController");
       const linkedIds = await resolveLinkedUserIds(sessionUser.id, sessionUser.email || "");
       authorized = linkedIds.includes(Number(order.user_id));
+
+      // Phone-login users: if not matched by user_id linking, also check by phone
+      if (!authorized) {
+        const [phoneMetaRows] = await conn.query(
+          `SELECT meta_key, meta_value FROM tbl_usermeta
+           WHERE user_id = ? AND meta_key IN ('phone', 'billing_phone')`,
+          [sessionUser.id],
+        );
+        const phoneMetaMap = Object.fromEntries(phoneMetaRows.map(r => [r.meta_key, r.meta_value]));
+        const rawPhone = phoneMetaMap['phone'] || phoneMetaMap['billing_phone'] || '';
+        const sessionPhone = rawPhone.replace(/\D/g, '').slice(-10);
+        if (sessionPhone) {
+          const billingDigits = toStr(order.billing_phone).replace(/\D/g, '').slice(-10);
+          const shipDigits    = toStr(order.ship_phone).replace(/\D/g, '').slice(-10);
+          authorized = (!!billingDigits && billingDigits === sessionPhone) ||
+                       (!!shipDigits && shipDigits === sessionPhone);
+        }
+      }
     }
     if (!authorized && inputPhone.length >= 6) {
       const billingDigits = toStr(order.billing_phone).replace(/\D/g, "");
