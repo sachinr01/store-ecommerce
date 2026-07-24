@@ -241,30 +241,53 @@ export default function OrderDetailPage() {
   const [cancelSuccess, setCancelSuccess] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  // Statuses that are still in-flight — we poll until the order reaches a terminal state.
+  const TERMINAL_STATUSES = new Set(['delivered', 'cancelled', 'returned']);
+  const ORDER_POLL_MS = 30_000;
+
   useEffect(() => {
     if (!orderId) return;
     let active = true;
-    setLoading(true);
-    setError('');
-    setNeedsLogin(false);
-    getMyOrderById(orderId)
-      .then(res => {
-        if (!active) return;
-        setData(res);
-      })
-      .catch(err => {
-        if (!active) return;
-        const msg = err instanceof Error ? err.message : 'Failed to load order.';
-        setError(msg);
-        if (msg.includes('401') || msg.toLowerCase().includes('login')) {
-          setNeedsLogin(true);
-        }
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
-    return () => { active = false; };
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchOrder = (isFirstLoad: boolean) => {
+      if (isFirstLoad) {
+        setLoading(true);
+        setError('');
+        setNeedsLogin(false);
+      }
+      getMyOrderById(orderId)
+        .then(res => {
+          if (!active) return;
+          setData(res);
+          // Keep polling while the order is in a non-terminal state
+          const status = normalizeStatus(res?.order?.order_status || '', res?.order?.awb_code, res?.order?.shipment_id);
+          if (!TERMINAL_STATUSES.has(status)) {
+            pollTimer = setTimeout(() => { if (active) fetchOrder(false); }, ORDER_POLL_MS);
+          }
+        })
+        .catch(err => {
+          if (!active) return;
+          const msg = err instanceof Error ? err.message : 'Failed to load order.';
+          if (isFirstLoad) {
+            setError(msg);
+            if (msg.includes('401') || msg.toLowerCase().includes('login')) {
+              setNeedsLogin(true);
+            }
+          }
+        })
+        .finally(() => {
+          if (!active) return;
+          if (isFirstLoad) setLoading(false);
+        });
+    };
+
+    fetchOrder(true);
+    return () => {
+      active = false;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   const summary = useMemo(() => {
