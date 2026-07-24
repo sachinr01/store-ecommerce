@@ -36,8 +36,11 @@ function normalizeStatus(raw: string, awbCode?: string | null): string {
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery MUST precede the generic 'deliver' check — the string
+  // "out for delivery" contains "deliver" as a substring, so checking the
+  // generic case first would misclassify it as fully Delivered.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('deliver')) return 'delivered';
   if (s.includes('complete')) return 'delivered';
   // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
@@ -169,21 +172,39 @@ function TrackingTimeline({ status }: { status: string }) {
 
 // ─── shipment activities ──────────────────────────────────────────────────────
 
+const LIVE_TRACKING_POLL_MS = 60_000;
+
 function ShipmentActivities({ awb }: { awb: string }) {
   const [activities, setActivities] = useState<ShiprocketTrackingActivity[]>([]);
   const [liveStatus, setLiveStatus] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getLiveTracking(awb)
-      .then((res) => {
-        if (res.success) {
-          setActivities(res.activities || []);
-          setLiveStatus(res.current_status || '');
-        }
-      })
-      .catch(() => { /* silently skip if tracking unavailable */ })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const fetchTracking = (isFirstLoad: boolean) => {
+      if (isFirstLoad) setLoading(true);
+      getLiveTracking(awb)
+        .then((res) => {
+          if (cancelled) return;
+          if (res.success) {
+            setActivities(res.activities || []);
+            setLiveStatus(res.current_status || '');
+          }
+        })
+        .catch(() => { /* silently skip if tracking unavailable */ })
+        .finally(() => { if (!cancelled && isFirstLoad) setLoading(false); });
+    };
+
+    fetchTracking(true);
+    // Keep the live tracking card current without requiring a manual page
+    // reload — polls in the background while the page stays open.
+    const intervalId = setInterval(() => fetchTracking(false), LIVE_TRACKING_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [awb]);
 
   if (loading) return <div className="tracking-activities-loading">Loading live tracking…</div>;
@@ -387,14 +408,10 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     const storedTotal    = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
     const itemsSubtotal  = items.reduce((s, it) => s + Number(it.line_total || 0), 0);
-    // _line_total is post-discount in SR webhook orders, pre-discount in direct checkout.
-    // When a discount exists, always trust _order_subtotal (pre-discount) from the DB.
-    // Only fall back to summing line items when there's no discount and no stored subtotal.
-    const subtotal = storedSubtotal > 0
-      ? storedSubtotal
-      : itemsSubtotal + storedDiscount;
+    const subtotal = storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
+      ? storedSubtotal : itemsSubtotal || storedSubtotal;
     const derived = Math.max(0, subtotal - storedDiscount) + storedShipping;
-    const total   = storedTotal > 0 ? storedTotal : derived;
+    const total   = storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01 ? storedTotal : derived || storedTotal;
 
     const shipName = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
     const billName = [order.billing_first_name, order.billing_last_name].filter(Boolean).join(' ').trim();
@@ -487,7 +504,9 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             </div>
           )}
 
-          {summary.awb && <ShipmentActivities awb={summary.awb} />}
+          {summary.awb && summary.status !== 'cancelled' && summary.status !== 'cancellation_pending' && (
+            <ShipmentActivities awb={summary.awb} />
+          )}
         </div>
 
         {/* Right */}
@@ -510,9 +529,6 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             <h3 className="order-detail-card-title">Order Details</h3>
             <div className="order-details-grid">
               <div><strong>Payment:</strong> {toLabel(summary.payment)}</div>
-              {order.transaction_id && (
-                <div><strong>Transaction ID:</strong> {order.transaction_id}</div>
-              )}
               <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
               {summary.couponCode   && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
               <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>
@@ -531,7 +547,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               DOWNLOAD INVOICE
             </a>
 
-            {['pending', 'processing', 'on-hold', 'shipped'].includes(summary.status) && (
+            {['pending', 'processing', 'ready_to_ship', 'on-hold', 'shipped'].includes(summary.status) && (
               <button
                 type="button"
                 className="ot-btn ot-btn--cancel"

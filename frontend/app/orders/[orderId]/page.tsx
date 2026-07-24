@@ -37,8 +37,11 @@ function normalizeStatus(status: string, awbCode?: string | null): string {
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
   if (s.includes('complete')) return 'delivered';
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery MUST precede the generic 'deliver' check — the string
+  // "out for delivery" contains "deliver" as a substring, so checking the
+  // generic case first would misclassify it as fully Delivered.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('deliver')) return 'delivered';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
       s.includes('reached') || s.includes('picked up')) return 'shipped';
   if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
@@ -54,21 +57,39 @@ function normalizeStatus(status: string, awbCode?: string | null): string {
   return s;
 }
 
+const LIVE_TRACKING_POLL_MS = 60_000;
+
 function ShipmentActivities({ awb }: { awb: string }) {
   const [activities, setActivities] = useState<ShiprocketTrackingActivity[]>([]);
   const [liveStatus, setLiveStatus] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getLiveTracking(awb)
-      .then((res) => {
-        if (res.success) {
-          setActivities(res.activities || []);
-          setLiveStatus(res.current_status || '');
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const fetchTracking = (isFirstLoad: boolean) => {
+      if (isFirstLoad) setLoading(true);
+      getLiveTracking(awb)
+        .then((res) => {
+          if (cancelled) return;
+          if (res.success) {
+            setActivities(res.activities || []);
+            setLiveStatus(res.current_status || '');
+          }
+        })
+        .catch(() => {})
+        .finally(() => { if (!cancelled && isFirstLoad) setLoading(false); });
+    };
+
+    fetchTracking(true);
+    // Keep the live tracking card current without requiring a manual page
+    // reload — polls in the background while the page stays open.
+    const intervalId = setInterval(() => fetchTracking(false), LIVE_TRACKING_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [awb]);
 
   if (loading) return <div className="tracking-activities-loading">Loading live tracking…</div>;
@@ -252,14 +273,17 @@ export default function OrderDetailPage() {
     const storedShipping = Number(order.shipping || 0);
     const storedTotal = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
-    // _line_total is post-discount in SR webhook orders, pre-discount in direct checkout.
-    // Always trust _order_subtotal (pre-discount) from the DB when available.
-    const subtotalValue = storedSubtotal > 0
-      ? storedSubtotal
-      : itemsSubtotal + storedDiscount;
-    const totalValue = storedTotal > 0
-      ? storedTotal
-      : Math.max(0, subtotalValue - storedDiscount) + storedShipping;
+    const subtotalValue =
+      Number.isFinite(storedSubtotal) && storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
+        ? storedSubtotal
+        : itemsSubtotal || storedSubtotal;
+    const totalValue = (() => {
+      const derived = Math.max(0, subtotalValue - storedDiscount) + storedShipping;
+      if (Number.isFinite(storedTotal) && storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01) {
+        return storedTotal;
+      }
+      return derived || storedTotal;
+    })();
     const shipNameRaw = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
     const billingNameRaw = [order.billing_first_name, order.billing_last_name].filter(Boolean).join(' ').trim();
     const name = shipNameRaw || billingNameRaw || order.user_display_name || '';
@@ -331,7 +355,7 @@ export default function OrderDetailPage() {
     }));
   }, [summary]);
 
-  const canCancel = summary?.status === 'pending' || summary?.status === 'processing' || summary?.status === 'shipped';
+  const canCancel = summary?.status === 'pending' || summary?.status === 'processing' || summary?.status === 'ready_to_ship' || summary?.status === 'shipped';
 
   const handleCancel = () => setShowCancelModal(true);
 
@@ -507,9 +531,6 @@ export default function OrderDetailPage() {
                       <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
                       <div><strong>Total:</strong> {summary.totalLabel}</div>
                       <div><strong>Payment:</strong> {summary.payment}</div>
-                      {data?.order?.transaction_id && (
-                        <div><strong>Transaction ID:</strong> {data.order.transaction_id}</div>
-                      )}
                     </div>
                   </div>
 
@@ -552,6 +573,10 @@ export default function OrderDetailPage() {
                       </a>
                     )}
                   </div>
+
+                  {summary.awb && summary.status !== 'cancelled' && summary.status !== 'cancellation_pending' && (
+                    <ShipmentActivities awb={summary.awb} />
+                  )}
 
                   <div className="order-detail-card">
                     <h3 className="order-detail-card-title">Invoice</h3>

@@ -30,8 +30,11 @@ function formatDate(value: string) {
 function normalizeStatus(status: string) {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  if (s.includes('deliver')) return 'delivered';
+  // out_for_delivery MUST precede the generic 'deliver' check — the string
+  // "out for delivery" contains "deliver" as a substring, so checking the
+  // generic case first would misclassify it as fully Delivered.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
+  if (s.includes('deliver')) return 'delivered';
   if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
   if (s.includes('process')) return 'processing';
@@ -311,7 +314,7 @@ export default function OrdersPage() {
 
                             {cards.map((order) => {
                               const showPayAction = order.status === 'pending';
-                              const canCancelOrder = order.status === 'pending' || order.status === 'processing' || order.status === 'shipped';
+                              const canCancelOrder = order.status === 'pending' || order.status === 'processing' || order.status === 'ready_to_ship' || order.status === 'shipped';
                               return (
                                 <div key={order.id} className="orders-row">
                                   <div className="orders-row-id">#{order.id}</div>

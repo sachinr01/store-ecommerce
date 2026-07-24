@@ -380,15 +380,38 @@ async function getTrackingStatus(req, res) {
 
     const finalStatus = statusMap[shiprocketStatus] || shiprocketStatus;
 
-    // update order table
-    await db.query(
-      `UPDATE tbl_orders SET order_status = ? WHERE awb_code = ?`,
-      [finalStatus, awb],
+    // ── Guard: never let a live tracking pull overwrite an order that's
+    // already in a cancelled / cancellation-in-progress / terminal state.
+    // This route is called on every page load (a read), so without this
+    // guard, simply viewing the tracking page while ops is manually
+    // cancelling on the Shiprocket panel could silently revert
+    // "cancellation_requested" back to "Shipped" — bypassing stock
+    // restoration and notifications entirely. Cancellation status changes
+    // must only happen through cancelShiprocketOrder / updateOrderStatus /
+    // receiveShipmentWebhook, never here.
+    const PROTECTED_STATUSES = [
+      "cancelled", "cancellation_requested", "refunded", "failed",
+      "Delivered", "Returned",
+    ];
+    const [[currentOrderRow]] = await db.query(
+      `SELECT order_status FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
+      [awb],
     );
+    const isProtected = currentOrderRow && PROTECTED_STATUSES.includes(currentOrderRow.order_status);
+    if (isProtected) {
+      console.log(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
+    } else {
+      await db.query(
+        `UPDATE tbl_orders SET order_status = ? WHERE awb_code = ?`,
+        [finalStatus, awb],
+      );
+    }
 
+    // While protected, report the real local status (e.g. "cancelled") rather
+    // than the raw courier status, so the UI doesn't show conflicting info.
     return res.json({
       success: true,
-      current_status: finalStatus,
+      current_status: isProtected ? currentOrderRow.order_status : finalStatus,
       activities: tracking?.shipment_track_activities || [],
     });
   } catch (error) {
@@ -2604,6 +2627,7 @@ const updateOrderStatus = async (req, res) => {
         resolveShiprocketPanelOrderId,
         cancelOnShiprocketPanel,
         notifyAdminOfCancellationRequest,
+        notifyCustomerOfCancellation,
       } = require("./shiprocketorderwebhook");
 
       const goPending = async () => {
@@ -2622,6 +2646,10 @@ const updateOrderStatus = async (req, res) => {
           orderId, srCartId, requestedAt, awb, shipmentId,
           alreadyShipped: Boolean(awb),
         }).catch((e) => console.error(`[updateOrderStatus] cancellation-request admin email failed for order ${orderId}:`, e.message));
+
+        notifyCustomerOfCancellation({
+          orderId, mode: "pending",
+        }).catch((e) => console.error(`[updateOrderStatus] cancellation-request customer email failed for order ${orderId}:`, e.message));
 
         return res.json({
           success: true,
@@ -2704,6 +2732,12 @@ const updateOrderStatus = async (req, res) => {
 
     await conn.commit();
     res.json({ success: true });
+
+    if (status === "cancelled" && previousStatus !== "cancelled") {
+      const { notifyCustomerOfCancellation } = require("./shiprocketorderwebhook");
+      notifyCustomerOfCancellation({ orderId, mode: "cancelled" })
+        .catch((e) => console.error(`[updateOrderStatus] cancelled customer email failed for order ${orderId}:`, e.message));
+    }
 
   } catch (err) {
     await conn.rollback();
