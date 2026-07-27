@@ -184,7 +184,7 @@ export function useShiprocketCheckout() {
         discount_amount: discount > 0 ? discount : 0,
       };
 
-      const redirectUrl = `${window.location.origin}/checkout`;
+      const redirectUrl = `${window.location.origin}/`;
       const timestamp   = new Date().toISOString();
 
       const res = await fetch('/api/shiprocket/token', {

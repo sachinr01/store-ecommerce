@@ -175,7 +175,7 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cart_data:       cartData,
-          redirect_url:    `${window.location.origin}/checkout`,
+          redirect_url:    `${window.location.origin}/`,
           timestamp:       new Date().toISOString(),
           checkout_ref:    checkoutRef,
           coupon_code:     couponCode,
@@ -235,7 +235,7 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
       });
 
       (window as any).HeadlessCheckout.addToCart(e.nativeEvent, token, {
-        fallbackUrl: `${window.location.origin}/checkout`,
+        fallbackUrl: `${window.location.origin}/`,
       });
 
 

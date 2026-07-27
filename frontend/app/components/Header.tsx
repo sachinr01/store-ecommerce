@@ -534,7 +534,7 @@ export default function Header() {
           <button type="button" className="nh-search-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">×</button>
         </div>
         <ul className="nh-drawer-nav">
-          {navLinks.concat([{ label: "My Account", href: "/my-account" }, { label: "Cart", href: "/cart" }, { label: "Checkout", href: "/checkout" }]).map(link => (
+          {navLinks.concat([{ label: "My Account", href: "/my-account" }, { label: "Cart", href: "/cart" }]).map(link => (
             <li key={link.label}><Link href={link.href} onClick={closeOverlays}>{link.label}</Link></li>
           ))}
         </ul>

@@ -321,11 +321,11 @@ export default function OrdersPage() {
                                   <div className="orders-row-value">{order.dateLabel}</div>
                                   <div className="orders-row-status-cell">
                                     <span className={`orders-row-status ${order.status}`}>{order.statusLabel}</span>
-                                    {order.shippingStatus && order.shippingStatus !== order.status && (
+                                    {/* {order.shippingStatus && order.shippingStatus !== order.status && (
                                       <span className={`shipping-badge ${order.shippingStatus}`} style={{ marginLeft: 6 }}>
                                         {order.shippingStatus.replace(/_/g, ' ')}
                                       </span>
-                                    )}
+                                    )} */}
                                     {order.awb && (
                                       <div className="orders-row-awb">
                                         <a

@@ -455,192 +455,178 @@ export default function OrderDetailPage() {
             )}
 
             {!loading && !error && summary && (
-              <div className="order-detail-grid">
-                <div className="order-detail-main">
-                  <div className="order-detail-card order-hero">
-                    <div className="order-detail-header">
-                      <div>
-                        <h1 className="order-detail-title">Order #{summary.id}</h1>
-                        <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
-                      </div>
-                      <span className={`order-detail-status ${summary.status}`}>
-                        {summary.statusLabel || toLabel(summary.status)}
+              <div className="ot-result">
+                {/* Timeline at the very top — mirrors order-tracking page */}
+                {(summary.status === 'return_initiated' || summary.status === 'returned') ? (
+                  <div className="order-timeline order-timeline--return">
+                    <div className="timeline-return-banner">
+                      <span className="timeline-return-icon">↩</span>
+                      <span className="timeline-return-label">
+                        {summary.status === 'returned' ? 'Order Returned' : 'Return Initiated'}
                       </span>
                     </div>
-                    {/* Order timeline */}
-                    {(summary.status === 'return_initiated' || summary.status === 'returned') ? (
-                      <div className="order-timeline order-timeline--return">
-                        <div className="timeline-return-banner">
-                          <span className="timeline-return-icon">↩</span>
-                          <span className="timeline-return-label">
-                            {summary.status === 'returned' ? 'Order Returned' : 'Return Initiated'}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={`order-timeline${summary.status === 'cancelled' || summary.status === 'cancellation_pending' ? ' cancelled' : ''}`}>
-                        {statusSteps.map(step => (
-                          <div
-                            key={step.key}
-                            className={[
-                              'timeline-step',
-                              step.active   ? 'active'  : '',
-                              step.current  ? 'current' : '',
-                              step.isWarning ? 'warning' : '',
-                            ].filter(Boolean).join(' ')}
-                          >
-                            <span className="timeline-dot">
-                              {step.active && !step.isWarning && <span className="timeline-dot-check">✓</span>}
-                              {step.isWarning && <span className="timeline-dot-warn">!</span>}
-                            </span>
-                            <span className="timeline-label">
-                              {step.label}
-                              {step.isWarning && summary.status in EXCEPTION_LABEL && (
-                                <span className="timeline-exception-badge">
-                                  {EXCEPTION_LABEL[summary.status]}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
+                ) : (
+                  <div className={`order-timeline${summary.status === 'cancelled' || summary.status === 'cancellation_pending' ? ' cancelled' : ''}`}>
+                    {statusSteps.map(step => (
+                      <div
+                        key={step.key}
+                        className={[
+                          'timeline-step',
+                          step.active    ? 'active'  : '',
+                          step.current   ? 'current' : '',
+                          step.isWarning ? 'warning' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <span className="timeline-dot">
+                          {step.active && !step.isWarning && <span className="timeline-dot-check">✓</span>}
+                          {step.isWarning && <span className="timeline-dot-warn">!</span>}
+                        </span>
+                        <span className="timeline-label">
+                          {step.label}
+                          {step.isWarning && summary.status in EXCEPTION_LABEL && (
+                            <span className="timeline-exception-badge">
+                              {EXCEPTION_LABEL[summary.status]}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                  <div className="order-detail-card">
-                    <h3 className="order-detail-subtitle">Items</h3>
-                    <div className="order-items-list">
-                      {data!.items.map(item => (
-                        <div key={item.order_item_id} className="order-item">
-                          <div className="order-item-thumb">
-                            {item.thumbnail_url ? (
-                              <img src={getImageUrl(item.thumbnail_url)} alt={item.order_item_name} />
-                            ) : (
-                              <span>{(item.order_item_name || 'Item').slice(0, 1).toUpperCase()}</span>
-                            )}
-                          </div>
-                          <div className="order-item-body">
-                            <div className="order-item-name">{item.order_item_name}</div>
-                            <div className="order-item-meta">
-                              Qty: {item.qty ?? 1}
-                              {item.color ? ` · Color: ${item.color}` : ''}
-                              {item.size ? ` · Size: ${item.size}` : ''}
-                            </div>
-                          </div>
-                          <div className="order-item-price">
-                            {formatPrice(Number(item.line_total || 0))}
-                          </div>
-                        </div>
-                      ))}
+                {/* Hero */}
+                <div className="order-detail-card order-hero">
+                  <div className="order-detail-header">
+                    <div>
+                      <h1 className="order-detail-title">Order #{summary.id}</h1>
+                      <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
                     </div>
+                    <span className={`order-detail-status ${summary.status}`}>
+                      {summary.statusLabel || toLabel(summary.status)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="order-detail-side">
-                  <div className="order-detail-card">
-                    <h3 className="order-detail-card-title">Delivery details</h3>
-                    <div className="order-summary-grid">
-                      <div><strong>Name:</strong> {summary.name || '-'}</div>
-                      <div><strong>Phone:</strong> {summary.phone || '-'}</div>
-                      <div><strong>Address:</strong> {summary.address || '-'}</div>
-                      <div><strong>Email:</strong> {summary.email || '-'}</div>
-                    </div>
-                  </div>
-
-                  <div className="order-detail-card">
-                    <h3 className="order-detail-card-title">Price details</h3>
-                    <div className="order-details-grid">
-                      <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
-                      {summary.couponCode && (
-                        <div><strong>Coupon:</strong> {summary.couponCode}</div>
-                      )}
-                      {summary.discountLabel && (
-                        <div><strong>Discount:</strong> -{summary.discountLabel}</div>
-                      )}
-                      <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
-                      <div><strong>Total:</strong> {summary.totalLabel}</div>
-                      <div><strong>Payment:</strong> {summary.payment}</div>
-                    </div>
-                  </div>
-
-
-                  <div className="order-detail-card">
-                    <h3 className="order-detail-card-title">Shipping Details</h3>
-
-                    <div className="order-summary-grid">
-                      <div>
-                        <strong>Shipping Status:</strong>{' '}
-                        <span className={`shipping-badge ${summary.shippingStatus}`}>
-                          {summary.shippingStatus || 'Pending'}
-                        </span>
-                      </div>
-
-                      <div>
-                        <strong>Courier:</strong>{' '}
-                        {summary.courier || '-'}
-                      </div>
-
-                      <div>
-                        <strong>AWB Number:</strong>{' '}
-                        {summary.awb || (summary.shipmentId ? 'Not assigned yet' : '-')}
-                      </div>
-
-                      <div>
-                        <strong>Shipment ID:</strong>{' '}
-                        {summary.shipmentId || '-'}
+                <div className="order-detail-grid">
+                  {/* Left — items + shipment info + live tracking */}
+                  <div className="order-detail-main">
+                    <div className="order-detail-card">
+                      <h3 className="order-detail-subtitle">Items Ordered</h3>
+                      <div className="order-items-list">
+                        {data!.items.map(item => (
+                          <div key={item.order_item_id} className="order-item">
+                            <div className="order-item-thumb">
+                              {item.thumbnail_url ? (
+                                <img src={getImageUrl(item.thumbnail_url)} alt={item.order_item_name} />
+                              ) : (
+                                <span>{(item.order_item_name || 'Item').slice(0, 1).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="order-item-body">
+                              <div className="order-item-name">{item.order_item_name}</div>
+                              <div className="order-item-meta">
+                                Qty: {item.qty ?? 1}
+                                {item.color ? ` · Color: ${item.color}` : ''}
+                                {item.size ? ` · Size: ${item.size}` : ''}
+                              </div>
+                            </div>
+                            <div className="order-item-price">
+                              {formatPrice(Number(item.line_total || 0))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {summary.awb && (
-                      <a
-                        href={`https://shiprocket.co/tracking/${summary.awb}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="track-order-btn btn-view-product btn-view-product--inline na-view-all-btn mt-3"
-                      >
-                        Track Order
-                      </a>
+                    {(summary.awb || summary.courier || summary.shippingStatus || summary.shipmentId) && (
+                      <div className="order-detail-card">
+                        <h3 className="order-detail-subtitle">Shipment Info</h3>
+                        <div className="order-summary-grid">
+                          {summary.shippingStatus && (
+                            <div><strong>Shipping Status:</strong>{' '}
+                              <span className={`shipping-badge ${summary.shippingStatus}`}>{toLabel(summary.shippingStatus)}</span>
+                            </div>
+                          )}
+                          {summary.courier && <div><strong>Courier:</strong> {summary.courier}</div>}
+                          {(summary.awb || summary.shipmentId) && (
+                            <div><strong>AWB Number:</strong> {summary.awb || 'Not assigned yet'}</div>
+                          )}
+                          {summary.shipmentId && <div><strong>Shipment ID:</strong> {summary.shipmentId}</div>}
+                        </div>
+                        {summary.awb && (
+                          <a
+                            href={`https://shiprocket.co/tracking/${summary.awb}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-view-product btn-view-product--inline"
+                            style={{ marginTop: 14, display: 'inline-block' }}
+                          >
+                            Track on Shiprocket ↗
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {summary.awb && summary.status !== 'cancelled' && summary.status !== 'cancellation_pending' && (
+                      <ShipmentActivities awb={summary.awb} />
                     )}
                   </div>
 
-                  {summary.awb && summary.status !== 'cancelled' && summary.status !== 'cancellation_pending' && (
-                    <ShipmentActivities awb={summary.awb} />
-                  )}
-
-                  <div className="order-detail-card">
-                    <h3 className="order-detail-card-title">Invoice</h3>
-                    {/* <p className="orders-section-copy">Download your tax invoice for this order.</p> */}
-                    <a
-                      href={`/api/orders/my/invoice/${summary.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-view-product"
-                    >
-                      Download Invoice
-                    </a>
-                  </div>
-
-                  {canCancel && (
+                  {/* Right — customer details, order details, actions */}
+                  <div className="order-detail-side">
                     <div className="order-detail-card">
-                      <h3 className="order-detail-card-title">Cancel order</h3>
-                      <p className="orders-section-copy">
-                        You can cancel this order. If it has already shipped, we&apos;ll send your
-                        cancellation request to our team and notify you once it&apos;s confirmed.
-                      </p>
-                      <button
-                        type="button"
-                        className="btn-view-product ot-btn--cancel"
-                        onClick={handleCancel}
-                        disabled={cancelling}
-                      >
-                        {cancelling ? 'Cancelling…' : 'Cancel Order'}
-                      </button>
-                      {cancelSuccess && <div className="ot-cancel-success">{cancelSuccess}</div>}
-                      {cancelError && <div className="order-detail-error">{cancelError}</div>}
+                      <h3 className="order-detail-card-title">Customer Details</h3>
+                      <div className="order-summary-grid">
+                        {summary.name    && <div><strong>Name:</strong> {summary.name}</div>}
+                        {summary.phone   && <div><strong>Phone:</strong> {summary.phone}</div>}
+                        {summary.email   && <div><strong>Email:</strong> {summary.email}</div>}
+                        {summary.address && (
+                          <div>
+                            <strong>Address:</strong>{' '}
+                            <span style={{ wordWrap: 'break-word' }}>{summary.address}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
 
-                  
+                    <div className="order-detail-card">
+                      <h3 className="order-detail-card-title">Order Details</h3>
+                      <div className="order-details-grid">
+                        <div><strong>Payment:</strong> {toLabel(summary.payment)}</div>
+                        <div><strong>Subtotal:</strong> {summary.subtotalLabel}</div>
+                        {summary.couponCode && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
+                        <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>
+                        <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
+                        <div className="order-price-total"><strong>Total:</strong> {summary.totalLabel}</div>
+                      </div>
+                    </div>
+
+                    <div className="tracking-result-actions">
+                      <a
+                        href={`/api/orders/my/invoice/${summary.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ot-btn ot-btn--invoice"
+                      >
+                        DOWNLOAD INVOICE
+                      </a>
+
+                      {canCancel && (
+                        <button
+                          type="button"
+                          className="ot-btn ot-btn--cancel"
+                          onClick={handleCancel}
+                          disabled={cancelling}
+                        >
+                          {cancelling ? 'Cancelling…' : 'CANCEL ORDER'}
+                        </button>
+                      )}
+
+                      {cancelSuccess && <div className="ot-cancel-success"><strong>{cancelSuccess}</strong></div>}
+                      {cancelError   && <div className="order-detail-error">{cancelError}</div>}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
