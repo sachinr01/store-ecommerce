@@ -669,9 +669,46 @@ const receiveOrderWebhook = async (req, res) => {
 
     // Subtotal = sum of (price × qty) — matches Shiprocket's total_price - shipping - tax + discount
     const subtotal    = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const discount    = totalDiscount;
     const shippingCost = shippingPrice;
     const orderTotal  = totalPrice; // use Shiprocket's authoritative total
+
+    // SECURITY: never trust body.total_discount as-is — it's whatever Shiprocket's
+    // hosted checkout reports back, which ultimately traces back to a value our own
+    // token-gen step sent it. That value can drift or be stale by the time this
+    // webhook fires, and usage limits/eligibility must be re-checked at the moment
+    // the order is actually created — the same DB-locked check used everywhere else
+    // (placeOrder, insertShiprocketOrder). recordCouponUsage below is what actually
+    // enforces per-coupon and per-user usage limits, so it must run here too.
+    const couponCodeFromWebhook = toStr(body.coupon_code || body.discount_code || "");
+    let discount = 0;
+    let appliedCouponRow = null;
+    if (couponCodeFromWebhook) {
+      const [[couponRow]] = await conn.query(
+        `SELECT * FROM tbl_coupons WHERE LOWER(coupon_code) = LOWER(?) LIMIT 1`,
+        [couponCodeFromWebhook],
+      );
+      if (couponRow) {
+        const couponCheck = await validateAndLockCoupon(
+          conn,
+          { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
+          userId,
+          subtotal,
+          resolvedItems.map((i) => i.product_id),
+          resolvedItems.map((i) => ({ product_id: i.product_id, quantity: i.quantity, price: i.price })),
+        );
+        if (couponCheck.ok) {
+          discount = couponCheck.discount || 0;
+          appliedCouponRow = couponRow;
+        } else {
+          console.warn(
+            `[SR OrderWebhook][COUPON-CHECK] coupon "${couponCodeFromWebhook}" failed re-validation ` +
+            `for cart_id=${cartId}, reason=${couponCheck.message || "unknown"} — discount NOT applied.`,
+          );
+        }
+      } else {
+        console.warn(`[SR OrderWebhook][COUPON-CHECK] coupon "${couponCodeFromWebhook}" not found — discount NOT applied.`);
+      }
+    }
 
     // paymentMethod is now resolved earlier from the webhook payload (COD-aware)
     const orderName     = `#SR-${cartId}`;
@@ -768,12 +805,12 @@ const receiveOrderWebhook = async (req, res) => {
       // Proportional discount for this line item.
       // Last item gets the remainder to avoid rounding drift across items.
       let lineDiscount = 0;
-      if (totalDiscount > 0 && subtotalForDiscount > 0) {
+      if (discount > 0 && subtotalForDiscount > 0) {
         const isLastItem = itemIndex === resolvedItems.length - 1;
         if (isLastItem) {
-          lineDiscount = Math.max(0, totalDiscount - discountAllocated);
+          lineDiscount = Math.max(0, discount - discountAllocated);
         } else {
-          lineDiscount = Math.round((lineSubtotal / subtotalForDiscount) * totalDiscount * 100) / 100;
+          lineDiscount = Math.round((lineSubtotal / subtotalForDiscount) * discount * 100) / 100;
           discountAllocated += lineDiscount;
         }
       }
@@ -852,21 +889,22 @@ const receiveOrderWebhook = async (req, res) => {
 
     // ── tbl_ordermeta ──────────────────────────────────────────────────────────
     // TABLE: tbl_ordermeta — financial data, identifiers, source info
-    const couponCodeFromBody = toStr(body.coupon_code || body.discount_code || "");
+    // couponCodeFromWebhook / appliedCouponRow / discount were already resolved and
+    // DB-verified above (via validateAndLockCoupon), before any items/order rows
+    // were written — this block only stores the verified outcome.
 
     // ── COUPON/DISCOUNT DEBUG LOG #3 — order-level summary ─────────────────────
     console.log(
       `[SR OrderWebhook][COUPON-CHECK] SUMMARY cart_id=${cartId} ` +
       `subtotal(before_discount)=${subtotal.toFixed(2)} ` +
-      `discount_from_SR=${discount.toFixed(2)} ` +
+      `discount_verified=${discount.toFixed(2)} (webhook reported total_discount=${totalDiscount.toFixed(2)}) ` +
       `order_total(SR authoritative)=${orderTotal.toFixed(2)} ` +
-      `coupon_code_field_present=${couponCodeFromBody ? `YES ("${couponCodeFromBody}")` : "NO"} ` +
+      `coupon_code_field_present=${couponCodeFromWebhook ? `YES ("${couponCodeFromWebhook}")` : "NO"} ` +
+      `coupon_verified=${appliedCouponRow ? "YES" : "NO"} ` +
       `will_store=${
-        discount > 0
-          ? couponCodeFromBody
-            ? "_coupon_code + _coupon_discount + discounted _line_total"
-            : "discounted _line_total ONLY (no coupon code field sent by SR — _coupon_code meta will be skipped)"
-          : "core/original _line_total (no discount on this order)"
+        appliedCouponRow
+          ? "_coupon_code + _coupon_discount + discounted _line_total"
+          : "core/original _line_total (no verified discount on this order)"
       }`,
     );
 
@@ -893,9 +931,10 @@ const receiveOrderWebhook = async (req, res) => {
       ["_order_tax",            tax.toFixed(2)],
       ["_order_item_count",     String(itemCount || resolvedItems.length)],
       ["_order_discount",       discount.toFixed(2)],
-      // Coupon applied via Shiprocket Checkout — store code if present in webhook
-      ...(couponCodeFromBody
-          ? [["_coupon_code", couponCodeFromBody],
+      // Coupon applied via Shiprocket Checkout — only stored if it passed
+      // server-side re-validation (appliedCouponRow), never the raw webhook field.
+      ...(appliedCouponRow
+          ? [["_coupon_code", appliedCouponRow.coupon_code],
              ["_coupon_discount", discount.toFixed(2)]]
           : []),
       ["_billing_phone",        phone10],
@@ -913,6 +952,15 @@ const receiveOrderWebhook = async (req, res) => {
       [metaEntries.map(([k, v]) => [orderId, k, v])],
     );
 
+    if (appliedCouponRow) {
+      await recordCouponUsage(
+        conn,
+        { coupon_id: appliedCouponRow.coupon_id, coupon_code: appliedCouponRow.coupon_code },
+        orderId,
+        userId,
+      );
+    }
+
     await conn.commit();
     console.log(`[SR OrderWebhook] ✅ Order ${orderId} saved for cart_id=${cartId}`);
     console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone10}`);
@@ -922,7 +970,10 @@ const receiveOrderWebhook = async (req, res) => {
     const buyerEmail = isRealEmail(enteredEmail)
       ? enteredEmail
       : isRealEmail(userEmail) ? userEmail : "";
-    const couponFromMeta = toStr(body.coupon_code || body.discount_code || "");
+    // Use the server-verified coupon code (empty if it failed re-validation above),
+    // never the raw, unverified body field — so the email never shows a coupon/
+    // discount that wasn't actually applied to the order.
+    const couponFromMeta = appliedCouponRow ? appliedCouponRow.coupon_code : "";
 
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
     if (userId) {

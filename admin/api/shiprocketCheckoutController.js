@@ -324,7 +324,11 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     const orderName = `#SR-${Date.now()}`;
     const orderTitle = `Order - ${new Date().toLocaleString()}`;
 
-    let discount = toFloat(checkoutContext?.coupon_discount, 0);
+    // SECURITY: never trust checkoutContext.coupon_discount — it originates from
+    // client-supplied req.body at the token-gen step and is not verified there.
+    // The discount actually applied to the order must always come from a fresh,
+    // server-side, DB-locked recalculation, exactly like the direct placeOrder() flow.
+    let discount = 0;
     let appliedCouponRow = null;
     const checkoutCouponCode = toStr(checkoutContext?.coupon_code || "");
     if (checkoutCouponCode) {
@@ -337,16 +341,28 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       );
       if (couponRow) {
         appliedCouponRow = couponRow;
-        if (discount <= 0) {
-          const couponCheck = await validateAndLockCoupon(
-            conn,
-            { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
-            userId,
-            subtotal,
-            resolvedItems.map((item) => item.product_id),
-            resolvedItems,
+        // Always re-validate and recompute — regardless of what the client sent —
+        // so usage limits, min/max spend, and product/category eligibility are
+        // enforced, and the discount amount itself can never be spoofed.
+        const couponCheck = await validateAndLockCoupon(
+          conn,
+          { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
+          userId,
+          subtotal,
+          resolvedItems.map((item) => item.product_id),
+          resolvedItems,
+        );
+        if (couponCheck.ok) {
+          discount = couponCheck.discount || 0;
+        } else {
+          // Coupon named but no longer valid (limit hit, expired, spend threshold
+          // no longer met, etc.) — do NOT apply any discount and do NOT record usage.
+          appliedCouponRow = null;
+          discount = 0;
+          console.warn(
+            `[SR Checkout][COUPON-CHECK] coupon "${checkoutCouponCode}" failed re-validation ` +
+            `at order-insert time, reason=${couponCheck.message || "unknown"} — discount NOT applied.`,
           );
-          if (couponCheck.ok) discount = couponCheck.discount || 0;
         }
       }
     }
@@ -467,6 +483,7 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     await conn.commit();
+
     try {
       const srPayload = {
         order_id: "ORD_" + orderId + "_" + Date.now(),
@@ -852,10 +869,54 @@ const getCheckoutToken = async (req, res) => {
       });
     }
 
+    // SECURITY: never forward req.body.coupon_discount to Shiprocket as-is — it is
+    // client-supplied and unverified. Re-derive the discount server-side here so the
+    // amount Shiprocket displays/charges the customer matches what our own order
+    // creation step (insertShiprocketOrder) will independently recompute and enforce.
+    const requestedCouponCode = toStr(req.body?.coupon_code || "");
+    let verifiedDiscount = 0;
+    if (requestedCouponCode) {
+      const freshSubtotal = freshItems.reduce((sum, it) => sum + it.line_total, 0);
+      const productIds = freshItems.map((it) => toInt(it.variant_id, 0)).filter(Boolean);
+      const cartItemsForCoupon = freshItems.map((it) => ({
+        product_id: toInt(it.variant_id, 0),
+        quantity: it.quantity,
+        price: it.price,
+      }));
+      const sessionUserForCoupon = req.sessionData?.user || null;
+
+      // Use a short-lived, rolled-back transaction purely to get an accurate,
+      // race-safe-consistent estimate. Nothing is persisted or committed here —
+      // usage is only ever recorded later, inside insertShiprocketOrder's own
+      // transaction, at actual order-creation time.
+      const checkConn = await db.getConnection();
+      try {
+        await checkConn.beginTransaction();
+        const [[couponRow]] = await checkConn.query(
+          `SELECT * FROM tbl_coupons WHERE LOWER(coupon_code) = LOWER(?) LIMIT 1`,
+          [requestedCouponCode],
+        );
+        if (couponRow) {
+          const couponCheck = await validateAndLockCoupon(
+            checkConn,
+            { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
+            sessionUserForCoupon?.id || 0,
+            freshSubtotal,
+            productIds,
+            cartItemsForCoupon,
+          );
+          if (couponCheck.ok) verifiedDiscount = couponCheck.discount || 0;
+        }
+      } finally {
+        await checkConn.rollback().catch(() => {});
+        checkConn.release();
+      }
+    }
+
     const payload = {
       cart_data: {
         items: freshItems,
-        discount_amount: parseFloat(req.body?.coupon_discount || 0) || 0,
+        discount_amount: verifiedDiscount,
       },
       redirect_url: req.body?.redirect_url || "",
       timestamp:    req.body?.timestamp    || new Date().toISOString(),
@@ -864,9 +925,9 @@ const getCheckoutToken = async (req, res) => {
 
     console.log(
       `[SR Checkout][COUPON-CHECK][TOKEN-GEN] checkout_ref=${toStr(req.body?.checkout_ref || "") || "—"} ` +
-      `coupon_code_from_frontend=${toStr(req.body?.coupon_code || "") || "—"} ` +
-      `coupon_discount_from_frontend=${toFloat(req.body?.coupon_discount, 0)} ` +
-      `discount_amount_sent_to_SR=${payload.cart_data.discount_amount} ` +
+      `coupon_code_from_frontend=${requestedCouponCode || "—"} ` +
+      `coupon_discount_from_frontend=${toFloat(req.body?.coupon_discount, 0)} (ignored, not trusted) ` +
+      `discount_amount_sent_to_SR=${payload.cart_data.discount_amount} (server-verified) ` +
       `item_count=${freshItems.length}`,
     );
 
@@ -903,8 +964,8 @@ const getCheckoutToken = async (req, res) => {
     await persistCheckoutContext({
       sr_order_id: srOrderId,
       checkout_ref: toStr(req.body?.checkout_ref || ""),
-      coupon_code: toStr(req.body?.coupon_code || ""),
-      coupon_discount: toFloat(req.body?.coupon_discount, 0),
+      coupon_code: requestedCouponCode,
+      coupon_discount: verifiedDiscount, // server-verified, never the raw client value
       cart_data: payload.cart_data,
       redirect_url: payload.redirect_url,
       timestamp: payload.timestamp,

@@ -2484,12 +2484,14 @@ const getAllOrders = async (_req, res) => {
          MAX(o.order_date)    AS order_date,
          MAX(CAST(CASE WHEN om.meta_key = '_order_total'    THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS total,
          MAX(CAST(CASE WHEN om.meta_key = '_order_subtotal' THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS subtotal,
+         MAX(CASE WHEN om.meta_key = '_coupon_code' THEN om.meta_value ELSE NULL END) AS coupon_code,
+         MAX(CAST(CASE WHEN om.meta_key = '_coupon_discount' THEN om.meta_value ELSE NULL END AS DECIMAL(10,2))) AS coupon_discount,
          MAX(u.user_email)    AS billing_email,
          MAX(u.display_name)  AS customer_name
        FROM tbl_orders o
        LEFT JOIN tbl_ordermeta om
          ON om.order_id = o.order_id
-        AND om.meta_key IN ('_order_total', '_order_subtotal')
+        AND om.meta_key IN ('_order_total', '_order_subtotal', '_coupon_code', '_coupon_discount')
        LEFT JOIN tbl_users u ON u.ID = o.user_id
        WHERE o.order_type = 'shop_order'
        GROUP BY o.order_id
@@ -2532,6 +2534,8 @@ const getAllOrders = async (_req, res) => {
         .map((item) => item.order_item_name)
         .filter(Boolean)
         .join(", ");
+      order.coupon_code = order.coupon_code || "";
+      order.coupon_discount = order.coupon_discount ? Number(order.coupon_discount) : 0;
     }
 
     res.json({ success: true, data: orders });
