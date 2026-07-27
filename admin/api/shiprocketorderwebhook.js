@@ -2101,6 +2101,12 @@ const SR_STATUS_MAP = {
   "OUT FOR DELIVERY":     "Out for Delivery",
   "DELIVERED":            "Delivered",
   // Return / RTO
+  // NOTE: Shiprocket's real API/webhook payloads use the American spelling
+  // "CANCELED" (single L) — confirmed elsewhere in this codebase
+  // (orderController.js checks shiprocketResponse.status === "CANCELED").
+  // We map both spellings here so a status coming through as "CANCELLED"
+  // (double L) is also caught, just in case.
+  "CANCELED":             "cancelled",
   "CANCELLED":            "cancelled",
   "RTO INITIATED":        "Return Initiated",
   "RTO IN TRANSIT":       "Return Initiated",
@@ -2308,9 +2314,16 @@ const receiveShipmentWebhook = async (req, res) => {
       .catch((e) => console.error(`[SR ShipmentWebhook] Stock restore failed for order_id=${orderId}:`, e.message));
 
     // Closes the loop for orders that went "cancellation_requested" → ops
-    // cancelled manually on the Shiprocket panel → this webhook confirms it.
     notifyCustomerOfCancellation({ orderId, mode: "cancelled" })
       .catch((e) => console.error(`[SR ShipmentWebhook] cancelled customer email failed for order_id=${orderId}:`, e.message));
+    notifyAdminOfOrderAutoCancelled({
+      orderId,
+      srCartId: null,
+      requestedAt: new Date().toISOString(),
+      awb: awb || null,
+      shipmentId: shipmentId || null,
+      reasonLabel: `Cancelled on Shiprocket panel (status: ${rawStatus})`,
+    }).catch((e) => console.error(`[SR ShipmentWebhook] admin auto-cancelled email failed for order_id=${orderId}:`, e.message));
   }
 
   return res.status(200).json({ success: true, message: "Status updated", order_id: orderId, status: mappedStatus });
