@@ -48,9 +48,12 @@ function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: stri
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return hasShipment ? 'ready_to_ship' : 'processing';
   }
-  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
-      s.includes('reached') || s.includes('picked up')) return 'shipped';
-  if (s.includes('ready') || s.includes('ready_to_ship')) return 'ready_to_ship';
+  // NOTE: check "ready to ship" BEFORE the generic "shipped" check below —
+  // the string "ready to ship" contains "ship" as a substring, so checking
+  // shipped first would misclassify a not-yet-shipped order as Shipped.
+  if (s.includes('ready to ship') || s.includes('ready_to_ship') || s === 'ready') return 'ready_to_ship';
+  if (s.includes('in transit') || s.includes('in_transit') || s.includes('reached') ||
+      s.includes('picked up') || s === 'shipped' || s === 'ship') return 'shipped';
   // AWB assigned but status not yet updated — promote to ready_to_ship
   if (hasShipment && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
