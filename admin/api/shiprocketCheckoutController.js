@@ -1009,50 +1009,86 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     // (poll log removed — was firing on every single poll attempt and flooding pm2 logs)
 
     // ── 1. Direct lookup: has the webhook already created this order? ──────
+    // Only return success if order is already confirmed/paid, otherwise verify payment first
     const existingOrderId = await findOrderBySrOrderId(sr_order_id);
     if (existingOrderId) {
-      console.log(`[SR Complete-Checkout] ✅ found via direct ID lookup → order_id=${existingOrderId}`);
-      return res.json({ success: true, order_id: existingOrderId, sr_cart_id: sr_order_id });
+      // Check if this order has a confirmed payment status
+      const [[orderStatus]] = await db.query(
+        `SELECT o.order_status, o.payment_method
+         FROM tbl_orders o
+         WHERE o.order_id = ?
+         LIMIT 1`,
+        [existingOrderId],
+      );
+      
+      // Only return success if order status indicates payment was confirmed
+      // pending/processing without verification means payment might still be in progress
+      const status = toStr(orderStatus?.order_status || "").toLowerCase();
+      const isCOD = toStr(orderStatus?.payment_method || "").toLowerCase() === 'cod';
+      
+      // For COD orders or orders already in processing/confirmed state, allow success
+      if (isCOD || status === 'processing' || status === 'confirmed' || status === 'ready_to_ship' || status === 'shipped' || status === 'delivered') {
+        console.log(`[SR Complete-Checkout] ✅ found via direct ID lookup → order_id=${existingOrderId}, status=${status}`);
+        return res.json({ success: true, order_id: existingOrderId, sr_cart_id: sr_order_id });
+      }
+      // If order exists but status is pending, fall through to payment verification
+      console.log(`[SR Complete-Checkout] Order ${existingOrderId} found but status is ${status}, verifying payment...`);
     }
 
     if (checkout_ref) {
       const ctx = await findCheckoutContext({ checkout_ref });
-      // (ctx lookup log removed — was repeating every poll attempt)
       if (ctx) {
         const ctxCartId = toStr(ctx.sr_order_id || "");
         if (ctxCartId) {
           const [ctxRows] = await db.query(
-            `SELECT order_id FROM tbl_ordermeta
-             WHERE meta_key = '_sr_cart_id' AND meta_value = ?
+            `SELECT o.order_id, o.order_status, o.payment_method
+             FROM tbl_ordermeta om
+             JOIN tbl_orders o ON om.order_id = o.order_id
+             WHERE om.meta_key = '_sr_cart_id' AND om.meta_value = ?
              LIMIT 1`,
             [ctxCartId],
           );
           if (ctxRows.length) {
-            console.log(`[SR Complete-Checkout] ✅ found via _sr_cart_id=${ctxCartId} → order_id=${ctxRows[0].order_id}`);
-            return res.json({ success: true, order_id: ctxRows[0].order_id, sr_cart_id: ctxCartId });
+            const status = toStr(ctxRows[0].order_status || "").toLowerCase();
+            const isCOD = toStr(ctxRows[0].payment_method || "").toLowerCase() === 'cod';
+            
+            if (isCOD || status === 'processing' || status === 'confirmed' || status === 'ready_to_ship' || status === 'shipped' || status === 'delivered') {
+              console.log(`[SR Complete-Checkout] ✅ found via _sr_cart_id=${ctxCartId} → order_id=${ctxRows[0].order_id}, status=${status}`);
+              return res.json({ success: true, order_id: ctxRows[0].order_id, sr_cart_id: ctxCartId });
+            }
+            console.log(`[SR Complete-Checkout] Order ${ctxRows[0].order_id} found via _sr_cart_id but status is ${status}, verifying payment...`);
           }
+          
           const [ctxRows2] = await db.query(
-            `SELECT order_id FROM tbl_ordermeta
-             WHERE meta_key = '_sr_checkout_order_id' AND meta_value = ?
+            `SELECT o.order_id, o.order_status, o.payment_method
+             FROM tbl_ordermeta om
+             JOIN tbl_orders o ON om.order_id = o.order_id
+             WHERE om.meta_key = '_sr_checkout_order_id' AND om.meta_value = ?
              LIMIT 1`,
             [ctxCartId],
           );
           if (ctxRows2.length) {
-            console.log(`[SR Complete-Checkout] ✅ found via _sr_checkout_order_id=${ctxCartId} → order_id=${ctxRows2[0].order_id}`);
-            return res.json({ success: true, order_id: ctxRows2[0].order_id, sr_cart_id: ctxCartId });
+            const status = toStr(ctxRows2[0].order_status || "").toLowerCase();
+            const isCOD = toStr(ctxRows2[0].payment_method || "").toLowerCase() === 'cod';
+            
+            if (isCOD || status === 'processing' || status === 'confirmed' || status === 'ready_to_ship' || status === 'shipped' || status === 'delivered') {
+              console.log(`[SR Complete-Checkout] ✅ found via _sr_checkout_order_id=${ctxCartId} → order_id=${ctxRows2[0].order_id}, status=${status}`);
+              return res.json({ success: true, order_id: ctxRows2[0].order_id, sr_cart_id: ctxCartId });
+            }
+            console.log(`[SR Complete-Checkout] Order ${ctxRows2[0].order_id} found via _sr_checkout_order_id but status is ${status}, verifying payment...`);
           }
-          // (removed — was repeating "no order found yet" on every poll attempt)
         } else {
           console.log(`[SR Complete-Checkout] ctx found but sr_order_id is empty — token response may not have returned order_id`);
         }
       }
     }
 
-
+    // Recent order fallback - also verify payment status
     {
       const [recentRows] = await db.query(
-        `SELECT om.order_id
+        `SELECT om.order_id, o.order_status, o.payment_method
          FROM tbl_ordermeta om
+         JOIN tbl_orders o ON om.order_id = o.order_id
          WHERE om.meta_key = '_order_source'
            AND om.meta_value IN ('shiprocket_checkout', 'fastrr')
            AND om.order_id IN (
@@ -1063,13 +1099,18 @@ const completeCheckoutFromShiprocket = async (req, res) => {
          LIMIT 1`,
       );
       if (recentRows.length) {
-        console.log(`[SR Complete-Checkout] ✅ found via recent order fallback → order_id=${recentRows[0].order_id}`);
-        // Fetch sr_cart_id for this order
-        const [[cartIdRow]] = await db.query(
-          `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_sr_cart_id' AND order_id = ? LIMIT 1`,
-          [recentRows[0].order_id],
-        );
-        return res.json({ success: true, order_id: recentRows[0].order_id, sr_cart_id: cartIdRow?.meta_value || sr_order_id });
+        const status = toStr(recentRows[0].order_status || "").toLowerCase();
+        const isCOD = toStr(recentRows[0].payment_method || "").toLowerCase() === 'cod';
+        
+        if (isCOD || status === 'processing' || status === 'confirmed' || status === 'ready_to_ship' || status === 'shipped' || status === 'delivered') {
+          console.log(`[SR Complete-Checkout] ✅ found via recent order fallback → order_id=${recentRows[0].order_id}, status=${status}`);
+          const [[cartIdRow]] = await db.query(
+            `SELECT meta_value FROM tbl_ordermeta WHERE meta_key = '_sr_cart_id' AND order_id = ? LIMIT 1`,
+            [recentRows[0].order_id],
+          );
+          return res.json({ success: true, order_id: recentRows[0].order_id, sr_cart_id: cartIdRow?.meta_value || sr_order_id });
+        }
+        console.log(`[SR Complete-Checkout] Recent order ${recentRows[0].order_id} found but status is ${status}, verifying payment...`);
       }
     }
 

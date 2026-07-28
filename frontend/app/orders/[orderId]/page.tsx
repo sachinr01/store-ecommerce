@@ -363,15 +363,15 @@ export default function OrderDetailPage() {
     const effectiveStatus = isException ? 'shipped' : current;
 
     const STEPS = [
-      'pending', 'processing', 'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered',
+      'processing', 'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered',
     ];
     const STEP_LABELS: Record<string, string> = {
-      pending: 'Pending', processing: 'Processing', ready_to_ship: 'Ready to Ship',
+      processing: 'Processing', ready_to_ship: 'Ready to Ship',
       shipped: 'Shipped', out_for_delivery: 'Out for Delivery', delivered: 'Delivered',
     };
     const STEP_INDEX: Record<string, number> = {
-      pending: 0, confirmed: 1, processing: 1, ready_to_ship: 2,
-      shipped: 3, out_for_delivery: 4, delivered: 5,
+      pending: 0, confirmed: 0, processing: 0, ready_to_ship: 1,
+      shipped: 2, out_for_delivery: 3, delivered: 4,
     };
     const activeIndex = isCancelled ? -1 : (STEP_INDEX[effectiveStatus] ?? 0);
 

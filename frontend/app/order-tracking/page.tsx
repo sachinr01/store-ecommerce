@@ -75,10 +75,9 @@ function digitsOnly(v: string) {
 // ─── timeline ────────────────────────────────────────────────────────────────
 
 // Main forward-journey steps in order.
-// "Pending" = local only (pre-Shiprocket). "ready_to_ship" = AWB assigned.
+// "Pending" status is hidden from the timeline. "ready_to_ship" = AWB assigned.
 // Return / cancelled states are handled separately below.
 const STEPS = [
-  'pending',
   'processing',
   'ready_to_ship',
   'shipped',
@@ -87,7 +86,6 @@ const STEPS = [
 ] as const;
 
 const STEP_LABELS: Record<string, string> = {
-  pending:          'Pending',
   processing:       'Processing',
   ready_to_ship:    'Ready to Ship',
   shipped:          'Shipped',
@@ -96,13 +94,13 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 const STEP_INDEX: Record<string, number> = {
-  pending:          0,
-  confirmed:        1, // "confirmed" maps to same visual slot as processing
-  processing:       1,
-  ready_to_ship:    2,
-  shipped:          3,
-  out_for_delivery: 4,
-  delivered:        5,
+  pending:          0, // pending maps to processing visually
+  confirmed:        0, // "confirmed" maps to same visual slot as processing
+  processing:       0,
+  ready_to_ship:    1,
+  shipped:          2,
+  out_for_delivery: 3,
+  delivered:        4,
 };
 
 // Exception statuses that overlay a warning badge on the last real step
