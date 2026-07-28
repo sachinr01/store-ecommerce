@@ -60,18 +60,13 @@ function renderInvoice(data) {
     return (r ? r.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + ',' + l : l) + '.' + dec;
   }
 
-  // Default GST rate used when a product has no tax_percent stored.
-  // Prices are always tax-inclusive, so we can always extract GST at this rate.
-  const DEFAULT_GST_RATE = toAmt(data.defaultGstRate ?? 18);
-
   // tax groups — computed from line_total which may be post-discount (SR webhook)
   // or pre-discount (direct checkout). Either way, tax extraction is correct
   // because prices are always tax-inclusive regardless of discount.
   const taxGroups = new Map();
   for (const item of items) {
     const lt  = toAmt(item.line_total);
-    // Use stored tax_percent; fall back to DEFAULT_GST_RATE so tax is always shown
-    const r   = toAmt(item.tax_percent) || DEFAULT_GST_RATE;
+    const r   = toAmt(item.tax_percent);
     // If line_tax is stored use it directly, otherwise back-calculate from inclusive price
     const itemTax = (item.line_tax != null && toAmt(item.line_tax) > 0)
       ? toAmt(item.line_tax)
@@ -136,7 +131,7 @@ function renderInvoice(data) {
   const itemRows = items.map((item, i) => {
     const qty     = Number(item.qty || 1);
     const lt      = toAmt(item.line_total);
-    const taxRate = toAmt(item.tax_percent) || DEFAULT_GST_RATE;
+    const taxRate = toAmt(item.tax_percent);
     const itemTax = (item.line_tax != null && toAmt(item.line_tax) > 0)
       ? toAmt(item.line_tax)
       : (taxRate > 0 ? (lt * taxRate) / (100 + taxRate) : 0);

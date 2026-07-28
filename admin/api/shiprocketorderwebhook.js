@@ -963,6 +963,14 @@ const receiveOrderWebhook = async (req, res) => {
 
     await conn.commit();
     console.log(`[SR OrderWebhook] ✅ Order ${orderId} saved for cart_id=${cartId}`);
+
+    // ── Advance to 'Processing' — SR checkout payment confirmed ──────────────
+    // Order is real and has been paid (or is COD accepted). Setting Processing
+    // here is our system logic — not a courier event. Must happen after commit.
+    await db.query(
+      `UPDATE tbl_orders SET order_status = 'Processing', order_modified = NOW() WHERE order_id = ?`,
+      [orderId],
+    ).catch((e) => console.error("[SR OrderWebhook] Failed to advance to Processing:", e.message));
     console.log(`[SR OrderWebhook]    Customer: ${billing.firstName} ${billing.lastName} | Phone: ${phone10}`);
     console.log(`[SR OrderWebhook]    Total: ₹${orderTotal} | Items: ${resolvedItems.length}`);
 
@@ -1071,13 +1079,14 @@ const receiveOrderWebhook = async (req, res) => {
         console.log(`[SR OrderWebhook] ✅ Pushed to SR fulfillment panel — shipment_id=${shipment.shipmentId}, awb=${shipment.awb || "—"}, courier=${shipment.courier || "—"}`);
         const updateFields = ["shipment_id = ?", "shipping_status = ?"];
         const updateParams = [shipment.shipmentId, shipment.status || "new"];
-        // AWB is only assigned by Shiprocket once a courier is picked — when
-        // present at creation time, save it now (and flip to Ready to Ship)
-        // instead of waiting for the async webhook, so customers see
-        // tracking info immediately.
+        // Save AWB and courier if Shiprocket returned them in the create-order
+        // response, but do NOT advance order_status here. "Ready to Ship" and
+        // beyond must only be set by a real Shiprocket shipment-status webhook
+        // confirming a genuine courier-side event. The order stays at its
+        // current status (Processing) until the webhook fires.
         if (shipment.awb) {
-          updateFields.push("awb_code = ?", "order_status = ?");
-          updateParams.push(shipment.awb, "Ready to Ship");
+          updateFields.push("awb_code = ?");
+          updateParams.push(shipment.awb);
         }
         if (shipment.courier) {
           updateFields.push("courier_name = ?");
@@ -1085,8 +1094,6 @@ const receiveOrderWebhook = async (req, res) => {
         }
         updateParams.push(orderId);
         await db.query(
-          `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
-          updateParams,
           `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
           updateParams,
         );
@@ -2089,11 +2096,18 @@ const cancelShiprocketOrder = async (req, res) => {
 
 const SR_STATUS_MAP = {
   // Forward journey
-  "NEW":                  "processing",
-  "PICKUP SCHEDULED":     "processing",
-  "PICKUP ERROR":         "processing",
-  "PICKUP QUEUED":        "processing",
-  "PICKUP GENERATED":     "processing",
+  // These statuses arrive via a real Shiprocket shipment webhook, meaning
+  // Shiprocket has scheduled pickup — map to "Ready to Ship" (awaiting courier).
+  // "processing" is reserved for our own checkout code (payment confirmed) and
+  // must NEVER be set here from a webhook event.
+  "NEW":                  "Ready to Ship",
+  "PICKUP SCHEDULED":     "Ready to Ship",
+  "PICKUP ERROR":         "Ready to Ship",
+  "PICKUP QUEUED":        "Ready to Ship",
+  "PICKUP GENERATED":     "Ready to Ship",
+  "AWB ASSIGNED":         "Ready to Ship",
+  "MANIFEST GENERATED":   "Ready to Ship",
+  "OUT FOR PICKUP":       "Ready to Ship",
   "PICKED UP":            "Shipped",
   "IN TRANSIT":           "Shipped",
   "REACHED AT SOURCE HUB":"Shipped",
@@ -2247,6 +2261,37 @@ const receiveShipmentWebhook = async (req, res) => {
       await conn.commit();
       console.log(`[SR ShipmentWebhook] order_id=${orderId} already at "${currentStatus}" — skipping`);
       return res.status(200).json({ success: true, message: "Already at this status" });
+    }
+
+    // ── Forward-only guard ────────────────────────────────────────────────────
+    // Status must only advance through: Pending → Processing → Ready to Ship
+    // → Shipped → Out for Delivery → Delivered (cancellation paths are exempt).
+    // Reject any webhook event that would move status backward, so out-of-order
+    // or duplicate deliveries from Shiprocket cannot corrupt state.
+    const STATUS_ORDER = [
+      "pending",
+      "Processing",
+      "Ready to Ship",
+      "Shipped",
+      "Out for Delivery",
+      "Delivered",
+    ];
+    const isCancellationStatus = ["cancelled", "cancellation_requested",
+      "Return Initiated", "Returned"].includes(mappedStatus);
+    const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+    const mappedIdx  = STATUS_ORDER.indexOf(mappedStatus);
+    if (
+      !isCancellationStatus &&
+      currentIdx !== -1 &&   // current is a known forward-journey status
+      mappedIdx  !== -1 &&   // incoming is also a known forward-journey status
+      mappedIdx <= currentIdx // would not advance (same or backward)
+    ) {
+      await conn.commit();
+      console.log(
+        `[SR ShipmentWebhook] order_id=${orderId} forward-only guard: ` +
+        `incoming "${mappedStatus}" (idx ${mappedIdx}) ≤ current "${currentStatus}" (idx ${currentIdx}) — skipping`,
+      );
+      return res.status(200).json({ success: true, message: "Status not advanced (forward-only guard)" });
     }
 
     let updateQuery = `UPDATE tbl_orders SET order_status = ?, shipping_status = ?, order_modified = NOW()`;

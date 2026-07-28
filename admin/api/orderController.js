@@ -1742,6 +1742,15 @@ const placeOrder = async (req, res) => {
 
     await conn.commit();
 
+    // ── Advance to 'Processing' — payment confirmed (or COD accepted) ─────────
+    // This is our own system confirming the order is real and being prepared.
+    // It must happen after commit so it never rolls back, and must never be
+    // set by a Shiprocket API response (that's the bug fixed in checkout code).
+    await db.query(
+      `UPDATE tbl_orders SET order_status = 'Processing', order_modified = NOW() WHERE order_id = ?`,
+      [orderId],
+    ).catch((e) => console.error("[placeOrder] Failed to advance to Processing:", e.message));
+
     // Clear coupon from session after successful order
     if (appliedCoupon) {
       delete req.sessionData.appliedCoupon;
@@ -3668,7 +3677,6 @@ const downloadInvoice = async (req, res) => {
         gstin:        process.env.STORE_GSTIN          || '',
         pan:          process.env.STORE_PAN            || '',
       },
-      defaultGstRate: parseFloat(process.env.DEFAULT_GST_RATE || '18'),
       order: {
         invoiceNo:      invoiceNumber,
         orderId:        orderRow.sr_cart_id || orderId,
@@ -3956,7 +3964,6 @@ const downloadMyInvoice = async (req, res) => {
         gstin:        process.env.STORE_GSTIN          || '',
         pan:          process.env.STORE_PAN            || '',
       },
-      defaultGstRate: parseFloat(process.env.DEFAULT_GST_RATE || '18'),
       order: {
         invoiceNo:      invoiceNumber,
         orderId:        orderRow.sr_cart_id || orderId,

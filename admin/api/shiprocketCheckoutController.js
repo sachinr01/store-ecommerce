@@ -484,6 +484,15 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
 
     await conn.commit();
 
+    // ── Advance to 'Processing' — Shiprocket checkout payment confirmed ───────
+    // The order was paid via Shiprocket's hosted checkout. Setting Processing
+    // here confirms payment and begins fulfilment. Must happen after commit.
+    // "Ready to Ship" and beyond must only come from a real shipment webhook.
+    await db.query(
+      `UPDATE tbl_orders SET order_status = 'Processing', order_modified = NOW() WHERE order_id = ?`,
+      [orderId],
+    ).catch((e) => console.error("[insertShiprocketOrder] Failed to advance to Processing:", e.message));
+
     try {
       const srPayload = {
         order_id: "ORD_" + orderId + "_" + Date.now(),
@@ -517,28 +526,27 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       const shiprocketResponse = await createShiprocketOrder(srPayload);
       
       if (extractShipmentIdentity(shiprocketResponse).shipmentId) {
-        //  console.log(`[SR Polling] ✅ Order pushed to SR Panel! Shipment ID: ${shiprocketResponse.shipment_id}`);
-         // Save the shipment ID back to your local order (outside the main transaction)
-         const shipment = extractShipmentIdentity(shiprocketResponse);
-         const updateFields = ["shipment_id = ?", "shipping_status = ?", "order_status = ?"];
-         const updateParams = [
-           shipment.shipmentId,
-           shipment.status || "new",
-           "Ready to Ship",
-         ];
-         if (shipment.awb) {
-           updateFields.push("awb_code = ?");
-           updateParams.push(shipment.awb);
-         }
-         if (shipment.courier) {
-           updateFields.push("courier_name = ?");
-           updateParams.push(shipment.courier);
-         }
-         updateParams.push(orderId);
-         await db.query(
-           `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
-           updateParams,
-         );
+        // Save the shipment_id (and AWB/courier if Shiprocket returned them) back
+        // to the local order. We do NOT set order_status here — "Ready to Ship"
+        // and beyond must only be set by a real Shiprocket shipment-status webhook,
+        // not by the create-order API response. The order stays at 'Processing'
+        // until the courier confirms a real event (AWB assigned / pickup).
+        const shipment = extractShipmentIdentity(shiprocketResponse);
+        const updateFields = ["shipment_id = ?", "shipping_status = ?"];
+        const updateParams = [shipment.shipmentId, shipment.status || "new"];
+        if (shipment.awb) {
+          updateFields.push("awb_code = ?");
+          updateParams.push(shipment.awb);
+        }
+        if (shipment.courier) {
+          updateFields.push("courier_name = ?");
+          updateParams.push(shipment.courier);
+        }
+        updateParams.push(orderId);
+        await db.query(
+          `UPDATE tbl_orders SET ${updateFields.join(", ")} WHERE order_id = ?`,
+          updateParams,
+        );
       }
     } catch (e) {
       console.error("[SR Polling] Failed to push to SR Panel:", e.message);
