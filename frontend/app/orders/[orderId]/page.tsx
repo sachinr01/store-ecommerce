@@ -31,30 +31,45 @@ const EXCEPTION_LABEL: Record<string, string> = {
 /**
  * Derives canonical timeline key from DB order_status + awb_code presence.
  * AWB present + still "processing" → ready_to_ship.
+ *
+ * Mirrors order-tracking/page.tsx exactly — the check order here matters:
+ *   • "ready to ship" MUST be checked BEFORE the generic "ship" check,
+ *     since "ready to ship" contains "ship" as a substring. Checking the
+ *     generic case first misclassifies a not-yet-shipped order as Shipped
+ *     (this was the bug — order details page showed a different timeline
+ *     than order-tracking because of this ordering).
+ *   • "out_for_delivery" MUST be checked BEFORE the generic "deliver" check,
+ *     since "out for delivery" contains "deliver" as a substring.
  */
 function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
   const hasShipment = Boolean(awbCode || shipmentId);
 
+  // Exception states — return as-is so the caller can render a warning badge
   if (EXCEPTION_STATUSES.has(s)) return s;
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  if (s.includes('complete')) return 'delivered';
   // out_for_delivery MUST precede the generic 'deliver' check — the string
   // "out for delivery" contains "deliver" as a substring, so checking the
   // generic case first would misclassify it as fully Delivered.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
-  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit') ||
-      s.includes('reached') || s.includes('picked up')) return 'shipped';
-  if (s.includes('ready') || s === 'ready_to_ship') return 'ready_to_ship';
+  if (s.includes('complete')) return 'delivered';
+  // AWB present but still showing "processing" → already ready to ship
   if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return hasShipment ? 'ready_to_ship' : 'processing';
   }
-  // Must be checked before the generic 'cancel' catch-all.
+  // NOTE: check "ready to ship" BEFORE the generic "shipped" check below —
+  // the string "ready to ship" contains "ship" as a substring, so checking
+  // shipped first would misclassify a not-yet-shipped order as Shipped.
+  if (s.includes('ready to ship') || s.includes('ready_to_ship') || s === 'ready') return 'ready_to_ship';
+  if (s.includes('in transit') || s.includes('in_transit') || s.includes('reached') ||
+      s.includes('picked up') || s === 'shipped' || s === 'ship') return 'shipped';
+  // AWB assigned but status not yet updated — promote to ready_to_ship
+  if (hasShipment && (s === 'processing' || s === 'confirmed' || s === 'new')) return 'ready_to_ship';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';
