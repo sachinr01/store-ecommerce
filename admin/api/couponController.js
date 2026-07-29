@@ -13,10 +13,6 @@ async function readCartItems(req, conn) {
   const { getCartIdentity } = require('./cartController');
   const userId = req.sessionData?.user?.id || 0;
   const { key, value } = getCartIdentity(req);
-
-  // Fetch cart rows — we need product_id, variation_id, quantity to look up live prices.
-  // We intentionally do NOT use cart_items.price here: it is a stale snapshot that can be
-  // tampered by the client (Burp Suite / DevTools) or become outdated after an admin price change.
   const livePriceSubquery = `
     CAST(
       COALESCE(
@@ -65,15 +61,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
 
   const query = conn.query.bind(conn);
 
-  // ── 1. usage_limit_per_coupon ─────────────────────────────────────────────
-  // NOTE: No FOR UPDATE here. This function is called both from apply/active
-  // (uses the pool — autocommit, no open transaction) and from
-  // validateAndLockCoupon (uses a real conn inside BEGIN).
-  // FOR UPDATE on a SELECT COUNT(*) outside a transaction is a no-op:
-  // MySQL releases the lock immediately under autocommit, protecting nothing.
-  // The authoritative race-safe check happens in validateAndLockCoupon, which
-  // runs inside the order transaction and locks tbl_coupons FOR UPDATE before
-  // calling this function.
+  // ── 1. usage_limit_per_coupon ───────
   if (coupon.usage_limit_per_coupon > 0) {
     const [[usageRow]] = await query(
       `SELECT COUNT(*) AS total_used
@@ -99,12 +87,7 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
     }
   }
 
-  // ── 3. usage_limit_per_products ──────────────────────────────────────────────────────
-  // Limits how many total product units across ALL orders can ever be discounted
-  // by this coupon. Once that unit count is hit, the coupon is exhausted.
-  //
-  // Example: limit = 5 means only 5 units (across all customers, all orders)
-  // will ever get a discount from this coupon.
+  // ── 3. usage_limit_per_products ────────
   if (coupon.usage_limit_per_products > 0) {
     const [[productUsage]] = await query(
       `SELECT COALESCE(SUM(CAST(oim.meta_value AS UNSIGNED)), 0) AS total_units
@@ -161,10 +144,6 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       };
     }
   }
-
-  // ── 6–8. Unified per-product eligibility ─────────────────────────────────
-
-
   const hasAnyProductRule =
     includeProducts.length   > 0 ||
     excludeProducts.length   > 0 ||
@@ -219,8 +198,6 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
         message: 'None of the items in your cart are eligible for this coupon. It only applies to specific products or categories not currently in your cart.',
       };
     }
-
-    // Compute eligible subtotal using actual item prices — never approximate
     eligibleSubtotal = cartItems
       .filter((item) => eligibleProductIds.includes(Number(item.product_id)))
       .reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
@@ -241,9 +218,6 @@ async function validateCouponRules(coupon, userId, cartTotal, productIds, conn, 
       message: `Your eligible items total ₹${eligibleSubtotal.toFixed(2)}, which exceeds the ₹${maxSpend.toFixed(2)} maximum for this coupon. Remove some eligible items to bring the total within the limit.`,
     };
   }
-
-  // eligibleProductIds is already computed above inside the hasAnyProductRule block.
-  // Reuse it directly — no need to re-run the filter logic a second time.
   return { ok: true, eligibleSubtotal, eligibleProductIds: hasAnyProductRule ? eligibleProductIds : productIds };
 }
 
@@ -280,18 +254,11 @@ const COUPON_VALID_SQL = `
   coupon_status = 'publish'
   AND (coupon_expiry_date = '0000-00-00 00:00:00' OR coupon_expiry_date >= NOW())
 `;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/coupon/active
-// ─────────────────────────────────────────────────────────────────────────────
 const active = async (req, res) => {
   const c = req.sessionData?.appliedCoupon;
   if (!c) return res.json({ success: true, coupon: null });
 
   try {
-    // Re-fetch the coupon row so we can recompute eligibleSubtotal against
-    // the current cart (cart may have changed since the coupon was applied).
-    // Expiry is checked in SQL — avoids the Invalid Date JS bug.
     const [[coupon]] = await db.query(
       `SELECT * FROM tbl_coupons
        WHERE coupon_id = ? AND ${COUPON_VALID_SQL}
@@ -317,13 +284,8 @@ const active = async (req, res) => {
       cartTotal        = cartItems.reduce((sum, i) => sum + Number(i.price || 0) * Number(i.quantity || 0), 0);
       const productIds = cartItems.map((i) => Number(i.product_id)).filter(Boolean);
 
-      // Pass real userId so per-user usage limits are correctly enforced
-      // when a logged-in user reloads the checkout page.
       const result = await validateCouponRules(coupon, userId, cartTotal, productIds, db, cartItems);
 
-      // Cart has changed and made the coupon invalid (e.g. items removed,
-      // fell below minimum_spend) — strip immediately so the frontend clears
-      // the discount.
       if (!result.ok) {
         delete req.sessionData.appliedCoupon;
         req.touchSession();
@@ -333,9 +295,6 @@ const active = async (req, res) => {
       eligibleSubtotal = result.eligibleSubtotal;
       discount         = calculateDiscount(coupon, cartTotal, eligibleSubtotal, cartItems, result.eligibleProductIds);
     } catch (activeCartErr) {
-      // Cart unreadable due to a DB error — safest to strip the coupon and
-      // return null rather than risk showing a wrong discount to the user.
-      // Log so DB failures are visible in server logs.
       console.error('coupon/active: cart read or validation failed:', activeCartErr);
       delete req.sessionData.appliedCoupon;
       req.touchSession();
@@ -381,13 +340,6 @@ const apply = async (req, res) => {
     }
 
     const userId = req.sessionData?.user?.id || 0;
-
-    // ── Guest: resolve userId by email so per-user coupon limits are
-    // enforced at apply time, not just at order placement.
-    // Without this, a guest who already used NEST10 would see the discount
-    // applied successfully, then get a confusing block error at Place Order.
-    // billing_email is sent by the checkout page when the guest types their
-    // contact email before applying the coupon.
     let resolvedUserId = userId;
     if (!resolvedUserId) {
       const billingEmail = String(req.body.billing_email || '').toLowerCase().trim();
@@ -399,19 +351,14 @@ const apply = async (req, res) => {
           );
           if (guestRow) resolvedUserId = guestRow.ID;
         } catch (_) {
-          // Non-fatal — if lookup fails, proceed with resolvedUserId=0
-          // (per-user check will be skipped, caught at order time instead)
         }
       }
     }
 
-    // Read cart for spend + product eligibility checks
     let cartItems = [];
     try {
       cartItems = await readCartItems(req, db);
     } catch (cartErr) {
-      // Do NOT proceed with cartItems = [] — minimum_spend would pass against ₹0,
-      // potentially allowing coupons to be applied to an effectively empty cart.
       console.error('coupon/apply: readCartItems failed:', cartErr);
       return res.status(500).json({ success: false, message: 'Something went wrong on our end. Please try again in a moment.' });
     }
@@ -457,16 +404,8 @@ const remove = (req, res) => {
   req.touchSession();
   return res.json({ success: true, message: 'Coupon removed.' });
 };
-
-
-// validateAndLockCoupon  (used inside a DB transaction in orderController.js)
-
 async function validateAndLockCoupon(conn, sessionCoupon, userId, cartTotal, productIds, cartItems) {
   if (!sessionCoupon) return { ok: true, discount: 0 };
-
-  // FOR UPDATE on tbl_coupons prevents two concurrent orders from both
-  // passing the usage-limit check against the same coupon row.
-  // Expiry checked in SQL — same reason as apply/active endpoints.
   const [[coupon]] = await conn.query(
     `SELECT *
      FROM tbl_coupons

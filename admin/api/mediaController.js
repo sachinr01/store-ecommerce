@@ -1,25 +1,3 @@
-/**
- * mediaController.js
- *
- * Full relationship map:
- *
- *  tbl_products p (product_type='product', parent_id=0)
- *    │
- *    ├─ tbl_productmeta  meta_key='_thumbnail_id'            → media_id  (parent thumbnail)
- *    ├─ tbl_productmeta  meta_key='_product_image_gallery'   → "id,id,id" (parent gallery)
- *    │
- *    └─ tbl_products v (product_type='product_variation', parent_id=p.ID)
- *         ├─ tbl_productmeta  meta_key='attribute_pa_color'              → color slug
- *         ├─ tbl_productmeta  meta_key='_thumbnail_id'                   → media_id (color thumb)
- *         └─ tbl_productmeta  meta_key='woo_variation_gallery_images'    → PHP serialized ids
- *
- *  tbl_media m
- *    m.pareameta (mm)                                                          │
- *    mm.media_id  = m.media_id                                                │
- *    mm.meta_key  = '_wp_attached_file' → mm.meta_value = 'products/file.jpg'─┘
- *
- *  Full image URL = /uploads/ + mm.meta_value
- */
 
 const db   = require('../config/db');
 const NODE_ENV    = process.env.NODE_ENV || 'development';
@@ -36,15 +14,7 @@ function errRes(res, err, label) {
     });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/media/products
-//
-// Returns every published parent product with its thumbnail + gallery images,
-// fully resolved from tbl_productmeta → tbl_media → tbl_mediameta.
-//
-// Query params:
-//   ?limit=20&offset=0
-// ─────────────────────────────────────────────────────────────────────────────
 const getProductsWithImages = async (req, res) => {
     const limit  = Math.min(parseInt(req.query.limit,  10) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0,  0);
@@ -116,16 +86,7 @@ const getProductsWithImages = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/media/product/:productId
-//
-// Full image data for one product:
-//   - thumbnail  (from _thumbnail_id in tbl_productmeta)
-//   - gallery    (from _product_image_gallery in tbl_productmeta)
-//   - attached   (all tbl_media rows where parent_id = productId)
-//
-// All three sources are joined through tbl_media + tbl_mediameta.
-// ─────────────────────────────────────────────────────────────────────────────
 const getProductMedia = async (req, res) => {
     const productId = Number(req.params.productId);
     if (!productId) return res.status(400).json({ success: false, message: 'Invalid product id' });
@@ -212,11 +173,7 @@ const getProductMedia = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/media/:id
-//
-// Single media item with all its meta key/value pairs.
-// ─────────────────────────────────────────────────────────────────────────────
 const getMediaById = async (req, res) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ success: false, message: 'Invalid media id' });
@@ -267,13 +224,7 @@ const getMediaById = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/media/resolve?ids=1,2,3
-//
-// Batch-resolve media IDs → { media_id, url, file_path, ... }
-// Used by the frontend to resolve thumbnail_id / gallery_ids without
-// making N individual requests.
-// ─────────────────────────────────────────────────────────────────────────────
 const resolveMediaIds = async (req, res) => {
     const raw = String(req.query.ids || '');
     const ids = raw.split(',').map(Number).filter(n => n > 0);
@@ -287,16 +238,7 @@ const resolveMediaIds = async (req, res) => {
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Internal helper
-//
-// Given an array of media_ids, returns a map:
-//   { [media_id]: { media_id, media_title, media_mime_type, file_path, url } }
-//
-// JOIN path:
-//   tbl_media  →  tbl_mediameta (meta_key = '_wp_attached_file')
-//   tbl_media  →  tbl_products  (parent_id, for product context)
-// ─────────────────────────────────────────────────────────────────────────────
 async function resolveMediaMap(ids) {
     if (!ids || ids.length === 0) return {};
     const clean = ids.map(Number).filter(n => !isNaN(n) && n > 0);

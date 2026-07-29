@@ -324,10 +324,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     const orderName = `#SR-${Date.now()}`;
     const orderTitle = `Order - ${new Date().toLocaleString()}`;
 
-    // SECURITY: never trust checkoutContext.coupon_discount — it originates from
-    // client-supplied req.body at the token-gen step and is not verified there.
-    // The discount actually applied to the order must always come from a fresh,
-    // server-side, DB-locked recalculation, exactly like the direct placeOrder() flow.
     let discount = 0;
     let appliedCouponRow = null;
     const checkoutCouponCode = toStr(checkoutContext?.coupon_code || "");
@@ -341,9 +337,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       );
       if (couponRow) {
         appliedCouponRow = couponRow;
-        // Always re-validate and recompute — regardless of what the client sent —
-        // so usage limits, min/max spend, and product/category eligibility are
-        // enforced, and the discount amount itself can never be spoofed.
         const couponCheck = await validateAndLockCoupon(
           conn,
           { coupon_id: couponRow.coupon_id, coupon_code: couponRow.coupon_code },
@@ -355,8 +348,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
         if (couponCheck.ok) {
           discount = couponCheck.discount || 0;
         } else {
-          // Coupon named but no longer valid (limit hit, expired, spend threshold
-          // no longer met, etc.) — do NOT apply any discount and do NOT record usage.
           appliedCouponRow = null;
           discount = 0;
           console.warn(
@@ -368,8 +359,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     const shippingCost = Math.max(0, toFloat(checkoutContext?.shipping_cost, 0));
-    // item.price is the INCLUSIVE price (GST already embedded).
-    // Reverse-calculate the GST component:  tax = inclusive * rate / (100 + rate)
     const taxTotal = resolvedItems.reduce((sum, item) => {
       const lineInclusive  = item.price * item.quantity;
       const discountShare  = subtotal > 0 ? (discount * lineInclusive) / subtotal : 0;
@@ -483,11 +472,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
     }
 
     await conn.commit();
-
-    // ── Advance to 'Processing' — Shiprocket checkout payment confirmed ───────
-    // The order was paid via Shiprocket's hosted checkout. Setting Processing
-    // here confirms payment and begins fulfilment. Must happen after commit.
-    // "Ready to Ship" and beyond must only come from a real shipment webhook.
     await db.query(
       `UPDATE tbl_orders SET order_status = 'Processing', order_modified = NOW() WHERE order_id = ?`,
       [orderId],
@@ -526,11 +510,6 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       const shiprocketResponse = await createShiprocketOrder(srPayload);
       
       if (extractShipmentIdentity(shiprocketResponse).shipmentId) {
-        // Save the shipment_id (and AWB/courier if Shiprocket returned them) back
-        // to the local order. We do NOT set order_status here — "Ready to Ship"
-        // and beyond must only be set by a real Shiprocket shipment-status webhook,
-        // not by the create-order API response. The order stays at 'Processing'
-        // until the courier confirms a real event (AWB assigned / pickup).
         const shipment = extractShipmentIdentity(shiprocketResponse);
         const updateFields = ["shipment_id = ?", "shipping_status = ?"];
         const updateParams = [shipment.shipmentId, shipment.status || "new"];
@@ -876,11 +855,6 @@ const getCheckoutToken = async (req, res) => {
         line_total:      Number(lineTotal.toFixed(2)),  // inclusive total for this line
       });
     }
-
-    // SECURITY: never forward req.body.coupon_discount to Shiprocket as-is — it is
-    // client-supplied and unverified. Re-derive the discount server-side here so the
-    // amount Shiprocket displays/charges the customer matches what our own order
-    // creation step (insertShiprocketOrder) will independently recompute and enforce.
     const requestedCouponCode = toStr(req.body?.coupon_code || "");
     let verifiedDiscount = 0;
     if (requestedCouponCode) {
@@ -893,10 +867,6 @@ const getCheckoutToken = async (req, res) => {
       }));
       const sessionUserForCoupon = req.sessionData?.user || null;
 
-      // Use a short-lived, rolled-back transaction purely to get an accurate,
-      // race-safe-consistent estimate. Nothing is persisted or committed here —
-      // usage is only ever recorded later, inside insertShiprocketOrder's own
-      // transaction, at actual order-creation time.
       const checkConn = await db.getConnection();
       try {
         await checkConn.beginTransaction();
@@ -1005,11 +975,6 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     if (!sr_order_id) {
       return res.status(400).json({ success: false, message: "order_id is required" });
     }
-
-    // (poll log removed — was firing on every single poll attempt and flooding pm2 logs)
-
-    // ── 1. Direct lookup: has the webhook already created this order? ──────
-    // Only return success if order is already confirmed/paid, otherwise verify payment first
     const existingOrderId = await findOrderBySrOrderId(sr_order_id);
     if (existingOrderId) {
       // Check if this order has a confirmed payment status
@@ -1021,8 +986,6 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         [existingOrderId],
       );
       
-      // Only return success if order status indicates payment was confirmed
-      // pending/processing without verification means payment might still be in progress
       const status = toStr(orderStatus?.order_status || "").toLowerCase();
       const isCOD = toStr(orderStatus?.payment_method || "").toLowerCase() === 'cod';
       

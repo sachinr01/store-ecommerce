@@ -127,9 +127,6 @@ const runSyncTick = async () => {
       try {
         const result = await sendProductUpdateWebhook(id);
         if (result.success) {
-          // Only persist on success — if the webhook failed, leave the old
-          // fingerprint in place so we retry this product on the next tick
-          // instead of silently giving up on it.
           await persistFingerprint(id, fingerprint);
           succeeded += 1;
         } else {
@@ -200,17 +197,9 @@ const stopCatalogSync = () => {
   }
 };
 
-/**
- * Manual/instant path: if your separate admin tool CAN make an HTTP call
- * after saving a product, point it at a tiny route that calls this — it
- * pushes the webhook immediately instead of waiting for the next poll tick.
- * (See the optional route example in routes.js comments.)
- */
 const triggerCatalogSyncNow = async (productId) => {
   const result = await sendProductUpdateWebhook(productId);
   if (result.success) {
-    // Persist the fingerprint so the next poll tick doesn't re-send a
-    // webhook for a change we just pushed manually.
     const [rows] = await db.query(
       `SELECT
          (SELECT meta_value FROM tbl_productmeta WHERE product_id = ? AND meta_key = '_price' ORDER BY meta_id DESC LIMIT 1) AS price,
