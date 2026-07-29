@@ -1,0 +1,563 @@
+<%- include('../partials/head') %>
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row align-items-center">
+      <div class="col-7">
+        <h4 class="page-title">Media Library</h4>
+        <div class="d-flex align-items-center">
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+              <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Media Library</li>
+            </ol>
+          </nav>
+        </div>
+      </div>
+      <div class="col-5 text-end">
+        <button class="btn btn-primary rounded-pill px-4" onclick="openUploadPanel()">
+          <i data-feather="upload" class="feather-sm me-1"></i> Add New
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <!-- Alert Banner (WordPress-style) -->
+    <div id="mediaAlertBanner" class="alert d-none align-items-center gap-2 rounded-1 border-0 mb-3" role="alert" style="font-size:14px;">
+      <i id="mediaAlertIcon" data-feather="check-circle" class="feather-sm flex-shrink-0"></i>
+      <span id="mediaAlertMsg"></span>
+      <button type="button" class="btn-close ms-auto" onclick="hideAlert()"></button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card shadow-none border mb-3">
+      <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+
+        <!-- Bulk actions -->
+        <div class="d-flex align-items-center gap-2">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="selectAllTop" title="Select all images">
+          </div>
+          <select id="bulkActionSelect" class="form-select form-select-sm" style="width:160px;">
+            <option value="">Bulk Actions</option>
+            <option value="delete">Delete Permanently</option>
+          </select>
+          <button class="btn btn-secondary btn-sm rounded-1 px-3" onclick="applyBulkAction()">Apply</button>
+        </div>
+
+        <div class="vr mx-1" style="height:24px;"></div>
+
+        <!-- Item count -->
+        <span id="selectedCount" class="text-muted small">0 items selected</span>
+
+        <!-- Spacer -->
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <span id="mediaTotalCount" class="text-muted small"></span>
+          <button class="btn btn-outline-danger btn-sm rounded-1 px-3 d-none" id="btnDeleteSelected" onclick="deleteSelected()">
+            <i data-feather="trash-2" class="feather-sm me-1"></i> Delete Selected
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Upload Panel (collapsible) -->
+    <div id="uploadPanel" class="card border shadow-none mb-3 d-none">
+      <div class="card-body">
+        <h6 class="mb-3 fw-semibold">Upload New Media</h6>
+        <div id="uploadDropzone" class="border-2 border-dashed rounded-2 p-5 text-center bg-light"
+          style="border-style:dashed!important;cursor:pointer;" ondragover="event.preventDefault()" ondrop="handleDrop(event)" onclick="document.getElementById('uploadFileInput').click()">
+          <i data-feather="upload-cloud" style="width:40px;height:40px;" class="text-muted mb-2 d-block mx-auto"></i>
+          <p class="mb-1 text-muted fw-semibold">Drop files here or click to select</p>
+          <p class="text-muted small mb-0">Supports: JPG, PNG, GIF, WebP</p>
+        </div>
+        <input type="file" id="uploadFileInput" multiple accept="image/*" class="d-none" onchange="handleFileSelect(this.files)">
+        <div id="uploadPreviewList" class="d-flex flex-wrap gap-2 mt-3"></div>
+        <div id="uploadProgress" class="mt-2 d-none">
+          <div class="progress" style="height:6px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="uploadProgressBar" style="width:0%"></div>
+          </div>
+          <p class="small text-muted mt-1 mb-0" id="uploadProgressText">Uploading...</p>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-primary btn-sm rounded-pill px-4" id="btnStartUpload" onclick="startUpload()" disabled>
+            <i data-feather="upload" class="feather-sm me-1"></i> Upload Files
+          </button>
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-4" onclick="closeUploadPanel()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media Grid -->
+    <div class="card shadow-none border">
+      <div class="card-body p-3">
+        <div id="mediaGridLoading" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+        </div>
+        <div id="mediaGrid" class="d-flex flex-wrap gap-2" style="display:none!important;"></div>
+        <div id="mediaEmpty" class="text-center py-5 d-none">
+          <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
+          <p class="text-muted">No media files found.</p>
+          <button class="btn btn-primary rounded-pill px-4" onclick="openUploadPanel()">Upload your first image</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="mediaPaginationWrapper" class="d-flex justify-content-center mt-3"></div>
+
+  </div><!-- /container-fluid -->
+</div><!-- /page-wrapper -->
+
+<!-- ── Delete Confirmation Modal (WordPress-style) ──────────────────────── -->
+<div class="modal fade" id="mediaDeleteModal" tabindex="-1" aria-labelledby="mediaDeleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle d-flex align-items-center justify-content-center bg-danger bg-opacity-10" style="width:40px;height:40px;">
+            <i data-feather="trash-2" class="text-danger" style="width:20px;height:20px;"></i>
+          </div>
+          <h5 class="modal-title mb-0 fw-semibold" id="mediaDeleteModalLabel">Delete Media</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <p id="mediaDeleteModalMsg" class="text-muted mb-0" style="font-size:14px;"></p>
+        <div id="mediaDeletePreviewStrip" class="d-flex flex-wrap gap-1 mt-3"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger rounded-pill px-4" id="btnConfirmDelete" onclick="confirmDelete()">
+          <i data-feather="trash-2" class="feather-sm me-1"></i> Delete Permanently
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Image Preview Modal ──────────────────────────────────────────────── -->
+<div class="modal fade" id="mediaPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-semibold" id="previewModalFilename">Preview</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="previewModalImg" src="" class="img-fluid rounded" style="max-height:70vh;object-fit:contain;" />
+      </div>
+      <div class="modal-footer border-0 justify-content-between">
+        <div class="text-muted small" id="previewModalMeta"></div>
+        <button type="button" class="btn btn-danger btn-sm rounded-pill px-3"
+          onclick="deleteSingleFromPreview()">
+          <i data-feather="trash-2" class="feather-sm me-1"></i> Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/scripts') %>
+
+<script>
+  /* ================================================================
+     MEDIA LIBRARY — Full WordPress-style management
+     NOTE: We override the footer's loadMedia here since this is the
+     dedicated media management page. Our loadMedia targets the
+     #mediaGrid in the page body, not the modal.
+  ================================================================ */
+
+  // Override footer's loadMedia before it fires on window.load
+  // by redefining after DOMContentLoaded but before window.load completes.
+  // We use the same variable names as footer.ejs intentionally to take over.
+  mediaLoaded = true; // prevent footer's window.load from calling loadMedia(1)
+
+  let mediaPage        = 1;
+  let mediaTotalPages  = 1;
+  let pendingUpload    = [];
+  let pendingDelete    = [];
+  let previewCurrentUrl = null;
+
+  // ── Bootstrap colours matching admin theme ──────────────────────
+  const ALERT = {
+    success : { cls: 'alert-success', icon: 'check-circle'   },
+    danger  : { cls: 'alert-danger',  icon: 'alert-circle'   },
+    warning : { cls: 'alert-warning', icon: 'alert-triangle' },
+    info    : { cls: 'alert-info',    icon: 'info'           },
+  };
+
+  function showAlert(type, msg) {
+    const banner = document.getElementById('mediaAlertBanner');
+    const icon   = document.getElementById('mediaAlertIcon');
+    const text   = document.getElementById('mediaAlertMsg');
+
+    // Clear previous colour classes
+    Object.values(ALERT).forEach(a => banner.classList.remove(a.cls));
+
+    banner.classList.remove('d-none');
+    banner.classList.add('d-flex', ALERT[type].cls);
+    icon.setAttribute('data-feather', ALERT[type].icon);
+    text.textContent = msg;
+    feather.replace();
+
+    // Auto-hide after 5 s
+    clearTimeout(banner._timeout);
+    banner._timeout = setTimeout(hideAlert, 5000);
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function hideAlert() {
+    const banner = document.getElementById('mediaAlertBanner');
+    banner.classList.add('d-none');
+    banner.classList.remove('d-flex');
+  }
+
+  // ── Load grid ──────────────────────────────────────────────────
+  function libLoadMedia(page) {
+    page = page || 1;
+    mediaPage = page;
+
+    document.getElementById('mediaGridLoading').classList.remove('d-none');
+    document.getElementById('mediaGrid').style.display = 'none';
+    document.getElementById('mediaEmpty').classList.add('d-none');
+
+    fetch('/admin/media?page=' + page)
+      .then(r => r.json())
+      .then(data => {
+        mediaPage       = data.page       || 1;
+        mediaTotalPages = data.totalPages || 1;
+
+        document.getElementById('mediaGridLoading').classList.add('d-none');
+
+        const images = data.images || [];
+        document.getElementById('mediaTotalCount').textContent =
+          data.total ? data.total + ' file' + (data.total !== 1 ? 's' : '') : '';
+
+        if (!images.length) {
+          document.getElementById('mediaEmpty').classList.remove('d-none');
+        } else {
+          renderGrid(images);
+          document.getElementById('mediaGrid').style.removeProperty('display');
+        }
+
+        renderPagination();
+        updateSelectedCount();
+      })
+      .catch(() => {
+        document.getElementById('mediaGridLoading').classList.add('d-none');
+        showAlert('danger', 'Failed to load media. Please refresh the page.');
+      });
+  }
+
+  function renderGrid(images) {
+    const grid = document.getElementById('mediaGrid');
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    images.forEach(img => {
+      const wrap = document.createElement('div');
+      wrap.className = 'media-item position-relative';
+      wrap.dataset.url = img.url;
+      wrap.style.cssText = 'width:120px;height:120px;cursor:pointer;border-radius:6px;overflow:hidden;border:3px solid transparent;transition:border-color .15s,box-shadow .15s;background:#f8f9fa;';
+
+      wrap.innerHTML = `
+        <img src="${img.url}" loading="lazy" decoding="async"
+          style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;" />
+        <div class="media-item-check position-absolute top-0 start-0 p-1" style="z-index:2;">
+          <input type="checkbox" class="form-check-input media-checkbox" data-url="${img.url}"
+            style="width:18px;height:18px;cursor:pointer;background-color:#fff;border:2px solid #dee2e6;" onclick="event.stopPropagation();toggleSelect(this)">
+        </div>
+        <div class="media-item-overlay position-absolute bottom-0 start-0 end-0 p-1 d-flex justify-content-end align-items-center"
+          style="background:linear-gradient(transparent,rgba(0,0,0,.5));opacity:0;transition:opacity .15s;pointer-events:none;">
+          <button class="btn btn-danger btn-sm p-1 delete-single-btn"
+            style="width:26px;height:26px;font-size:11px;line-height:1;border-radius:50%;pointer-events:all;"
+            title="Delete" onclick="event.stopPropagation();promptDeleteSingle('${img.url}')">
+            <i data-feather="trash-2" style="width:12px;height:12px;"></i>
+          </button>
+        </div>
+      `;
+
+      // Hover overlay
+      wrap.addEventListener('mouseenter', () => { wrap.querySelector('.media-item-overlay').style.opacity = '1'; });
+      wrap.addEventListener('mouseleave', () => { wrap.querySelector('.media-item-overlay').style.opacity = '0'; });
+
+      // Click → preview
+      wrap.addEventListener('click', (e) => {
+        if (e.target.classList.contains('media-checkbox')) return;
+        openPreview(img.url);
+      });
+
+      frag.appendChild(wrap);
+    });
+
+    grid.appendChild(frag);
+    feather.replace();
+  }
+
+  // ── Selection ──────────────────────────────────────────────────
+  function toggleSelect(cb) {
+    const wrap = cb.closest('.media-item');
+    if (cb.checked) {
+      wrap.style.borderColor = '#0d6efd';
+      wrap.style.boxShadow   = '0 0 0 2px rgba(13,110,253,.25)';
+    } else {
+      wrap.style.borderColor = 'transparent';
+      wrap.style.boxShadow   = '';
+    }
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('.media-checkbox:checked');
+    const n = checked.length;
+    document.getElementById('selectedCount').textContent = n + ' item' + (n !== 1 ? 's' : '') + ' selected';
+    const btnDel = document.getElementById('btnDeleteSelected');
+    if (n > 0) btnDel.classList.remove('d-none'); else btnDel.classList.add('d-none');
+  }
+
+  // Select All (top toolbar checkbox)
+  document.getElementById('selectAllTop').addEventListener('change', function () {
+    document.querySelectorAll('.media-checkbox').forEach(cb => {
+      cb.checked = this.checked;
+      toggleSelect(cb);
+    });
+    updateSelectedCount();
+  });
+
+  // ── Delete: single (hover button or preview modal) ─────────────
+  function promptDeleteSingle(url) {
+    pendingDelete = [url];
+    const fname = url.split('/').pop();
+    document.getElementById('mediaDeleteModalMsg').textContent =
+      'Are you sure you want to permanently delete "' + fname + '"? This action cannot be undone.';
+    renderDeleteStrip([url]);
+    feather.replace();
+    new bootstrap.Modal(document.getElementById('mediaDeleteModal')).show();
+  }
+
+  // ── Delete: bulk (toolbar button / apply) ─────────────────────
+  function deleteSelected() {
+    const checked = [...document.querySelectorAll('.media-checkbox:checked')];
+    if (!checked.length) { showAlert('warning', 'Please select at least one image to delete.'); return; }
+    pendingDelete = checked.map(cb => cb.dataset.url);
+    const n = pendingDelete.length;
+    document.getElementById('mediaDeleteModalMsg').textContent =
+      'Are you sure you want to permanently delete ' + n + ' selected image' + (n > 1 ? 's' : '') + '? This action cannot be undone.';
+    renderDeleteStrip(pendingDelete.slice(0, 8));
+    feather.replace();
+    new bootstrap.Modal(document.getElementById('mediaDeleteModal')).show();
+  }
+
+  function renderDeleteStrip(urls) {
+    const strip = document.getElementById('mediaDeletePreviewStrip');
+    strip.innerHTML = urls.map(u =>
+      `<img src="${u}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #dee2e6;" />`
+    ).join('') + (pendingDelete.length > 8 ? `<span class="text-muted small align-self-center">+${pendingDelete.length - 8} more</span>` : '');
+  }
+
+  function confirmDelete() {
+    const btn = document.getElementById('btnConfirmDelete');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Deleting...';
+
+    fetch('/admin/media/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: pendingDelete })
+    })
+    .then(r => r.json())
+    .then(data => {
+      bootstrap.Modal.getInstance(document.getElementById('mediaDeleteModal')).hide();
+      btn.disabled = false;
+      btn.innerHTML = '<i data-feather="trash-2" class="feather-sm me-1"></i> Delete Permanently';
+
+      if (data.success) {
+        const n = data.deleted || pendingDelete.length;
+        showAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' deleted successfully.');
+        // Uncheck select-all
+        document.getElementById('selectAllTop').checked = false;
+        libLoadMedia(mediaPage);
+      } else {
+        showAlert('danger', data.message || 'Delete failed. Please try again.');
+      }
+      pendingDelete = [];
+    })
+    .catch(() => {
+      bootstrap.Modal.getInstance(document.getElementById('mediaDeleteModal')).hide();
+      btn.disabled = false;
+      btn.innerHTML = '<i data-feather="trash-2" class="feather-sm me-1"></i> Delete Permanently';
+      showAlert('danger', 'Network error. Delete failed.');
+      pendingDelete = [];
+    });
+  }
+
+  // ── Bulk action dropdown ────────────────────────────────────────
+  function applyBulkAction() {
+    const val = document.getElementById('bulkActionSelect').value;
+    if (!val) { showAlert('info', 'Please choose a bulk action first.'); return; }
+    if (val === 'delete') deleteSelected();
+    document.getElementById('bulkActionSelect').value = '';
+  }
+
+  // ── Preview modal ───────────────────────────────────────────────
+  function openPreview(url) {
+    previewCurrentUrl = url;
+    const fname = url.split('/').pop();
+    document.getElementById('previewModalImg').src = url;
+    document.getElementById('previewModalFilename').textContent = fname;
+    document.getElementById('previewModalMeta').textContent = url;
+    feather.replace();
+    new bootstrap.Modal(document.getElementById('mediaPreviewModal')).show();
+  }
+
+  function deleteSingleFromPreview() {
+    bootstrap.Modal.getInstance(document.getElementById('mediaPreviewModal')).hide();
+    setTimeout(() => promptDeleteSingle(previewCurrentUrl), 300);
+  }
+
+  // ── Upload panel ────────────────────────────────────────────────
+  function openUploadPanel() {
+    document.getElementById('uploadPanel').classList.remove('d-none');
+    document.getElementById('uploadPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function closeUploadPanel() {
+    document.getElementById('uploadPanel').classList.add('d-none');
+    document.getElementById('uploadPreviewList').innerHTML = '';
+    document.getElementById('uploadFileInput').value = '';
+    document.getElementById('btnStartUpload').disabled = true;
+    pendingUpload = [];
+  }
+
+  function handleFileSelect(files) {
+    pendingUpload = [...files];
+    renderUploadPreviews();
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if (!files.length) { showAlert('warning', 'Only image files are supported.'); return; }
+    pendingUpload = files;
+    renderUploadPreviews();
+  }
+
+  function renderUploadPreviews() {
+    const list = document.getElementById('uploadPreviewList');
+    list.innerHTML = '';
+    pendingUpload.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const div = document.createElement('div');
+        div.style.cssText = 'width:70px;height:70px;border-radius:4px;overflow:hidden;border:1px solid #dee2e6;';
+        div.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;" title="${f.name}" />`;
+        list.appendChild(div);
+      };
+      reader.readAsDataURL(f);
+    });
+    document.getElementById('btnStartUpload').disabled = pendingUpload.length === 0;
+  }
+
+  function startUpload() {
+    if (!pendingUpload.length) return;
+    const btn = document.getElementById('btnStartUpload');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Uploading...';
+
+    const progress = document.getElementById('uploadProgress');
+    const bar      = document.getElementById('uploadProgressBar');
+    const txt      = document.getElementById('uploadProgressText');
+    progress.classList.remove('d-none');
+    bar.style.width = '0%';
+
+    const formData = new FormData();
+    pendingUpload.forEach(f => formData.append('files', f));
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/admin/media/upload');
+
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        bar.style.width = pct + '%';
+        txt.textContent = 'Uploading... ' + pct + '%';
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      progress.classList.add('d-none');
+      btn.innerHTML = '<i data-feather="upload" class="feather-sm me-1"></i> Upload Files';
+
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.success) {
+          const n = data.files.length;
+          showAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded successfully.');
+          closeUploadPanel();
+          libLoadMedia(1);
+        } else {
+          btn.disabled = false;
+          showAlert('danger', data.error || 'Upload failed.');
+        }
+      } catch {
+        btn.disabled = false;
+        showAlert('danger', 'Upload failed. Please try again.');
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      progress.classList.add('d-none');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-feather="upload" class="feather-sm me-1"></i> Upload Files';
+      showAlert('danger', 'Upload failed. Network error.');
+    });
+
+    xhr.send(formData);
+  }
+
+  // ── Pagination ─────────────────────────────────────────────────
+  function renderPagination() {
+    const wrapper = document.getElementById('mediaPaginationWrapper');
+    wrapper.innerHTML = '';
+    if (mediaTotalPages <= 1) return;
+
+    const nav = document.createElement('nav');
+    nav.setAttribute('aria-label', 'Media pagination');
+    const ul = document.createElement('ul');
+    ul.className = 'pagination pagination-sm mb-0';
+
+    const mkLi = (label, page, disabled, active) => {
+      const li = document.createElement('li');
+      li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+      const a = document.createElement(disabled || active ? 'span' : 'a');
+      a.className = 'page-link';
+      a.innerHTML = label;
+      if (!disabled && !active) { a.href = '#'; a.onclick = e => { e.preventDefault(); libLoadMedia(page); }; }
+      li.appendChild(a);
+      return li;
+    };
+
+    ul.appendChild(mkLi('&laquo;', mediaPage - 1, mediaPage === 1, false));
+
+    let start = Math.max(1, mediaPage - 2), end = Math.min(mediaTotalPages, start + 4);
+    start = Math.max(1, end - 4);
+
+    if (start > 1) { ul.appendChild(mkLi('1', 1, false, false)); if (start > 2) ul.appendChild(mkLi('…', null, true, false)); }
+    for (let p = start; p <= end; p++) ul.appendChild(mkLi(p, p, false, p === mediaPage));
+    if (end < mediaTotalPages) { if (end < mediaTotalPages - 1) ul.appendChild(mkLi('…', null, true, false)); ul.appendChild(mkLi(mediaTotalPages, mediaTotalPages, false, false)); }
+
+    ul.appendChild(mkLi('&raquo;', mediaPage + 1, mediaPage === mediaTotalPages, false));
+    nav.appendChild(ul);
+    wrapper.appendChild(nav);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => libLoadMedia(1));
+</script>
+
+<%- include('../partials/footer') %>

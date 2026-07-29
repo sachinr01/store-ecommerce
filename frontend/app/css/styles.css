@@ -7925,6 +7925,25 @@ input[type="checkbox"] {
   margin: 0;
 }
 
+.cpd-desc-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cpd-desc-toggle {
+  background: none;
+  border: none;
+  padding: 4px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #555;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  display: inline-block;
+}
+
 .cpd-desc-text p,
 .cpd-desc-text ul,
 .cpd-desc-text ol,

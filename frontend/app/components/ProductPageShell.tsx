@@ -51,6 +51,7 @@ function AccordionItem({ label, content }: { label: string; content: string }) {
  * No data fetching here; all interactivity only (cart, wishlist, variant selection).
  */
 export default function ProductPageShell({ product }: { product: ProductDetail }) {
+  const [descExpanded, setDescExpanded] = useState(false);
   const { addItem }    = useCart();
   const { hasItem: inWishlist, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlist();
   const PLACEHOLDER = usePlaceholderImage();
@@ -612,8 +613,16 @@ export default function ProductPageShell({ product }: { product: ProductDetail }
             <h5 className="cpd-section-heading">Description</h5>
             <div className="cpd-tab-content">
               <div className="cpd-desc-panel">
-                <div className="cpd-desc-text"
-                  dangerouslySetInnerHTML={{ __html: fullDescHtml || '<p>No description available.</p>' }} />
+                <div
+                  className={`cpd-desc-text${descExpanded ? '' : ' cpd-desc-clamped'}`}
+                  dangerouslySetInnerHTML={{ __html: fullDescHtml || '<p>No description available.</p>' }}
+                />
+                <button
+                  className="cpd-desc-toggle"
+                  onClick={() => setDescExpanded(v => !v)}
+                >
+                  {descExpanded ? 'Show less ↑' : 'more...'}
+                </button>
               </div>
             </div>
           </div>

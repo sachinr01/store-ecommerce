@@ -1,282 +1,509 @@
 <%- include('../partials/media') %>
-  <script>
-    let mediaTarget = null;
-    let selectedMediaItem = null;
+<script>
+  // ── State ─────────────────────────────────────────────────────
+  let mediaTarget      = null;
+  let selectedMediaItem = null;   // last clicked (for Insert)
+  let mediaCurrentPage = 1;
+  let mediaTotalPages  = 1;
+  let mediaLoaded      = false;
+  let _mediaPendingDel = [];
 
-    let mediaCurrentPage = 1;
-    let mediaTotalPages  = 1;
-    let mediaLoaded      = false;
+  window.addEventListener('load', () => { loadMedia(1); });
 
-    window.addEventListener('load', () => {
-      loadMedia(1);
+  // ── Alert (WordPress colour theme) ───────────────────────────
+  const _MALERT = {
+    success: { cls:'alert-success', icon:'check-circle'   },
+    danger:  { cls:'alert-danger',  icon:'alert-circle'   },
+    warning: { cls:'alert-warning', icon:'alert-triangle' },
+    info:    { cls:'alert-info',    icon:'info'           },
+  };
+  function mediaShowAlert(type, msg) {
+    const el = document.getElementById('mediaAlert');
+    const icon = document.getElementById('mediaAlertIcon');
+    const txt  = document.getElementById('mediaAlertMsg');
+    Object.values(_MALERT).forEach(a => el.classList.remove(a.cls));
+    el.classList.remove('d-none');
+    el.classList.add('d-flex', _MALERT[type].cls);
+    icon.setAttribute('data-feather', _MALERT[type].icon);
+    txt.textContent = msg;
+    if (window.feather) feather.replace();
+    clearTimeout(el._t);
+    el._t = setTimeout(mediaHideAlert, 5000);
+  }
+  function mediaHideAlert() {
+    const el = document.getElementById('mediaAlert');
+    el.classList.add('d-none');
+    el.classList.remove('d-flex');
+  }
+
+  // ── Open modal ────────────────────────────────────────────────
+  function openMedia(opts) {
+    mediaTarget       = opts;
+    selectedMediaItem = null;
+    _mediaPendingDel  = [];
+
+    document.getElementById('selectedMediaInfo').style.display = 'none';
+    document.getElementById('btnInsertMedia').disabled = true;
+    document.getElementById('btnInsertMedia').textContent = 'Insert Selected';
+    mediaHideAlert();
+
+    if (!mediaLoaded) { loadMedia(1); } else { loadMedia(mediaCurrentPage); }
+    showMediaTab('library');
+    new bootstrap.Modal(document.getElementById('mediaModal')).show();
+  }
+
+  // ── Load ──────────────────────────────────────────────────────
+  function loadMedia(page) {
+    page = page || 1;
+    fetch('/admin/media?page=' + page)
+      .then(r => r.json())
+      .then(data => {
+        mediaCurrentPage = data.page       || 1;
+        mediaTotalPages  = data.totalPages || 1;
+        mediaLoaded      = true;
+        renderMedia(data.images || []);
+      })
+      .catch(() => mediaShowAlert('danger', 'Failed to load media.'));
+  }
+
+  // ── Render grid ───────────────────────────────────────────────
+  function renderMedia(images) {
+    const grid = document.getElementById('mediaGrid');
+    grid.innerHTML = '';
+    selectedMediaItem = null;
+    document.getElementById('selectedMediaInfo').style.display = 'none';
+    document.getElementById('btnInsertMedia').disabled = true;
+    _syncSelectAll();
+
+    if (!images.length) {
+      grid.innerHTML = '<p class="text-muted small p-3">No images found.</p>';
+      renderMediaPagination();
+      _updateSelCount();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    images.forEach(img => {
+      const div = document.createElement('div');
+      div.className = 'media-thumb';
+      div.dataset.url = img.url;
+      div.dataset.selected = '0';
+      div.style.cssText =
+        'position:relative;width:104px;height:104px;cursor:pointer;' +
+        'border:3px solid transparent;border-radius:3px;overflow:visible;' +
+        'background:#f1f3f5;transition:border-color .1s,box-shadow .1s;flex-shrink:0;';
+
+      div.innerHTML = `
+        <div style="width:100%;height:100%;border-radius:1px;overflow:hidden;">
+          <img src="${img.url}" loading="lazy" decoding="async"
+            style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;" />
+        </div>
+
+        <!-- Blue checkmark badge (WP style) -->
+        <div class="media-badge" style="
+          display:none;position:absolute;top:-10px;right:-10px;
+          width:28px;height:28px;background:#2271b1;border:2px solid #fff;
+          border-radius:3px;align-items:center;justify-content:center;
+          z-index:5;pointer-events:none;">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;">
+            <polyline points="3,10 8,15 17,5" stroke="#fff" stroke-width="2.8"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Delete × badge (on hover) -->
+        <button class="media-del-btn" title="Delete permanently"
+          style="display:none;position:absolute;bottom:-8px;right:-8px;width:22px;height:22px;
+            background:#d63638;border:2px solid #fff;border-radius:50%;padding:0;cursor:pointer;
+            align-items:center;justify-content:center;z-index:5;"
+          onclick="event.stopPropagation();_mediaPromptDel(['${img.url}'],1)">
+          <svg viewBox="0 0 20 20" fill="none" style="width:10px;height:10px;pointer-events:none;">
+            <line x1="4" y1="4" x2="16" y2="16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="16" y1="4" x2="4" y2="16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      `;
+
+      // Hover
+      div.addEventListener('mouseenter', () => {
+        if (div.dataset.selected !== '1') div.style.borderColor = '#c3c4c7';
+        div.querySelector('.media-del-btn').style.display = 'flex';
+      });
+      div.addEventListener('mouseleave', () => {
+        if (div.dataset.selected !== '1') div.style.borderColor = 'transparent';
+        div.querySelector('.media-del-btn').style.display = 'none';
+      });
+
+      // Click = toggle select
+      div.addEventListener('click', (e) => {
+        if (e.target.closest('.media-del-btn')) return;
+        _toggleThumb(div, img);
+      });
+
+      frag.appendChild(div);
     });
 
+    grid.appendChild(frag);
+    renderMediaPagination();
+    _updateSelCount();
+  }
 
-    // ✅ Open modal — accepts object: { urlInput, preview, titleInput, altInput, container, multiple }
-    function openMedia(opts) {
-      mediaTarget = opts;
-      selectedMediaItem = null;
+  // ── Toggle a thumb on/off ─────────────────────────────────────
+  function _toggleThumb(div, img) {
+    const isSelected = div.dataset.selected === '1';
 
-      // Reset UI
-      document.getElementById('selectedMediaInfo').style.display = 'none';
-      document.getElementById('btnInsertMedia').disabled = true;
+    if (isSelected) {
+      // Deselect
+      _setThumbState(div, false);
 
-      if (!mediaLoaded) {
-        loadMedia(1);
-      } else {
-        loadMedia(mediaCurrentPage);
+      // If this was the sidebar item, clear sidebar
+      if (selectedMediaItem && selectedMediaItem.url === div.dataset.url) {
+        selectedMediaItem = null;
+        document.getElementById('selectedMediaInfo').style.display = 'none';
+        document.getElementById('btnInsertMedia').disabled = true;
       }
 
-      showMediaTab('library');
-      new bootstrap.Modal(document.getElementById('mediaModal')).show();
-    }
-
-    // ✅ Load media from server (paginated, newest first)
-    function loadMedia(page, forceReload = false) {
-      page = page || 1;
-      fetch('/admin/media?page=' + page)
-        .then(res => res.json())
-        .then(data => {
-          mediaCurrentPage = data.page       || 1;
-          mediaTotalPages  = data.totalPages || 1;
-          mediaLoaded      = true;
-          renderMedia(data.images || []);
-        });
-    }
-
-    function renderMedia(images) {
-      const grid = document.getElementById('mediaGrid');
-      grid.innerHTML = '';
-
-      const fragment = document.createDocumentFragment();
-
-      images.forEach(img => {
-        const div = document.createElement('div');
-        div.className = 'media-thumb';
-        div.style.cssText =
-          'width:100px;height:100px;cursor:pointer;position:relative;border:2px solid transparent;border-radius:4px;overflow:hidden;';
-        div.innerHTML = `
-          <img
-            src="${img.url}"
-            loading="lazy"
-            decoding="async"
-            style="width:100%;height:100%;object-fit:cover;"
-          />
-        `;
-        div.onclick = () => highlightMedia(img, div);
-        fragment.appendChild(div);
-      });
-
-      grid.appendChild(fragment);
-
-      // Render pagination below the grid
-      renderMediaPagination();
-    }
-
-    function renderMediaPagination() {
-      // Remove existing pagination if any
-      const existing = document.getElementById('mediaPagination');
-      if (existing) existing.remove();
-
-      if (mediaTotalPages <= 1) return;
-
-      const wrapper = document.createElement('div');
-      wrapper.id = 'mediaPagination';
-      wrapper.style.cssText = 'width:100%;display:flex;justify-content:center;align-items:center;gap:6px;padding:12px 0 4px;flex-wrap:wrap;';
-
-      const btnStyle = (active) =>
-        `padding:4px 10px;border-radius:4px;border:1px solid #dee2e6;background:${active ? '#0d6efd' : '#fff'};color:${active ? '#fff' : '#212529'};cursor:${active ? 'default' : 'pointer'};font-size:13px;`;
-
-      // Prev button
-      const prev = document.createElement('button');
-      prev.textContent = '‹ Prev';
-      prev.style.cssText = btnStyle(false) + (mediaCurrentPage === 1 ? 'opacity:0.4;pointer-events:none;' : '');
-      prev.onclick = () => loadMedia(mediaCurrentPage - 1);
-      wrapper.appendChild(prev);
-
-      // Page number buttons (show a window around current page)
-      const windowSize = 5;
-      let start = Math.max(1, mediaCurrentPage - Math.floor(windowSize / 2));
-      let end   = Math.min(mediaTotalPages, start + windowSize - 1);
-      start = Math.max(1, end - windowSize + 1);
-
-      if (start > 1) {
-        const first = document.createElement('button');
-        first.textContent = '1';
-        first.style.cssText = btnStyle(false);
-        first.onclick = () => loadMedia(1);
-        wrapper.appendChild(first);
-        if (start > 2) {
-          const dots = document.createElement('span');
-          dots.textContent = '…';
-          dots.style.cssText = 'padding:4px 6px;font-size:13px;color:#6c757d;';
-          wrapper.appendChild(dots);
-        }
+      // Find another selected item to show in sidebar
+      const other = document.querySelector('#mediaGrid .media-thumb[data-selected="1"]');
+      if (other) {
+        selectedMediaItem = { url: other.dataset.url };
+        document.getElementById('selectedMediaInfo').style.display = 'block';
+        document.getElementById('selectedMediaPreview').src = other.dataset.url;
+        document.getElementById('btnInsertMedia').disabled = false;
       }
-
-      for (let p = start; p <= end; p++) {
-        const btn = document.createElement('button');
-        btn.textContent = p;
-        btn.style.cssText = btnStyle(p === mediaCurrentPage);
-        if (p !== mediaCurrentPage) btn.onclick = ((pg) => () => loadMedia(pg))(p);
-        wrapper.appendChild(btn);
-      }
-
-      if (end < mediaTotalPages) {
-        if (end < mediaTotalPages - 1) {
-          const dots = document.createElement('span');
-          dots.textContent = '…';
-          dots.style.cssText = 'padding:4px 6px;font-size:13px;color:#6c757d;';
-          wrapper.appendChild(dots);
-        }
-        const last = document.createElement('button');
-        last.textContent = mediaTotalPages;
-        last.style.cssText = btnStyle(false);
-        last.onclick = () => loadMedia(mediaTotalPages);
-        wrapper.appendChild(last);
-      }
-
-      // Next button
-      const next = document.createElement('button');
-      next.textContent = 'Next ›';
-      next.style.cssText = btnStyle(false) + (mediaCurrentPage === mediaTotalPages ? 'opacity:0.4;pointer-events:none;' : '');
-      next.onclick = () => loadMedia(mediaCurrentPage + 1);
-      wrapper.appendChild(next);
-
-      // Insert after grid
-      const grid = document.getElementById('mediaGrid');
-      grid.parentNode.insertBefore(wrapper, grid.nextSibling);
-    }
-
-    // ✅ Highlight selected — show title/alt in sidebar, enable Insert button
-    function highlightMedia(img, el) {
-      document.querySelectorAll('#mediaGrid .media-thumb').forEach(d => {
-        d.style.border = '2px solid transparent';
-      });
-      el.style.border = '2px solid #0d6efd';
-
+    } else {
+      // Select
+      _setThumbState(div, true);
       selectedMediaItem = img;
 
-      // Show info panel
-      const info = document.getElementById('selectedMediaInfo');
-      info.style.display = 'block';
-      document.getElementById('selectedMediaPreview').src = img.url;
-      document.getElementById('selectedMediaTitle').value = img.title || '';
-      document.getElementById('selectedMediaAlt').value = img.alt || '';
-
-      document.getElementById('btnInsertMedia').disabled = false;
+      // Show sidebar for this image
+      document.getElementById('selectedMediaInfo').style.display = 'block';
+      document.getElementById('selectedMediaPreview').src   = img.url;
+      document.getElementById('selectedMediaTitle').value   = img.title || '';
+      document.getElementById('selectedMediaAlt').value     = img.alt   || '';
+      document.getElementById('btnInsertMedia').disabled    = false;
     }
 
-    // ✅ Insert selected image into form
-    function insertSelectedMedia() {
-      if (!mediaTarget || !selectedMediaItem) return;
+    _updateSelCount();
+    _syncSelectAll();
+  }
 
-      const img = selectedMediaItem;
-      // Read title/alt from the editable fields in the modal
-      const title = document.getElementById('selectedMediaTitle').value || img.title || '';
-      const alt = document.getElementById('selectedMediaAlt').value || img.alt || '';
+  // ── Apply visual state to a thumb ────────────────────────────
+  function _setThumbState(div, selected) {
+    div.dataset.selected = selected ? '1' : '0';
+    const badge = div.querySelector('.media-badge');
+    if (selected) {
+      div.style.borderColor = '#2271b1';
+      div.style.boxShadow   = '0 0 0 1px #2271b1';
+      if (badge) badge.style.display = 'flex';
+    } else {
+      div.style.borderColor = 'transparent';
+      div.style.boxShadow   = '';
+      if (badge) badge.style.display = 'none';
+    }
+  }
 
-      if (!mediaTarget.multiple) {
-        // ── SINGLE (featured image or variation image) ──────────────
-        const urlEl = document.getElementById(mediaTarget.urlInput);
-        if (urlEl) urlEl.value = img.url;
+  // ── Count + toolbar sync ──────────────────────────────────────
+  function _updateSelCount() {
+    const n = document.querySelectorAll('#mediaGrid .media-thumb[data-selected="1"]').length;
+    const el  = document.getElementById('mediaSelCount');
+    const btn = document.getElementById('mediaBtnDeleteSel');
+    const ins = document.getElementById('btnInsertMedia');
+    if (el)  el.textContent = n + ' selected';
+    if (btn) btn.classList.toggle('d-none', n === 0);
+    // For multiple-mode modals, enable Insert as soon as anything is selected
+    if (ins && mediaTarget && mediaTarget.multiple) {
+      ins.disabled = n === 0;
+      ins.textContent = n > 1 ? `Insert ${n} Images` : 'Insert Selected';
+    }
+  }
 
-        if (mediaTarget.titleInput) {
-          const tEl = document.getElementById(mediaTarget.titleInput);
-          if (tEl) tEl.value = title;
+  function _syncSelectAll() {
+    const all = [...document.querySelectorAll('#mediaGrid .media-thumb')];
+    const sel = all.filter(d => d.dataset.selected === '1');
+    const sa  = document.getElementById('mediaSelectAll');
+    if (sa) sa.checked = all.length > 0 && sel.length === all.length;
+    _updateSelCount();
+  }
+
+  // Select-all — bind immediately (script runs after DOM exists)
+  (function () {
+    const sa = document.getElementById('mediaSelectAll');
+    if (!sa) return;
+    sa.addEventListener('change', function () {
+      document.querySelectorAll('#mediaGrid .media-thumb').forEach(div => {
+        _setThumbState(div, this.checked);
+      });
+
+      if (this.checked) {
+        // Set sidebar to last selected
+        const last = [...document.querySelectorAll('#mediaGrid .media-thumb[data-selected="1"]')].pop();
+        if (last) {
+          selectedMediaItem = { url: last.dataset.url };
+          document.getElementById('selectedMediaInfo').style.display = 'block';
+          document.getElementById('selectedMediaPreview').src = last.dataset.url;
+          document.getElementById('selectedMediaTitle').value = '';
+          document.getElementById('selectedMediaAlt').value   = '';
+          document.getElementById('btnInsertMedia').disabled  = false;
         }
-        if (mediaTarget.altInput) {
-          const aEl = document.getElementById(mediaTarget.altInput);
-          if (aEl) aEl.value = alt;
-        }
-
-        if (mediaTarget.preview) {
-          const prev = document.getElementById(mediaTarget.preview);
-          if (prev) {
-            prev.innerHTML = `<img src="${img.url}" class="img-fluid rounded" style="max-height:150px;">`;
-          }
-        }
-
-        bootstrap.Modal.getInstance(document.getElementById('mediaModal')).hide();
-
       } else {
-        // ── MULTIPLE (gallery) ──────────────────────────────────────
-        const container = mediaTarget.container
-          ? document.getElementById(mediaTarget.container)
-          : null;
+        selectedMediaItem = null;
+        document.getElementById('selectedMediaInfo').style.display = 'none';
+        document.getElementById('btnInsertMedia').disabled = true;
+      }
 
-        if (container) {
-          const div = document.createElement('div');
-          div.style.cssText = 'position:relative;width:70px;height:70px;margin:3px;';
+      _updateSelCount();
+    });
+  })();
 
-          const urlName = mediaTarget.urlInput || 'gallery_image[]';
-          const titleName = mediaTarget.titleInput || 'gallery_image_titles[]';
-          const altName = mediaTarget.altInput || 'gallery_image_alts[]';
+  // ── Bulk action ───────────────────────────────────────────────
+  function mediaApplyBulk() {
+    const val = document.getElementById('mediaBulkSelect').value;
+    if (!val) { mediaShowAlert('info', 'Choose a bulk action first.'); return; }
+    if (val === 'delete') mediaDeleteSelected();
+    document.getElementById('mediaBulkSelect').value = '';
+  }
 
-          // Append [] if not present
-          const toArr = n => n.endsWith('[]') ? n : n + '[]';
+  function mediaDeleteSelected() {
+    const sel = [...document.querySelectorAll('#mediaGrid .media-thumb[data-selected="1"]')];
+    if (!sel.length) { mediaShowAlert('warning', 'Select at least one image to delete.'); return; }
+    _mediaPromptDel(sel.map(d => d.dataset.url), sel.length);
+  }
 
-          div.innerHTML = `
-            <img src="${img.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;" />
-            <input type="hidden" name="${toArr(urlName)}"   value="${img.url}">
-            <input type="hidden" name="${toArr(titleName)}" value="${title}">
-            <input type="hidden" name="${toArr(altName)}"   value="${alt}">
-            <button onclick="this.parentElement.remove()"
-              class="btn btn-danger btn-sm position-absolute top-0 end-0 p-0"
-              style="width:18px;height:18px;font-size:10px;line-height:1;">×</button>
-          `;
+  function mediaDeleteCurrentSingle() {
+    if (!selectedMediaItem) return;
+    _mediaPromptDel([selectedMediaItem.url], 1);
+  }
 
-          // Insert before the + button (first child)
-          container.insertBefore(div, container.firstChild);
-        }
+  // ── Delete confirm modal ──────────────────────────────────────
+  function _mediaPromptDel(urls, count) {
+    _mediaPendingDel = urls;
+    const msg = count === 1
+      ? `Permanently delete "${urls[0].split('/').pop()}"? This cannot be undone.`
+      : `Permanently delete ${count} selected images? This cannot be undone.`;
+    document.getElementById('mediaConfirmDeleteMsg').textContent = msg;
+
+    const strip = document.getElementById('mediaConfirmDeleteStrip');
+    strip.innerHTML = urls.slice(0, 6).map(u =>
+      `<img src="${u}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid #dee2e6;">`
+    ).join('') + (urls.length > 6
+      ? `<span class="text-muted small align-self-center">+${urls.length - 6} more</span>` : '');
+
+    if (window.feather) feather.replace();
+    new bootstrap.Modal(document.getElementById('mediaConfirmDeleteModal')).show();
+  }
+
+  function mediaExecuteDelete() {
+    const btn = document.getElementById('mediaConfirmDeleteBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting...';
+
+    fetch('/admin/media/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: _mediaPendingDel })
+    })
+    .then(r => r.json())
+    .then(data => {
+      bootstrap.Modal.getInstance(document.getElementById('mediaConfirmDeleteModal')).hide();
+      btn.disabled = false;
+      btn.innerHTML = '<i data-feather="trash-2" style="width:13px;height:13px;" class="me-1"></i>Delete';
+
+      if (data.success) {
+        const n = data.deleted || _mediaPendingDel.length;
+        selectedMediaItem = null;
+        _mediaPendingDel  = [];
+        mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' deleted successfully.');
+        mediaLoaded = false;
+        loadMedia(mediaCurrentPage);
+      } else {
+        _mediaPendingDel = [];
+        mediaShowAlert('danger', data.message || 'Delete failed. Please try again.');
+      }
+      if (window.feather) feather.replace();
+    })
+    .catch(() => {
+      bootstrap.Modal.getInstance(document.getElementById('mediaConfirmDeleteModal')).hide();
+      btn.disabled = false;
+      btn.innerHTML = '<i data-feather="trash-2" style="width:13px;height:13px;" class="me-1"></i>Delete';
+      _mediaPendingDel = [];
+      mediaShowAlert('danger', 'Network error. Delete failed.');
+    });
+  }
+
+  // ── Insert selected ───────────────────────────────────────────
+  function insertSelectedMedia() {
+    if (!mediaTarget || !selectedMediaItem) return;
+
+    if (!mediaTarget.multiple) {
+      // ── SINGLE insert ─────────────────────────────────────────
+      const img   = selectedMediaItem;
+      const title = document.getElementById('selectedMediaTitle').value || img.title || '';
+      const alt   = document.getElementById('selectedMediaAlt').value   || img.alt   || '';
+
+      const urlEl = document.getElementById(mediaTarget.urlInput);
+      if (urlEl) urlEl.value = img.url;
+      if (mediaTarget.titleInput) {
+        const t = document.getElementById(mediaTarget.titleInput);
+        if (t) t.value = title;
+      }
+      if (mediaTarget.altInput) {
+        const a = document.getElementById(mediaTarget.altInput);
+        if (a) a.value = alt;
+      }
+      if (mediaTarget.preview) {
+        const p = document.getElementById(mediaTarget.preview);
+        if (p) p.innerHTML = `<img src="${img.url}" class="img-fluid rounded" style="max-height:150px;">`;
+      }
+      bootstrap.Modal.getInstance(document.getElementById('mediaModal')).hide();
+
+    } else {
+      // ── MULTIPLE insert — insert ALL selected images at once ──
+      const container = mediaTarget.container
+        ? document.getElementById(mediaTarget.container) : null;
+      if (!container) {
         bootstrap.Modal.getInstance(document.getElementById('mediaModal')).hide();
+        return;
+      }
+
+      const toArr = n => n.endsWith('[]') ? n : n + '[]';
+      const urlName   = toArr(mediaTarget.urlInput   || 'gallery_image[]');
+      const titleName = toArr(mediaTarget.titleInput || 'gallery_image_titles[]');
+      const altName   = toArr(mediaTarget.altInput   || 'gallery_image_alts[]');
+
+      // Get all selected thumbs
+      const selected = [...document.querySelectorAll('#mediaGrid .media-thumb[data-selected="1"]')];
+
+      if (!selected.length) {
+        mediaShowAlert('warning', 'Select at least one image to insert.');
+        return;
+      }
+
+      // Insert each selected image into the gallery container
+      selected.forEach(div => {
+        const url = div.dataset.url;
+
+        // Skip if already in gallery (avoid duplicates)
+        const existing = container.querySelector(`input[name="${urlName}"][value="${url}"]`);
+        if (existing) return;
+
+        const item = document.createElement('div');
+        item.style.cssText = 'position:relative;width:70px;height:70px;margin:3px;';
+        item.innerHTML = `
+          <img src="${url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid #dee2e6;" />
+          <input type="hidden" name="${urlName}"   value="${url}">
+          <input type="hidden" name="${titleName}" value="">
+          <input type="hidden" name="${altName}"   value="">
+          <button type="button" onclick="this.parentElement.remove()"
+            class="btn btn-danger btn-sm position-absolute top-0 end-0 p-0"
+            style="width:18px;height:18px;font-size:10px;line-height:1;border-radius:50%;">×</button>
+        `;
+        // Insert before the + add button (first child)
+        container.insertBefore(item, container.firstChild);
+      });
+
+      bootstrap.Modal.getInstance(document.getElementById('mediaModal')).hide();
+    }
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────
+  function showMediaTab(tab) {
+    document.getElementById('mediaLibraryTab').style.display = tab === 'library' ? 'block' : 'none';
+    document.getElementById('mediaUploadTab').style.display  = tab === 'upload'  ? 'block' : 'none';
+    document.getElementById('mediaToolbar').style.display    = tab === 'library' ? ''      : 'none';
+    const libLink = document.getElementById('mediaTabLibraryLink');
+    const uplLink = document.getElementById('mediaTabUploadLink');
+    if (libLink) libLink.classList.toggle('active', tab === 'library');
+    if (uplLink) uplLink.classList.toggle('active', tab === 'upload');
+    if (tab === 'upload') document.getElementById('selectedMediaInfo').style.display = 'none';
+  }
+
+  // ── Upload ────────────────────────────────────────────────────
+  function uploadMedia() {
+    const input = document.getElementById('mediaUploadInput');
+    const files = input.files;
+    if (!files.length) return;
+    const formData = new FormData();
+    for (const f of files) formData.append('files', f);
+
+    fetch('/admin/media/upload', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        input.value = '';
+        showMediaTab('library');
+        mediaLoaded = false;
+        loadMedia(1);
+        if (data.files && data.files.length) {
+          const n = data.files.length;
+          setTimeout(() => mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded.'), 300);
+          setTimeout(() => {
+            const firstUrl = data.files[0].url;
+            document.querySelectorAll('#mediaGrid .media-thumb').forEach(div => {
+              if (div.dataset.url === firstUrl || div.dataset.url.endsWith(firstUrl)) {
+                _toggleThumb(div, { url: firstUrl, title: data.files[0].original || '', alt: '' });
+              }
+            });
+          }, 500);
+        }
+      })
+      .catch(() => mediaShowAlert('danger', 'Upload failed. Please try again.'));
+  }
+
+  // ── Pagination ────────────────────────────────────────────────
+  function renderMediaPagination() {
+    const box = document.getElementById('mediaPaginationBox');
+    if (!box) return;
+    box.innerHTML = '';
+    if (mediaTotalPages <= 1) return;
+
+    const mkBtn = (label, page, disabled, active) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = label;
+      btn.style.cssText =
+        `min-width:32px;padding:4px 10px;border-radius:4px;border:1px solid #dee2e6;font-size:13px;line-height:1.4;` +
+        `background:${active ? '#0d6efd' : '#fff'};color:${active ? '#fff' : '#212529'};` +
+        `cursor:${(disabled || active) ? 'default' : 'pointer'};opacity:${disabled ? '0.4' : '1'};`;
+      if (!disabled && !active) btn.addEventListener('click', () => loadMedia(page));
+      return btn;
+    };
+
+    // Prev
+    box.appendChild(mkBtn('‹ Prev', mediaCurrentPage - 1, mediaCurrentPage === 1, false));
+
+    // Page window
+    let start = Math.max(1, mediaCurrentPage - 2);
+    let end   = Math.min(mediaTotalPages, start + 4);
+    start     = Math.max(1, end - 4);
+
+    if (start > 1) {
+      box.appendChild(mkBtn('1', 1, false, false));
+      if (start > 2) {
+        const d = document.createElement('span');
+        d.textContent = '…';
+        d.style.cssText = 'padding:4px 4px;font-size:13px;color:#6c757d;';
+        box.appendChild(d);
       }
     }
 
-    // ✅ Tabs
-    function showMediaTab(tab) {
-      document.getElementById('mediaLibraryTab').style.display = tab === 'library' ? 'block' : 'none';
-      document.getElementById('mediaUploadTab').style.display = tab === 'upload' ? 'block' : 'none';
-      document.getElementById('selectedMediaInfo').style.display = tab === 'upload' ? 'none' : 'block';
+    for (let p = start; p <= end; p++) {
+      box.appendChild(mkBtn(p, p, false, p === mediaCurrentPage));
     }
 
-    // ✅ Upload media — auto-select after upload
-    function uploadMedia() {
-      const input = document.getElementById('mediaUploadInput');
-      const files = input.files;
-      if (!files.length) return;
-
-      const formData = new FormData();
-      for (let f of files) formData.append('files', f);
-
-      fetch('/admin/media/upload', { method: 'POST', body: formData })
-        .then(r => r.json())
-        .then(data => {
-          input.value = '';
-          showMediaTab('library');
-
-          // Reload page 1 so newly uploaded images appear first
-          mediaLoaded = false;
-          loadMedia(1);
-
-          // Auto-select the first uploaded file after grid renders
-          if (data.files && data.files.length) {
-            setTimeout(() => {
-              const firstUrl = data.files[0].url;
-              const thumbs = document.querySelectorAll('#mediaGrid .media-thumb');
-              thumbs.forEach(th => {
-                const imgEl = th.querySelector('img');
-                if (imgEl && imgEl.src.endsWith(firstUrl)) {
-                  highlightMedia({ url: firstUrl, title: data.files[0].original || '', alt: '' }, th);
-                }
-              });
-            }, 400);
-          }
-        });
+    if (end < mediaTotalPages) {
+      if (end < mediaTotalPages - 1) {
+        const d = document.createElement('span');
+        d.textContent = '…';
+        d.style.cssText = 'padding:4px 4px;font-size:13px;color:#6c757d;';
+        box.appendChild(d);
+      }
+      box.appendChild(mkBtn(mediaTotalPages, mediaTotalPages, false, false));
     }
-  </script>
 
+    // Next
+    box.appendChild(mkBtn('Next ›', mediaCurrentPage + 1, mediaCurrentPage === mediaTotalPages, false));
+  }
+</script>
 
   </body>
-
-  </html>
+</html>

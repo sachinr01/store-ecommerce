@@ -22,8 +22,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// ✅ GET ALL MEDIA (FIXED)
+// ── Media library page
+router.get('/media/library', mediaController.getMediaLibraryPage);
+
+// ── JSON: paginated image list
 router.get('/media', mediaController.getMedia);
+
+// ── Delete single or bulk (JSON body: { urls: [...] })
+router.post('/media/delete', mediaController.deleteMedia);
 
 // ✅ UPLOAD MEDIA
 router.post('/media/upload', upload.array('files'), async (req, res) => {
