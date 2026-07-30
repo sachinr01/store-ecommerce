@@ -552,7 +552,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               DOWNLOAD INVOICE
             </a>
 
-            {['pending', 'processing', 'ready_to_ship', 'on-hold', 'shipped'].includes(summary.status) && (
+            {['pending', 'processing', 'ready_to_ship', 'on-hold'].includes(summary.status) && (
               <button
                 type="button"
                 className="ot-btn ot-btn--cancel"

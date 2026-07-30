@@ -399,7 +399,7 @@ export default function OrderDetailPage() {
     }));
   }, [summary]);
 
-  const canCancel = summary?.status === 'pending' || summary?.status === 'processing' || summary?.status === 'ready_to_ship' || summary?.status === 'shipped';
+  const canCancel = summary?.status === 'pending' || summary?.status === 'processing' || summary?.status === 'ready_to_ship';
 
   const handleCancel = () => setShowCancelModal(true);
 

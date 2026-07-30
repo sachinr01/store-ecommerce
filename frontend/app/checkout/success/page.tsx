@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { useCart } from '../../lib/cartContext';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
@@ -23,14 +24,26 @@ function OrderSuccessContent() {
     dbOrderId ??
     null;
 
+  const { clearCart } = useCart();
   const [show, setShow] = useState(false);
   const wigzoFiredRef = useRef(false);
+  const cartClearedRef = useRef(false);
 
   // Fade-in animation
   useEffect(() => {
     const t = setTimeout(() => setShow(true), 80);
     return () => clearTimeout(t);
   }, []);
+
+  // ── Clear cart once on success ───────────────────────────────────────────
+  // Covers the direct/Razorpay path where clearCart isn't called before redirect.
+  // Shiprocket flow already clears before redirect, but calling it again is safe
+  // since clearing an empty cart is a no-op.
+  useEffect(() => {
+    if (cartClearedRef.current) return;
+    cartClearedRef.current = true;
+    clearCart().catch(() => { /* non-fatal */ });
+  }, [clearCart]);
 
   // ── Wigzo `order` event — PDF trigger point: Thank You Page ──────────────
   // Fires once per page load, client-side, exactly as the PDF documents:

@@ -13,6 +13,7 @@ import ShopProductCard from './ShopProductCard';
 
 
 const DEFAULT_OPEN_FILTERS: Record<string, boolean> = {};
+const PAGE_SIZE = 20;
 
 /* Star Rating */
 function MiniStars({ rating = 4 }: { rating?: number }) {
@@ -160,6 +161,7 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const [sliderMin, setSliderMin] = useState(0);
   const [sliderMax, setSliderMax] = useState(200);
   const absoluteMin = 0;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const updateCategoryUrl = useCallback((cats: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -316,6 +318,9 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
   const totalActive = attrActiveCount + (isPriceActive ? 1 : 0) + selectedCategories.length;
   const hasActive = totalActive > 0;
 
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const allClear = () => {
     setSelectedAttrs({});
     setSelectedCategories([]);
@@ -323,6 +328,11 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
     setSliderMin(absoluteMin);
     setSliderMax(absoluteMax);
   };
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sliderMin, sliderMax, selectedCategories, selectedAttrs]);
 
   const labelMaps: Record<string, Map<string, string>> = {};
   for (const group of attrGroups) {
@@ -554,10 +564,55 @@ function ShopInner({ heading, subheading }: { heading: string; subheading: strin
 
           {!loading && !error && sorted.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label="Products">
-              {sorted.map((product, idx) => (
-                <ShopProductCard key={product.ID} product={product} idx={idx} listMode={viewMode === 'list'} placeholder={PLACEHOLDER} />
+              {paginated.map((product, idx) => (
+                <ShopProductCard key={product.ID} product={product} idx={(currentPage - 1) * PAGE_SIZE + idx} listMode={viewMode === 'list'} placeholder={PLACEHOLDER} />
               ))}
             </div>
+          )}
+
+          {!loading && !error && totalPages > 1 && (
+            <nav className="csp-pagination" aria-label="Pagination">
+              <button
+                className="csp-page-btn"
+                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                &lsaquo;
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ell-${i}`} className="csp-page-ellipsis">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      className={`csp-page-btn${item === currentPage ? ' active' : ''}`}
+                      onClick={() => { setCurrentPage(item as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      aria-label={`Page ${item}`}
+                      aria-current={item === currentPage ? 'page' : undefined}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                className="csp-page-btn"
+                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                &rsaquo;
+              </button>
+            </nav>
           )}
         </main>
       </div>
