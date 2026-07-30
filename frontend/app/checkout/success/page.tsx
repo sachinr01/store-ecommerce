@@ -42,7 +42,9 @@ function OrderSuccessContent() {
   useEffect(() => {
     if (cartClearedRef.current) return;
     cartClearedRef.current = true;
-    clearCart().catch(() => { /* non-fatal */ });
+    clearCart().catch((err) => {
+      console.error('[checkout/success] clearCart failed:', err);
+    });
   }, [clearCart]);
 
   // ── Wigzo `order` event — PDF trigger point: Thank You Page ──────────────

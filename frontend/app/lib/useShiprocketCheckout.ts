@@ -115,7 +115,14 @@ export function useShiprocketCheckout() {
       overlayHoldsRef.current = 0;
       stopPolling();
       clearSRStorage();
-      try { await clearCart(); } catch { /* non-fatal */ }
+      try {
+        await clearCart();
+      } catch (clearErr) {
+        // Non-fatal — the order is already confirmed, so we still redirect
+        // to success below. But this should never fail silently: if it does,
+        // the customer sees a stale cart even though checkout succeeded.
+        console.error('[Shiprocket] clearCart failed after order confirmation:', clearErr);
+      }
       // Pass the DB order_id as `order` param (same as direct checkout does)
       // so checkout/success/page.tsx can fetch Wigzo data with it.
       // Also pass sr_cart_id for the Order Reference display chip.
@@ -228,10 +235,6 @@ export function useShiprocketCheckout() {
       srSet(SR_STORAGE_KEYS.couponDiscount, String(discount));
       srSet(SR_STORAGE_KEYS.checkoutActive, '1');
 
-      // Wigzo `checkoutstarted` event — Trigger point per integration doc: Checkout Page.
-      // This storefront hands off to Shiprocket's hosted Checkout overlay
-      // instead of using its own /checkout form, so this is the real
-      // "checkout started" moment — right before the overlay opens.
       const firstItem = items[0];
       wigzoCheckoutStarted({
         totalLineItemsPrice: total,
@@ -260,5 +263,17 @@ export function useShiprocketCheckout() {
     }
   };
 
-  return { startCheckout, loading, stopPolling, cancelCheckout };
+  const resumeIfActive = () => {
+    if (srGet(SR_STORAGE_KEYS.checkoutActive) !== '1') return;
+    const orderId = srGet(SR_STORAGE_KEYS.orderId);
+    const checkoutRef = srGet(SR_STORAGE_KEYS.checkoutRef);
+    if (!orderId) {
+      // No SR order id was ever captured — nothing to verify against, bail.
+      clearSRStorage();
+      return;
+    }
+    startPolling(orderId, checkoutRef);
+  };
+
+  return { startCheckout, loading, stopPolling, cancelCheckout, resumeIfActive };
 }

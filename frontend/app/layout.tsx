@@ -6,6 +6,7 @@ import { WishlistProvider } from "./lib/wishlistContext";
 import { AuthProvider } from "./lib/authContext";
 import { SiteSettingsProvider } from "./lib/siteSettingsContext";
 import { SITE_URL } from "./lib/helpers/siteUrl";
+import CheckoutResumer from "./components/CheckoutResumer";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? 'nestcase';
 
@@ -95,6 +96,7 @@ export default function RootLayout({
 
         <div className="all_content" suppressHydrationWarning>
           <CartProvider>
+            <CheckoutResumer />
             <AuthProvider>
               <WishlistProvider>
                 <SiteSettingsProvider>
