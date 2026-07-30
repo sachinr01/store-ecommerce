@@ -979,7 +979,10 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     if (existingOrderId) {
       // Check if this order has a confirmed payment status
       const [[orderStatus]] = await db.query(
-        `SELECT o.order_status, o.payment_method
+        `SELECT o.order_status,
+                (SELECT om.meta_value FROM tbl_ordermeta om
+                 WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
+                 ORDER BY om.meta_id DESC LIMIT 1) AS payment_method
          FROM tbl_orders o
          WHERE o.order_id = ?
          LIMIT 1`,
@@ -1004,7 +1007,10 @@ const completeCheckoutFromShiprocket = async (req, res) => {
         const ctxCartId = toStr(ctx.sr_order_id || "");
         if (ctxCartId) {
           const [ctxRows] = await db.query(
-            `SELECT o.order_id, o.order_status, o.payment_method
+            `SELECT o.order_id, o.order_status,
+                    (SELECT om2.meta_value FROM tbl_ordermeta om2
+                     WHERE om2.order_id = o.order_id AND om2.meta_key = '_payment_method'
+                     ORDER BY om2.meta_id DESC LIMIT 1) AS payment_method
              FROM tbl_ordermeta om
              JOIN tbl_orders o ON om.order_id = o.order_id
              WHERE om.meta_key = '_sr_cart_id' AND om.meta_value = ?
@@ -1023,7 +1029,10 @@ const completeCheckoutFromShiprocket = async (req, res) => {
           }
           
           const [ctxRows2] = await db.query(
-            `SELECT o.order_id, o.order_status, o.payment_method
+            `SELECT o.order_id, o.order_status,
+                    (SELECT om2.meta_value FROM tbl_ordermeta om2
+                     WHERE om2.order_id = o.order_id AND om2.meta_key = '_payment_method'
+                     ORDER BY om2.meta_id DESC LIMIT 1) AS payment_method
              FROM tbl_ordermeta om
              JOIN tbl_orders o ON om.order_id = o.order_id
              WHERE om.meta_key = '_sr_checkout_order_id' AND om.meta_value = ?
@@ -1049,7 +1058,10 @@ const completeCheckoutFromShiprocket = async (req, res) => {
     // Recent order fallback - also verify payment status
     {
       const [recentRows] = await db.query(
-        `SELECT om.order_id, o.order_status, o.payment_method
+        `SELECT om.order_id, o.order_status,
+                (SELECT om2.meta_value FROM tbl_ordermeta om2
+                 WHERE om2.order_id = o.order_id AND om2.meta_key = '_payment_method'
+                 ORDER BY om2.meta_id DESC LIMIT 1) AS payment_method
          FROM tbl_ordermeta om
          JOIN tbl_orders o ON om.order_id = o.order_id
          WHERE om.meta_key = '_order_source'
