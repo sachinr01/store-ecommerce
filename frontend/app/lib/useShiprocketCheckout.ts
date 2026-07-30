@@ -191,7 +191,7 @@ export function useShiprocketCheckout() {
         discount_amount: discount > 0 ? discount : 0,
       };
 
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `${window.location.origin}/checkout/success`;
       const timestamp   = new Date().toISOString();
 
       const res = await fetch('/api/shiprocket/token', {
@@ -249,7 +249,7 @@ export function useShiprocketCheckout() {
       });
 
       window.HeadlessCheckout.addToCart(e.nativeEvent, token, {
-        fallbackUrl: `${window.location.origin}/`,
+        fallbackUrl: `${window.location.origin}/checkout/success`,
       });
 
       if (srOrderId) startPolling(srOrderId, checkoutRef);

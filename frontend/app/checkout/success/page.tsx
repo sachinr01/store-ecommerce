@@ -10,10 +10,6 @@ import { useCart } from '../../lib/cartContext';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
 
-  // DB order_id — used to fetch Wigzo event data.
-  // Both checkout paths now pass this as `order`:
-  //   • Shiprocket checkout  → useShiprocketCheckout.ts pushes ?order=<db_id>&sr_cart_id=<sr_id>
-  //   • Direct/Razorpay      → checkout/page.tsx pushes ?order=<db_id>
   const dbOrderId = searchParams.get('order') ?? null;
 
   // Customer-facing reference — shown in the Order Reference chip.
@@ -29,6 +25,15 @@ function OrderSuccessContent() {
   const wigzoFiredRef = useRef(false);
   const cartClearedRef = useRef(false);
 
+  const isPending = !dbOrderId;
+  const [pendingTimedOut, setPendingTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!isPending) return;
+    const t = setTimeout(() => setPendingTimedOut(true), 20000);
+    return () => clearTimeout(t);
+  }, [isPending]);
+
   // Fade-in animation
   useEffect(() => {
     const t = setTimeout(() => setShow(true), 80);
@@ -38,14 +43,14 @@ function OrderSuccessContent() {
   // ── Clear cart once on success ───────────────────────────────────────────
   // Covers the direct/Razorpay path where clearCart isn't called before redirect.
   // Shiprocket flow already clears before redirect, but calling it again is safe
-  // since clearing an empty cart is a no-op.
+  // since clearing an empty cart is a no-op. Only runs once we have a confirmed order.
   useEffect(() => {
-    if (cartClearedRef.current) return;
+    if (isPending || cartClearedRef.current) return;
     cartClearedRef.current = true;
     clearCart().catch((err) => {
       console.error('[checkout/success] clearCart failed:', err);
     });
-  }, [clearCart]);
+  }, [isPending, clearCart]);
 
   // ── Wigzo `order` event — PDF trigger point: Thank You Page ──────────────
   // Fires once per page load, client-side, exactly as the PDF documents:
@@ -71,6 +76,58 @@ function OrderSuccessContent() {
 
     void fireWigzoOrder();
   }, [dbOrderId]);
+
+  if (isPending) {
+    return (
+      <>
+        <Header />
+        <div className="dima-main">
+          <div className="success-bg">
+            <div className={`success-card ${show ? 'visible' : ''}`}>
+              <div className="success-top-bar" />
+              <div className="success-body">
+                <div className="success-icon-outer">
+                  <div className="ripple" />
+                  <div className="ripple" />
+                  <div className="ripple" />
+                  <div className="success-icon-inner">
+                    {/* Simple spinner — order isn't confirmed yet */}
+                    <svg viewBox="0 0 28 28" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
+                      <circle cx="14" cy="14" r="10" stroke="#fff" strokeWidth="2.5" strokeDasharray="47" strokeDashoffset="16" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
+
+                <span className="success-label">Confirming Order</span>
+                <h3 className="success-title">Just a moment…</h3>
+                <p className="success-copy">
+                  We&apos;re confirming your order with our payment/checkout partner.
+                  This usually takes just a few seconds — please don&apos;t close this page.
+                </p>
+
+                {pendingTimedOut && (
+                  <>
+                    <hr className="success-divider" />
+                    <p className="success-copy">
+                      This is taking longer than usual. Your order may already be placed —
+                      you can check its status here.
+                    </p>
+                    <div className="success-actions">
+                      <Link href="/orders" className="success-btn-primary">
+                        Check My Orders
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </>
+    );
+  }
 
   return (
     <>
