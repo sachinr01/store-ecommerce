@@ -314,7 +314,7 @@ export default function OrdersPage() {
 
                             {cards.map((order) => {
                               const showPayAction = order.status === 'pending';
-                              const canCancelOrder = order.status === 'pending' || order.status === 'processing' || order.status === 'ready_to_ship' || order.status === 'shipped';
+                              const canCancelOrder = !order.awb && (order.status === 'pending' || order.status === 'processing' || order.status === 'ready_to_ship' || order.status === 'shipped');
                               return (
                                 <div key={order.id} className="orders-row">
                                   <div className="orders-row-id">#{order.id}</div>
