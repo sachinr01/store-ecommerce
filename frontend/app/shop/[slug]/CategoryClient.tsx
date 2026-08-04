@@ -303,6 +303,17 @@ export default function CategoryPage() {
     return true;
   }), [allProducts, selectedColors, selectedSizes, selectedMaterials, sliderMin, sliderMax, isPriceActive]);
 
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedColors, selectedSizes, selectedMaterials, sliderMin, sliderMax]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const toggleDropdown = (key: string) => setOpenDropdown(prev => prev === key ? null : key);
 
   if (!loading && notFound) {
@@ -431,8 +442,53 @@ export default function CategoryPage() {
 
           {!loading && filtered.length > 0 && (
             <div className={`csp-grid${viewMode === 'list' ? ' list-mode' : ''}`} aria-label={`${pageLabel} products`}>
-              {filtered.map((p, i) => <ProductCard key={p.ID} product={p} idx={i} listMode={viewMode === 'list'}/>)}
+              {paginated.map((p, i) => <ProductCard key={p.ID} product={p} idx={(currentPage - 1) * PAGE_SIZE + i} listMode={viewMode === 'list'}/>)}
             </div>
+          )}
+
+          {!loading && totalPages > 1 && (
+            <nav className="csp-pagination" aria-label="Pagination">
+              <button
+                className="csp-page-btn"
+                onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                &lsaquo;
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | 'ellipsis')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('ellipsis');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ell-${i}`} className="csp-page-ellipsis">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      className={`csp-page-btn${item === currentPage ? ' active' : ''}`}
+                      onClick={() => { setCurrentPage(item as number); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      aria-label={`Page ${item}`}
+                      aria-current={item === currentPage ? 'page' : undefined}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+
+              <button
+                className="csp-page-btn"
+                onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                &rsaquo;
+              </button>
+            </nav>
           )}
         </main>
       </div>

@@ -164,13 +164,20 @@
           </ul>
         </li>
 
-        <!-- Media Library -->
+        <!-- Appearance -->
         <li class="sidebar-item">
-          <a class="sidebar-link waves-effect waves-dark sidebar-link <%= locals.currentRoute.startsWith('/admin/media/library') ? 'active bg-body' : '' %>"
-            href="/admin/media/library" aria-expanded="false">
-            <i data-feather="image" class="feather-icon"></i>
-            <span class="hide-menu">Media Library</span>
+          <a class="sidebar-link has-arrow waves-effect waves-dark sidebar-link" href="#" aria-expanded="false">
+            <i data-feather="layout" class="feather-icon"></i>
+            <span class="hide-menu">Appearance</span>
           </a>
+          <ul aria-expanded="false" class="collapse first-level">
+            <li class="sidebar-item">
+              <a href="/admin/appearance/banners"
+                class="sidebar-link <%= locals.currentRoute.startsWith('/admin/appearance/banners') ? 'active bg-body' : '' %>">
+                <i class="mdi mdi-adjust"></i><span class="hide-menu">Banner</span>
+              </a>
+            </li>
+          </ul>
         </li>
 
         <!-- Site Settings -->
