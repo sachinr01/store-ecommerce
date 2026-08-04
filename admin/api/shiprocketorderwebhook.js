@@ -649,11 +649,33 @@ const receiveOrderWebhook = async (req, res) => {
       [productId],
     );
 
+    // Fetch live GST rate + HSN from tbl_productmeta — the Shiprocket Checkout
+    // webhook payload itself never carries these (see 'tax: 0' in the raw
+    // webhook body), so they must be looked up here just like the invoice
+    // generator does, or Shiprocket's own invoice/label render blank HSN
+    // and zero tax even though our product data has both set correctly.
+    const [[taxRow]] = await db.query(
+      `SELECT meta_value AS tax_percent
+       FROM tbl_productmeta
+       WHERE product_id = ? AND meta_key = 'tax'
+       ORDER BY meta_id DESC LIMIT 1`,
+      [productId],
+    );
+    const [[hsnRow]] = await db.query(
+      `SELECT meta_value AS hsn_code
+       FROM tbl_productmeta
+       WHERE product_id = ? AND meta_key = 'hsn'
+       ORDER BY meta_id DESC LIMIT 1`,
+      [productId],
+    );
+
     resolvedItems.push({
       product_id: productId,
       title:      (dbRow && dbRow.product_title) ? dbRow.product_title : toStr(item.name || item.title || "Product"),
       price,
       quantity,
+      tax_percent: taxRow ? Number(taxRow.tax_percent) : 0,
+      hsn_code:    hsnRow ? String(hsnRow.hsn_code) : "",
     });
   }
 
@@ -1065,6 +1087,10 @@ const receiveOrderWebhook = async (req, res) => {
           units:         item.quantity,
           selling_price: item.price,
           discount:      0,
+          // Without these, Shiprocket renders blank HSN and zero tax on the
+          // invoice/label even though our own product data has both set.
+          tax:           Number(item.tax_percent || 0),
+          hsn:           item.hsn_code || "",
         })),
         payment_method:   paymentMethod === "cod" ? "COD" : "Prepaid",
         sub_total:        subtotal - discount,
