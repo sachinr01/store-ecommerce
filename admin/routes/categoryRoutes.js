@@ -8,5 +8,6 @@ router.get("/products/categories", isAuthenticated, categoryController.index);
 router.post("/product/category", isAuthenticated, categoryController.store);
 router.post("/product/category/update/:id", isAuthenticated, categoryController.update);
 router.get("/product/category/delete/:id", isAuthenticated, categoryController.delete);
+router.post("/product/category/toggle-home/:id", isAuthenticated, categoryController.toggleHome);
 
 module.exports = router;

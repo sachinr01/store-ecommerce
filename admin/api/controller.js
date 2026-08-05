@@ -1043,10 +1043,12 @@ const getProductCategories = async (req, res) => {
                 c.category_slug,
                 c.category_name,
                 c.category_desc,
+                c.category_image,
+                c.show_in_home,
                 COUNT(DISTINCT l.product_id) AS product_count
              FROM tbl_products_category c
              LEFT JOIN tbl_products_category_link l ON l.category_id = c.category_id
-             GROUP BY c.category_id, c.parent_id, c.category_slug, c.category_name, c.category_desc
+             GROUP BY c.category_id, c.parent_id, c.category_slug, c.category_name, c.category_desc, c.category_image, c.show_in_home
              ORDER BY c.parent_id ASC, c.category_id ASC`
         ));
         res.json({ success: true, data: rows });

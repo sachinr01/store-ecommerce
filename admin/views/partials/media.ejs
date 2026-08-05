@@ -45,12 +45,19 @@
         </button>
 
         <!-- Alert inside toolbar -->
-        <div id="mediaAlert" class="alert mb-0 py-1 px-3 d-none align-items-center gap-2 ms-auto"
+        <div id="mediaAlert" class="alert mb-0 py-1 px-3 d-none align-items-center gap-2"
           style="font-size:12.5px;max-width:340px;" role="alert">
           <i id="mediaAlertIcon" data-feather="info" style="width:14px;height:14px;flex-shrink:0;"></i>
           <span id="mediaAlertMsg"></span>
           <button type="button" class="btn-close btn-close ms-1 p-0" style="font-size:10px;"
             onclick="mediaHideAlert()"></button>
+        </div>
+
+        <!-- Quick-access buttons (mirrored from footer) -->
+        <div class="d-flex align-items-center gap-2 ms-auto">
+          <button type="button" class="btn btn-secondary rounded-pill px-3 py-1" style="font-size:13px;" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary rounded-pill px-3 py-1" style="font-size:13px;" id="btnInsertMediaToolbar" disabled
+            onclick="insertSelectedMedia()">Insert Selected</button>
         </div>
 
       </div>
@@ -101,11 +108,7 @@
         </div>
       </div>
 
-      <div class="modal-footer border-top">
-        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary rounded-pill px-4" id="btnInsertMedia" disabled
-          onclick="insertSelectedMedia()">Insert Selected</button>
-      </div>
+
 
     </div>
   </div>

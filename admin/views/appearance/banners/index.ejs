@@ -41,38 +41,24 @@
 
     <div class="card">
       <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h5 class="card-title mb-0">All Banners <span class="badge bg-secondary ms-1"><%= banners.length %></span></h5>
-          <small class="text-muted">Drag rows to reorder</small>
-        </div>
 
-        <% if (banners.length === 0) { %>
-          <div class="text-center py-5">
-            <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
-            <p class="text-muted">No banners yet.</p>
-            <a href="/admin/appearance/banners/add" class="btn btn-primary rounded-pill px-4">Add First Banner</a>
-          </div>
-        <% } else { %>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th width="36"></th>
-                  <th width="70">Image</th>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Link</th>
-                  <th width="80">Order</th>
-                  <th width="110">Status</th>
-                  <th width="110">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="sortableBody">
+        <div class="table-responsive">
+          <table id="bannersTable" class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th width="70">Image</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Link</th>
+                <th width="80">Order</th>
+                <th width="110">Status</th>
+                <th width="110">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (banners && banners.length) { %>
                 <% banners.forEach(b => { %>
                   <tr data-id="<%= b.id %>">
-                    <td class="drag-handle text-muted" style="cursor:grab;" title="Drag to reorder">
-                      <i data-feather="menu" class="feather-sm"></i>
-                    </td>
                     <td>
                       <% if (b.image_url) { %>
                         <img src="<%= b.image_url %>" alt="<%= b.title || '' %>"
@@ -123,10 +109,19 @@
                     </td>
                   </tr>
                 <% }) %>
-              </tbody>
-            </table>
-          </div>
-        <% } %>
+              <% } else { %>
+                <tr>
+                  <td colspan="7" class="text-center py-5">
+                    <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
+                    <p class="text-muted">No banners yet.</p>
+                    <a href="/admin/appearance/banners/add" class="btn btn-primary rounded-pill px-4">Add First Banner</a>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
 
@@ -134,32 +129,33 @@
 </div>
 
 <%- include('../../partials/scripts') %>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
 <script>
   feather.replace();
 
-  // Drag-to-reorder
-  const tbody = document.getElementById('sortableBody');
-  if (tbody) {
-    Sortable.create(tbody, {
-      handle: '.drag-handle',
-      animation: 150,
-      onEnd: function () {
-        const rows = tbody.querySelectorAll('tr[data-id]');
-        const order = [];
-        rows.forEach((row, idx) => {
-          order.push({ id: parseInt(row.dataset.id), sort_order: idx });
-          const badge = row.querySelector('.sort-order-badge');
-          if (badge) badge.textContent = idx;
-        });
-        fetch('/admin/appearance/banners/reorder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order })
-        });
+  $(document).ready(function () {
+    $('#bannersTable').DataTable({
+      responsive: true,
+      autoWidth: false,
+      order: [[4, 'asc']],
+      pageLength: 10,
+      columnDefs: [
+        { orderable: false, targets: [0, 5, 6] }
+      ],
+      language: {
+        emptyTable: 'No banners found',
+        info: 'Showing _START_ to _END_ of _TOTAL_ banners',
+        infoEmpty: 'Showing 0 to 0 of 0 banners',
+        search: 'Search banners:',
+        paginate: {
+          first: 'First',
+          last: 'Last',
+          next: 'Next',
+          previous: 'Previous'
+        }
       }
     });
-  }
+  });
 
   // Toggle status
   document.querySelectorAll('.toggle-status').forEach(toggle => {

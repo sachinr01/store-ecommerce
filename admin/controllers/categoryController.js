@@ -18,7 +18,7 @@ exports.index = async (req, res) => {
 
 // ADD CATEGORY
 exports.store = async (req, res) => {
-  const { category_name, category_slug, parent_id, category_desc } = req.body;
+  const { category_name, category_slug, parent_id, category_desc, category_image } = req.body;
 
   const finalSlug =
     category_slug ||
@@ -28,9 +28,9 @@ exports.store = async (req, res) => {
       .replace(/^-|-$/g, "");
 
   await db.query(
-    `INSERT INTO tbl_products_category (category_name, category_slug, parent_id, category_desc)
-     VALUES (?, ?, ?, ?)`,
-    [category_name, finalSlug, parent_id || 0, category_desc || ""],
+    `INSERT INTO tbl_products_category (category_name, category_slug, parent_id, category_desc, category_image)
+     VALUES (?, ?, ?, ?, ?)`,
+    [category_name, finalSlug, parent_id || 0, category_desc || "", category_image || null],
   );
 
   res.redirect(
@@ -41,7 +41,7 @@ exports.store = async (req, res) => {
 // UPDATE CATEGORY
 exports.update = async (req, res) => {
   const { id } = req.params;
-  const { category_name, category_slug, parent_id, category_desc } = req.body;
+  const { category_name, category_slug, parent_id, category_desc, category_image } = req.body;
 
   const finalSlug =
     category_slug ||
@@ -52,9 +52,9 @@ exports.update = async (req, res) => {
 
   await db.query(
     `UPDATE tbl_products_category 
-     SET category_name=?, category_slug=?, parent_id=?, category_desc=? 
+     SET category_name=?, category_slug=?, parent_id=?, category_desc=?, category_image=?
      WHERE category_id=?`,
-    [category_name, finalSlug, parent_id || 0, category_desc || "", id],
+    [category_name, finalSlug, parent_id || 0, category_desc || "", category_image || null, id],
   );
 
   res.redirect(
@@ -71,4 +71,22 @@ exports.delete = async (req, res) => {
   res.redirect(
     "/admin/products/categories?success=Category deleted successfully",
   );
+};
+
+// TOGGLE SHOW IN HOME (AJAX)
+exports.toggleHome = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [[cat]] = await db.query(
+      "SELECT show_in_home FROM tbl_products_category WHERE category_id=?", [id]
+    );
+    if (!cat) return res.status(404).json({ success: false });
+    const next = cat.show_in_home ? 0 : 1;
+    await db.query(
+      "UPDATE tbl_products_category SET show_in_home=? WHERE category_id=?", [next, id]
+    );
+    res.json({ success: true, show_in_home: next });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };

@@ -90,6 +90,31 @@
                           <div class="form-text">Shown on some themes, not required.</div>
                         </div>
 
+                        <!-- Category Image -->
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Category Image</label>
+                          <input type="hidden" name="category_image" id="add_category_image" value="">
+                          <div class="border rounded p-3 text-center" id="add_cat_img_preview"
+                            style="min-height:120px;cursor:pointer;"
+                            onclick="openCatMedia('add')">
+                            <div id="add_cat_img_inner">
+                              <i data-feather="image" style="width:36px;height:36px;"
+                                class="text-muted mb-2 d-block mx-auto"></i>
+                              <p class="text-muted small mb-0">Click to select image</p>
+                            </div>
+                          </div>
+                          <button type="button" id="add_cat_remove_btn"
+                            class="btn btn-link btn-sm text-danger p-0 mt-1"
+                            onclick="removeCatImage('add')" style="display:none;">
+                            <i data-feather="trash-2" class="feather-sm me-1"></i> Remove image
+                          </button>
+                          <div class="mt-2 p-2 rounded-2 bg-light border d-flex align-items-center gap-2" style="font-size:12.5px;">
+                            <i data-feather="info" style="width:13px;height:13px;flex-shrink:0;" class="text-primary"></i>
+                            <span>Required size: 828 × 828 px</span>
+                          </div>
+                          <div id="add_cat_dim_msg" class="alert d-none py-2 px-3 mt-1 mb-0" role="alert" style="font-size:12.5px;"></div>
+                        </div>
+
                         <div class="d-grid">
                           <button type="submit" class="btn-view-product btn-view-product--inline na-view-all-btn">
                             <div class="d-flex align-items-center justify-content-center gap-1">
@@ -148,11 +173,15 @@
                               <thead class="table-light">
                                 <tr>
                                   <th class="text-uppercase text-muted fw-semibold small"
+                                    style="letter-spacing:.05em; font-size:.72rem; width:60px;">Image</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Name</th>
                                   <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Slug</th>
                                   <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Parent</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
+                                    style="letter-spacing:.05em; font-size:.72rem;">Home</th>
                                   <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Actions</th>
                                 </tr>
@@ -162,6 +191,19 @@
                                   const parentCat = categories.find(c => c.category_id === cat.parent_id);
                                   %>
                                   <tr>
+
+                                    <!-- Image -->
+                                    <td>
+                                      <% if (cat.category_image) { %>
+                                        <img src="<%= cat.category_image %>" alt="<%= cat.category_name %>"
+                                          class="rounded" width="40" height="40" style="object-fit:cover;" />
+                                      <% } else { %>
+                                        <div class="rounded bg-light d-flex align-items-center justify-content-center"
+                                          style="width:40px;height:40px;">
+                                          <i data-feather="image" class="text-muted" style="width:16px;height:16px;"></i>
+                                        </div>
+                                      <% } %>
+                                    </td>
 
                                     <!-- Name + description -->
                                     <td>
@@ -207,6 +249,18 @@
                                           <% } %>
                                     </td>
 
+                                    <!-- Show in Home toggle -->
+                                    <td>
+                                      <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input toggle-home" type="checkbox" role="switch"
+                                          data-id="<%= cat.category_id %>"
+                                          <%= cat.show_in_home ? 'checked' : '' %>>
+                                        <label class="form-check-label home-label-<%= cat.category_id %> small text-muted">
+                                          <%= cat.show_in_home ? 'Yes' : 'No' %>
+                                        </label>
+                                      </div>
+                                    </td>
+
                                     <!-- Actions -->
                                     <td>
                                       <div class="d-flex align-items-center gap-1">
@@ -215,7 +269,8 @@
                                 "<%= cat.category_name.replace(/"/g, ' \\"') %>",
                                           "<%= cat.category_slug %>",
                                             "<%= cat.parent_id || 0 %>",
-                                              "<%= (cat.category_desc || '' ).replace(/"/g, '\\"' ) %>"
+                                              "<%= (cat.category_desc || '' ).replace(/"/g, '\\"' ) %>",
+                                                "<%= (cat.category_image || '').replace(/"/g, '\\"') %>"
                                                 )'>
                                                 <div class="d-flex align-items-center gap-1">
                                                   <i data-feather="edit-2" class="feather-sm"></i> Edit
@@ -319,6 +374,31 @@
                     placeholder="Optional description..."></textarea>
                 </div>
 
+                <!-- Category Image -->
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Category Image</label>
+                  <input type="hidden" name="category_image" id="edit_category_image" value="">
+                  <div class="border rounded p-3 text-center" id="edit_cat_img_preview"
+                    style="min-height:100px;cursor:pointer;"
+                    onclick="openCatMedia('edit')">
+                    <div id="edit_cat_img_inner">
+                      <i data-feather="image" style="width:32px;height:32px;"
+                        class="text-muted mb-1 d-block mx-auto"></i>
+                      <p class="text-muted small mb-0">Click to select image</p>
+                    </div>
+                  </div>
+                  <button type="button" id="edit_cat_remove_btn"
+                    class="btn btn-link btn-sm text-danger p-0 mt-1"
+                    onclick="removeCatImage('edit')" style="display:none;">
+                    <i data-feather="trash-2" class="feather-sm me-1"></i> Remove image
+                  </button>
+                  <div class="mt-2 p-2 rounded-2 bg-light border d-flex align-items-center gap-2" style="font-size:12.5px;">
+                    <i data-feather="info" style="width:13px;height:13px;flex-shrink:0;" class="text-primary"></i>
+                    <span>Required size: 828 × 828 px</span>
+                  </div>
+                  <div id="edit_cat_dim_msg" class="alert d-none py-2 px-3 mt-1 mb-0" role="alert" style="font-size:12.5px;"></div>
+                </div>
+
               </div>
 
               <div class="modal-footer bg-light border-top">
@@ -356,15 +436,117 @@
           });
 
           // Populate + show edit modal
-          function editCategory(id, name, slug, parent, desc) {
+          async function editCategory(id, name, slug, parent, desc, image) {
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_name').value = name;
             document.getElementById('edit_slug').value = slug;
             document.getElementById('edit_parent').value = parent || 0;
             document.getElementById('edit_desc').value = desc;
+
+            // Set image
+            document.getElementById('edit_category_image').value = image || '';
+            const inner = document.getElementById('edit_cat_img_inner');
+            const removeBtn = document.getElementById('edit_cat_remove_btn');
+            if (image) {
+              inner.innerHTML = `<img src="${image}" class="img-fluid rounded" style="max-height:100px;">`;
+              removeBtn.style.display = '';
+              await validateCatDimensions(image, 'edit');
+            } else {
+              inner.innerHTML = `<i data-feather="image" style="width:32px;height:32px;" class="text-muted mb-1 d-block mx-auto"></i><p class="text-muted small mb-0">Click to select image</p>`;
+              removeBtn.style.display = 'none';
+              hideCatDimMsg('edit');
+            }
+
             document.getElementById('editForm').action = '/admin/product/category/update/' + id;
             new bootstrap.Modal(document.getElementById('editModal')).show();
+            feather.replace();
           }
+
+          // ── Category image picker helpers ─────────────────────────────────
+          // context = 'add' | 'edit'
+          let _catMediaContext = null;
+
+          const CAT_DIM = { w: 828, h: 828 };
+
+          // Validate dimensions
+          async function validateCatDimensions(url, context) {
+            return new Promise((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                const actual = { w: img.naturalWidth, h: img.naturalHeight };
+                const el = document.getElementById(context + '_cat_dim_msg');
+                if (!el) return resolve();
+
+                if (actual.w === CAT_DIM.w && actual.h === CAT_DIM.h) {
+                  el.classList.remove('d-none', 'alert-warning');
+                  el.classList.add('alert-success');
+                  el.innerHTML = `<i data-feather="check-circle" style="width:13px;height:13px;" class="me-1"></i>
+                    Dimensions OK — <strong>${actual.w} × ${actual.h}px</strong>`;
+                } else {
+                  el.classList.remove('d-none', 'alert-success');
+                  el.classList.add('alert-warning');
+                  el.innerHTML = `<i data-feather="alert-triangle" style="width:13px;height:13px;" class="me-1"></i>
+                    Image is <strong>${actual.w} × ${actual.h}px</strong> — expected <strong>${CAT_DIM.w} × ${CAT_DIM.h}px</strong>.
+                    The image will still be saved but may not display correctly.`;
+                }
+                feather.replace();
+                resolve();
+              };
+              img.onerror = () => resolve();
+              img.src = url;
+            });
+          }
+
+          function hideCatDimMsg(context) {
+            const el = document.getElementById(context + '_cat_dim_msg');
+            if (el) el.classList.add('d-none');
+          }
+
+          function openCatMedia(context) {
+            _catMediaContext = context;
+            openMedia({
+              urlInput: context + '_category_image',
+              preview:  context + '_cat_img_inner'
+            });
+          }
+
+          function removeCatImage(context) {
+            document.getElementById(context + '_category_image').value = '';
+            const inner = document.getElementById(context + '_cat_img_inner');
+            const prefix = context === 'add' ? '36px;height:36px' : '32px;height:32px';
+            inner.innerHTML = `<i data-feather="image" style="width:${prefix};" class="text-muted mb-1 d-block mx-auto"></i><p class="text-muted small mb-0">Click to select image</p>`;
+            document.getElementById(context + '_cat_remove_btn').style.display = 'none';
+            hideCatDimMsg(context);
+            feather.replace();
+          }
+
+          // Override insertSelectedMedia to handle category image preview + remove btn + dimension check
+          const _origCatInsert = window.insertSelectedMedia;
+          window.insertSelectedMedia = async function () {
+            _origCatInsert && _origCatInsert();
+            if (!_catMediaContext) return;
+            const ctx = _catMediaContext;
+            const url = document.getElementById(ctx + '_category_image').value;
+            if (!url) return;
+            document.getElementById(ctx + '_cat_remove_btn').style.display = '';
+            await validateCatDimensions(url, ctx);
+            _catMediaContext = null;
+          };
+
+          // Show-in-home toggles (AJAX)
+          document.querySelectorAll('.toggle-home').forEach(toggle => {
+            toggle.addEventListener('change', async function () {
+              const id = this.dataset.id;
+              const label = document.querySelector('.home-label-' + id);
+              const res = await fetch('/admin/product/category/toggle-home/' + id, { method: 'POST' });
+              const json = await res.json();
+              if (json.success) {
+                label.textContent = json.show_in_home ? 'Yes' : 'No';
+              } else {
+                this.checked = !this.checked;
+              }
+            });
+          });
 
           // Live table search
           function filterCats() {
@@ -384,4 +566,49 @@
           feather.replace();
         </script>
 
+<!-- Override AFTER footer so category media scopes to /uploads/categories/ -->
         <%- include('../partials/footer') %>
+<script>
+  function loadMedia(page) {
+    page = page || 1;
+    fetch('/admin/media?page=' + page + '&folder=categories')
+      .then(r => r.json())
+      .then(data => {
+        mediaCurrentPage = data.page       || 1;
+        mediaTotalPages  = data.totalPages || 1;
+        mediaLoaded      = true;
+        renderMedia(data.images || []);
+      })
+      .catch(() => mediaShowAlert('danger', 'Failed to load media.'));
+  }
+
+  function uploadMedia() {
+    const input = document.getElementById('mediaUploadInput');
+    const files = input.files;
+    if (!files.length) return;
+    const formData = new FormData();
+    for (const f of files) formData.append('files', f);
+
+    fetch('/admin/media/upload/categories', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        input.value = '';
+        showMediaTab('library');
+        mediaLoaded = false;
+        loadMedia(1);
+        if (data.files && data.files.length) {
+          const n = data.files.length;
+          setTimeout(() => mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded.'), 300);
+          setTimeout(() => {
+            const firstUrl = data.files[0].url;
+            document.querySelectorAll('#mediaGrid .media-thumb').forEach(div => {
+              if (div.dataset.url === firstUrl) {
+                _toggleThumb(div, { url: firstUrl, title: data.files[0].original || '', alt: '' });
+              }
+            });
+          }, 500);
+        }
+      })
+      .catch(() => mediaShowAlert('danger', 'Upload failed. Please try again.'));
+  }
+</script>

@@ -205,6 +205,8 @@ export interface ProductCategory {
   category_slug: string;
   category_name: string;
   category_desc: string;
+  category_image?: string | null;
+  show_in_home?: number;
 }
 
 export const getProductCategories = () => apiFetch<ProductCategory[]>('/product-categories');

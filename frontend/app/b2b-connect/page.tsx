@@ -92,20 +92,31 @@ const COLLECTION_IMAGE_MAP: [string, string][] = [
 // Fallback image used when no keyword matches the category slug
 const DEFAULT_COLLECTION_IMAGE = "/images/dummy.jpg";
 
+// Base URL for admin-uploaded images served from the API server.
+// NEXT_PUBLIC_API_URL may include a path suffix (e.g. "/api"), so we
+// strip everything after the origin to get just the host.
+const API_BASE = (() => {
+  const raw = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  try { return new URL(raw).origin; } catch { return "http://localhost:3000"; }
+})();
+
 /**
  * getCollectionImage
  *
  * Returns the display image for a product category card.
+ * Prefers category_image from the DB, falls back to slug-based map.
  *
- * @param slug - The category slug (e.g. "premium-glassware")
- * @returns A local image path string
- *
- * Example:
- *   getCollectionImage("premium-glassware") → "/images/collection/Drinkware-Whiskey-Glasses.png"
- *   getCollectionImage("unknown-category")  → "/images/dummy.jpg"
+ * @param category - The ProductCategory object
+ * @returns A local or absolute image URL string
  */
-function getCollectionImage(slug: string): string {
-  const match = COLLECTION_IMAGE_MAP.find(([key]) => slug.includes(key));
+function getCollectionImage(category: ProductCategory): string {
+  // 1. If DB has category_image, use it (with API base URL)
+  if (category.category_image) {
+    return API_BASE + category.category_image;
+  }
+
+  // 2. Otherwise, fall back to slug-based keyword mapping
+  const match = COLLECTION_IMAGE_MAP.find(([key]) => category.category_slug.includes(key));
   return match ? match[1] : DEFAULT_COLLECTION_IMAGE;
 }
 
@@ -198,10 +209,10 @@ export default async function B2BConnectPage() {
                   href={`/shop/${category.category_slug}`}
                   key={category.category_id}
                 >
-                  {/* Category thumbnail — image resolved from slug via getCollectionImage */}
+                  {/* Category thumbnail — image resolved from DB or slug via getCollectionImage */}
                   <span className="b2b-category-image">
                     <img
-                      src={getCollectionImage(category.category_slug)}
+                      src={getCollectionImage(category)}
                       alt={category.category_name}
                     />
                   </span>

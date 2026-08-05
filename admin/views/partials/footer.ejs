@@ -43,8 +43,8 @@
     _mediaPendingDel  = [];
 
     document.getElementById('selectedMediaInfo').style.display = 'none';
-    document.getElementById('btnInsertMedia').disabled = true;
-    document.getElementById('btnInsertMedia').textContent = 'Insert Selected';
+    _setInsertDisabled(true);
+    _setInsertText('Insert Selected');
     mediaHideAlert();
 
     if (!mediaLoaded) { loadMedia(1); } else { loadMedia(mediaCurrentPage); }
@@ -72,7 +72,7 @@
     grid.innerHTML = '';
     selectedMediaItem = null;
     document.getElementById('selectedMediaInfo').style.display = 'none';
-    document.getElementById('btnInsertMedia').disabled = true;
+    _setInsertDisabled(true);
     _syncSelectAll();
 
     if (!images.length) {
@@ -160,7 +160,7 @@
       if (selectedMediaItem && selectedMediaItem.url === div.dataset.url) {
         selectedMediaItem = null;
         document.getElementById('selectedMediaInfo').style.display = 'none';
-        document.getElementById('btnInsertMedia').disabled = true;
+        _setInsertDisabled(true);
       }
 
       // Find another selected item to show in sidebar
@@ -169,7 +169,7 @@
         selectedMediaItem = { url: other.dataset.url };
         document.getElementById('selectedMediaInfo').style.display = 'block';
         document.getElementById('selectedMediaPreview').src = other.dataset.url;
-        document.getElementById('btnInsertMedia').disabled = false;
+        _setInsertDisabled(false);
       }
     } else {
       // Select
@@ -181,7 +181,7 @@
       document.getElementById('selectedMediaPreview').src   = img.url;
       document.getElementById('selectedMediaTitle').value   = img.title || '';
       document.getElementById('selectedMediaAlt').value     = img.alt   || '';
-      document.getElementById('btnInsertMedia').disabled    = false;
+      _setInsertDisabled(false);
     }
 
     _updateSelCount();
@@ -203,18 +203,27 @@
     }
   }
 
+  // ── Sync Insert button (toolbar) ─────────────────────────────
+  function _setInsertDisabled(state) {
+    const b = document.getElementById('btnInsertMediaToolbar');
+    if (b) b.disabled = state;
+  }
+  function _setInsertText(text) {
+    const b = document.getElementById('btnInsertMediaToolbar');
+    if (b) b.textContent = text;
+  }
+
   // ── Count + toolbar sync ──────────────────────────────────────
   function _updateSelCount() {
     const n = document.querySelectorAll('#mediaGrid .media-thumb[data-selected="1"]').length;
     const el  = document.getElementById('mediaSelCount');
     const btn = document.getElementById('mediaBtnDeleteSel');
-    const ins = document.getElementById('btnInsertMedia');
     if (el)  el.textContent = n + ' selected';
     if (btn) btn.classList.toggle('d-none', n === 0);
     // For multiple-mode modals, enable Insert as soon as anything is selected
-    if (ins && mediaTarget && mediaTarget.multiple) {
-      ins.disabled = n === 0;
-      ins.textContent = n > 1 ? `Insert ${n} Images` : 'Insert Selected';
+    if (mediaTarget && mediaTarget.multiple) {
+      _setInsertDisabled(n === 0);
+      _setInsertText(n > 1 ? `Insert ${n} Images` : 'Insert Selected');
     }
   }
 
@@ -244,12 +253,12 @@
           document.getElementById('selectedMediaPreview').src = last.dataset.url;
           document.getElementById('selectedMediaTitle').value = '';
           document.getElementById('selectedMediaAlt').value   = '';
-          document.getElementById('btnInsertMedia').disabled  = false;
+          _setInsertDisabled(false);
         }
       } else {
         selectedMediaItem = null;
         document.getElementById('selectedMediaInfo').style.display = 'none';
-        document.getElementById('btnInsertMedia').disabled = true;
+        _setInsertDisabled(true);
       }
 
       _updateSelCount();
