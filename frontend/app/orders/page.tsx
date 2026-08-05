@@ -35,9 +35,16 @@ function normalizeStatus(status: string) {
   // generic case first would misclassify it as fully Delivered.
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
-  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('complete')) return 'delivered';
-  if (s.includes('process')) return 'processing';
+  // "invoiced" is a pre-AWB Shiprocket milestone (a legacy fallback for rows
+  // written before the backend learned to map the "INVOICED" webhook event) —
+  // treat it the same as "processing", not as a distinct/unknown status.
+  if (s.includes('process') || s.includes('invoiced')) return 'processing';
+  // NOTE: check "ready to ship" BEFORE the generic "ship" check below — the
+  // string "ready to ship" contains "ship" as a substring, so checking the
+  // generic case first would misclassify a not-yet-shipped order as Shipped.
+  if (s.includes('ready to ship') || s.includes('ready_to_ship') || s === 'ready') return 'ready_to_ship';
+  if (s.includes('ship') || s.includes('in transit') || s.includes('in_transit')) return 'shipped';
   if (s.includes('cancel') && (s.includes('request') || s.includes('pending'))) return 'cancellation_pending';
   if (s.includes('cancel')) return 'cancelled';
   if (s.includes('pending')) return 'pending';

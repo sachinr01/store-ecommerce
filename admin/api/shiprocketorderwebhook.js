@@ -2004,7 +2004,16 @@ const cancelShiprocketOrder = async (req, res) => {
         message: "Your cancellation request is already being processed. We'll notify you once it's confirmed.",
       });
     }
-    const cancellable = ["pending", "processing", "on-hold", "Shipped", "Out for Delivery"];
+    // "Ready to Ship" covers every pre-courier-pickup Shiprocket milestone
+    // (NEW / INVOICED / PICKUP SCHEDULED / PICKUP QUEUED / etc.) and does NOT
+    // by itself mean an AWB has been assigned — that's tracked separately via
+    // `order.awb_code`. It must stay cancellable here; the AWB-aware
+    // `hasEnteredShipping` check below is what decides whether we can
+    // auto-cancel immediately or need to send the request for manual review.
+    // "Invoiced" (literal, title-case) is included as a safety net for any
+    // rows already written before SR_STATUS_MAP learned to map Shiprocket's
+    // "INVOICED" event to "Ready to Ship" — same pre-AWB stage either way.
+    const cancellable = ["pending", "processing", "on-hold", "Invoiced", "Ready to Ship", "Shipped", "Out for Delivery"];
     if (!cancellable.includes(order.order_status)) {
       await conn.rollback();
       return res.status(400).json({
@@ -2127,6 +2136,7 @@ const SR_STATUS_MAP = {
   // "processing" is reserved for our own checkout code (payment confirmed) and
   // must NEVER be set here from a webhook event.
   "NEW":                  "Ready to Ship",
+  "INVOICED":             "Ready to Ship",
   "PICKUP SCHEDULED":     "Ready to Ship",
   "PICKUP ERROR":         "Ready to Ship",
   "PICKUP QUEUED":        "Ready to Ship",

@@ -355,6 +355,7 @@ async function getTrackingStatus(req, res) {
     // statuses resolve to "Ready to Ship" rather than "processing".
     const statusMap = {
       "NEW":                           "Ready to Ship",
+      "INVOICED":                      "Ready to Ship",
       "PICKUP SCHEDULED":              "Ready to Ship",
       "PICKUP ERROR":                  "Ready to Ship",
       "PICKUP QUEUED":                 "Ready to Ship",

@@ -44,7 +44,12 @@ const EXCEPTION_LABEL: Record<string, string> = {
 function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  const hasShipment = Boolean(awbCode || shipmentId);
+  // IMPORTANT: only a real AWB code means Shiprocket has confirmed a pickup
+  // slot. `shipmentId` is created at invoice time — well before AWB
+  // assignment — so it must NOT be treated as "shipment ready" here, or the
+  // timeline (and the cancel-button eligibility that reads this status)
+  // advances before the order is actually ready to ship.
+  const hasShipment = Boolean(awbCode);
 
   // Exception states — return as-is so the caller can render a warning badge
   if (EXCEPTION_STATUSES.has(s)) return s;
@@ -57,8 +62,11 @@ function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: s
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
   if (s.includes('complete')) return 'delivered';
-  // AWB present but still showing "processing" → already ready to ship
-  if (s.includes('process') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
+  // AWB present but still showing "processing" → already ready to ship.
+  // "invoiced" is included here as a fallback for legacy rows written before
+  // the backend learned to map Shiprocket's "INVOICED" webhook event — it's
+  // a pre-AWB milestone just like the others in this list.
+  if (s.includes('process') || s.includes('invoiced') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return hasShipment ? 'ready_to_ship' : 'processing';
   }
