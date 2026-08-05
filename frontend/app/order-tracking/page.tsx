@@ -120,11 +120,11 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
-function TrackingTimeline({ status }: { status: string }) {
+function TrackingTimeline({ status, exceptionType }: { status: string; exceptionType?: string | null }) {
   const isCancelled = status === 'cancelled' || status === 'cancellation_pending';
   const isReturnInitiated = status === 'return_initiated';
   const isReturned = status === 'returned';
-  const isException = status in EXCEPTION_LABEL;
+  const isException = Boolean(exceptionType && exceptionType in EXCEPTION_LABEL);
 
   // For exception states, show the timeline up to "shipped" (last safe step)
   const effectiveStatus = isException ? 'shipped' : status;
@@ -169,7 +169,7 @@ function TrackingTimeline({ status }: { status: string }) {
               {STEP_LABELS[step] ?? toLabel(step)}
               {isWarningStep && (
                 <span className="timeline-exception-badge">
-                  {EXCEPTION_LABEL[status]}
+                  {EXCEPTION_LABEL[exceptionType || '']}
                 </span>
               )}
             </span>
@@ -432,7 +432,6 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     return {
       id:            Number(order.order_id),
       status:        normalizeStatus(order.order_status || '', order.awb_code, order.shipment_id),
-      statusLabel:   order.shipping_status ? toLabel(order.shipping_status) : '',
       dateLabel:     formatDate(order.order_date || ''),
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
@@ -447,13 +446,14 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
       courier:       order.courier_name || '',
       shippingStatus: order.shipping_status || '',
       shipmentId:    order.shipment_id || '',
+      exceptionType: order.shipment_exception?.type || null,
     };
   }, [order, items]);
 
   return (
     <div className="ot-result">
       {/* Timeline at the very top */}
-      <TrackingTimeline status={summary.status} />
+      <TrackingTimeline status={summary.status} exceptionType={summary.exceptionType} />
 
       {/* Hero */}
       <div className="order-detail-card order-hero">
@@ -462,7 +462,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             <h2 className="order-detail-title">Order {order.sr_cart_id || summary.id}</h2>
             <div className="order-detail-meta">Placed on {summary.dateLabel}</div>
           </div>
-          <span className={`order-detail-status ${summary.status}`}>{summary.statusLabel || toLabel(summary.status)}</span>
+          <span className={`order-detail-status ${summary.status}`}>{toLabel(summary.status)}</span>
         </div>
       </div>
 

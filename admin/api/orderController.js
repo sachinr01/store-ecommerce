@@ -390,15 +390,16 @@ async function getTrackingStatus(req, res) {
     // restoration and notifications entirely. Cancellation status changes
     // must only happen through cancelShiprocketOrder / updateOrderStatus /
     // receiveShipmentWebhook, never here.
-    const PROTECTED_STATUSES = [
+    const PROTECTED_STATUSES = new Set([
       "cancelled", "cancellation_requested", "refunded", "failed",
-      "Delivered", "Returned",
-    ];
+      "delivered", "completed", "returned",
+    ]);
     const [[currentOrderRow]] = await db.query(
       `SELECT order_status FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
       [awb],
     );
-    const isProtected = currentOrderRow && PROTECTED_STATUSES.includes(currentOrderRow.order_status);
+    const currentStatusLower = toStr(currentOrderRow?.order_status).toLowerCase();
+    const isProtected = currentOrderRow && PROTECTED_STATUSES.has(currentStatusLower);
     if (isProtected) {
       console.log(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
     } else {
