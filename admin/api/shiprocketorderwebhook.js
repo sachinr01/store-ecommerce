@@ -2056,7 +2056,7 @@ const cancelShiprocketOrder = async (req, res) => {
     const goPending = async () => {
       const requestedAt = new Date().toISOString();
       await conn.query(
-        `UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?`,
+        `UPDATE tbl_orders SET order_status = 'cancellation_requested', shipping_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?`,
         [orderId],
       );
       await conn.query(
@@ -2109,8 +2109,12 @@ const cancelShiprocketOrder = async (req, res) => {
     }
 
     // ── Cancelled for real — restore stock and finalize. ─────────────────────
+    // shipping_status must be cleared too: the customer-facing tracking page
+    // prefers shipping_status over the derived order status for its badge, so
+    // leaving shipping_status at its last raw value (e.g. "INVOICED") would
+    // make a genuinely-cancelled order still display its old pre-cancel badge.
     await conn.query(
-      `UPDATE tbl_orders SET order_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
+      `UPDATE tbl_orders SET order_status = 'cancelled', shipping_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
       [orderId],
     );
     await restoreOrderStock(conn, orderId);
