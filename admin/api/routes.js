@@ -97,6 +97,21 @@ router.get('/attributes/:taxonomy',  ctrl.getAttributesByTaxonomy);
 // ── Site Settings (public) ────────────────────────────────────────────────────
 router.get('/site-settings', ctrl.getPublicSiteSettings);
 
+// ── Banners (public) ─────────────────────────────────────────────────────────
+router.get('/banners', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const type = req.query.type || null;
+    const query = type
+      ? "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 AND type=? ORDER BY sort_order ASC, id DESC"
+      : "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 ORDER BY sort_order ASC, id DESC";
+    const [rows] = await db.query(query, type ? [type] : []);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── Product Categories ────────────────────────────────────────────────────────
 router.get('/product-categories',                  ctrl.getProductCategories);
 router.get('/product-categories/search',           ctrl.searchProductCategories);

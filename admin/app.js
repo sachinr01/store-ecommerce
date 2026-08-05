@@ -64,7 +64,9 @@ const blogCategoryRoutes = require('./routes/blogCategoryRoutes');
 const blogRoutes = require('./routes/blogRoutes');
 const pagesRoutes = require('./routes/pagesRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
+const bannerRoutes = require('./routes/bannerRoutes');
 
+app.use('/admin', bannerRoutes);
 app.use('/admin', newsletterRoutes);
 app.use('/admin', pagesRoutes);
 app.use('/admin', blogRoutes);

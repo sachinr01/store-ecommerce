@@ -7,8 +7,9 @@ const UPLOADS_DIR  = path.join(PUBLIC_DIR, "uploads");
 // Allowed image extensions
 const allowedExt = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"];
 
-// Recursively collect images under uploads/, return URL starting with /uploads/
-function getImages(dir, baseUrl = "/uploads") {
+// Collect images in a directory.
+// If recursive=false, only scan the top level (no subfolders).
+function getImages(dir, baseUrl = "/uploads", recursive = true) {
   let results = [];
 
   let files;
@@ -24,7 +25,10 @@ function getImages(dir, baseUrl = "/uploads") {
     try { stat = fs.statSync(fullPath); } catch { return; }
 
     if (stat.isDirectory()) {
-      results = results.concat(getImages(fullPath, baseUrl + "/" + file));
+      if (recursive) {
+        results = results.concat(getImages(fullPath, baseUrl + "/" + file, true));
+      }
+      // if not recursive, skip subfolders entirely
     } else {
       const ext = path.extname(file).toLowerCase();
       if (allowedExt.includes(ext)) {
@@ -38,12 +42,30 @@ function getImages(dir, baseUrl = "/uploads") {
 
 const PAGE_SIZE = 30;
 
-// GET MEDIA — ?page=1 (1-based), 30 per page, newest first
+// GET MEDIA — ?page=1&folder=banners
+// folder=banners  → scans uploads/banners/ recursively
+// folder=products → scans uploads/products/ recursively
+// no folder       → scans uploads/ root only (non-recursive, excludes subfolders)
 exports.getMedia = (_req, res) => {
   try {
-    const page  = Math.max(1, parseInt(_req.query.page, 10) || 1);
+    const page   = Math.max(1, parseInt(_req.query.page, 10) || 1);
+    const folder = _req.query.folder || null;
 
-    const all = getImages(UPLOADS_DIR);
+    let scanDir   = UPLOADS_DIR;
+    let baseUrl   = "/uploads";
+    let recursive = false; // root scan is flat — subfolders are their own domains
+
+    if (folder === '__all__') {
+      // Show every image across all folders
+      recursive = true;
+    } else if (folder) {
+      const safe = folder.replace(/[^a-z0-9_-]/gi, "");
+      scanDir   = path.join(UPLOADS_DIR, safe);
+      baseUrl   = `/uploads/${safe}`;
+      recursive = true;
+    }
+
+    const all = getImages(scanDir, baseUrl, recursive);
 
     // Newest first
     all.sort((a, b) => b.mtime - a.mtime);

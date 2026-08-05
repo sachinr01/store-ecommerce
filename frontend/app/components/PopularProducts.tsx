@@ -253,7 +253,32 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
 }
 
 export function FeaturedCollectionPanels() {
-  const mobilePanels = collectionRows.flatMap((row) => (
+  const [collectionBanners, setCollectionBanners] = useState<import('../lib/api').Banner[]>([]);
+  const [categoryBanners, setCategoryBanners]     = useState<import('../lib/api').Banner[]>([]);
+
+  useEffect(() => {
+    import('../lib/api').then(({ getBanners }) => {
+      getBanners('collection').then((d) => { if (d.length) setCollectionBanners(d); }).catch(() => {});
+      getBanners('category').then((d)   => { if (d.length) setCategoryBanners(d);   }).catch(() => {});
+    });
+  }, []);
+
+  // Merge API collection images into collectionRows (replace static panel src)
+  const mergedRows = collectionRows.map((row, i) => {
+    const b = collectionBanners[i];
+    if (!b) return row;
+    return {
+      ...row,
+      staticPanel: {
+        ...row.staticPanel,
+        src:  b.image_url,
+        alt:  b.title || row.staticPanel.alt,
+        href: b.link_url || row.staticPanel.href,
+      },
+    };
+  });
+
+  const mobilePanels = mergedRows.flatMap((row) => (
     row.staticSide === 'left'
       ? [row.staticPanel, row.slides[0]]
       : [row.slides[0], row.staticPanel]
@@ -263,7 +288,7 @@ export function FeaturedCollectionPanels() {
     <section className="featured-collections-section" aria-labelledby="featured-collections-title">
       <h2 className="section-title" id="featured-collections-title">Our Collection</h2>
       <div className="featured-collections">
-        {collectionRows.map((row, rowIndex) => (
+        {mergedRows.map((row, rowIndex) => (
           <div
             className={`featured-collection-row featured-collection-row-static-${row.staticSide}`}
             key={`${row.staticPanel.title}-${rowIndex}`}
@@ -282,23 +307,26 @@ export function FeaturedCollectionPanels() {
           </div>
         ))}
       </div>
+
+      {/* Category tiles — driven by admin if available, else fall back to collection mobile panels */}
       <div className="featured-mobile-grid" aria-label="Trending collections">
-        {mobilePanels.map((panel, index) => (
-          <Link href={panel.href} className="featured-mobile-tile" key={`${panel.title}-${index}`}>
-            <Image
-              src={panel.src}
-              alt={panel.alt}
-              width={420}
-              height={520}
-              sizes="50vw"
-            />
-            <span className="featured-mobile-shade" aria-hidden="true" />
-            <span className="featured-mobile-content">
-              <span className="featured-mobile-title">{panel.title}</span>
-              <span className="featured-mobile-button">Explore Collection</span>
-            </span>
-          </Link>
-        ))}
+        {(categoryBanners.length ? categoryBanners : mobilePanels).map((panel, index) => {
+          const isBanner = 'image_url' in panel;
+          const src  = isBanner ? panel.image_url : (panel as MobilePanel).src;
+          const alt  = (isBanner ? panel.title : (panel as MobilePanel).alt) || '';
+          const href = (isBanner ? panel.link_url : (panel as MobilePanel).href) || '/shop';
+          const label = isBanner ? panel.title : (panel as MobilePanel).title;
+          return (
+            <Link href={href} className="featured-mobile-tile" key={`panel-${index}`}>
+              <Image src={src} alt={alt} width={420} height={520} sizes="50vw" />
+              <span className="featured-mobile-shade" aria-hidden="true" />
+              <span className="featured-mobile-content">
+                <span className="featured-mobile-title">{label}</span>
+                <span className="featured-mobile-button">Explore Collection</span>
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

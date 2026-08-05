@@ -37,6 +37,16 @@
     <div class="card shadow-none border mb-3">
       <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
 
+    <!-- Folder tabs -->
+        <div class="d-flex gap-1 me-2">
+          <button class="btn btn-sm btn-outline-secondary folder-tab" data-folder="__all__">All</button>
+          <button class="btn btn-sm btn-primary folder-tab active" data-folder="">Media Library</button>
+          <button class="btn btn-sm btn-outline-secondary folder-tab" data-folder="banners">Banners</button>
+          <button class="btn btn-sm btn-outline-secondary folder-tab" data-folder="products">Products</button>
+        </div>
+
+        <div class="vr mx-1" style="height:24px;"></div>
+
         <!-- Bulk actions -->
         <div class="d-flex align-items-center gap-2">
           <div class="form-check mb-0">
@@ -142,21 +152,71 @@
 
 <!-- ── Image Preview Modal ──────────────────────────────────────────────── -->
 <div class="modal fade" id="mediaPreviewModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content border-0 shadow">
-      <div class="modal-header border-0">
-        <h6 class="modal-title fw-semibold" id="previewModalFilename">Preview</h6>
+      <div class="modal-header border-0 pb-2">
+        <h6 class="modal-title fw-semibold">Attachment Details</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body text-center p-2">
-        <img id="previewModalImg" src="" class="img-fluid rounded" style="max-height:70vh;object-fit:contain;" />
-      </div>
-      <div class="modal-footer border-0 justify-content-between">
-        <div class="text-muted small" id="previewModalMeta"></div>
-        <button type="button" class="btn btn-danger btn-sm rounded-pill px-3"
-          onclick="deleteSingleFromPreview()">
-          <i data-feather="trash-2" class="feather-sm me-1"></i> Delete
-        </button>
+      <div class="modal-body p-0">
+        <div class="d-flex flex-column flex-md-row" style="min-height:400px;">
+
+          <!-- Left: image -->
+          <div class="d-flex align-items-center justify-content-center bg-dark p-3"
+            style="flex:1 1 60%;min-height:300px;">
+            <img id="previewModalImg" src="" class="img-fluid rounded"
+              style="max-height:60vh;max-width:100%;object-fit:contain;" />
+          </div>
+
+          <!-- Right: details panel -->
+          <div class="p-4 border-start" style="flex:0 0 300px;min-width:260px;overflow-y:auto;">
+
+            <!-- File info -->
+            <div class="mb-3 pb-3 border-bottom">
+              <p class="mb-1 small fw-semibold" id="previewModalFilename" style="word-break:break-all;"></p>
+              <p class="mb-0 text-muted small" id="previewModalDimensions"></p>
+              <p class="mb-0 text-muted small" id="previewModalSize"></p>
+              <p class="mb-0 text-muted" style="font-size:11px;word-break:break-all;" id="previewModalUrl"></p>
+            </div>
+
+            <!-- Alt text -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Alt Text</label>
+              <input type="text" id="previewModalAlt" class="form-control form-control-sm"
+                placeholder="Describe the image for accessibility…">
+              <div class="form-text">Used by screen readers and search engines.</div>
+            </div>
+
+            <!-- Title / Caption -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">Title</label>
+              <input type="text" id="previewModalTitle" class="form-control form-control-sm"
+                placeholder="Image title">
+            </div>
+
+            <!-- Copy URL -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold mb-1">File URL</label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="previewModalCopyUrl" class="form-control form-control-sm"
+                  readonly style="font-size:11px;">
+                <button class="btn btn-outline-secondary btn-sm" type="button"
+                  onclick="copyMediaUrl()" title="Copy URL">
+                  <i data-feather="copy" style="width:13px;height:13px;"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 mt-4">
+              <button type="button" class="btn btn-danger btn-sm rounded-pill flex-grow-1"
+                onclick="deleteSingleFromPreview()">
+                <i data-feather="trash-2" class="feather-sm me-1"></i> Delete
+              </button>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -182,6 +242,7 @@
   let pendingUpload    = [];
   let pendingDelete    = [];
   let previewCurrentUrl = null;
+  let activeFolder     = ''; // '' = root only, 'banners', 'products', etc.
 
   // ── Bootstrap colours matching admin theme ──────────────────────
   const ALERT = {
@@ -226,7 +287,8 @@
     document.getElementById('mediaGrid').style.display = 'none';
     document.getElementById('mediaEmpty').classList.add('d-none');
 
-    fetch('/admin/media?page=' + page)
+    const qs = '/admin/media?page=' + page + (activeFolder && activeFolder !== '__all__' ? '&folder=' + activeFolder : activeFolder === '__all__' ? '&folder=__all__' : '');
+    fetch(qs)
       .then(r => r.json())
       .then(data => {
         mediaPage       = data.page       || 1;
@@ -408,11 +470,39 @@
   function openPreview(url) {
     previewCurrentUrl = url;
     const fname = url.split('/').pop();
-    document.getElementById('previewModalImg').src = url;
+
+    document.getElementById('previewModalImg').src       = url;
     document.getElementById('previewModalFilename').textContent = fname;
-    document.getElementById('previewModalMeta').textContent = url;
+    document.getElementById('previewModalCopyUrl').value = window.location.origin + url;
+    document.getElementById('previewModalUrl').textContent = url;
+    document.getElementById('previewModalDimensions').textContent = '';
+    document.getElementById('previewModalSize').textContent = '';
+    document.getElementById('previewModalAlt').value   = '';
+    document.getElementById('previewModalTitle').value = fname.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+
+    // Measure natural dimensions after load
+    const probe = new Image();
+    probe.onload = () => {
+      document.getElementById('previewModalDimensions').textContent =
+        probe.naturalWidth + ' × ' + probe.naturalHeight + ' px';
+    };
+    probe.src = url;
+
     feather.replace();
     new bootstrap.Modal(document.getElementById('mediaPreviewModal')).show();
+  }
+
+  function copyMediaUrl() {
+    const input = document.getElementById('previewModalCopyUrl');
+    input.select();
+    document.execCommand('copy');
+    const btn = input.nextElementSibling;
+    btn.innerHTML = '<i data-feather="check" style="width:13px;height:13px;"></i>';
+    feather.replace();
+    setTimeout(() => {
+      btn.innerHTML = '<i data-feather="copy" style="width:13px;height:13px;"></i>';
+      feather.replace();
+    }, 1500);
   }
 
   function deleteSingleFromPreview() {
@@ -479,7 +569,7 @@
     pendingUpload.forEach(f => formData.append('files', f));
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/admin/media/upload');
+    xhr.open('POST', '/admin/media/upload' + (activeFolder && activeFolder !== '__all__' ? '/' + activeFolder : ''));
 
     xhr.upload.addEventListener('progress', e => {
       if (e.lengthComputable) {
@@ -555,6 +645,20 @@
     nav.appendChild(ul);
     wrapper.appendChild(nav);
   }
+
+  // ── Folder tabs ────────────────────────────────────────────────
+  document.querySelectorAll('.folder-tab').forEach(btn => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.folder-tab').forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-outline-secondary');
+      });
+      this.classList.add('btn-primary', 'active');
+      this.classList.remove('btn-outline-secondary');
+      activeFolder = this.dataset.folder;
+      libLoadMedia(1);
+    });
+  });
 
   // ── Init ───────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => libLoadMedia(1));

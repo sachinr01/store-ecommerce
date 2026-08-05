@@ -1,0 +1,180 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/navbar') %>
+<%- include('../../partials/sidebar') %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row align-items-center">
+      <div class="col-7">
+        <h4 class="page-title">Banners</h4>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item active">Banners</li>
+          </ol>
+        </nav>
+      </div>
+      <div class="col-5 text-end">
+        <a href="/admin/appearance/banners/add" class="btn-view-product btn-view-product--inline na-view-all-btn">
+          <div class="d-flex align-items-center">
+            <i data-feather="plus" class="feather-sm me-1"></i> Add Banner
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <% if (locals.success) { %>
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i data-feather="check-circle" class="feather-sm me-1"></i> <%= success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+    <% if (locals.error) { %>
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="card-title mb-0">All Banners <span class="badge bg-secondary ms-1"><%= banners.length %></span></h5>
+          <small class="text-muted">Drag rows to reorder</small>
+        </div>
+
+        <% if (banners.length === 0) { %>
+          <div class="text-center py-5">
+            <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-3 d-block mx-auto"></i>
+            <p class="text-muted">No banners yet.</p>
+            <a href="/admin/appearance/banners/add" class="btn btn-primary rounded-pill px-4">Add First Banner</a>
+          </div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th width="36"></th>
+                  <th width="70">Image</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Link</th>
+                  <th width="80">Order</th>
+                  <th width="110">Status</th>
+                  <th width="110">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sortableBody">
+                <% banners.forEach(b => { %>
+                  <tr data-id="<%= b.id %>">
+                    <td class="drag-handle text-muted" style="cursor:grab;" title="Drag to reorder">
+                      <i data-feather="menu" class="feather-sm"></i>
+                    </td>
+                    <td>
+                      <% if (b.image_url) { %>
+                        <img src="<%= b.image_url %>" alt="<%= b.title || '' %>"
+                          class="rounded" width="50" height="50" style="object-fit:cover;" />
+                      <% } else { %>
+                        <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                          style="width:50px;height:50px;">
+                          <i data-feather="image" class="text-muted feather-sm"></i>
+                        </div>
+                      <% } %>
+                    </td>
+                    <td><strong><%= b.title || '—' %></strong></td>
+                    <td><span class="badge bg-info text-capitalize"><%= b.type || 'banner' %></span></td>
+                    <td>
+                      <% if (b.link_url) { %>
+                        <a href="<%= b.link_url %>" target="_blank" class="text-muted small">
+                          <i data-feather="external-link" style="width:12px;height:12px;"></i>
+                          <%= b.link_url.length > 30 ? b.link_url.substring(0,30)+'…' : b.link_url %>
+                        </a>
+                      <% } else { %>
+                        <small class="text-muted">—</small>
+                      <% } %>
+                    </td>
+                    <td><span class="badge bg-light text-dark sort-order-badge"><%= b.sort_order %></span></td>
+                    <td>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input toggle-status" type="checkbox" role="switch"
+                          data-id="<%= b.id %>" <%= b.is_active ? 'checked' : '' %>>
+                        <label class="form-check-label status-label-<%= b.id %> small text-muted">
+                          <%= b.is_active ? 'Active' : 'Inactive' %>
+                        </label>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="d-flex gap-1">
+                        <a href="/admin/appearance/banners/edit/<%= b.id %>" class="btn btn-sm btn-warning" title="Edit">
+                          <i data-feather="edit-2" class="feather-sm"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger delete-btn"
+                          data-id="<%= b.id %>"
+                          data-name="<%= b.title || 'this banner' %>"
+                          data-url="/admin/appearance/banners/delete/"
+                          data-title="Delete Banner"
+                          title="Delete">
+                          <i data-feather="trash-2" class="feather-sm"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<%- include('../../partials/scripts') %>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+  feather.replace();
+
+  // Drag-to-reorder
+  const tbody = document.getElementById('sortableBody');
+  if (tbody) {
+    Sortable.create(tbody, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: function () {
+        const rows = tbody.querySelectorAll('tr[data-id]');
+        const order = [];
+        rows.forEach((row, idx) => {
+          order.push({ id: parseInt(row.dataset.id), sort_order: idx });
+          const badge = row.querySelector('.sort-order-badge');
+          if (badge) badge.textContent = idx;
+        });
+        fetch('/admin/appearance/banners/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order })
+        });
+      }
+    });
+  }
+
+  // Toggle status
+  document.querySelectorAll('.toggle-status').forEach(toggle => {
+    toggle.addEventListener('change', async function () {
+      const id = this.dataset.id;
+      const label = document.querySelector('.status-label-' + id);
+      const res = await fetch('/admin/appearance/banners/toggle/' + id, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        label.textContent = json.is_active ? 'Active' : 'Inactive';
+      } else {
+        this.checked = !this.checked;
+      }
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %>

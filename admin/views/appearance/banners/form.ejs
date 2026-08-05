@@ -1,0 +1,387 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/navbar') %>
+<%- include('../../partials/sidebar') %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row align-items-center">
+      <div class="col-7">
+        <h4 class="page-title"><%= title %></h4>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/admin/appearance/banners">Banners</a></li>
+            <li class="breadcrumb-item active"><%= banner ? 'Edit' : 'Add' %></li>
+          </ol>
+        </nav>
+      </div>
+      <div class="col-5 text-end">
+        <a href="/admin/appearance/banners" class="btn-view-product btn-view-product--inline na-view-all-btn">
+          <div class="d-flex align-items-center">
+            <i data-feather="arrow-left" class="feather-sm me-1"></i> Back to Banners
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <% if (locals.error) { %>
+      <div class="alert alert-danger alert-dismissible fade show">
+        <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <form method="POST"
+      action="<%= banner && banner.id ? '/admin/appearance/banners/edit/' + banner.id : '/admin/appearance/banners/add' %>">
+
+      <div class="row">
+
+        <!-- LEFT -->
+        <div class="col-lg-8">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-3 border-bottom">Banner Details</h5>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Title</label>
+                <input type="text" name="title" class="form-control"
+                  placeholder="e.g. Summer Sale"
+                  value="<%= (banner && banner.title) || '' %>">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Type</label>
+                <select name="type" id="bannerType" class="form-select" onchange="updateDimensionHint()">
+                  <% const typeMap = {
+                    banner:     { label: 'Banner',                   w: 2008, h: 783 },
+                    collection: { label: 'Collection',               w: 1200, h: 800 },
+                    category:   { label: 'Category',                 w: 828,  h: 828 },
+                    nestcase:   { label: 'Nestcase Shop Collection',  w: 1831, h: 859 },
+                    gifing:     { label: 'Gifing',                   w: 1098, h: 1432 },
+                  }; %>
+                  <% Object.entries(typeMap).forEach(([t, info]) => { %>
+                    <option value="<%= t %>" data-w="<%= info.w %>" data-h="<%= info.h %>"
+                      <%= (banner && banner.type === t) ? 'selected' : '' %>>
+                      <%= info.label %> (<%= info.w %> × <%= info.h %>)
+                    </option>
+                  <% }) %>
+                </select>
+                <div id="dimensionHint" class="mt-2 p-2 rounded-2 bg-light border d-flex align-items-center gap-2" style="font-size:13px;">
+                  <i data-feather="info" style="width:14px;height:14px;flex-shrink:0;" class="text-primary"></i>
+                  <span id="dimensionHintText"></span>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Link URL</label>
+                <input type="text" name="link_url" class="form-control"
+                  placeholder="/shop or https://..."
+                  value="<%= (banner && banner.link_url) || '' %>">
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-lg-4">
+
+          <!-- Banner Image -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h4 class="card-title mb-3 pb-3 border-bottom">Banner Image</h4>
+
+              <input type="hidden" name="image_url" id="bannerImageUrl"
+                value="<%= (banner && banner.image_url) || '' %>">
+
+              <!-- Featured Image — same pattern as Product Image -->
+              <div class="mb-3">
+                <label class="form-label fw-semibold"></label>
+                <div class="border rounded p-3 text-center" id="bannerImagePreview"
+                  style="min-height:150px;cursor:pointer;"
+                  onclick="openMedia({ urlInput:'bannerImageUrl', preview:'bannerImagePreviewInner' })">
+                  <div id="bannerImagePreviewInner">
+                    <% if (banner && banner.image_url) { %>
+                      <img src="<%= banner.image_url %>" class="img-fluid rounded" style="max-height:150px;" />
+                    <% } else { %>
+                      <div>
+                        <i data-feather="image" style="width:48px;height:48px;"
+                          class="text-muted mb-2 d-block mx-auto"></i>
+                        <p class="text-muted small mb-0">Click to select featured image</p>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+
+                <button type="button" id="btnRemoveImage"
+                  class="btn btn-link btn-sm text-danger p-0 mt-1"
+                  onclick="removeBannerImage()"
+                  style="<%= (banner && banner.image_url) ? '' : 'display:none;' %>">
+                  <i data-feather="trash-2" class="feather-sm me-1"></i> Remove image
+                </button>
+              </div>
+
+              <div id="dimValidationMsg" class="alert d-none py-2 px-3 mb-0" role="alert" style="font-size:12.5px;"></div>
+
+            </div>
+          </div>
+
+          <!-- Settings -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-3 border-bottom">Settings</h5>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Status</label>
+                <select name="is_active" class="form-select">
+                  <option value="1" <%= (!banner || banner.is_active) ? 'selected' : '' %>>Active</option>
+                  <option value="0" <%= (banner && !banner.is_active) ? 'selected' : '' %>>Inactive</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Order <small class="text-muted fw-normal">(lower = first)</small></label>
+                <input type="number" name="sort_order" class="form-control" min="0"
+                  value="<%= (banner && banner.sort_order !== undefined) ? banner.sort_order : 0 %>">
+              </div>
+
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill">
+                  <i data-feather="save" class="feather-sm me-1"></i>
+                  <%= banner && banner.id ? 'Update Banner' : 'Save Banner' %>
+                </button>
+                <a href="/admin/appearance/banners" class="btn btn-outline-secondary rounded-pill">Cancel</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<%- include('../../partials/scripts') %>
+<script>
+  feather.replace();
+
+  // ── Dimension map (must match server-side type options) ───────────────────
+  const DIMS = {
+    banner:     { w: 2008, h: 783  },
+    collection: { w: 1200, h: 800  },
+    category:   { w: 828,  h: 828  },
+    nestcase:   { w: 1831, h: 859  },
+    gifing:     { w: 1098, h: 1432 },
+  };
+
+  // ── Dimension hint below type selector ────────────────────────────────────
+  function updateDimensionHint() {
+    const sel = document.getElementById('bannerType');
+    const type = sel.value;
+    const d = DIMS[type];
+    const hint = document.getElementById('dimensionHintText');
+    if (d && hint) {
+      hint.textContent = `Required size: ${d.w} × ${d.h} px`;
+    }
+  }
+  updateDimensionHint(); // run on load
+
+  // ── Validate image dimensions against selected type ───────────────────────
+  function validateDimensions(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  function showDimError(actual, required) {
+    const el = document.getElementById('dimValidationMsg');
+    if (!el) return;
+    el.classList.remove('d-none', 'alert-success');
+    el.classList.add('alert-warning');
+    el.innerHTML = `<i data-feather="alert-triangle" style="width:14px;height:14px;" class="me-1"></i>
+      Image is <strong>${actual.w} × ${actual.h}px</strong> — expected <strong>${required.w} × ${required.h}px</strong>.
+      The image will still be saved but may not display correctly.`;
+    feather.replace();
+  }
+
+  function showDimOk(actual) {
+    const el = document.getElementById('dimValidationMsg');
+    if (!el) return;
+    el.classList.remove('d-none', 'alert-warning');
+    el.classList.add('alert-success');
+    el.innerHTML = `<i data-feather="check-circle" style="width:14px;height:14px;" class="me-1"></i>
+      Dimensions OK — <strong>${actual.w} × ${actual.h}px</strong>`;
+    feather.replace();
+  }
+
+  function hideDimMsg() {
+    const el = document.getElementById('dimValidationMsg');
+    if (el) el.classList.add('d-none');
+  }
+
+  async function checkAndShowDim(url) {
+    const type = document.getElementById('bannerType').value;
+    const required = DIMS[type];
+    if (!required) return;
+    const actual = await validateDimensions(url);
+    if (!actual) return;
+    if (actual.w === required.w && actual.h === required.h) {
+      showDimOk(actual);
+    } else {
+      showDimError(actual, required);
+    }
+  }
+
+  // ── Remove image ──────────────────────────────────────────────────────────
+  function removeBannerImage() {
+    document.getElementById('bannerImageUrl').value = '';
+    document.getElementById('bannerImagePreviewInner').innerHTML = `
+      <div>
+        <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-2 d-block mx-auto"></i>
+        <p class="text-muted small mb-0">Click to select featured image</p>
+      </div>`;
+    document.getElementById('btnRemoveImage').style.display = 'none';
+    hideDimMsg();
+    feather.replace();
+  }
+
+  // ── After media modal inserts URL — refresh preview + validate ────────────
+  const _origInsert = window.insertSelectedMedia;
+  window.insertSelectedMedia = async function () {
+    _origInsert && _origInsert();
+    const url = document.getElementById('bannerImageUrl').value;
+    if (!url) return;
+    document.getElementById('bannerImagePreviewInner').innerHTML =
+      `<img src="${url}" class="img-fluid rounded" style="max-height:150px;">`;
+    document.getElementById('btnRemoveImage').style.display = '';
+    await checkAndShowDim(url);
+  };
+
+  // Re-validate when type changes and image already selected
+  document.getElementById('bannerType').addEventListener('change', async function () {
+    updateDimensionHint();
+    const url = document.getElementById('bannerImageUrl').value;
+    if (url) await checkAndShowDim(url);
+  });
+
+  // Prevent footer's window.load from calling the generic loadMedia
+  // Our window.load override below handles it scoped to banners folder
+  mediaLoaded = true;
+
+  // ── Override media modal to scope to banners folder only ─────────────────
+  // Must run AFTER footer.ejs defines uploadMedia/loadMedia, so we defer to
+  // window load (footer also hooks window.load to call loadMedia).
+  window.addEventListener('load', function () {
+
+    // Grid only shows banners folder
+    window.loadMedia = function (page) {
+      page = page || 1;
+      fetch('/admin/media?page=' + page + '&folder=banners')
+        .then(r => r.json())
+        .then(data => {
+          mediaCurrentPage = data.page       || 1;
+          mediaTotalPages  = data.totalPages || 1;
+          mediaLoaded      = true;
+          renderMedia(data.images || []);
+        })
+        .catch(() => mediaShowAlert('danger', 'Failed to load media.'));
+    };
+
+    // Uploads go to banners subfolder
+    window.uploadMedia = function () {
+      const input = document.getElementById('mediaUploadInput');
+      const files = input.files;
+      if (!files.length) return;
+      const formData = new FormData();
+      for (const f of files) formData.append('files', f);
+
+      fetch('/admin/media/upload/banners', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          input.value = '';
+          showMediaTab('library');
+          mediaLoaded = false;
+          loadMedia(1);
+          if (data.files && data.files.length) {
+            const n = data.files.length;
+            setTimeout(() => mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded.'), 300);
+            setTimeout(() => {
+              const firstUrl = data.files[0].url;
+              document.querySelectorAll('#mediaGrid .media-thumb').forEach(div => {
+                if (div.dataset.url === firstUrl) {
+                  _toggleThumb(div, { url: firstUrl, title: data.files[0].original || '', alt: '' });
+                }
+              });
+            }, 500);
+          }
+        })
+        .catch(() => mediaShowAlert('danger', 'Upload failed. Please try again.'));
+    };
+
+    // Trigger initial grid load scoped to banners
+    loadMedia(1);
+  });
+
+  // Run dimension check on page load for edit mode
+  (async function () {
+    const url = document.getElementById('bannerImageUrl').value;
+    if (url) await checkAndShowDim(url);
+  })();
+</script>
+
+<%- include('../../partials/footer') %>
+
+<!-- Override AFTER footer so our versions win over footer's function declarations -->
+<script>
+  // Footer's window.load calls loadMedia(1) — we replace loadMedia now so
+  // when that fires, it uses our banners-scoped version.
+  function loadMedia(page) {
+    page = page || 1;
+    fetch('/admin/media?page=' + page + '&folder=banners')
+      .then(r => r.json())
+      .then(data => {
+        mediaCurrentPage = data.page       || 1;
+        mediaTotalPages  = data.totalPages || 1;
+        mediaLoaded      = true;
+        renderMedia(data.images || []);
+      })
+      .catch(() => mediaShowAlert('danger', 'Failed to load media.'));
+  }
+
+  function uploadMedia() {
+    const input = document.getElementById('mediaUploadInput');
+    const files = input.files;
+    if (!files.length) return;
+    const formData = new FormData();
+    for (const f of files) formData.append('files', f);
+
+    fetch('/admin/media/upload/banners', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        input.value = '';
+        showMediaTab('library');
+        mediaLoaded = false;
+        loadMedia(1);
+        if (data.files && data.files.length) {
+          const n = data.files.length;
+          setTimeout(() => mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded.'), 300);
+          setTimeout(() => {
+            const firstUrl = data.files[0].url;
+            document.querySelectorAll('#mediaGrid .media-thumb').forEach(div => {
+              if (div.dataset.url === firstUrl) {
+                _toggleThumb(div, { url: firstUrl, title: data.files[0].original || '', alt: '' });
+              }
+            });
+          }, 500);
+        }
+      })
+      .catch(() => mediaShowAlert('danger', 'Upload failed. Please try again.'));
+  }
+</script>

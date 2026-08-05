@@ -454,3 +454,16 @@ export const applyCoupon = (coupon_code: string, billing_email?: string) =>
 
 export const removeCoupon = () =>
   apiPost<null>('/coupon/remove', {});
+
+// ── Banners ───────────────────────────────────────────────────────────────────
+export interface Banner {
+  id: number;
+  title: string | null;
+  type: string;
+  image_url: string;
+  link_url: string | null;
+  sort_order: number;
+}
+
+export const getBanners = (type?: string) =>
+  apiFetch<Banner[]>(`/banners${type ? `?type=${type}` : ''}`);

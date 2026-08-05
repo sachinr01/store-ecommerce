@@ -2,15 +2,24 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { getBanners, type Banner } from "../lib/api";
+
+const FALLBACK: Banner[] = [
+  { id: 0, title: null, type: "banner", image_url: "/images/ecommerce/Hero_Image.webp", link_url: "/shop", sort_order: 0 },
+];
 
 export default function Slider() {
+  const [slides, setSlides] = useState<Banner[]>(FALLBACK);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    { image: "/images/ecommerce/Hero_Image.webp" }
-  ];
+  useEffect(() => {
+    getBanners("banner")
+      .then((data) => { if (data.length) setSlides(data); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
+    if (slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 5000);
@@ -21,13 +30,13 @@ export default function Slider() {
     <div className="slider-root">
       {slides.map((slide, index) => (
         <div
-          key={index}
+          key={slide.id}
           className={`slider-slide ${index === currentSlide ? "active" : "inactive"}`}
         >
-          <Link href="/shop" aria-label="Shop now">
+          <Link href={slide.link_url || "/shop"} aria-label={slide.title || "Shop now"}>
             <img
-              src={slide.image}
-              alt="Slider"
+              src={slide.image_url}
+              alt={slide.title || "Banner"}
               className="slider-bg-img"
               style={{ cursor: "pointer" }}
             />
@@ -48,18 +57,14 @@ export default function Slider() {
             ))}
           </div>
           <button
-            onClick={() =>
-              setCurrentSlide((p) => (p - 1 + slides.length) % slides.length)
-            }
+            onClick={() => setCurrentSlide((p) => (p - 1 + slides.length) % slides.length)}
             aria-label="Previous slide"
             className="slider-arrow prev"
           >
             &#8249;
           </button>
           <button
-            onClick={() =>
-              setCurrentSlide((p) => (p + 1) % slides.length)
-            }
+            onClick={() => setCurrentSlide((p) => (p + 1) % slides.length)}
             aria-label="Next slide"
             className="slider-arrow next"
           >
