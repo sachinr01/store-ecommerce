@@ -1993,28 +1993,41 @@ const cancelShiprocketOrder = async (req, res) => {
     }
 
     // ── 4. Guard already-cancelled / non-cancellable ────────────────────────
-    if (order.order_status === "cancelled") {
+    const orderStatusLower = toStr(order.order_status).toLowerCase();
+    if (orderStatusLower === "cancelled") {
       await conn.rollback();
       return res.status(400).json({ success: false, message: "Order is already cancelled" });
     }
-    if (order.order_status === "cancellation_requested") {
+    if (orderStatusLower === "cancellation_requested") {
       await conn.rollback();
       return res.status(400).json({
         success: false,
         message: "Your cancellation request is already being processed. We'll notify you once it's confirmed.",
       });
     }
-    // "Ready to Ship" covers every pre-courier-pickup Shiprocket milestone
-    // (NEW / INVOICED / PICKUP SCHEDULED / PICKUP QUEUED / etc.) and does NOT
-    // by itself mean an AWB has been assigned — that's tracked separately via
-    // `order.awb_code`. It must stay cancellable here; the AWB-aware
-    // `hasEnteredShipping` check below is what decides whether we can
+    // Every pre-courier-pickup / in-transit Shiprocket milestone
+    // (NEW / INVOICED / PICKUP SCHEDULED / Ready to Ship / Shipped / Out for
+    // Delivery / etc.) must stay cancellable here — an AWB by itself does not
+    // gate cancellation; `order.awb_code` is what the AWB-aware
+    // `hasEnteredShipping` check below reads to decide whether we can
     // auto-cancel immediately or need to send the request for manual review.
-    // "Invoiced" (literal, title-case) is included as a safety net for any
-    // rows already written before SR_STATUS_MAP learned to map Shiprocket's
-    // "INVOICED" event to "Ready to Ship" — same pre-AWB stage either way.
-    const cancellable = ["pending", "processing", "on-hold", "Invoiced", "Ready to Ship", "Shipped", "Out for Delivery"];
-    if (!cancellable.includes(order.order_status)) {
+    //
+    // IMPORTANT: this used to be an exact-match whitelist of status strings
+    // ("pending", "processing", "Ready to Ship", ...). That silently rejected
+    // valid, cancellable orders whenever a status was written with different
+    // casing than the whitelist entry — e.g. the checkout flow writes
+    // "Processing" (capital P) while the old whitelist only had lowercase
+    // "processing"; a raw Shiprocket webhook status of "INVOICED" (all caps)
+    // didn't match the whitelist's "Invoiced" (title case) either. Any order
+    // sitting at one of those unmatched spellings — including a brand new
+    // order with no AWB yet — got a false "cannot be cancelled" error.
+    // A case-insensitive terminal-state blacklist is robust to that casing
+    // drift across checkout / webhook / legacy code paths.
+    const NON_CANCELLABLE_STATUSES = new Set([
+      "delivered", "returned", "refunded", "failed",
+      "return initiated", "return_initiated", "rto initiated",
+    ]);
+    if (NON_CANCELLABLE_STATUSES.has(orderStatusLower)) {
       await conn.rollback();
       return res.status(400).json({
         success: false,
@@ -2037,8 +2050,8 @@ const cancelShiprocketOrder = async (req, res) => {
       );
     }
 
-    const POST_SHIPMENT_STATUSES = ["Shipped", "Out for Delivery"];
-    const hasEnteredShipping = Boolean(awb) || POST_SHIPMENT_STATUSES.includes(order.order_status);
+    const POST_SHIPMENT_STATUSES = new Set(["shipped", "out for delivery"]);
+    const hasEnteredShipping = Boolean(awb) || POST_SHIPMENT_STATUSES.has(orderStatusLower);
 
     const goPending = async () => {
       const requestedAt = new Date().toISOString();
