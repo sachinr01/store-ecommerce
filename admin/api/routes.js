@@ -102,11 +102,55 @@ router.get('/banners', async (req, res) => {
   try {
     const db = require('../config/db');
     const type = req.query.type || null;
-    const query = type
-      ? "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 AND type=? ORDER BY sort_order ASC, id DESC"
-      : "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 ORDER BY sort_order ASC, id DESC";
-    const [rows] = await db.query(query, type ? [type] : []);
-    res.json({ success: true, data: rows });
+    
+    // Helper to normalize image URLs to relative paths
+    const normalizeImageUrl = (url) => {
+      if (!url) return url;
+      // Strip localhost/domain to make URLs relative
+      return url.replace(/^https?:\/\/[^\/]+/, '');
+    };
+    
+    let query, params;
+    if (type === 'collection') {
+      // For collections, fetch all items (main panels and sliders) and group them
+      query = "SELECT id, title, type, image_url, link_url, sort_order, layout_position, panel_type, parent_id FROM tbl_banners WHERE is_active=1 AND type='collection' ORDER BY sort_order ASC, id ASC";
+      params = [];
+      
+      const [rows] = await db.query(query, params);
+      
+      // Normalize image URLs
+      const normalizedRows = rows.map(r => ({
+        ...r,
+        image_url: normalizeImageUrl(r.image_url)
+      }));
+      
+      // Group: main panels with their sliders
+      const mainPanels = normalizedRows.filter(r => !r.panel_type || r.panel_type === 'main');
+      const grouped = mainPanels.map(main => ({
+        ...main,
+        slides: normalizedRows.filter(r => r.panel_type === 'slider' && r.parent_id === main.id)
+      }));
+      
+      res.json({ success: true, data: grouped });
+    } else if (type) {
+      query = "SELECT id, title, type, image_url, link_url, sort_order, layout_position, panel_type, parent_id FROM tbl_banners WHERE is_active=1 AND type=? ORDER BY sort_order ASC, id DESC";
+      params = [type];
+      const [rows] = await db.query(query, params);
+      const normalizedRows = rows.map(r => ({
+        ...r,
+        image_url: normalizeImageUrl(r.image_url)
+      }));
+      res.json({ success: true, data: normalizedRows });
+    } else {
+      query = "SELECT id, title, type, image_url, link_url, sort_order, layout_position, panel_type, parent_id FROM tbl_banners WHERE is_active=1 ORDER BY sort_order ASC, id DESC";
+      params = [];
+      const [rows] = await db.query(query, params);
+      const normalizedRows = rows.map(r => ({
+        ...r,
+        image_url: normalizeImageUrl(r.image_url)
+      }));
+      res.json({ success: true, data: normalizedRows });
+    }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

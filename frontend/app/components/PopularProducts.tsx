@@ -255,23 +255,29 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
 export function FeaturedCollectionPanels() {
   const [collectionBanners, setCollectionBanners] = useState<import('../lib/api').Banner[]>([]);
   const [categoryBanners, setCategoryBanners]     = useState<import('../lib/api').Banner[]>([]);
-  const [homeCats, setHomeCats] = useState<import('../lib/api').ProductCategory[]>([]);
 
   useEffect(() => {
-    import('../lib/api').then(({ getBanners, getProductCategories }) => {
+    import('../lib/api').then(({ getBanners }) => {
       getBanners('collection').then((d) => { if (d.length) setCollectionBanners(d); }).catch(() => {});
       getBanners('category').then((d)   => { if (d.length) setCategoryBanners(d);   }).catch(() => {});
-      getProductCategories().then((all) => {
-        const filtered = all.filter((c) => c.show_in_home === 1 && c.category_image);
-        if (filtered.length) setHomeCats(filtered);
-      }).catch(() => {});
     });
   }, []);
 
-  // Merge API collection images into collectionRows (replace static panel src)
+  // Merge API collection data into collectionRows
   const mergedRows = collectionRows.map((row, i) => {
     const b = collectionBanners[i];
     if (!b) return row;
+    
+    // Map API slides to component format
+    const dynamicSlides = (b.slides && b.slides.length > 0) 
+      ? b.slides.map(slide => ({
+          title: slide.title || '',
+          src: slide.image_url,
+          alt: slide.title || row.staticPanel.alt,
+          href: slide.link_url || row.staticPanel.href,
+        }))
+      : row.slides; // fallback to static slides if no dynamic slides
+    
     return {
       ...row,
       staticPanel: {
@@ -280,6 +286,7 @@ export function FeaturedCollectionPanels() {
         alt:  b.title || row.staticPanel.alt,
         href: b.link_url || row.staticPanel.href,
       },
+      slides: dynamicSlides,
     };
   });
 
@@ -313,46 +320,25 @@ export function FeaturedCollectionPanels() {
         ))}
       </div>
 
-      {/* Category tiles — priority: homeCats (show_in_home) → categoryBanners → mobilePanels fallback */}
+      {/* Category tiles — driven by admin if available, else fall back to collection mobile panels */}
       <div className="featured-mobile-grid" aria-label="Trending collections">
-        {homeCats.length > 0
-          ? homeCats.map((cat, index) => {
-              const apiOrigin = (() => {
-                const raw = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
-                try { return new URL(raw).origin; } catch { return 'http://localhost:3000'; }
-              })();
-              const src  = apiOrigin + cat.category_image!;
-              const href = `/shop/${cat.category_slug}`;
-              return (
-                <Link href={href} className="featured-mobile-tile" key={`cat-${cat.category_id}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt={cat.category_name} width={420} height={520} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                  <span className="featured-mobile-shade" aria-hidden="true" />
-                  <span className="featured-mobile-content">
-                    <span className="featured-mobile-title">{cat.category_name}</span>
-                    <span className="featured-mobile-button">Explore Collection</span>
-                  </span>
-                </Link>
-              );
-            })
-          : (categoryBanners.length ? categoryBanners : mobilePanels).map((panel, index) => {
-              const isBanner = 'image_url' in panel;
-              const src  = isBanner ? panel.image_url : (panel as MobilePanel).src;
-              const alt  = (isBanner ? panel.title : (panel as MobilePanel).alt) || '';
-              const href = (isBanner ? panel.link_url : (panel as MobilePanel).href) || '/shop';
-              const label = isBanner ? panel.title : (panel as MobilePanel).title;
-              return (
-                <Link href={href} className="featured-mobile-tile" key={`panel-${index}`}>
-                  <Image src={src} alt={alt} width={420} height={520} sizes="50vw" />
-                  <span className="featured-mobile-shade" aria-hidden="true" />
-                  <span className="featured-mobile-content">
-                    <span className="featured-mobile-title">{label}</span>
-                    <span className="featured-mobile-button">Explore Collection</span>
-                  </span>
-                </Link>
-              );
-            })
-        }
+        {(categoryBanners.length ? categoryBanners : mobilePanels).map((panel, index) => {
+          const isBanner = 'image_url' in panel;
+          const src  = isBanner ? panel.image_url : (panel as MobilePanel).src;
+          const alt  = (isBanner ? panel.title : (panel as MobilePanel).alt) || '';
+          const href = (isBanner ? panel.link_url : (panel as MobilePanel).href) || '/shop';
+          const label = isBanner ? panel.title : (panel as MobilePanel).title;
+          return (
+            <Link href={href} className="featured-mobile-tile" key={`panel-${index}`}>
+              <Image src={src} alt={alt} width={420} height={520} sizes="50vw" />
+              <span className="featured-mobile-shade" aria-hidden="true" />
+              <span className="featured-mobile-content">
+                <span className="featured-mobile-title">{label}</span>
+                <span className="featured-mobile-button">Explore Collection</span>
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

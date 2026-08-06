@@ -1,0 +1,306 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/navbar') %>
+<%- include('../../partials/sidebar') %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row align-items-center">
+      <div class="col-7">
+        <h4 class="page-title"><%= title %></h4>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/admin/appearance/collections">Our Collection</a></li>
+            <li class="breadcrumb-item active"><%= collection ? 'Edit' : 'Add' %></li>
+          </ol>
+        </nav>
+      </div>
+      <div class="col-5 text-end">
+        <a href="/admin/appearance/collections" class="btn-view-product btn-view-product--inline na-view-all-btn">
+          <div class="d-flex align-items-center">
+            <i data-feather="arrow-left" class="feather-sm me-1"></i> Back to Collections
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <% if (locals.error) { %>
+      <div class="alert alert-danger alert-dismissible fade show">
+        <i data-feather="alert-circle" class="feather-sm me-1"></i> <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <form method="POST"
+      action="<%= collection && collection.id ? '/admin/appearance/collections/edit/' + collection.id : '/admin/appearance/collections/add' %>">
+
+      <div class="row">
+
+        <!-- LEFT -->
+        <div class="col-lg-8">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-3 border-bottom">Collection Details</h5>
+
+              <input type="hidden" name="panel_type" value="<%= formType %>">
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Title</label>
+                <input type="text" name="title" class="form-control"
+                  placeholder="e.g. Dinnerware"
+                  value="<%= (collection && collection.title) || '' %>">
+              </div>
+
+              <% if (formType === 'main') { %>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Layout Position</label>
+                  <select name="layout_position" class="form-select">
+                    <option value="left" <%= (!collection || collection.layout_position === 'left') ? 'selected' : '' %>>Left Side</option>
+                    <option value="right" <%= (collection && collection.layout_position === 'right') ? 'selected' : '' %>>Right Side</option>
+                  </select>
+                  <small class="text-muted">Position of the main panel in the collection row</small>
+                </div>
+              <% } %>
+
+              <% if (formType === 'slider') { %>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Parent Main Panel</label>
+                  <select name="parent_id" class="form-select" required>
+                    <option value="">Select main panel...</option>
+                    <% if (locals.mainPanels && mainPanels.length) { %>
+                      <% mainPanels.forEach(panel => { %>
+                        <option value="<%= panel.id %>" <%= (collection && collection.parent_id === panel.id) ? 'selected' : '' %>>
+                          <%= panel.title || 'Untitled' %> (<%= panel.layout_position || 'left' %>)
+                        </option>
+                      <% }) %>
+                    <% } %>
+                  </select>
+                  <small class="text-muted">Link this slider item to a main panel</small>
+                </div>
+
+                <!-- Category Selection for Slider Items -->
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Use Category Image (Optional)</label>
+                  <select id="categorySelect" class="form-select" onchange="loadCategoryImage()">
+                    <option value="">Select a category...</option>
+                    <% if (locals.categories && categories.length) { %>
+                      <% categories.forEach(cat => { %>
+                        <% if (cat.category_image) { %>
+                          <option value="<%= cat.category_id %>" 
+                            data-image="<%= cat.category_image %>"
+                            data-name="<%= cat.category_name %>"
+                            data-slug="<%= cat.category_slug %>">
+                            <%= cat.category_name %>
+                          </option>
+                        <% } %>
+                      <% }) %>
+                    <% } %>
+                  </select>
+                  <small class="text-muted">Automatically use image and link from existing category</small>
+                </div>
+              <% } %>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Link URL</label>
+                <input type="text" name="link_url" class="form-control"
+                  placeholder="/shop or https://..."
+                  value="<%= (collection && collection.link_url) || '' %>">
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-lg-4">
+
+          <!-- Collection Image -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h4 class="card-title mb-3 pb-3 border-bottom">Collection Image</h4>
+              <p class="text-muted small mb-3">Recommended size: 1200 × 800 pixels</p>
+
+              <input type="hidden" name="image_url" id="bannerImageUrl"
+                value="<%= (collection && collection.image_url) || '' %>">
+
+              <!-- Featured Image -->
+              <div class="mb-3">
+                <div class="border rounded p-3 text-center" id="bannerImagePreview"
+                  style="min-height:150px;cursor:pointer;"
+                  onclick="openMedia({ urlInput:'bannerImageUrl', preview:'bannerImagePreviewInner' })">
+                  <div id="bannerImagePreviewInner">
+                    <% if (collection && collection.image_url) { %>
+                      <img src="<%= collection.image_url %>" class="img-fluid rounded" style="max-height:150px;" />
+                    <% } else { %>
+                      <div>
+                        <i data-feather="image" style="width:48px;height:48px;"
+                          class="text-muted mb-2 d-block mx-auto"></i>
+                        <p class="text-muted small mb-0">Click to select image</p>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+
+                <button type="button" id="btnRemoveImage"
+                  class="btn btn-link btn-sm text-danger p-0 mt-1"
+                  onclick="removeBannerImage()"
+                  style="<%= (collection && collection.image_url) ? '' : 'display:none;' %>">
+                  <i data-feather="trash-2" class="feather-sm me-1"></i> Remove image
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Settings -->
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-3 border-bottom">Settings</h5>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Status</label>
+                <select name="is_active" class="form-select">
+                  <option value="1" <%= (!collection || collection.is_active) ? 'selected' : '' %>>Active</option>
+                  <option value="0" <%= (collection && !collection.is_active) ? 'selected' : '' %>>Inactive</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Order <small class="text-muted fw-normal">(lower = first)</small></label>
+                <input type="number" name="sort_order" class="form-control" min="0"
+                  value="<%= (collection && collection.sort_order !== undefined) ? collection.sort_order : 0 %>">
+              </div>
+
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill">
+                  <i data-feather="save" class="feather-sm me-1"></i>
+                  <%= collection && collection.id ? 'Update Collection' : 'Save Collection' %>
+                </button>
+                <a href="/admin/appearance/collections" class="btn btn-outline-secondary rounded-pill">Cancel</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<%- include('../../partials/scripts') %>
+<script>
+  feather.replace();
+
+  // ── Load category image when selected ─────────────────────────────────────
+  function loadCategoryImage() {
+    const select = document.getElementById('categorySelect');
+    const option = select.options[select.selectedIndex];
+    
+    if (!option.value) return;
+    
+    // Build the image URL - category_image is already a relative path like /uploads/categories/...
+    // We need the admin server origin (without /api suffix if present)
+    const adminOrigin = window.location.origin; // e.g. http://localhost:3000
+    const imageUrl = adminOrigin + option.dataset.image;
+    const categoryName = option.dataset.name;
+    const categorySlug = option.dataset.slug;
+    const linkUrl = '/shop/' + categorySlug;
+    
+    // Update title
+    document.querySelector('input[name="title"]').value = categoryName;
+    
+    // Update link
+    document.querySelector('input[name="link_url"]').value = linkUrl;
+    
+    // Update image
+    document.getElementById('bannerImageUrl').value = imageUrl;
+    document.getElementById('bannerImagePreviewInner').innerHTML =
+      `<img src="${imageUrl}" class="img-fluid rounded" style="max-height:150px;">`;
+    document.getElementById('btnRemoveImage').style.display = '';
+    
+    // Show success message
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+    alertDiv.innerHTML = `
+      <i data-feather="check-circle" class="feather-sm me-1"></i>
+      Category image loaded: ${categoryName}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    select.parentElement.appendChild(alertDiv);
+    feather.replace();
+    
+    setTimeout(() => alertDiv.remove(), 3000);
+  }
+
+  // ── Remove image ──────────────────────────────────────────────────────────
+  function removeBannerImage() {
+    document.getElementById('bannerImageUrl').value = '';
+    document.getElementById('bannerImagePreviewInner').innerHTML = `
+      <div>
+        <i data-feather="image" style="width:48px;height:48px;" class="text-muted mb-2 d-block mx-auto"></i>
+        <p class="text-muted small mb-0">Click to select image</p>
+      </div>`;
+    document.getElementById('btnRemoveImage').style.display = 'none';
+    feather.replace();
+  }
+
+  // ── After media modal inserts URL ─────────────────────────────────────────
+  const _origInsert = window.insertSelectedMedia;
+  window.insertSelectedMedia = function () {
+    _origInsert && _origInsert();
+    const url = document.getElementById('bannerImageUrl').value;
+    if (!url) return;
+    document.getElementById('bannerImagePreviewInner').innerHTML =
+      `<img src="${url}" class="img-fluid rounded" style="max-height:150px;">`;
+    document.getElementById('btnRemoveImage').style.display = '';
+  };
+
+  // Prevent footer's window.load from calling generic loadMedia
+  mediaLoaded = true;
+
+  // ── Media modal scoped to collections folder ─────────────────────────────
+  window.addEventListener('load', function () {
+    window.loadMedia = function (page) {
+      page = page || 1;
+      fetch('/admin/media?page=' + page + '&folder=collections')
+        .then(r => r.json())
+        .then(data => {
+          mediaCurrentPage = data.page       || 1;
+          mediaTotalPages  = data.totalPages || 1;
+          mediaLoaded      = true;
+          renderMedia(data.images || []);
+        })
+        .catch(() => mediaShowAlert('danger', 'Failed to load media.'));
+    };
+
+    window.uploadMedia = function () {
+      const input = document.getElementById('mediaUploadInput');
+      const files = input.files;
+      if (!files.length) return;
+      const formData = new FormData();
+      for (const f of files) formData.append('files', f);
+
+      fetch('/admin/media/upload/collections', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          input.value = '';
+          showMediaTab('library');
+          mediaLoaded = false;
+          loadMedia(1);
+          if (data.files && data.files.length) {
+            const n = data.files.length;
+            setTimeout(() => mediaShowAlert('success', n + ' image' + (n > 1 ? 's' : '') + ' uploaded.'), 300);
+          }
+        })
+        .catch(() => mediaShowAlert('danger', 'Upload failed.'));
+    };
+
+    loadMedia(1);
+  });
+</script>
+
+<%- include('../../partials/footer') %>

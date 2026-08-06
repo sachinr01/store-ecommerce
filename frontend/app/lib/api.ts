@@ -206,7 +206,6 @@ export interface ProductCategory {
   category_name: string;
   category_desc: string;
   category_image?: string | null;
-  show_in_home?: number;
 }
 
 export const getProductCategories = () => apiFetch<ProductCategory[]>('/product-categories');
@@ -465,6 +464,9 @@ export interface Banner {
   image_url: string;
   link_url: string | null;
   sort_order: number;
+  panel_type?: string | null;
+  parent_id?: number | null;
+  slides?: Banner[];
 }
 
 export const getBanners = (type?: string) =>

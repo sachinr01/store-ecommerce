@@ -57,8 +57,6 @@
                 <select name="type" id="bannerType" class="form-select" onchange="updateDimensionHint()">
                   <% const typeMap = {
                     banner:     { label: 'Banner',                   w: 2008, h: 783 },
-                    collection: { label: 'Collection',               w: 1200, h: 800 },
-                    category:   { label: 'Category',                 w: 828,  h: 828 },
                     nestcase:   { label: 'Nestcase Shop Collection',  w: 1831, h: 859 },
                     gifing:     { label: 'Gifing',                   w: 1098, h: 1432 },
                   }; %>
@@ -172,8 +170,6 @@
   // ── Dimension map (must match server-side type options) ───────────────────
   const DIMS = {
     banner:     { w: 2008, h: 783  },
-    collection: { w: 1200, h: 800  },
-    category:   { w: 828,  h: 828  },
     nestcase:   { w: 1831, h: 859  },
     gifing:     { w: 1098, h: 1432 },
   };

@@ -39,6 +39,8 @@ export default function Slider() {
               alt={slide.title || "Banner"}
               className="slider-bg-img"
               style={{ cursor: "pointer" }}
+              loading={index === 0 ? "eager" : "lazy"}
+              fetchPriority={index === 0 ? "high" : "low"}
             />
           </Link>
         </div>
