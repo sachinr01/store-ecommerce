@@ -213,7 +213,7 @@ export default function OrdersPage() {
     setCancelNotice('');
     try {
       const result = await cancelMyOrder(orderId, reason, customReason || undefined);
-      const nextStatus = result.cancellation_status === 'pending' ? 'cancellation_requested' : 'cancelled';
+      const nextStatus = result.cancellation_status === 'pending' ? 'cancel_pending' : 'cancelled';
       setOrders((prev) =>
         prev.map((o) =>
           Number(o.order_id) === orderId ? { ...o, order_status: nextStatus } : o,

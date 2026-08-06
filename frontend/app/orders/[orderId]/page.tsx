@@ -429,7 +429,7 @@ export default function OrderDetailPage() {
         );
         setData((prev) =>
           prev
-            ? { ...prev, order: { ...prev.order, order_status: 'cancellation_requested' } }
+            ? { ...prev, order: { ...prev.order, order_status: 'cancel_pending' } }
             : prev,
         );
       } else {

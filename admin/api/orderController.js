@@ -386,12 +386,12 @@ async function getTrackingStatus(req, res) {
     // This route is called on every page load (a read), so without this
     // guard, simply viewing the tracking page while ops is manually
     // cancelling on the Shiprocket panel could silently revert
-    // "cancellation_requested" back to "Shipped" — bypassing stock
+    // "cancel_pending" back to "Shipped" — bypassing stock
     // restoration and notifications entirely. Cancellation status changes
     // must only happen through cancelShiprocketOrder / updateOrderStatus /
     // receiveShipmentWebhook, never here.
     const PROTECTED_STATUSES = new Set([
-      "cancelled", "cancellation_requested", "refunded", "failed",
+      "cancelled", "cancel_pending", "refunded", "failed",
       "delivered", "completed", "returned",
     ]);
     const [[currentOrderRow]] = await db.query(
@@ -504,7 +504,7 @@ function mapShiprocketTrackingStatus(rawStatus) {
 // with a stale or unmapped raw status (this is how a delivered order could
 // end up showing "New" — a later sync silently regressed it).
 const SYNC_PROTECTED_STATUSES = new Set([
-  "cancelled", "cancellation_requested", "refunded", "failed",
+  "cancelled", "cancel_pending", "refunded", "failed",
   "delivered", "completed", "returned",
 ]);
 
@@ -2887,7 +2887,7 @@ const updateOrderStatus = async (req, res) => {
     "pending",
     "processing",
     "on-hold",
-    "cancellation_requested",
+    "cancel_pending",
     "completed",
     "cancelled",
     "refunded",
@@ -2917,7 +2917,7 @@ const updateOrderStatus = async (req, res) => {
     const shipmentId = toStr(currentOrder?.shipment_id);
     const srCartId   = toStr(currentOrder?.sr_cart_id);
 
-    if (status === "cancelled" && previousStatus !== "cancelled" && previousStatus !== "cancellation_requested") {
+    if (status === "cancelled" && previousStatus !== "cancelled" && previousStatus !== "cancel_pending") {
       const {
         resolveShiprocketPanelOrderId,
         cancelOnShiprocketPanel,
@@ -2928,7 +2928,7 @@ const updateOrderStatus = async (req, res) => {
       const goPending = async () => {
         const requestedAt = new Date().toISOString();
         await conn.query(
-          "UPDATE tbl_orders SET order_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?",
+          "UPDATE tbl_orders SET order_status = 'cancel_pending', order_modified = NOW() WHERE order_id = ?",
           [orderId],
         );
         await conn.query(
@@ -2948,7 +2948,7 @@ const updateOrderStatus = async (req, res) => {
 
         return res.json({
           success: true,
-          message: "Shiprocket could not cancel this order automatically — flagged as cancellation_requested and ops notified.",
+          message: "Shiprocket could not cancel this order automatically — flagged as cancel_pending and ops notified.",
           cancellation_status: "pending",
         });
       };
@@ -2984,7 +2984,7 @@ const updateOrderStatus = async (req, res) => {
       cancelled:               "CANCELLED",
       refunded:                "REFUNDED",
       failed:                  "FAILED",
-      cancellation_requested:  "CANCELLATION REQUESTED",
+      cancel_pending:  "CANCELLATION REQUESTED",
       processing:              "PROCESSING",
       "on-hold":               "ON HOLD",
       pending:                 "PENDING",
@@ -3092,7 +3092,7 @@ const trackOrderById = async (req, res) => {
     // getTrackingStatus / trackOrderByPhone) — never let a read-only page
     // view revert a cancellation/refund back to a shipping status.
     const PROTECTED_STATUSES = [
-      "cancelled", "cancellation_requested", "refunded", "failed",
+      "cancelled", "cancel_pending", "refunded", "failed",
       "Delivered", "Returned",
     ];
     const isProtected = PROTECTED_STATUSES.includes(order.order_status);
@@ -3397,9 +3397,9 @@ const trackOrderByPhone = async (req, res) => {
     // Never let a live pull overwrite an order that's already in a protected
     // terminal / in-progress state (same rationale as getTrackingStatus above) —
     // otherwise viewing this page mid-cancellation could silently revert
-    // "cancellation_requested" back to a shipping status.
+    // "cancel_pending" back to a shipping status.
     const PROTECTED_STATUSES = [
-      "cancelled", "cancellation_requested", "refunded", "failed",
+      "cancelled", "cancel_pending", "refunded", "failed",
       "Delivered", "Returned",
     ];
     const isProtected = PROTECTED_STATUSES.includes(order.order_status);

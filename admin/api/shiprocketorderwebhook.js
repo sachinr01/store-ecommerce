@@ -1998,7 +1998,7 @@ const cancelShiprocketOrder = async (req, res) => {
       await conn.rollback();
       return res.status(400).json({ success: false, message: "Order is already cancelled" });
     }
-    if (orderStatusLower === "cancellation_requested") {
+    if (orderStatusLower === "cancel_pending") {
       await conn.rollback();
       return res.status(400).json({
         success: false,
@@ -2056,7 +2056,7 @@ const cancelShiprocketOrder = async (req, res) => {
     const goPending = async () => {
       const requestedAt = new Date().toISOString();
       await conn.query(
-        `UPDATE tbl_orders SET order_status = 'cancellation_requested', shipping_status = 'cancellation_requested', order_modified = NOW() WHERE order_id = ?`,
+        `UPDATE tbl_orders SET order_status = 'cancel_pending', shipping_status = 'cancel_pending', order_modified = NOW() WHERE order_id = ?`,
         [orderId],
       );
       await conn.query(
@@ -2064,7 +2064,7 @@ const cancelShiprocketOrder = async (req, res) => {
         [orderId, requestedAt],
       );
       await conn.commit();
-      console.log(`[cancelShiprocketOrder] ⏳ Order ${orderId} (status=${order.order_status}) → cancellation_requested, ops notified.`);
+      console.log(`[cancelShiprocketOrder] ⏳ Order ${orderId} (status=${order.order_status}) → cancel_pending, ops notified.`);
 
       notifyAdminOfCancellationRequest({
         orderId, srCartId, requestedAt, awb, shipmentId, reasonLabel,
@@ -2329,7 +2329,7 @@ const receiveShipmentWebhook = async (req, res) => {
       "Out for Delivery",
       "Delivered",
     ];
-    const isCancellationStatus = ["cancelled", "cancellation_requested",
+    const isCancellationStatus = ["cancelled", "cancel_pending",
       "Return Initiated", "Returned"].includes(mappedStatus);
     const currentIdx = STATUS_ORDER.indexOf(currentStatus);
     const mappedIdx  = STATUS_ORDER.indexOf(mappedStatus);
@@ -2411,7 +2411,7 @@ const receiveShipmentWebhook = async (req, res) => {
       .then(() => console.log(`[SR ShipmentWebhook] Stock restored for cancelled order_id=${orderId}`))
       .catch((e) => console.error(`[SR ShipmentWebhook] Stock restore failed for order_id=${orderId}:`, e.message));
 
-    // Closes the loop for orders that went "cancellation_requested" → ops
+    // Closes the loop for orders that went "cancel_pending" → ops
     notifyCustomerOfCancellation({ orderId, mode: "cancelled" })
       .catch((e) => console.error(`[SR ShipmentWebhook] cancelled customer email failed for order_id=${orderId}:`, e.message));
     notifyAdminOfOrderAutoCancelled({

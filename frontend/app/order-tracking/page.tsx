@@ -395,7 +395,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
         );
         onOrderCancelled({
           ...data,
-          order: { ...data.order, order_status: 'cancellation_requested' },
+          order: { ...data.order, order_status: 'cancel_pending' },
         });
       } else {
         setCancelSuccess(result.message || 'Your order has been cancelled successfully.');
