@@ -52,11 +52,13 @@ function OrderSuccessContent() {
     });
   }, [isPending, clearCart]);
 
-  // ── Wigzo `order` event — PDF trigger point: Thank You Page ──────────────
+  // ── Wigzo `order` + `buy` events — PDF trigger point: Thank You Page ─────
   // Fires once per page load, client-side, exactly as the PDF documents:
   //   wigzo("track", "order", { orderId, phone, fullName, ... })
+  //   wigzo("track", "buy", ["productId1", "productId2"])   ← optional, point 7
+  // Both fire on the same page (Thank You) using the same fetched order data.
   // Fetches real order data from our backend using the DB order_id,
-  // then calls wigzoOrder() from wigzo.ts.
+  // then calls wigzoOrder() and wigzoBuy() from wigzo.ts.
   useEffect(() => {
     if (!dbOrderId || wigzoFiredRef.current) return;
     wigzoFiredRef.current = true;
@@ -67,8 +69,11 @@ function OrderSuccessContent() {
         if (!res.ok) return;
         const json = await res.json();
         if (!json?.success || !json?.data) return;
-        const { wigzoOrder } = await import('../../lib/wigzo');
+        const { wigzoOrder, wigzoBuy } = await import('../../lib/wigzo');
         wigzoOrder(json.data);
+        if (Array.isArray(json.data.productIds) && json.data.productIds.length > 0) {
+          wigzoBuy(json.data.productIds);
+        }
       } catch {
         // Non-fatal — never break the success page for a tracking call.
       }

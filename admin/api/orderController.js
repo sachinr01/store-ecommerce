@@ -3822,6 +3822,19 @@ const getOrderWigzoData = async (req, res) => {
     // Resolve category for first item
     const { category, type } = await resolveProductCategoryForWigzo(item?.product_id);
 
+    // Fetch ALL product ids in this order — needed for the optional `buy` event,
+    // which per the PDF takes an array of every purchased product id
+    // (wigzo("track", "buy", ["productId1", "productId2"])), unlike `order`
+    // which only carries one line item's product_id.
+    const [buyItems] = await db.query(
+      `SELECT oi.product_id
+       FROM tbl_order_items oi
+       WHERE oi.order_id = ? AND oi.order_item_type = 'line_item' AND oi.product_id IS NOT NULL
+       ORDER BY oi.order_item_id ASC`,
+      [orderId],
+    );
+    const productIds = buyItems.map((r) => String(r.product_id)).filter(Boolean);
+
     const isCod = toStr(row.payment_method).toLowerCase() === 'cod';
     // Prefer sr_cart_id directly from tbl_orders column (most reliable),
     // fall back to the ordermeta copy (_sr_cart_id key), then DB order_id as last resort.
@@ -3872,6 +3885,8 @@ const getOrderWigzoData = async (req, res) => {
         })(),
         categories:             category,
         type,
+        // For the optional `buy` event — all product ids purchased in this order.
+        productIds,
       },
     });
   } catch (err) {
