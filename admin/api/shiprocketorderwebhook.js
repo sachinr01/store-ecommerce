@@ -1240,7 +1240,7 @@ const fetchSROrderDetails = async (srOrderId) => {
       .digest("base64");
 
     const response = await axios.post(
-      "https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details",
+      "https://checkout-api.shiprocket.com/api/v1/custom-platform-order/details",
       body,
       {
         headers: {
