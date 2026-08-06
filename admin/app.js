@@ -65,9 +65,7 @@ const blogRoutes = require('./routes/blogRoutes');
 const pagesRoutes = require('./routes/pagesRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
-const collectionRoutes = require('./routes/collectionRoutes');
 
-app.use('/admin/appearance/collections', collectionRoutes);
 app.use('/admin', bannerRoutes);
 app.use('/admin', newsletterRoutes);
 app.use('/admin', pagesRoutes);
@@ -89,6 +87,7 @@ app.use('/api', (req, res, next) => {
     const allowed = [
         process.env.FRONTEND_URL,
         'http://localhost:3001',
+        'https://www.gaffis.org',
         ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
     ].filter(Boolean);
     const origin = req.headers.origin;

@@ -181,6 +181,8 @@
                                   <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Parent</th>
                                   <th class="text-uppercase text-muted fw-semibold small"
+                                    style="letter-spacing:.05em; font-size:.72rem;">Home</th>
+                                  <th class="text-uppercase text-muted fw-semibold small"
                                     style="letter-spacing:.05em; font-size:.72rem;">Actions</th>
                                 </tr>
                               </thead>
@@ -245,6 +247,18 @@
                                         <% } else { %>
                                           <span class="text-muted small">—</span>
                                           <% } %>
+                                    </td>
+
+                                    <!-- Show in Home toggle -->
+                                    <td>
+                                      <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input toggle-home" type="checkbox" role="switch"
+                                          data-id="<%= cat.category_id %>"
+                                          <%= cat.show_in_home ? 'checked' : '' %>>
+                                        <label class="form-check-label home-label-<%= cat.category_id %> small text-muted">
+                                          <%= cat.show_in_home ? 'Yes' : 'No' %>
+                                        </label>
+                                      </div>
                                     </td>
 
                                     <!-- Actions -->
@@ -518,6 +532,21 @@
             await validateCatDimensions(url, ctx);
             _catMediaContext = null;
           };
+
+          // Show-in-home toggles (AJAX)
+          document.querySelectorAll('.toggle-home').forEach(toggle => {
+            toggle.addEventListener('change', async function () {
+              const id = this.dataset.id;
+              const label = document.querySelector('.home-label-' + id);
+              const res = await fetch('/admin/product/category/toggle-home/' + id, { method: 'POST' });
+              const json = await res.json();
+              if (json.success) {
+                label.textContent = json.show_in_home ? 'Yes' : 'No';
+              } else {
+                this.checked = !this.checked;
+              }
+            });
+          });
 
           // Live table search
           function filterCats() {

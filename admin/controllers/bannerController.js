@@ -4,8 +4,7 @@ const db = require('../config/db');
 const index = async (req, res) => {
   try {
     const [banners] = await db.query(
-      'SELECT * FROM tbl_banners WHERE type != ? ORDER BY sort_order ASC, id DESC',
-      ['Collection']
+      'SELECT * FROM tbl_banners ORDER BY sort_order ASC, id DESC'
     );
     res.render('appearance/banners/index', {
       title: 'Banners',
@@ -20,28 +19,18 @@ const index = async (req, res) => {
 };
 
 // Show add form
-const addForm = async (req, res) => {
-  try {
-    res.render('appearance/banners/form', {
-      title: 'Add Banner',
-      banner: null,
-      error: null,
-    });
-  } catch (err) {
-    console.error('bannerController.addForm:', err.message);
-    res.render('appearance/banners/form', {
-      title: 'Add Banner',
-      banner: null,
-      error: err.message,
-    });
-  }
+const addForm = (req, res) => {
+  res.render('appearance/banners/form', {
+    title: 'Add Banner',
+    banner: null,
+    error: null,
+  });
 };
 
 // Store new banner
 const store = async (req, res) => {
   try {
     const { title, type, link_url, image_url, sort_order, is_active } = req.body;
-    
     if (!image_url) {
       return res.render('appearance/banners/form', {
         title: 'Add Banner',
@@ -49,20 +38,12 @@ const store = async (req, res) => {
         error: 'Please select a banner image.',
       });
     }
-    
     await db.query(
       `INSERT INTO tbl_banners (title, type, link_url, image_url, sort_order, is_active)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        title, 
-        type || 'banner', 
-        link_url, 
-        image_url, 
-        parseInt(sort_order) || 0, 
-        is_active === '1' ? 1 : 0
-      ]
+      [title, type || 'banner', link_url, image_url, parseInt(sort_order) || 0, is_active === '1' ? 1 : 0]
     );
-    res.redirect('/admin/appearance/banners');
+    res.redirect('/admin/appearance/banners?success=Banner added successfully');
   } catch (err) {
     console.error('bannerController.store:', err.message);
     res.render('appearance/banners/form', {
@@ -78,7 +59,6 @@ const editForm = async (req, res) => {
   try {
     const [[banner]] = await db.query('SELECT * FROM tbl_banners WHERE id = ?', [req.params.id]);
     if (!banner) return res.redirect('/admin/appearance/banners?error=Banner not found');
-    
     res.render('appearance/banners/form', {
       title: 'Edit Banner',
       banner,
@@ -94,7 +74,6 @@ const editForm = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { title, type, link_url, image_url, sort_order, is_active } = req.body;
-    
     if (!image_url) {
       const [[banner]] = await db.query('SELECT * FROM tbl_banners WHERE id = ?', [req.params.id]);
       return res.render('appearance/banners/form', {
@@ -103,18 +82,9 @@ const update = async (req, res) => {
         error: 'Please select a banner image.',
       });
     }
-    
     await db.query(
       `UPDATE tbl_banners SET title=?, type=?, link_url=?, image_url=?, sort_order=?, is_active=? WHERE id=?`,
-      [
-        title, 
-        type || 'banner', 
-        link_url, 
-        image_url, 
-        parseInt(sort_order) || 0, 
-        is_active === '1' ? 1 : 0,
-        req.params.id
-      ]
+      [title, type || 'banner', link_url, image_url, parseInt(sort_order) || 0, is_active === '1' ? 1 : 0, req.params.id]
     );
     res.redirect('/admin/appearance/banners?success=Banner updated successfully');
   } catch (err) {
@@ -162,4 +132,3 @@ const reorder = async (req, res) => {
 };
 
 module.exports = { index, addForm, store, editForm, update, destroy, toggleStatus, reorder };
-

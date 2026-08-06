@@ -817,7 +817,6 @@ input[type="checkbox"] {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: #fff;
 }
 
 .nh-announcement {
@@ -2721,16 +2720,12 @@ input[type="checkbox"] {
   width: 100%;
   overflow: hidden;
   background-color: transparent;
-  aspect-ratio: 2008 / 783;
-  /* Maintains proper aspect ratio (2.56:1) based on banner dimensions */
+  /* height: 676px; */
+  /* Adjust banner height */
 }
 
 .slider-slide {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
-  height: 100%;
 }
 
 .slider-slide.active {
@@ -2743,10 +2738,8 @@ input[type="checkbox"] {
 
 .slider-bg-img {
   width: 100%;
-  height: 100%;
   display: block;
-  object-fit: cover;
-  object-position: center;
+  /* No object-fit; stretches exactly to width & height */
 }
 
 /* DOTS */
@@ -2810,15 +2803,15 @@ input[type="checkbox"] {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
-  .slider-root {
-    aspect-ratio: 2008 / 783;
-  }
+  /* .slider-root {
+    height: 380px;
+  } */
 }
 
 @media (max-width: 768px) {
-  .slider-root {
-    aspect-ratio: 2008 / 783;
-  }
+  /* .slider-root {
+    height: 300px;
+  } */
 
   .slider-dots {
     bottom: 14px;
@@ -2833,9 +2826,9 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 480px) {
-  .slider-root {
-    aspect-ratio: 2008 / 783;
-  }
+  /* .slider-root {
+    height: 220px;
+  } */
 }
 
 /* ===== frontend/app/components/TrustBar.css ===== */
@@ -3691,16 +3684,19 @@ input[type="checkbox"] {
   position: relative;
   overflow: hidden;
   background: #f3f3f3;
-  aspect-ratio: 1098 / 1432;
-  /* Maintains proper aspect ratio (0.767:1) based on gifting banner dimensions */
+  /*  */
+  /* height: 530px; */
+  /*  */
 }
 
 .gw-panel img {
   width: 100%;
-  height: 100%;
+  /*  */
+  /* height: 100%;
   object-fit: cover;
   object-position: center;
-  display: block;
+  display: block; */
+  /*  */
   transition: transform 0.5s ease;
 }
 
@@ -3714,13 +3710,13 @@ input[type="checkbox"] {
   left: 0;
   right: 0;
   text-align: center;
-  z-index: 1;
 }
 
 .gw-panel-link {
   display: inline-block;
   font-size: 12px;
   font-weight: 600;
+  /* letter-spacing: 0.12em; */
   text-transform: uppercase;
   color: #fff;
   text-decoration: underline;
@@ -3731,21 +3727,17 @@ input[type="checkbox"] {
   .gw-section {
     padding: 15px 0;
   }
-  
-  .gw-panel {
-    aspect-ratio: 1098 / 1432;
-  }
 }
 
 @media (max-width: 480px) {
-  .gw-grid {
-    gap: 8px;
-  }
-  
-  .gw-panel {
-    aspect-ratio: 1098 / 1432;
-  }
-
+  /* .gw-grid {
+    grid-template-columns: 1fr;
+  } */
+/*  */
+  /* .gw-panel {
+    height: 280px;
+  } */
+/*  */
   .gw-title{
     margin: 0 0 15px;
   }
@@ -3944,8 +3936,6 @@ input[type="checkbox"] {
 .featured-collections-section {
   background: #fff;
   padding: 30px 0 30px;
-  position: relative;
-  z-index: 1;
 }
 .featured-collections {
   display: flex;

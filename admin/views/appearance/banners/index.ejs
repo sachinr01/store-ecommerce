@@ -134,29 +134,27 @@
   feather.replace();
 
   $(document).ready(function () {
-    <% if (banners && banners.length) { %>
-      $('#bannersTable').DataTable({
-        responsive: true,
-        autoWidth: false,
-        order: [[4, 'asc']],
-        pageLength: 10,
-        columnDefs: [
-          { orderable: false, targets: [0, 5, 6] }
-        ],
-        language: {
-          emptyTable: 'No banners found',
-          info: 'Showing _START_ to _END_ of _TOTAL_ banners',
-          infoEmpty: 'Showing 0 to 0 of 0 banners',
-          search: 'Search banners:',
-          paginate: {
-            first: 'First',
-            last: 'Last',
-            next: 'Next',
-            previous: 'Previous'
-          }
+    $('#bannersTable').DataTable({
+      responsive: true,
+      autoWidth: false,
+      order: [[4, 'asc']],
+      pageLength: 10,
+      columnDefs: [
+        { orderable: false, targets: [0, 5, 6] }
+      ],
+      language: {
+        emptyTable: 'No banners found',
+        info: 'Showing _START_ to _END_ of _TOTAL_ banners',
+        infoEmpty: 'Showing 0 to 0 of 0 banners',
+        search: 'Search banners:',
+        paginate: {
+          first: 'First',
+          last: 'Last',
+          next: 'Next',
+          previous: 'Previous'
         }
-      });
-    <% } %>
+      }
+    });
   });
 
   // Toggle status

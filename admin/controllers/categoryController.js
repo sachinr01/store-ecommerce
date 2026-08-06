@@ -72,3 +72,21 @@ exports.delete = async (req, res) => {
     "/admin/products/categories?success=Category deleted successfully",
   );
 };
+
+// TOGGLE SHOW IN HOME (AJAX)
+exports.toggleHome = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [[cat]] = await db.query(
+      "SELECT show_in_home FROM tbl_products_category WHERE category_id=?", [id]
+    );
+    if (!cat) return res.status(404).json({ success: false });
+    const next = cat.show_in_home ? 0 : 1;
+    await db.query(
+      "UPDATE tbl_products_category SET show_in_home=? WHERE category_id=?", [next, id]
+    );
+    res.json({ success: true, show_in_home: next });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
