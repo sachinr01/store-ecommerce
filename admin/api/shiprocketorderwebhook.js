@@ -2437,4 +2437,5 @@ module.exports = {
   notifyAdminOfCancellationRequest,
   notifyAdminOfOrderAutoCancelled,
   notifyCustomerOfCancellation,
+  restoreOrderStock,
 };

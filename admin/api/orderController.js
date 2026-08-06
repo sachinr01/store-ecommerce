@@ -453,6 +453,13 @@ async function getTrackingStatus(req, res) {
 
 const SHIPROCKET_TRACKING_STATUS_MAP = {
   "NEW":                           "Ready to Ship",
+  // FIX: was missing here (present in the other two Shiprocket status maps
+  // in this codebase). Without this entry, mapShiprocketTrackingStatus()
+  // fell through to `key || rawStatus` and wrote the literal raw string
+  // "INVOICED" straight into tbl_orders.order_status — a value the
+  // frontend's normalizeStatus() doesn't recognize as "Ready to Ship",
+  // so the tracking page regressed to showing "Processing" instead.
+  "INVOICED":                      "Ready to Ship",
   "PICKUP SCHEDULED":              "Ready to Ship",
   "PICKUP ERROR":                  "Ready to Ship",
   "PICKUP QUEUED":                 "Ready to Ship",
@@ -489,6 +496,17 @@ function mapShiprocketTrackingStatus(rawStatus) {
   const key = toStr(rawStatus).toUpperCase().trim();
   return SHIPROCKET_TRACKING_STATUS_MAP[key] || key;
 }
+
+// FIX: shared guard, mirroring the PROTECTED_STATUSES set already used in
+// getTrackingStatus() below. syncShipmentByShipmentId() and
+// syncShipmentByOrderReferences() previously had no equivalent guard, so a
+// stray/late sync call could overwrite a Delivered/Returned/Cancelled order
+// with a stale or unmapped raw status (this is how a delivered order could
+// end up showing "New" — a later sync silently regressed it).
+const SYNC_PROTECTED_STATUSES = new Set([
+  "cancelled", "cancellation_requested", "refunded", "failed",
+  "delivered", "completed", "returned",
+]);
 
 function extractShiprocketTrackingIdentity(trackingData = {}) {
   const track = trackingData?.shipment_track?.[0] ||
@@ -538,6 +556,14 @@ async function syncShipmentByShipmentId(orderId, shipmentId) {
     ? mapShiprocketTrackingStatus(identity.rawStatus)
     : "";
 
+  // FIX: guard against clobbering a terminal order with a stale/unmapped
+  // status pulled from this background sync. See SYNC_PROTECTED_STATUSES.
+  const [[currentRow]] = await db.query(
+    `SELECT order_status FROM tbl_orders WHERE order_id = ? LIMIT 1`,
+    [orderId],
+  );
+  const isProtected = SYNC_PROTECTED_STATUSES.has(toStr(currentRow?.order_status).toLowerCase());
+
   const fields = [];
   const params = [];
   if (identity.awb) {
@@ -548,13 +574,16 @@ async function syncShipmentByShipmentId(orderId, shipmentId) {
     fields.push("courier_name = ?");
     params.push(identity.courier);
   }
-  if (mappedStatus) {
+  if (mappedStatus && !isProtected) {
     fields.push("order_status = ?");
     params.push(mappedStatus);
   }
-  if (identity.rawStatus) {
+  if (identity.rawStatus && !isProtected) {
     fields.push("shipping_status = ?");
     params.push(identity.rawStatus);
+  }
+  if (isProtected) {
+    console.log(`[syncShipmentByShipmentId] Skipping status overwrite for order_id=${orderId} — order is in protected status "${currentRow?.order_status}"`);
   }
   if (fields.length) {
     fields.push("order_modified = NOW()");
@@ -592,6 +621,14 @@ async function syncShipmentByOrderReferences(order) {
   }
   if (!refs.length) return null;
 
+  // FIX: same protected-status guard as syncShipmentByShipmentId — checked
+  // once here since orderId doesn't change across the refs loop below.
+  const [[currentRow]] = await db.query(
+    `SELECT order_status FROM tbl_orders WHERE order_id = ? LIMIT 1`,
+    [orderId],
+  );
+  const isProtected = SYNC_PROTECTED_STATUSES.has(toStr(currentRow?.order_status).toLowerCase());
+
   const token = await getShiprocketToken();
   for (const ref of refs) {
     const searchRes = await axios.get(
@@ -624,13 +661,16 @@ async function syncShipmentByOrderReferences(order) {
       fields.push("courier_name = ?");
       params.push(identity.courier);
     }
-    if (mappedStatus) {
+    if (mappedStatus && !isProtected) {
       fields.push("order_status = ?");
       params.push(mappedStatus);
     }
-    if (identity.rawStatus) {
+    if (identity.rawStatus && !isProtected) {
       fields.push("shipping_status = ?");
       params.push(identity.rawStatus.toUpperCase());
+    }
+    if (isProtected) {
+      console.log(`[syncShipmentByOrderReferences] Skipping status overwrite for order_id=${orderId} — order is in protected status "${currentRow?.order_status}"`);
     }
     if (!fields.length) continue;
 
@@ -2933,10 +2973,35 @@ const updateOrderStatus = async (req, res) => {
       // order_status = 'cancelled' below, same as cancelShiprocketOrder.
     }
 
-    await conn.query(
-      "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
-      [status, orderId],
-    );
+    // FIX: this manual/admin path used to update order_status alone, leaving
+    // shipping_status stuck at whatever it was last set to (often "new" from
+    // order creation) even after the order was manually marked completed/
+    // delivered — causing the tracking page to show "DELIVERED" next to a
+    // stale "Shipping Status: New". Keep both fields in lockstep here too,
+    // same as every other status-writing path in this file.
+    const MANUAL_SHIPPING_STATUS_MAP = {
+      completed:               "DELIVERED",
+      cancelled:               "CANCELLED",
+      refunded:                "REFUNDED",
+      failed:                  "FAILED",
+      cancellation_requested:  "CANCELLATION REQUESTED",
+      processing:              "PROCESSING",
+      "on-hold":               "ON HOLD",
+      pending:                 "PENDING",
+    };
+    const manualShippingStatus = MANUAL_SHIPPING_STATUS_MAP[status] || null;
+
+    if (manualShippingStatus) {
+      await conn.query(
+        "UPDATE tbl_orders SET order_status = ?, shipping_status = ?, order_modified = NOW() WHERE order_id = ?",
+        [status, manualShippingStatus, orderId],
+      );
+    } else {
+      await conn.query(
+        "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
+        [status, orderId],
+      );
+    }
 
     // ── Restore stock when order is cancelled, refunded, or failed ────────────
     // Only restore if transitioning INTO a terminal status (not already there)
@@ -2945,44 +3010,18 @@ const updateOrderStatus = async (req, res) => {
       !STOCK_RESTORE_STATUSES.includes(previousStatus);
 
     if (isNewlyTerminal) {
-      // Get all line items for this order
-      const [orderItems] = await conn.query(
-        `SELECT oi.product_id,
-                MAX(CASE WHEN oim.meta_key = '_variation_id' THEN oim.meta_value END) AS variation_id,
-                MAX(CASE WHEN oim.meta_key = '_qty'          THEN oim.meta_value END) AS qty
-         FROM tbl_order_items oi
-         LEFT JOIN tbl_order_itemmeta oim ON oim.order_item_id = oi.order_item_id
-         WHERE oi.order_id = ? AND oi.order_item_type = 'line_item'
-         GROUP BY oi.order_item_id, oi.product_id`,
-        [orderId],
-      );
-
-      for (const item of orderItems) {
-        const qty = Number(item.qty || 0);
-        if (!qty) continue;
-
-        const stockProductId =
-          item.variation_id && Number(item.variation_id) > 0
-            ? item.variation_id
-            : item.product_id;
-
-        // Add stock back
-        await conn.query(
-          `UPDATE tbl_productmeta
-           SET meta_value = CAST(meta_value AS SIGNED) + ?
-           WHERE product_id = ? AND meta_key = '_stock'`,
-          [qty, stockProductId],
-        );
-
-        // Re-enable instock status if it was outofstock
-        await conn.query(
-          `UPDATE tbl_productmeta
-           SET meta_value = 'instock'
-           WHERE product_id = ? AND meta_key = '_stock_status'
-             AND meta_value = 'outofstock'`,
-          [stockProductId],
-        );
-      }
+      // FIX: this used to duplicate restoreOrderStock's query/update logic
+      // inline, but without its safety checks (missing/non-numeric _stock
+      // row detection + admin alert) and — critically — without pushing the
+      // updated stock count back to Shiprocket's Checkout catalog. That gap
+      // meant an order cancelled/refunded/failed from the admin panel would
+      // restore stock correctly in our own DB, but Shiprocket's Checkout
+      // widget would never find out, and could keep showing the item as
+      // unavailable (or with a stale count) until something else happened
+      // to trigger a catalog sync. Reusing the same helper the real
+      // Shiprocket cancellation webhook uses keeps both paths identical.
+      const { restoreOrderStock } = require("./shiprocketorderwebhook");
+      await restoreOrderStock(conn, orderId);
     }
 
     await conn.commit();
@@ -3093,31 +3132,11 @@ const trackOrderById = async (req, res) => {
           // could write a status string the UI didn't recognize.
           const statusMap = {
             "NEW":                           "Ready to Ship",
+            // FIX: was missing here — same bug class as SHIPROCKET_TRACKING_STATUS_MAP
+            // above. Without it, an "INVOICED" live pull would write the raw
+            // literal into order_status instead of "Ready to Ship".
+            "INVOICED":                      "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
-            "PICKUP ERROR":                  "Ready to Ship",
-            "PICKUP QUEUED":                 "Ready to Ship",
-            "PICKUP GENERATED":              "Ready to Ship",
-            "PICKUP EXCEPTION":              "Ready to Ship",
-            "PICKUP RESCHEDULED":            "Ready to Ship",
-            "OUT FOR PICKUP":                "Ready to Ship",
-            "MANIFEST GENERATED":            "Ready to Ship",
-            "AWB ASSIGNED":                  "Ready to Ship",
-            "FUTURE_PICKUP":                 "Ready to Ship",
-            "PICKED UP":                     "Shipped",
-            "IN TRANSIT":                    "Shipped",
-            "REACHED AT SOURCE HUB":         "Shipped",
-            "REACHED AT DESTINATION HUB":    "Shipped",
-            "MISROUTED":                     "Shipped",
-            "DELAYED":                       "Shipped",
-            "DAMAGED":                       "Shipped",
-            "LOST":                          "Shipped",
-            "OUT FOR DELIVERY":              "Out for Delivery",
-            "UNDELIVERED":                   "Out for Delivery",
-            "DELIVERED":                     "Delivered",
-            "CANCELLED":                     "cancelled",
-            "RTO INITIATED":                 "Return Initiated",
-            "RTO IN TRANSIT":                "Return Initiated",
-            "RTO OUT FOR PICKUP":            "Return Initiated",
             "RTO PICKED":                    "Return Initiated",
             "RTO DELIVERED":                 "Returned",
             "SHIPMENT RETURN":               "Return Initiated",
@@ -3413,31 +3432,11 @@ const trackOrderByPhone = async (req, res) => {
           // Must mirror SR_STATUS_MAP in shiprocketorderwebhook.js exactly.
           const statusMap = {
             "NEW":                           "Ready to Ship",
+            // FIX: was missing here too — this is the live-tracking pull used
+            // by the public order-tracking page. Without it, an "INVOICED"
+            // status here would write the raw literal into order_status.
+            "INVOICED":                      "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
-            "PICKUP ERROR":                  "Ready to Ship",
-            "PICKUP QUEUED":                 "Ready to Ship",
-            "PICKUP GENERATED":              "Ready to Ship",
-            "PICKUP EXCEPTION":              "Ready to Ship",
-            "PICKUP RESCHEDULED":            "Ready to Ship",
-            "OUT FOR PICKUP":                "Ready to Ship",
-            "MANIFEST GENERATED":            "Ready to Ship",
-            "AWB ASSIGNED":                  "Ready to Ship",
-            "FUTURE_PICKUP":                 "Ready to Ship",
-            "PICKED UP":                     "Shipped",
-            "IN TRANSIT":                    "Shipped",
-            "REACHED AT SOURCE HUB":         "Shipped",
-            "REACHED AT DESTINATION HUB":    "Shipped",
-            "MISROUTED":                     "Shipped",
-            "DELAYED":                       "Shipped",   // exception modifier, NOT a separate stage
-            "DAMAGED":                       "Shipped",   // exception modifier
-            "LOST":                          "Shipped",   // exception modifier
-            "OUT FOR DELIVERY":              "Out for Delivery",
-            "UNDELIVERED":                   "Out for Delivery", // NDR, re-attempt expected
-            "DELIVERED":                     "Delivered",
-            "CANCELLED":                     "cancelled",
-            "RTO INITIATED":                 "Return Initiated",
-            "RTO IN TRANSIT":                "Return Initiated",
-            "RTO OUT FOR PICKUP":            "Return Initiated",
             "RTO PICKED":                    "Return Initiated",
             "RTO DELIVERED":                 "Returned",
             "SHIPMENT RETURN":               "Return Initiated",
@@ -3508,26 +3507,57 @@ async function getOrCreateInvoiceNumber(orderId, orderDate) {
 
   const year = new Date(orderDate).getFullYear();
 
-  // Count how many invoices were already issued for this year (excluding current order)
-  const [[{ count }]] = await db.query(
-    `SELECT COUNT(*) AS count
-     FROM tbl_ordermeta om
-     JOIN tbl_orders o ON o.order_id = om.order_id
-     WHERE om.meta_key = '_invoice_number'
-       AND YEAR(o.order_date) = ?`,
-    [year]
-  );
+  // FIX: COUNT(*) followed by INSERT was not atomic. Two concurrent
+  // getOrCreateInvoiceNumber() calls for two *different* orders in the same
+  // year could both read the same count before either one's INSERT landed,
+  // and both walk away with the identical invoice number (e.g. two separate
+  // orders both minted "NEST-2026-0047") — a real problem for a GST invoice
+  // sequence, not just cosmetic. A MySQL named lock serializes number
+  // issuance across all connections/processes without needing a schema
+  // change or a dedicated counter table.
+  const lockName = `nestcase_invoice_seq_${year}`;
+  const lockConn = await db.getConnection();
+  try {
+    const [[{ acquired }]] = await lockConn.query(`SELECT GET_LOCK(?, 10) AS acquired`, [lockName]);
+    if (!acquired) {
+      throw new Error(`Could not acquire invoice sequence lock for year ${year} (timed out)`);
+    }
 
-  const seq = Number(count) + 1;
-  const invoiceNo = `NEST-${year}-${String(seq).padStart(4, '0')}`;
+    try {
+      // Re-check under the lock — another request may have generated this
+      // order's number while we were waiting for the lock.
+      const [[existingUnderLock]] = await lockConn.query(
+        `SELECT meta_value FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_invoice_number' LIMIT 1`,
+        [orderId]
+      );
+      if (existingUnderLock) return existingUnderLock.meta_value;
 
-  await db.query(
-    `INSERT IGNORE INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_invoice_number', ?)`,
-    [orderId, invoiceNo]
-  );
+      const [[{ count }]] = await lockConn.query(
+        `SELECT COUNT(*) AS count
+         FROM tbl_ordermeta om
+         JOIN tbl_orders o ON o.order_id = om.order_id
+         WHERE om.meta_key = '_invoice_number'
+           AND YEAR(o.order_date) = ?`,
+        [year]
+      );
 
-  return invoiceNo;
+      const seq = Number(count) + 1;
+      const invoiceNo = `NEST-${year}-${String(seq).padStart(4, '0')}`;
+
+      await lockConn.query(
+        `INSERT IGNORE INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_invoice_number', ?)`,
+        [orderId, invoiceNo]
+      );
+
+      return invoiceNo;
+    } finally {
+      await lockConn.query(`SELECT RELEASE_LOCK(?)`, [lockName]).catch(() => {});
+    }
+  } finally {
+    lockConn.release();
+  }
 }
+
 
 // ── Download Invoice ──────────────────────────────────────────────────────────
 // GET /orders/invoice/:orderId?phone=xxxx
