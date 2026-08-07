@@ -273,12 +273,17 @@
               <div class="mb-2">
                 <strong>Cancelled By:</strong>
                 <span class="text-dark">
-                  <%= order.cancelled_by_label || 
-                      (order.cancelled_by === 'USER' ? 'Customer' : 
-                       order.cancelled_by === 'ADMIN' ? 'Admin' : 
-                       (order.shipping_status && (order.shipping_status.toUpperCase() === 'CANCELLED' || order.shipping_status.toUpperCase() === 'CANCELED')) ? 'Admin (via Shiprocket)' : 
-                       order.shipping_status === 'cancelled' ? 'Customer' : 
-                       'Unknown') %>
+                  <% 
+                    const shippingUpper = order.shipping_status ? order.shipping_status.toUpperCase() : '';
+                    const cancelledByDisplay = order.cancelled_by_label 
+                      ? order.cancelled_by_label
+                      : order.cancelled_by === 'USER' ? 'Customer'
+                      : order.cancelled_by === 'ADMIN' ? 'Admin'
+                      : (shippingUpper === 'CANCELLED' || shippingUpper === 'CANCELED') ? 'Admin (via Shiprocket)'
+                      : order.shipping_status === 'cancelled' ? 'Customer'
+                      : 'Unknown';
+                  %>
+                  <%= cancelledByDisplay %>
                 </span>
               </div>
               <% if (order.cancelled_at) { %>
