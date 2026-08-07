@@ -150,6 +150,10 @@ const showOrders = async (req, res) => {
     // but order_status wasn't updated, treat it as cancelled for display purposes
     const { labelForCancelledBy } = require('../api/cancellationsource');
     orders.forEach(order => {
+      // Normalize any uppercase CANCELED/CANCELLED to lowercase 'cancelled'
+      if (order.order_status && order.order_status.toUpperCase() === 'CANCELED' || order.order_status === 'CANCELLED') {
+        order.order_status = 'cancelled';
+      }
       if (order.shipping_status === 'CANCELLED' && order.order_status !== 'cancelled') {
         order.order_status = 'cancelled';
       }
@@ -411,6 +415,10 @@ const showOrder = async (req, res) => {
 
     // ─── Cancellation Info ────────────────────────────────────────────────────
     // Normalize: if Shiprocket set shipping_status=CANCELLED but order_status wasn't updated
+    // Also handle uppercase CANCELED/CANCELLED in order_status itself
+    if (order.order_status && (order.order_status.toUpperCase() === 'CANCELED' || order.order_status === 'CANCELLED')) {
+      order.order_status = 'cancelled';
+    }
     if (order.shipping_status === 'CANCELLED' && order.order_status !== 'cancelled') {
       order.order_status = 'cancelled';
     }

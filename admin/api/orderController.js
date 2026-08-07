@@ -2517,6 +2517,11 @@ const getMyOrders = async (req, res) => {
     for (const order of orders) {
       // Normalize: shipping_status='CANCELLED' (uppercase) from Shiprocket
       // but order_status may not have been synced — fix for display
+      // Also handle order_status itself being 'CANCELED'/'CANCELLED' (uppercase)
+      const orderStatusUpper = toStr(order.order_status).toUpperCase();
+      if (orderStatusUpper === 'CANCELED' || orderStatusUpper === 'CANCELLED') {
+        order.order_status = 'cancelled';
+      }
       if (toStr(order.shipping_status).toUpperCase() === 'CANCELLED' && toStr(order.order_status).toLowerCase() !== 'cancelled') {
         order.order_status = 'cancelled';
       }
@@ -2918,6 +2923,10 @@ const getMyOrderById = async (req, res) => {
 
     // Normalize: Shiprocket sets shipping_status='CANCELLED' (uppercase) via webhook
     // but order_status may not have been updated if webhook arrived out of order
+    // Also handle order_status itself being stored as 'CANCELED'/'CANCELLED' (uppercase)
+    if (toStr(order.order_status).toUpperCase() === 'CANCELED' || toStr(order.order_status).toUpperCase() === 'CANCELLED') {
+      order.order_status = 'cancelled';
+    }
     if (toStr(order.shipping_status).toUpperCase() === 'CANCELLED' && toStr(order.order_status).toLowerCase() !== 'cancelled') {
       order.order_status = 'cancelled';
     }
@@ -3444,6 +3453,10 @@ const trackOrderByPhone = async (req, res) => {
     // Attach cancellation source/time — see cancellationSource.js.
     // Normalize: Shiprocket sets shipping_status='CANCELLED' (uppercase) via webhook
     // but order_status may not have been updated if webhook arrived out of order
+    // Also handle order_status itself being stored as 'CANCELED'/'CANCELLED' (uppercase)
+    if (toStr(order.order_status).toUpperCase() === 'CANCELED' || toStr(order.order_status).toUpperCase() === 'CANCELLED') {
+      order.order_status = 'cancelled';
+    }
     if (toStr(order.shipping_status).toUpperCase() === 'CANCELLED' && toStr(order.order_status).toLowerCase() !== 'cancelled') {
       order.order_status = 'cancelled';
     }
@@ -3619,6 +3632,10 @@ const trackOrderByPhone = async (req, res) => {
     // ── Fetch cancellation info for cancelled orders ──────────────────────────
     // Normalize: Shiprocket sets shipping_status='CANCELLED' (uppercase) via webhook
     // but order_status may not have been updated if webhook arrived out of order
+    // Also handle order_status itself being stored as 'CANCELED'/'CANCELLED' (uppercase)
+    if (toStr(order.order_status).toUpperCase() === 'CANCELED' || toStr(order.order_status).toUpperCase() === 'CANCELLED') {
+      order.order_status = 'cancelled';
+    }
     if (toStr(order.shipping_status).toUpperCase() === 'CANCELLED' && toStr(order.order_status).toLowerCase() !== 'cancelled') {
       order.order_status = 'cancelled';
     }
