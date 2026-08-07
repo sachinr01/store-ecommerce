@@ -119,7 +119,13 @@ const showOrders = async (req, res) => {
           THEN om.meta_value END) AS payment_method,
 
         MAX(CASE WHEN om.meta_key = '_customer_user'
-          THEN om.meta_value END) AS customer_user_id
+          THEN om.meta_value END) AS customer_user_id,
+
+        MAX(CASE WHEN om.meta_key = '_cancelled_by'
+          THEN om.meta_value END) AS cancelled_by,
+
+        MAX(CASE WHEN om.meta_key = '_cancelled_at'
+          THEN om.meta_value END) AS cancelled_at
 
       FROM tbl_orders o
 
@@ -139,6 +145,14 @@ const showOrders = async (req, res) => {
       `,
       [...params, limit, offset],
     );
+
+    // Add cancelled_by_label to each order
+    const { labelForCancelledBy } = require('../api/cancellationsource');
+    orders.forEach(order => {
+      if (order.cancelled_by) {
+        order.cancelled_by_label = labelForCancelledBy(order.cancelled_by, 'admin');
+      }
+    });
 
     res.render("orders/index", {
       title: "Orders",
@@ -391,6 +405,19 @@ const showOrder = async (req, res) => {
       class: info.class,
     }));
 
+    // ─── Cancellation Info ────────────────────────────────────────────────────
+    if (order.order_status === 'cancelled') {
+      const { getCancellationInfo } = require('../api/cancellationsource');
+      const cancellationInfo = await getCancellationInfo(id, 'admin');
+      order.cancelled_by = cancellationInfo.cancelled_by;
+      order.cancelled_by_label = cancellationInfo.cancelled_by_label;
+      order.cancelled_at = cancellationInfo.cancelled_at;
+    } else {
+      order.cancelled_by = null;
+      order.cancelled_by_label = null;
+      order.cancelled_at = null;
+    }
+
     res.render("orders/show", {
       title: "Order #" + id,
       order,
@@ -412,6 +439,13 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    
+    // Record cancellation source if changing to cancelled status
+    if (status === 'cancelled') {
+      const { CANCELLED_BY, recordCancellationSource } = require('../api/cancellationsource');
+      await recordCancellationSource(null, id, CANCELLED_BY.ADMIN);
+    }
+    
     await db.query(
       "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
       [status, id],

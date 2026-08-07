@@ -2050,6 +2050,9 @@ const cancelShiprocketOrder = async (req, res) => {
       );
     }
 
+    const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+    await recordCancellationSource(conn, orderId, CANCELLED_BY.USER);
+
     const POST_SHIPMENT_STATUSES = new Set(["shipped", "out for delivery"]);
     const hasEnteredShipping = Boolean(awb) || POST_SHIPMENT_STATUSES.has(orderStatusLower);
 
@@ -2368,6 +2371,15 @@ const receiveShipmentWebhook = async (req, res) => {
     await conn.query(updateQuery, updateParams);
 
     justCancelled = mappedStatus === "cancelled" && currentStatus !== "cancelled";
+
+    if (justCancelled) {
+      // Detected via Shiprocket webhook/status sync — attribute to ADMIN,
+      // unless the customer already initiated this cancellation from the
+      // website (in which case recordCancellationSource() is a no-op and the
+      // original USER attribution is preserved; see cancellationSource.js).
+      const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+      await recordCancellationSource(conn, orderId, CANCELLED_BY.ADMIN);
+    }
 
     await conn.commit();
   } catch (err) {

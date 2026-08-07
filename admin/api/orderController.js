@@ -2575,6 +2575,38 @@ const getAllOrders = async (_req, res) => {
     );
 
     const itemsByOrderId = buildOrderItemMap(lineItems);
+
+    // Cancellation source/time — one query for every cancelled order in the
+    // list, rather than N round-trips. See cancellationSource.js.
+    const cancelledOrderIds = orders
+      .filter((order) => toStr(order.order_status).toLowerCase() === "cancelled")
+      .map((order) => Number(order.order_id));
+    let cancellationByOrderId = new Map();
+    if (cancelledOrderIds.length) {
+      const [cancelMetaRows] = await db.query(
+        `SELECT order_id, meta_key, meta_value FROM tbl_ordermeta
+         WHERE order_id IN (?) AND meta_key IN ('_cancelled_by', '_cancelled_at')
+         ORDER BY meta_id DESC`,
+        [cancelledOrderIds],
+      );
+      const { labelForCancelledBy } = require("./cancellationsource");
+      for (const row of cancelMetaRows) {
+        const entry = cancellationByOrderId.get(row.order_id) || {
+          cancelled_by: null, cancelled_by_label: null, cancelled_at: null,
+        };
+        // Rows are ordered newest-first — only fill each field the first time
+        // it's seen so we keep the latest value per order.
+        if (row.meta_key === "_cancelled_by" && !entry.cancelled_by) {
+          entry.cancelled_by = row.meta_value;
+          entry.cancelled_by_label = labelForCancelledBy(row.meta_value);
+        }
+        if (row.meta_key === "_cancelled_at" && !entry.cancelled_at) {
+          entry.cancelled_at = row.meta_value;
+        }
+        cancellationByOrderId.set(row.order_id, entry);
+      }
+    }
+
     for (const order of orders) {
       const effectiveItems = selectEffectiveOrderItems(
         itemsByOrderId.get(Number(order.order_id)) || [],
@@ -2587,6 +2619,11 @@ const getAllOrders = async (_req, res) => {
         .join(", ");
       order.coupon_code = order.coupon_code || "";
       order.coupon_discount = order.coupon_discount ? Number(order.coupon_discount) : 0;
+
+      const cancellationInfo = cancellationByOrderId.get(Number(order.order_id));
+      order.cancelled_by = cancellationInfo?.cancelled_by || null;
+      order.cancelled_by_label = cancellationInfo?.cancelled_by_label || null;
+      order.cancelled_at = cancellationInfo?.cancelled_at || null;
     }
 
     res.json({ success: true, data: orders });
@@ -2860,6 +2897,17 @@ const getMyOrderById = async (req, res) => {
 
     await syncMissingAwbFromShipment(order, "getMyOrderById");
 
+    // Attach cancellation source/time (null/null for non-cancelled orders or
+    // orders cancelled before this field existed) — see cancellationSource.js.
+    if (toStr(order.order_status).toLowerCase() === "cancelled") {
+      const { getCancellationInfo } = require("./cancellationsource");
+      Object.assign(order, await getCancellationInfo(orderId, 'customer'));
+    } else {
+      order.cancelled_by = null;
+      order.cancelled_by_label = null;
+      order.cancelled_at = null;
+    }
+
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
     console.error("getMyOrderById error:", err);
@@ -2924,6 +2972,14 @@ const updateOrderStatus = async (req, res) => {
         notifyAdminOfCancellationRequest,
         notifyCustomerOfCancellation,
       } = require("./shiprocketorderwebhook");
+      const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+
+      // Admin dashboard initiated this — record it now, before we know
+      // whether Shiprocket confirms immediately or this has to wait as
+      // cancel_pending. If the customer already requested cancellation from
+      // the website first, this is a no-op and the original USER
+      // attribution is preserved (see cancellationSource.js).
+      await recordCancellationSource(conn, orderId, CANCELLED_BY.ADMIN);
 
       const goPending = async () => {
         const requestedAt = new Date().toISOString();
@@ -2990,6 +3046,16 @@ const updateOrderStatus = async (req, res) => {
       pending:                 "PENDING",
     };
     const manualShippingStatus = MANUAL_SHIPPING_STATUS_MAP[status] || null;
+
+    // Safety net for the case the block above didn't run at all (e.g. admin
+    // manually flips an already cancel_pending order to cancelled) — still
+    // record ADMIN as the source. recordCancellationSource() is a no-op if a
+    // source was already recorded (e.g. the customer's original website
+    // request), so this never clobbers an existing USER attribution.
+    if (status === "cancelled" || status === "cancel_pending") {
+      const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+      await recordCancellationSource(conn, orderId, CANCELLED_BY.ADMIN);
+    }
 
     if (manualShippingStatus) {
       await conn.query(
@@ -3179,12 +3245,19 @@ const trackOrderById = async (req, res) => {
       [orderId],
     );
 
+    const finalStatus = trackingData?.current_status || order.order_status;
+    let cancellationInfo = { cancelled_by: null, cancelled_by_label: null, cancelled_at: null };
+    if (toStr(finalStatus).toLowerCase() === "cancelled") {
+      const { getCancellationInfo } = require("./cancellationsource");
+      cancellationInfo = await getCancellationInfo(orderId, 'customer');
+    }
+
     return res.json({
       success: true,
       data: {
         order: {
           order_id: order.order_id,
-          order_status: trackingData?.current_status || order.order_status,
+          order_status: finalStatus,
           order_date: order.order_date,
           total: order.total,
           payment_method: order.payment_method,
@@ -3196,6 +3269,7 @@ const trackOrderById = async (req, res) => {
           courier_name: order.courier_name || null,
           shipping_status: order.shipping_status || trackingData?.raw_status || null,
           shipment_id: order.shipment_id || null,
+          ...cancellationInfo,
         },
         items,
         tracking: trackingData,
@@ -3334,6 +3408,16 @@ const trackOrderByPhone = async (req, res) => {
     order.shipment_exception = exceptionRow
       ? (() => { try { return JSON.parse(exceptionRow.meta_value); } catch { return null; } })()
       : null;
+
+    // Attach cancellation source/time — see cancellationSource.js.
+    if (toStr(order.order_status).toLowerCase() === "cancelled") {
+      const { getCancellationInfo } = require("./cancellationsource");
+      Object.assign(order, await getCancellationInfo(orderId, 'customer'));
+    } else {
+      order.cancelled_by = null;
+      order.cancelled_by_label = null;
+      order.cancelled_at = null;
+    }
 
     // Verify phone server-side
     const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");
@@ -3485,6 +3569,17 @@ const trackOrderByPhone = async (req, res) => {
         console.error(`[trackOrderByPhone] SR tracking fetch failed for AWB ${awb}:`, trackErr.message);
         // non-fatal — continue with DB data
       }
+    }
+
+    // ── Fetch cancellation info for cancelled orders ──────────────────────────
+    if (toStr(order.order_status).toLowerCase() === "cancelled") {
+      const { getCancellationInfo } = require("./cancellationsource");
+      const cancellationInfo = await getCancellationInfo(orderId, 'customer');
+      Object.assign(order, cancellationInfo);
+    } else {
+      order.cancelled_by = null;
+      order.cancelled_by_label = null;
+      order.cancelled_at = null;
     }
 
     res.json({ success: true, data: { order, items: effectiveItems } });

@@ -446,6 +446,8 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
       shippingStatus: order.shipping_status || '',
       shipmentId:    order.shipment_id || '',
       exceptionType: order.shipment_exception?.type || null,
+      cancelledByLabel: order.cancelled_by_label || (order.cancelled_by ? toLabel(order.cancelled_by) : ''),
+      cancelledOnLabel: order.cancelled_at ? formatDate(order.cancelled_at) : '',
     };
   }, [order, items]);
 
@@ -464,6 +466,22 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
           <span className={`order-detail-status ${summary.status}`}>{toLabel(summary.status)}</span>
         </div>
       </div>
+
+      {/* Cancellation Details — mirrors app/orders/[orderId]/page.tsx so the
+          same information is visible whether a customer is logged in or
+          tracking by phone number. */}
+      {summary.status === 'cancelled' && summary.cancelledByLabel && (
+        <div className="order-detail-card">
+          <h3 className="order-detail-subtitle">Cancellation Details</h3>
+          <div className="order-summary-grid">
+            <div><strong>Status:</strong> Cancelled</div>
+            <div><strong>Cancelled By:</strong> {summary.cancelledByLabel}</div>
+            {summary.cancelledOnLabel && (
+              <div><strong>Cancelled On:</strong> {summary.cancelledOnLabel}</div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="order-detail-grid">
         {/* Left */}

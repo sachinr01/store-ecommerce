@@ -258,6 +258,39 @@
         </div>
         <% } %>
 
+        <!-- Cancellation Details -->
+        <% if (order.order_status === 'cancelled' && order.cancelled_by_label) { %>
+        <div class="card mb-3 border-secondary">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-2 border-bottom text-secondary">
+              <i data-feather="x-circle" class="feather-sm me-2"></i>Cancellation Details
+            </h5>
+            <div class="small">
+              <div class="mb-2">
+                <strong>Status:</strong>
+                <span class="badge bg-secondary ms-1">Cancelled</span>
+              </div>
+              <div class="mb-2">
+                <strong>Cancelled By:</strong>
+                <span class="text-dark"><%= order.cancelled_by_label %></span>
+              </div>
+              <% if (order.cancelled_at) { %>
+              <div class="mb-0">
+                <strong>Cancelled On:</strong>
+                <span class="text-muted"><%= new Date(order.cancelled_at).toLocaleString('en-IN', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) %></span>
+              </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <% } %>
+
         <!-- Refunds -->
         <% if (refunds && refunds.length > 0) { %>
         <div class="card mb-3">

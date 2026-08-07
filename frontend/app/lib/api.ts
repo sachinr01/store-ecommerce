@@ -245,6 +245,14 @@ export const updateProfile = (body: {
   newPassword?: string;
 }) => apiPut<AuthUser>('/auth/profile', body);
 
+// Who cancelled the order. Only two sources exist (Shiprocket Checkout is
+// the only checkout flow in use): the customer (USER) or the admin
+// dashboard / Shiprocket webhook (ADMIN). Kept as a union (not a bare
+// string) so the frontend mapping to display text (USER -> "You",
+// ADMIN -> "Admin") stays exhaustive. See the backend's
+// cancellationSource.js for the source of truth.
+export type CancelledBy = 'USER' | 'ADMIN';
+
 export interface OrderSummary {
   order_id: number;
   order_status: string;
@@ -255,6 +263,9 @@ export interface OrderSummary {
   awb_code?: string | null;
   courier_name?: string | null;
   shipping_status?: string | null;
+  cancelled_by?: CancelledBy | null;
+  cancelled_by_label?: string | null;
+  cancelled_at?: string | null;
 }
 
 export const getMyOrders = () => apiFetch<OrderSummary[]>('/orders/my', true);
@@ -315,6 +326,12 @@ export interface OrderDetailResponse {
       remark?: string;
     } | null;
     transaction_id?: string | null;
+    // Who cancelled the order, and when — only populated when order_status
+    // is "cancelled". null for orders that were never cancelled (or were
+    // cancelled before this field existed).
+    cancelled_by?: CancelledBy | null;
+    cancelled_by_label?: string | null;
+    cancelled_at?: string | null;
   };
   items: OrderItemDetail[];
 }

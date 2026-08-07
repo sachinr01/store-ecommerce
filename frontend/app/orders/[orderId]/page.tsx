@@ -28,27 +28,9 @@ const EXCEPTION_LABEL: Record<string, string> = {
   lost:        'Lost',
 };
 
-/**
- * Derives canonical timeline key from DB order_status + awb_code presence.
- * AWB present + still "processing" → ready_to_ship.
- *
- * Mirrors order-tracking/page.tsx exactly — the check order here matters:
- *   • "ready to ship" MUST be checked BEFORE the generic "ship" check,
- *     since "ready to ship" contains "ship" as a substring. Checking the
- *     generic case first misclassifies a not-yet-shipped order as Shipped
- *     (this was the bug — order details page showed a different timeline
- *     than order-tracking because of this ordering).
- *   • "out_for_delivery" MUST be checked BEFORE the generic "deliver" check,
- *     since "out for delivery" contains "deliver" as a substring.
- */
 function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!status) return 'pending';
   const s = status.replace('wc-', '').toLowerCase();
-  // IMPORTANT: only a real AWB code means Shiprocket has confirmed a pickup
-  // slot. `shipmentId` is created at invoice time — well before AWB
-  // assignment — so it must NOT be treated as "shipment ready" here, or the
-  // timeline (and the cancel-button eligibility that reads this status)
-  // advances before the order is actually ready to ship.
   const hasShipment = Boolean(awbCode);
 
   // Exception states — return as-is so the caller can render a warning badge
@@ -56,23 +38,14 @@ function normalizeStatus(status: string, awbCode?: string | null, shipmentId?: s
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  // out_for_delivery MUST precede the generic 'deliver' check — the string
-  // "out for delivery" contains "deliver" as a substring, so checking the
-  // generic case first would misclassify it as fully Delivered.
+  
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
   if (s.includes('complete')) return 'delivered';
-  // AWB present but still showing "processing" → already ready to ship.
-  // "invoiced" is included here as a fallback for legacy rows written before
-  // the backend learned to map Shiprocket's "INVOICED" webhook event — it's
-  // a pre-AWB milestone just like the others in this list.
   if (s.includes('process') || s.includes('invoiced') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return hasShipment ? 'ready_to_ship' : 'processing';
   }
-  // NOTE: check "ready to ship" BEFORE the generic "shipped" check below —
-  // the string "ready to ship" contains "ship" as a substring, so checking
-  // shipped first would misclassify a not-yet-shipped order as Shipped.
   if (s.includes('ready to ship') || s.includes('ready_to_ship') || s === 'ready') return 'ready_to_ship';
   if (s.includes('in transit') || s.includes('in_transit') || s.includes('reached') ||
       s.includes('picked up') || s === 'shipped' || s === 'ship') return 'shipped';
@@ -110,8 +83,6 @@ function ShipmentActivities({ awb }: { awb: string }) {
     };
 
     fetchTracking(true);
-    // Keep the live tracking card current without requiring a manual page
-    // reload — polls in the background while the page stays open.
     const intervalId = setInterval(() => fetchTracking(false), LIVE_TRACKING_POLL_MS);
 
     return () => {
@@ -146,9 +117,6 @@ function ShipmentActivities({ awb }: { awb: string }) {
   );
 }
 
-// ─── cancellation reason modal — kept in sync with orders/page.tsx and
-//     order-tracking/page.tsx so all three cancel entry points collect the
-//     same structured reason for the admin email / audit trail. ─────────────
 
 const CANCEL_REASONS = [
   { key: 'found_better_price', label: 'Found a better price elsewhere' },
@@ -376,6 +344,9 @@ export default function OrderDetailPage() {
       courier: order.courier_name || '',
       shippingStatus: order.shipping_status || '',
       shipmentId: order.shipment_id || '',
+
+      cancelledByLabel: order.cancelled_by_label || (order.cancelled_by ? toLabel(order.cancelled_by) : ''),
+      cancelledOnLabel: order.cancelled_at ? formatDate(order.cancelled_at) : '',
     };
   }, [data]);
 
@@ -419,9 +390,6 @@ export default function OrderDetailPage() {
     try {
       const result = await cancelMyOrder(summary.id, reason, customReason || undefined);
       setShowCancelModal(false);
-      // An already-shipped order can't be cancelled outright — it goes to
-      // "cancellation_requested" while our team cancels it on Shiprocket,
-      // and only becomes truly "cancelled" once that's confirmed.
       if (result.cancellation_status === 'pending') {
         setCancelSuccess(
           result.message ||
@@ -479,7 +447,7 @@ export default function OrderDetailPage() {
 
             {!loading && !error && summary && (
               <div className="ot-result">
-                {/* Timeline at the very top — mirrors order-tracking page */}
+              
                 {(summary.status === 'return_initiated' || summary.status === 'returned') ? (
                   <div className="order-timeline order-timeline--return">
                     <div className="timeline-return-banner">
@@ -530,6 +498,19 @@ export default function OrderDetailPage() {
                     </span>
                   </div>
                 </div>
+
+                {summary.status === 'cancelled' && summary.cancelledByLabel && (
+                  <div className="order-detail-card">
+                    <h3 className="order-detail-subtitle">Cancellation Details</h3>
+                    <div className="order-summary-grid">
+                      <div><strong>Status:</strong> Cancelled</div>
+                      <div><strong>Cancelled By:</strong> {summary.cancelledByLabel}</div>
+                      {summary.cancelledOnLabel && (
+                        <div><strong>Cancelled On:</strong> {summary.cancelledOnLabel}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="order-detail-grid">
                   {/* Left — items + shipment info + live tracking */}

@@ -120,8 +120,16 @@
                                       <%= o.payment_method || '-' %>
                                     </small></td>
                                   <td>
-                                    <span class="badge rounded-pill <%= sb.class %>">
+                                    <span class="badge rounded-pill <%= sb.class %>" 
+                                      <% if (o.order_status === 'cancelled' && o.cancelled_by_label) { %>
+                                        title="Cancelled by <%= o.cancelled_by_label %><% if (o.cancelled_at) { %> on <%= new Date(o.cancelled_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% } %>"
+                                        data-bs-toggle="tooltip"
+                                      <% } %>
+                                    >
                                       <%= sb.label %>
+                                      <% if (o.order_status === 'cancelled' && o.cancelled_by_label) { %>
+                                        <small style="opacity: 0.8;"> (<%= o.cancelled_by_label %>)</small>
+                                      <% } %>
                                     </span>
                                   </td>
                                   <td>
@@ -181,6 +189,12 @@
                   "previous": "Previous"
                 }
               }
+            });
+
+            // Initialize Bootstrap tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+              return new bootstrap.Tooltip(tooltipTriggerEl);
             });
           });
 
