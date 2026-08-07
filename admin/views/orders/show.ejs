@@ -276,7 +276,7 @@
                   <%= order.cancelled_by_label || 
                       (order.cancelled_by === 'USER' ? 'Customer' : 
                        order.cancelled_by === 'ADMIN' ? 'Admin' : 
-                       order.shipping_status === 'CANCELLED' ? 'Admin (via Shiprocket)' : 
+                       (order.shipping_status && (order.shipping_status.toUpperCase() === 'CANCELLED' || order.shipping_status.toUpperCase() === 'CANCELED')) ? 'Admin (via Shiprocket)' : 
                        order.shipping_status === 'cancelled' ? 'Customer' : 
                        'Unknown') %>
                 </span>
