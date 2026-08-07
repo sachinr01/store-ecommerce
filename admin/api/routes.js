@@ -101,11 +101,13 @@ router.get('/site-settings', ctrl.getPublicSiteSettings);
 router.get('/banners', async (req, res) => {
   try {
     const db = require('../config/db');
-    const type = req.query.type || null;
+    let type = req.query.type || null;
+    // normalise legacy typo: 'gifing' → 'gifting'
+    if (type === 'gifing') type = 'gifting';
     const query = type
-      ? "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 AND type=? ORDER BY sort_order ASC, id DESC"
+      ? "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 AND (type=? OR (? = 'gifting' AND type='gifing')) ORDER BY sort_order ASC, id DESC"
       : "SELECT id, title, type, image_url, link_url, sort_order FROM tbl_banners WHERE is_active=1 ORDER BY sort_order ASC, id DESC";
-    const [rows] = await db.query(query, type ? [type] : []);
+    const [rows] = await db.query(query, type ? [type, type] : []);
     res.json({ success: true, data: rows });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

@@ -255,32 +255,49 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
 export function FeaturedCollectionPanels() {
   const [collectionBanners, setCollectionBanners] = useState<import('../lib/api').Banner[]>([]);
   const [categoryBanners, setCategoryBanners]     = useState<import('../lib/api').Banner[]>([]);
-  const [homeCats, setHomeCats] = useState<import('../lib/api').ProductCategory[]>([]);
 
   useEffect(() => {
-    import('../lib/api').then(({ getBanners, getProductCategories }) => {
+    import('../lib/api').then(({ getBanners }) => {
       getBanners('collection').then((d) => { if (d.length) setCollectionBanners(d); }).catch(() => {});
       getBanners('category').then((d)   => { if (d.length) setCategoryBanners(d);   }).catch(() => {});
-      getProductCategories().then((all) => {
-        const filtered = all.filter((c) => c.show_in_home === 1 && c.category_image);
-        if (filtered.length) setHomeCats(filtered);
-      }).catch(() => {});
     });
   }, []);
 
-  // Merge API collection images into collectionRows (replace static panel src)
+  // Merge API collection banners → replace static panel src (1 banner per row, by index)
+  // Merge API category banners → replace slide images per row
+  //   sort_order 0 = row 0 slides, sort_order 1 = row 1 slides, sort_order 2 = row 2 slides
+  //   Within a row, banners are mapped to slides in their sorted order
+  const catByRow: Record<number, import('../lib/api').Banner[]> = {};
+  categoryBanners.forEach((b) => {
+    const row = b.sort_order ?? 0;
+    if (!catByRow[row]) catByRow[row] = [];
+    catByRow[row].push(b);
+  });
+
   const mergedRows = collectionRows.map((row, i) => {
-    const b = collectionBanners[i];
-    if (!b) return row;
-    return {
-      ...row,
-      staticPanel: {
-        ...row.staticPanel,
-        src:  b.image_url,
-        alt:  b.title || row.staticPanel.alt,
-        href: b.link_url || row.staticPanel.href,
-      },
-    };
+    // Replace static panel if collection banner exists for this index
+    const cb = collectionBanners[i];
+    const updatedPanel = cb
+      ? { ...row.staticPanel, src: cb.image_url, alt: cb.title || row.staticPanel.alt, href: cb.link_url || row.staticPanel.href }
+      : row.staticPanel;
+
+    // Replace slides if category banners exist for this row index
+    const rowCatBanners = catByRow[i];
+    const updatedSlides = rowCatBanners?.length
+      ? row.slides.map((slide, si) => {
+          const rb = rowCatBanners[si];
+          if (!rb) return slide;
+          return {
+            ...slide,
+            src:  rb.image_url,
+            alt:  rb.title || slide.alt,
+            href: rb.link_url || slide.href,
+            title: rb.title || slide.title,
+          };
+        })
+      : row.slides;
+
+    return { ...row, staticPanel: updatedPanel, slides: updatedSlides };
   });
 
   const mobilePanels = mergedRows.flatMap((row) => (
@@ -313,34 +330,13 @@ export function FeaturedCollectionPanels() {
         ))}
       </div>
 
-      {/* Category tiles — priority: homeCats (show_in_home) → categoryBanners → mobilePanels fallback */}
+      {/* Category tiles fallback — mobilePanels from merged collection rows */}
       <div className="featured-mobile-grid" aria-label="Trending collections">
-        {homeCats.length > 0
-          ? homeCats.map((cat, index) => {
-              const apiOrigin = (() => {
-                const raw = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
-                try { return new URL(raw).origin; } catch { return 'http://localhost:3000'; }
-              })();
-              const src  = apiOrigin + cat.category_image!;
-              const href = `/shop/${cat.category_slug}`;
-              return (
-                <Link href={href} className="featured-mobile-tile" key={`cat-${cat.category_id}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt={cat.category_name} width={420} height={520} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                  <span className="featured-mobile-shade" aria-hidden="true" />
-                  <span className="featured-mobile-content">
-                    <span className="featured-mobile-title">{cat.category_name}</span>
-                    <span className="featured-mobile-button">Explore Collection</span>
-                  </span>
-                </Link>
-              );
-            })
-          : (categoryBanners.length ? categoryBanners : mobilePanels).map((panel, index) => {
-              const isBanner = 'image_url' in panel;
-              const src  = isBanner ? panel.image_url : (panel as MobilePanel).src;
-              const alt  = (isBanner ? panel.title : (panel as MobilePanel).alt) || '';
-              const href = (isBanner ? panel.link_url : (panel as MobilePanel).href) || '/shop';
-              const label = isBanner ? panel.title : (panel as MobilePanel).title;
+        {mobilePanels.map((panel, index) => {
+              const src  = panel.src;
+              const alt  = panel.alt || '';
+              const href = panel.href || '/shop';
+              const label = panel.title;
               return (
                 <Link href={href} className="featured-mobile-tile" key={`panel-${index}`}>
                   <Image src={src} alt={alt} width={420} height={520} sizes="50vw" />
@@ -351,8 +347,7 @@ export function FeaturedCollectionPanels() {
                   </span>
                 </Link>
               );
-            })
-        }
+            })}
       </div>
     </section>
   );

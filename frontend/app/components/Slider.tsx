@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getBanners, type Banner } from "../lib/api";
 
 const FALLBACK: Banner[] = [
-  { id: 0, title: null, type: "banner", image_url: "/images/ecommerce/Hero_Image.webp", link_url: "/shop", sort_order: 0 },
+  { id: 0, title: null, type: "banner", image_url: "/images/Fallback_Image/Hero_Banner.webp", link_url: "/", sort_order: 0 },
 ];
 
 export default function Slider() {
