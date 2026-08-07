@@ -259,7 +259,7 @@
         <% } %>
 
         <!-- Cancellation Details -->
-        <% if (order.order_status === 'cancelled' && order.cancelled_by_label) { %>
+        <% if (order.order_status === 'cancelled') { %>
         <div class="card mb-3 border-secondary">
           <div class="card-body">
             <h5 class="card-title mb-3 pb-2 border-bottom text-secondary">
@@ -272,7 +272,14 @@
               </div>
               <div class="mb-2">
                 <strong>Cancelled By:</strong>
-                <span class="text-dark"><%= order.cancelled_by_label %></span>
+                <span class="text-dark">
+                  <%= order.cancelled_by_label || 
+                      (order.cancelled_by === 'USER' ? 'Customer' : 
+                       order.cancelled_by === 'ADMIN' ? 'Admin' : 
+                       order.shipping_status === 'CANCELLED' ? 'Admin (via Shiprocket)' : 
+                       order.shipping_status === 'cancelled' ? 'Customer' : 
+                       'Unknown') %>
+                </span>
               </div>
               <% if (order.cancelled_at) { %>
               <div class="mb-0">

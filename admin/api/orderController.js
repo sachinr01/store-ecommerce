@@ -403,10 +403,23 @@ async function getTrackingStatus(req, res) {
     if (isProtected) {
       console.log(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
     } else {
+      const wasNotCancelled = currentStatusLower !== 'cancelled';
       await db.query(
         `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE awb_code = ?`,
         [finalStatus, shiprocketStatus, awb],
       );
+      
+      // If status just became cancelled via AWB tracking, record as ADMIN
+      if (finalStatus.toLowerCase() === 'cancelled' && wasNotCancelled) {
+        const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+        const [[orderRow]] = await db.query(
+          `SELECT order_id FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
+          [awb],
+        );
+        if (orderRow) {
+          await recordCancellationSource(null, orderRow.order_id, CANCELLED_BY.ADMIN).catch(() => {});
+        }
+      }
     }
 
     // While protected, report the real local status (e.g. "cancelled") rather
@@ -2598,7 +2611,7 @@ const getAllOrders = async (_req, res) => {
         // it's seen so we keep the latest value per order.
         if (row.meta_key === "_cancelled_by" && !entry.cancelled_by) {
           entry.cancelled_by = row.meta_value;
-          entry.cancelled_by_label = labelForCancelledBy(row.meta_value);
+          entry.cancelled_by_label = labelForCancelledBy(row.meta_value, "admin");
         }
         if (row.meta_key === "_cancelled_at" && !entry.cancelled_at) {
           entry.cancelled_at = row.meta_value;
@@ -3218,11 +3231,18 @@ const trackOrderById = async (req, res) => {
           };
           // keep local status in sync
           if (trackingData.current_status) {
+            const wasNotCancelled = order.order_status !== 'cancelled';
             await db.query(
               `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE order_id = ?`,
               [trackingData.current_status, rawStatus, orderId],
             );
             order.shipping_status = rawStatus;
+            
+            // If status just became cancelled via tracking sync, record as ADMIN
+            if (trackingData.current_status === 'cancelled' && wasNotCancelled) {
+              const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+              await recordCancellationSource(null, orderId, CANCELLED_BY.ADMIN);
+            }
           }
         }
       } catch (trackErr) {
@@ -3529,6 +3549,7 @@ const trackOrderByPhone = async (req, res) => {
           };
           const liveStatus = statusMap[rawStatus] || rawStatus;
           if (liveStatus) {
+            const wasNotCancelled = order.order_status !== 'cancelled';
             order.order_status = liveStatus;
             order.shipping_status = rawStatus;
             // keep local DB in sync
@@ -3536,6 +3557,12 @@ const trackOrderByPhone = async (req, res) => {
               `UPDATE tbl_orders SET order_status = ?, shipping_status = ? WHERE order_id = ?`,
               [liveStatus, rawStatus, orderId],
             ).catch(() => {});
+            
+            // If status just became cancelled via tracking sync, record as ADMIN
+            if (liveStatus === 'cancelled' && wasNotCancelled) {
+              const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
+              await recordCancellationSource(null, orderId, CANCELLED_BY.ADMIN).catch(() => {});
+            }
           }
 
           // Sync exception flag from live status

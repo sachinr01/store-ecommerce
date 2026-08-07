@@ -121,14 +121,28 @@
                                     </small></td>
                                   <td>
                                     <span class="badge rounded-pill <%= sb.class %>" 
-                                      <% if (o.order_status === 'cancelled' && o.cancelled_by_label) { %>
-                                        title="Cancelled by <%= o.cancelled_by_label %><% if (o.cancelled_at) { %> on <%= new Date(o.cancelled_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% } %>"
+                                      <% if (o.order_status === 'cancelled') { 
+                                        const cancelledBy = o.cancelled_by_label || 
+                                          (o.cancelled_by === 'USER' ? 'Customer' : 
+                                           o.cancelled_by === 'ADMIN' ? 'Admin' : 
+                                           o.shipping_status === 'CANCELLED' ? 'Admin (via Shiprocket)' : 
+                                           o.shipping_status === 'cancelled' ? 'Customer' : 
+                                           'Unknown');
+                                      %>
+                                        title="Cancelled by <%= cancelledBy %><% if (o.cancelled_at) { %> on <%= new Date(o.cancelled_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %><% } %>"
                                         data-bs-toggle="tooltip"
                                       <% } %>
                                     >
                                       <%= sb.label %>
-                                      <% if (o.order_status === 'cancelled' && o.cancelled_by_label) { %>
-                                        <small style="opacity: 0.8;"> (<%= o.cancelled_by_label %>)</small>
+                                      <% if (o.order_status === 'cancelled') { 
+                                        const cancelledBy = o.cancelled_by_label || 
+                                          (o.cancelled_by === 'USER' ? 'Customer' : 
+                                           o.cancelled_by === 'ADMIN' ? 'Admin' : 
+                                           o.shipping_status === 'CANCELLED' ? 'Admin (via Shiprocket)' : 
+                                           o.shipping_status === 'cancelled' ? 'Customer' : 
+                                           'Unknown');
+                                      %>
+                                        <small style="opacity: 0.8;"> (<%= cancelledBy %>)</small>
                                       <% } %>
                                     </span>
                                   </td>
