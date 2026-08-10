@@ -56,11 +56,11 @@
                 <label class="form-label fw-semibold">Type</label>
                 <select name="type" id="bannerType" class="form-select" onchange="updateDimensionHint()">
                   <% const typeMap = {
-                    banner:     { label: 'Hero Slider',                   w: 2008, h: 783 },
-                    collection: { label: 'Our Collection Category',               w: 1200, h: 800 },
-                    category:   { label: 'Our collection Sub-Category',                 w: 828,  h: 828 },
-                    nestcase:   { label: 'Main Banner',  w: 1831, h: 859 },
-                    gifting:    { label: 'Gifting',                  w: 1098, h: 1432 },
+                    banner:     { label: 'Hero Slider',   w: 2008, h: 783  },
+                    collection: { label: 'Category',      w: 1200, h: 800  },
+                    category:   { label: 'Sub-Category',  w: 828,  h: 828  },
+                    nestcase:   { label: 'Main Banner',   w: 1831, h: 859  },
+                    gifting:    { label: 'Gifting',       w: 1098, h: 1432 },
                   }; %>
                   <% Object.entries(typeMap).forEach(([t, info]) => { %>
                     <option value="<%= t %>" data-w="<%= info.w %>" data-h="<%= info.h %>"

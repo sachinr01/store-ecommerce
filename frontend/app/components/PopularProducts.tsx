@@ -9,35 +9,35 @@ const collectionRows = [
     staticSide: 'left' as const,
     staticPanel: {
       title: 'Dinnerware',
-      src: '/images/collection/dinner_set_main_bn.jpeg',
+      src: '/images/Fallback_Image/Maincategory_Banner.webp',
       alt: 'Dinnerware Collection',
-      href: '/shop/dinner-sets',
+      href: '/',
     },
     slides: [
       {
         title: 'Plates',
-        src: '/images/collection/Dinner-Set-Plates.png',
+        src: '/images/Fallback_Image/Subcategory_Banner.webp',
         alt: 'Plates Collection',
-        href: '/shop/dinner-sets',
+        href: '/',
       },
-      {
-        title: 'Bowls',
-        src: '/images/collection/Dinner-Set-Bowls.png',
-        alt: 'Bowls Collection',
-        href: '/shop/serving-bowls',
-      },
-      {
-        title: 'Platters',
-        src: '/images/collection/Dinner-Set-Platter.png',
-        alt: 'Platters Collection',
-        href: 'shop/platters',
-      },
-      {
-        title: 'Dinner-Sets',
-        src: '/images/collection/Dinner-Sets-Dinner-Set.png',
-        alt: 'Platters Collection',
-        href: '/shop/dinner-sets',
-      },
+      // {
+      //   title: 'Bowls',
+      //   src: '/images/collection/Dinner-Set-Bowls.png',
+      //   alt: 'Bowls Collection',
+      //   href: '/shop/serving-bowls',
+      // },
+      // {
+      //   title: 'Platters',
+      //   src: '/images/collection/Dinner-Set-Platter.png',
+      //   alt: 'Platters Collection',
+      //   href: 'shop/platters',
+      // },
+      // {
+      //   title: 'Dinner-Sets',
+      //   src: '/images/collection/Dinner-Sets-Dinner-Set.png',
+      //   alt: 'Platters Collection',
+      //   href: '/shop/dinner-sets',
+      // },
     ],
   },
 
@@ -45,47 +45,47 @@ const collectionRows = [
     staticSide: 'right' as const,
     staticPanel: {
       title: 'Drinkware',
-      src: '/images/collection/drinkware_main_bn.jpeg',
+      src: '/images/Fallback_Image/Maincategory_Banner.webp',
       alt: 'Drinkware Collection',
-      href: '/shop/drinkware',
+      href: '/',
     },
     slides: [
       {
         title: 'Cups & Mugs',
-        src: '/images/collection/Drinkware-Cups-&-Mugs.png',
+        src: '/images/Fallback_Image/Subcategory_Banner.webp',
         alt: 'Cups & Mugs Collection',
-        href: '/shop/cups-and-mugs',
+        href: '',
       },
-      {
-        title: 'Whiskey Glass',
-        src: '/images/collection/Drinkware-Whiskey-Glasses.png',
-        alt: 'Whiskey Glass Collection',
-        href: '/shop/whiskey-glasses',
-      },
-      {
-        title: 'Beer Glass',
-        src: '/images/collection/Drinkware-Beer-Glasses.png',
-        alt: 'Beer Glass collection',
-        href: '/shop/beer-mugs',
-      },
-      {
-        title: 'Stemware',
-        src: '/images/collection/Drinkware-Stemwares.png',
-        alt: 'Stemware collection',
-        href: '/shop/stemware',
-      },
-      {
-        title: 'Tumblers',
-        src: '/images/collection/Drinkware-Tumblers.png',
-        alt: 'Tumblers collection',
-        href: '/shop/tumblers',
-      },
-      {
-        title: 'Insulated Mugs',
-        src: '/images/collection/Drinkware-Insulated-Mugs.png',
-        alt: 'Insulated Mugs collection',
-        href: '/shop/insulated-mugs',
-      },
+      // {
+      //   title: 'Whiskey Glass',
+      //   src: '/images/collection/Drinkware-Whiskey-Glasses.png',
+      //   alt: 'Whiskey Glass Collection',
+      //   href: '/shop/whiskey-glasses',
+      // },
+      // {
+      //   title: 'Beer Glass',
+      //   src: '/images/collection/Drinkware-Beer-Glasses.png',
+      //   alt: 'Beer Glass collection',
+      //   href: '/shop/beer-mugs',
+      // },
+      // {
+      //   title: 'Stemware',
+      //   src: '/images/collection/Drinkware-Stemwares.png',
+      //   alt: 'Stemware collection',
+      //   href: '/shop/stemware',
+      // },
+      // {
+      //   title: 'Tumblers',
+      //   src: '/images/collection/Drinkware-Tumblers.png',
+      //   alt: 'Tumblers collection',
+      //   href: '/shop/tumblers',
+      // },
+      // {
+      //   title: 'Insulated Mugs',
+      //   src: '/images/collection/Drinkware-Insulated-Mugs.png',
+      //   alt: 'Insulated Mugs collection',
+      //   href: '/shop/insulated-mugs',
+      // },
     ],
   },
 
@@ -93,31 +93,33 @@ const collectionRows = [
     staticSide: 'left' as const,
     staticPanel: {
       title: 'Containers',
-      src: '/images/collection/containers_main_bn.jpeg',
+      src: '/images/Fallback_Image/Maincategory_Banner.webp',
       alt: 'Containers collection',
-      href: '/shop/kitchen-organisers',
+      href: '/',
     },
     slides: [
       {
         title: 'Containers',
-        src: '/images/collection/Container-Contaner.png',
+        src: '/images/Fallback_Image/Subcategory_Banner.webp',
         alt: 'Containers collection',
-        href: '/shop/kitchen-organisers',
+        href: '/',
       },
-      {
-        title: 'Spice Jars',
-        src: '/images/collection/Container-Spice-Jar.png',
-        alt: 'Spice Jars collection',
-        href: '/shop/spice-jars',
-      },
-      {
-        title: 'Spice Jars 2',
-        src: '/images/collection/Container-Spice-Jars2.png',
-        alt: 'Spice Jars 2 collection',
-        href: '/shop/storage-jars',
-      },
+      // {
+      //   title: 'Spice Jars',
+      //   src: '/images/collection/Container-Spice-Jar.png',
+      //   alt: 'Spice Jars collection',
+      //   href: '/shop/spice-jars',
+      // },
+      // {
+      //   title: 'Spice Jars 2',
+      //   src: '/images/collection/Container-Spice-Jars2.png',
+      //   alt: 'Spice Jars 2 collection',
+      //   href: '/shop/storage-jars',
+      // },
     ],
   },
+
+  // *Extra collection
   // {
   //   staticSide: 'right' as const,
   //   staticPanel: {
@@ -154,8 +156,8 @@ function StaticPanel({ panel, priority }: { panel: CollectionPanel; priority: bo
       <Image
         src={panel.src}
         alt={panel.alt}
-        width={1120}
-        height={620}
+        width={1200}
+        height={800}
         priority={priority}
         sizes="(max-width: 990px) 100vw, 60vw"
       />
@@ -222,8 +224,8 @@ function SliderRail({ slides, priority }: { slides: CollectionSlide[]; priority:
             <Image
               src={slide.src}
               alt={slide.alt}
-              width={760}
-              height={620}
+              width={828}
+              height={828}
               priority={priority || index === 0}
               loading={priority || index === 0 ? undefined : 'eager'}
               sizes="(max-width: 990px) 100vw, 40vw"
@@ -281,18 +283,18 @@ export function FeaturedCollectionPanels() {
       ? { ...row.staticPanel, src: cb.image_url, alt: cb.title || row.staticPanel.alt, href: cb.link_url || row.staticPanel.href }
       : row.staticPanel;
 
-    // Replace slides if category banners exist for this row index
+    // If category banners exist for this row, use ONLY those — no hardcoded slides mixed in.
+    // If no banners uploaded, fall back to hardcoded slides.
     const rowCatBanners = catByRow[i];
     const updatedSlides = rowCatBanners?.length
-      ? row.slides.map((slide, si) => {
-          const rb = rowCatBanners[si];
-          if (!rb) return slide;
+      ? rowCatBanners.map((rb, si) => {
+          const base = row.slides[si] ?? row.slides[0];
           return {
-            ...slide,
-            src:  rb.image_url,
-            alt:  rb.title || slide.alt,
-            href: rb.link_url || slide.href,
-            title: rb.title || slide.title,
+            ...base,
+            src:   rb.image_url,
+            alt:   rb.title || base.alt,
+            href:  rb.link_url || base.href,
+            title: rb.title || base.title,
           };
         })
       : row.slides;
@@ -335,7 +337,7 @@ export function FeaturedCollectionPanels() {
         {mobilePanels.map((panel, index) => {
               const src  = panel.src;
               const alt  = panel.alt || '';
-              const href = panel.href || '/shop';
+              const href = panel.href || '/';
               const label = panel.title;
               return (
                 <Link href={href} className="featured-mobile-tile" key={`panel-${index}`}>

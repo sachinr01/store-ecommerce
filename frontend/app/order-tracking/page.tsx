@@ -568,14 +568,16 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
           </div>
 
           <div className="tracking-result-actions">
-            <a
-              href={`/api/orders/invoice/${summary.id}?phone=${encodeURIComponent(summary.phone)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ot-btn ot-btn--invoice"
-            >
-              DOWNLOAD INVOICE
-            </a>
+            {summary.status === 'delivered' && (
+              <a
+                href={`/api/orders/invoice/${summary.id}?phone=${encodeURIComponent(summary.phone)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ot-btn ot-btn--invoice"
+              >
+                DOWNLOAD INVOICE
+              </a>
+            )}
 
             {!summary.awb && ['pending', 'processing', 'ready_to_ship', 'on-hold'].includes(summary.status) && (
               <button

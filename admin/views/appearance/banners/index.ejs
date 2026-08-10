@@ -65,7 +65,8 @@
                       <% } %>
                     </td>
                     <td><strong><%= b.title || '—' %></strong></td>
-                    <td><span class="badge bg-info text-capitalize"><%= b.type || 'banner' %></span></td>
+                    <% const typeLabels = { banner: 'Hero Slider', collection: 'Category', category: 'Sub-Category', nestcase: 'Main Banner', gifting: 'Gifting' }; %>
+                    <td><span class="badge bg-info"><%= typeLabels[b.type] || b.type || 'banner' %></span></td>
                     <td>
                       <% if (b.link_url) { %>
                         <a href="<%= b.link_url %>" target="_blank" class="text-muted small">

@@ -33,7 +33,7 @@ export default function Slider() {
           key={slide.id}
           className={`slider-slide ${index === currentSlide ? "active" : "inactive"}`}
         >
-          <Link href={slide.link_url || "/shop"} aria-label={slide.title || "Shop now"}>
+          <Link href={slide.link_url || "/"} aria-label={slide.title || "Shop now"}>
             <img
               src={slide.image_url}
               alt={slide.title || "Banner"}

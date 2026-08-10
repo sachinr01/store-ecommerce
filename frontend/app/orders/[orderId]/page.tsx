@@ -607,14 +607,16 @@ export default function OrderDetailPage() {
                     </div>
 
                     <div className="tracking-result-actions">
-                      <a
-                        href={`/api/orders/my/invoice/${summary.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ot-btn ot-btn--invoice"
-                      >
-                        DOWNLOAD INVOICE
-                      </a>
+                      {summary.status === 'delivered' && (
+                        <a
+                          href={`/api/orders/my/invoice/${summary.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ot-btn ot-btn--invoice"
+                        >
+                          DOWNLOAD INVOICE
+                        </a>
+                      )}
 
                       {canCancel && (
                         <button

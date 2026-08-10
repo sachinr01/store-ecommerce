@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getBanners, type Banner } from "../lib/api";
 
-const FALLBACK_SRC = "/images/ecommerce/Full_Banner.webp";
-const FALLBACK_HREF = "/shop";
+const FALLBACK_SRC = "/images/Fallback_Image/Full_Banner.webp";
+const FALLBACK_HREF = "/";
 
 export default function VideoBanner() {
   const [banners, setBanners] = useState<Banner[]>([]);
