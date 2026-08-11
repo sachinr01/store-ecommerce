@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { trackOrder, getLiveTracking, getImageUrl, cancelOrder, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../lib/api';
+import { trackOrder, getLiveTracking, getImageUrl, cancelOrder, returnOrder, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../lib/api';
 import { formatPrice } from '../lib/price';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -14,26 +14,12 @@ function formatDate(value: string) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-// Exception statuses: displayed as a warning badge on the last real step,
-// not as a distinct timeline step.
 const EXCEPTION_STATUSES = new Set(['undelivered', 'delayed', 'damaged', 'lost']);
 
-/**
- * Derives the canonical timeline key from the DB order_status string and the
- * presence of an AWB code.
- *
- * AWB presence takes priority over raw status for the "ready_to_ship" step:
- * once Shiprocket assigns an AWB the order has a confirmed pickup slot, even
- * if the raw status string is still "processing" / "Pickup Scheduled".
- */
 function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: string | null): string {
   if (!raw) return 'pending';
   const s = raw.replace('wc-', '').toLowerCase();
-  // IMPORTANT: only a real AWB code means Shiprocket has confirmed a pickup
-  // slot. `shipmentId` is created at invoice time — well before AWB
-  // assignment — so it must NOT be treated as "shipment ready" here, or the
-  // timeline (and the cancel-button eligibility that reads this status)
-  // advances before the order is actually ready to ship.
+
   const hasShipment = Boolean(awbCode);
 
   // Exception states — return as-is so the caller can render a warning badge
@@ -41,23 +27,14 @@ function normalizeStatus(raw: string, awbCode?: string | null, shipmentId?: stri
 
   if (s.includes('rto delivered') || s === 'returned') return 'returned';
   if (s.includes('rto') || s.includes('return initiated') || s === 'return_initiated') return 'return_initiated';
-  // out_for_delivery MUST precede the generic 'deliver' check — the string
-  // "out for delivery" contains "deliver" as a substring, so checking the
-  // generic case first would misclassify it as fully Delivered.
+ 
   if (s.includes('out_for') || s.includes('out for')) return 'out_for_delivery';
   if (s.includes('deliver')) return 'delivered';
   if (s.includes('complete')) return 'delivered';
-  // AWB present but still showing "processing" → already ready to ship.
-  // "invoiced" is included here as a fallback for legacy rows written before
-  // the backend learned to map Shiprocket's "INVOICED" webhook event — it's
-  // a pre-AWB milestone just like the others in this list.
   if (s.includes('process') || s.includes('invoiced') || s.includes('pickup scheduled') || s.includes('pickup queued') ||
       s.includes('pickup generated') || s.includes('pickup error') || s === 'new') {
     return hasShipment ? 'ready_to_ship' : 'processing';
   }
-  // NOTE: check "ready to ship" BEFORE the generic "shipped" check below —
-  // the string "ready to ship" contains "ship" as a substring, so checking
-  // shipped first would misclassify a not-yet-shipped order as Shipped.
   if (s.includes('ready to ship') || s.includes('ready_to_ship') || s === 'ready') return 'ready_to_ship';
   if (s.includes('in transit') || s.includes('in_transit') || s.includes('reached') ||
       s.includes('picked up') || s === 'shipped' || s === 'ship') return 'shipped';
@@ -80,10 +57,6 @@ function digitsOnly(v: string) {
 }
 
 // ─── timeline ────────────────────────────────────────────────────────────────
-
-// Main forward-journey steps in order.
-// "Pending" status is hidden from the timeline. "ready_to_ship" = AWB assigned.
-// Return / cancelled states are handled separately below.
 const STEPS = [
   'processing',
   'ready_to_ship',
@@ -365,6 +338,128 @@ function CancelReasonModal({
   );
 }
 
+// ─── return reason modal ────────────────────────────────────────────────────
+
+const RETURN_REASONS = [
+  { key: 'damaged_product',  label: 'Damaged product' },
+  { key: 'wrong_item',       label: 'Wrong item received' },
+  { key: 'quality_issue',    label: 'Product quality issue' },
+  { key: 'no_longer_needed', label: 'Item no longer needed' },
+  { key: 'other',            label: 'Other (please specify)' },
+] as const;
+
+type ReturnReasonKey = typeof RETURN_REASONS[number]['key'];
+
+function ReturnReasonModal({
+  onConfirm,
+  onClose,
+  submitting,
+}: {
+  onConfirm: (reason: ReturnReasonKey, customReason: string) => void;
+  onClose: () => void;
+  submitting: boolean;
+}) {
+  const [selected, setSelected] = useState<ReturnReasonKey | ''>('');
+  const [custom, setCustom]     = useState('');
+  const [touched, setTouched]   = useState(false);
+
+  const isOther    = selected === 'other';
+  const customOk   = !isOther || custom.trim().length > 0;
+  const canSubmit  = selected !== '' && customOk;
+  const MAX_CHARS  = 300;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleSubmit = () => {
+    setTouched(true);
+    if (!canSubmit) return;
+    onConfirm(selected as ReturnReasonKey, isOther ? custom.trim() : '');
+  };
+
+  return (
+    <div
+      className="ot-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rr-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="ot-modal ot-modal--reason" onClick={(e) => e.stopPropagation()}>
+        <h3 className="ot-modal-title" id="rr-modal-title">Return Order</h3>
+        <p className="ot-modal-subtitle">Why are you returning this order?</p>
+
+        <fieldset className="cr-reasons" role="radiogroup" aria-label="Return reason">
+          <legend className="sr-only">Select a reason</legend>
+          {RETURN_REASONS.map(({ key, label }) => (
+            <label key={key} className={`cr-reason${selected === key ? ' cr-reason--selected' : ''}`}>
+              <input
+                type="radio"
+                name="return-reason"
+                value={key}
+                checked={selected === key}
+                onChange={() => {
+                  setSelected(key);
+                  if (key !== 'other') setCustom('');
+                }}
+                disabled={submitting}
+              />
+              <span className="cr-reason-label">{label}</span>
+            </label>
+          ))}
+
+          {isOther && (
+            <div className="cr-custom-wrap">
+              <textarea
+                className="cr-custom-textarea"
+                placeholder="Please tell us more…"
+                value={custom}
+                maxLength={MAX_CHARS}
+                onChange={(e) => setCustom(e.target.value)}
+                disabled={submitting}
+                aria-label="Additional details"
+              />
+              <div className="cr-char-count">{custom.length} / {MAX_CHARS}</div>
+              {touched && !custom.trim() && (
+                <div className="cr-field-error">Please describe your reason before submitting.</div>
+              )}
+            </div>
+          )}
+        </fieldset>
+
+        {touched && !selected && (
+          <div className="cr-field-error" style={{ marginTop: 8 }}>Please select a reason to continue.</div>
+        )}
+
+        <div className="ot-modal-actions" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="ot-modal-btn ot-modal-btn--secondary"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Keep Order
+          </button>
+          <button
+            type="button"
+            className="ot-modal-btn ot-modal-btn--danger"
+            onClick={handleSubmit}
+            disabled={submitting}
+            aria-busy={submitting}
+          >
+            {submitting ? (
+              <span className="ot-spinner" aria-hidden="true" />
+            ) : 'Return Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── result panel ────────────────────────────────────────────────────────────
 
 function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailResponse; phone: string; onOrderCancelled: (updated: OrderDetailResponse) => void }) {
@@ -374,7 +469,43 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
   const [cancelSuccess, setCancelSuccess] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState('');
+  const [returnSuccess, setReturnSuccess] = useState('');
+  const [showReturnModal, setShowReturnModal] = useState(false);
+
   const handleCancel = () => setShowCancelModal(true);
+  const handleReturn = () => setShowReturnModal(true);
+
+  const confirmReturn = async (reason: ReturnReasonKey, customReason: string) => {
+    setReturning(true);
+    setReturnError('');
+    setReturnSuccess('');
+    try {
+      const result = await returnOrder(order.sr_cart_id || order.order_id, phone, reason, customReason || undefined);
+      setShowReturnModal(false);
+      setReturnSuccess(
+        result.message ||
+          'Your return request has been submitted successfully. Our team has been notified and will review your request shortly.',
+      );
+      onOrderCancelled({
+        ...data,
+        order: {
+          ...data.order,
+          is_return_eligible: false,
+          return_status: result.return?.return_status ?? 'Return Requested',
+          return_reason: result.return?.return_reason ?? reason,
+          return_reason_label: result.return?.return_reason_label ?? null,
+          return_custom_reason: result.return?.return_custom_reason ?? (customReason || null),
+          return_requested_at: result.return?.return_requested_at ?? new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      setReturnError(err instanceof Error ? err.message : 'Failed to submit return request. Please contact support.');
+    } finally {
+      setReturning(false);
+    }
+  };
 
   const confirmCancel = async (reason: CancelReasonKey, customReason: string) => {
     setCancelling(true);
@@ -385,9 +516,6 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
       // Close modal on success
       setShowCancelModal(false);
 
-      // An already-shipped order can't be cancelled outright — it goes to
-      // "cancellation_requested" while our team cancels it on Shiprocket,
-      // and only becomes truly "cancelled" once that's confirmed.
       if (result.cancellation_status === 'pending') {
         setCancelSuccess(
           result.message ||
@@ -467,9 +595,6 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
         </div>
       </div>
 
-      {/* Cancellation Details — mirrors app/orders/[orderId]/page.tsx so the
-          same information is visible whether a customer is logged in or
-          tracking by phone number. */}
       {summary.status === 'cancelled' && summary.cancelledByLabel && (
         <div className="order-detail-card">
           <h3 className="order-detail-subtitle">Cancellation Details</h3>
@@ -478,6 +603,24 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
             <div><strong>Cancelled By:</strong> {summary.cancelledByLabel}</div>
             {summary.cancelledOnLabel && (
               <div><strong>Cancelled On:</strong> {summary.cancelledOnLabel}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {order.return_status && (
+        <div className="order-detail-card">
+          <h3 className="order-detail-subtitle">Return Information</h3>
+          <div className="order-summary-grid">
+            <div><strong>Return Status:</strong> {order.return_status}</div>
+            {order.return_reason_label && (
+              <div><strong>Reason:</strong> {order.return_reason_label}</div>
+            )}
+            {order.return_requested_at && (
+              <div><strong>Requested On:</strong> {formatDate(order.return_requested_at)}</div>
+            )}
+            {order.return_custom_reason && (
+              <div><strong>Custom Reason:</strong> {order.return_custom_reason}</div>
             )}
           </div>
         </div>
@@ -596,6 +739,24 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               </div>
             )}
             {cancelError   && <div className="ot-error">{cancelError}</div>}
+
+            {order.is_return_eligible && (
+              <button
+                type="button"
+                className="ot-btn ot-btn--return"
+                onClick={handleReturn}
+                disabled={returning}
+              >
+                {returning ? 'Submitting…' : 'RETURN ORDER'}
+              </button>
+            )}
+
+            {returnSuccess && (
+              <div className="ot-cancel-success">
+                <strong>{returnSuccess}</strong>
+              </div>
+            )}
+            {returnError   && <div className="ot-error">{returnError}</div>}
           </div>
         </div>
       </div>
@@ -606,6 +767,15 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
           onConfirm={confirmCancel}
           onClose={() => setShowCancelModal(false)}
           submitting={cancelling}
+        />
+      )}
+
+      {/* Return reason modal */}
+      {showReturnModal && (
+        <ReturnReasonModal
+          onConfirm={confirmReturn}
+          onClose={() => setShowReturnModal(false)}
+          submitting={returning}
         />
       )}
     </div>

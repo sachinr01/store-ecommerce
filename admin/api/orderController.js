@@ -2942,6 +2942,17 @@ const getMyOrderById = async (req, res) => {
       order.cancelled_at = null;
     }
 
+    // Attach return-request info (null fields if no return was ever
+    // requested) plus whether the "Return Order" action should be offered.
+    const { getReturnInfo, isReturnEligible } = require("./returnController");
+    const returnInfo = await getReturnInfo(orderId);
+    order.return_status = returnInfo?.return_status || null;
+    order.return_reason = returnInfo?.return_reason || null;
+    order.return_reason_label = returnInfo?.return_reason_label || null;
+    order.return_custom_reason = returnInfo?.return_custom_reason || null;
+    order.return_requested_at = returnInfo?.return_requested_at || null;
+    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo);
+
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
     console.error("getMyOrderById error:", err);
@@ -3469,6 +3480,17 @@ const trackOrderByPhone = async (req, res) => {
       order.cancelled_by_label = null;
       order.cancelled_at = null;
     }
+
+    // Attach return-request info (same as getMyOrderById) so guest,
+    // reference-and-phone tracking sees return status / eligibility too.
+    const { getReturnInfo, isReturnEligible } = require("./returnController");
+    const returnInfo = await getReturnInfo(orderId);
+    order.return_status = returnInfo?.return_status || null;
+    order.return_reason = returnInfo?.return_reason || null;
+    order.return_reason_label = returnInfo?.return_reason_label || null;
+    order.return_custom_reason = returnInfo?.return_custom_reason || null;
+    order.return_requested_at = returnInfo?.return_requested_at || null;
+    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo);
 
     // Verify phone server-side
     const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");

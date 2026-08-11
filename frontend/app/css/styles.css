@@ -12452,6 +12452,15 @@ a.ot-btn {
   background: #a93226;
 }
 
+.ot-btn--return {
+  background: #172233;
+  margin-bottom: 50px;
+}
+
+.ot-btn--return:hover:not(:disabled) {
+  background: #0f1825;
+}
+
 .ot-error {
   margin-top: 12px;
   padding: 12px 16px;

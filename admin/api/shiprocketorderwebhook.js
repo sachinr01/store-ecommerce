@@ -2450,4 +2450,13 @@ module.exports = {
   notifyAdminOfOrderAutoCancelled,
   notifyCustomerOfCancellation,
   restoreOrderStock,
+  // Shared helpers — exported so other order-lifecycle controllers (e.g.
+  // returnController.js) can reuse the same email-data gathering / HTML
+  // building utilities instead of duplicating this logic.
+  gatherCancellationEmailData,
+  escHtml,
+  fmtMoney,
+  toStr,
+  LOGO_URL,
+  OWNER_EMAILS,
 };

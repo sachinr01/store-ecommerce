@@ -14,6 +14,7 @@ const contact = require('./contactController');
 const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
 const { receiveOrderWebhook, cancelShiprocketOrder, receiveShipmentWebhook } = require('./shiprocketorderwebhook');
+const { createReturnRequest } = require('./returnController');
 const catalogSync = require('./shiprocketcatalogsync');
 
 // ── In-memory rate limiter ─────────────────────────────────────────────────────
@@ -160,6 +161,7 @@ router.get ('/orders/my/invoice/:orderId', requireLogin, orders.downloadMyInvoic
 router.post('/shipping-rate',       orders.getShippingRate);
 router.get ('/tracking/:awb',       orders.getTrackingStatus);
 router.post('/orders/:orderId/cancel', cancelShiprocketOrder);    // public – phone verified, SR panel cancel
+router.post('/orders/:orderId/return', createReturnRequest);      // public – phone verified, or session owner; sr_cart_id also accepted
 router.get ('/orders/:orderId/wigzo-data', orders.getOrderWigzoData); // public – Wigzo Thank You page event
 router.get ('/orders/:orderId',     requireLogin, orders.getMyOrderById);
 
@@ -196,6 +198,9 @@ router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
 
 // ── Shiprocket Order Cancel (public — phone verified) ─────────────────────────
 router.post('/shiprocket/cancel-order', cancelShiprocketOrder);
+
+// ── Shiprocket Order Return (public — phone verified; sr_cart_id accepted as orderId) ─
+router.post('/shiprocket/return-order', createReturnRequest);
 
 // ── Shiprocket Admin Catalog Sync Webhooks ────────────────────────────────────
 router.post(

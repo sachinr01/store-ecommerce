@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import { cancelMyOrder, getMyOrderById, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../../lib/api';
+import { cancelMyOrder, returnMyOrder, getMyOrderById, getLiveTracking, getImageUrl, type OrderDetailResponse, type ShiprocketTrackingActivity } from '../../lib/api';
 import { formatPrice } from '../../lib/price';
 
 function formatDate(value: string) {
@@ -220,6 +220,108 @@ function CancelReasonModal({
   );
 }
 
+const RETURN_REASONS = [
+  { key: 'damaged_product',  label: 'Damaged product' },
+  { key: 'wrong_item',       label: 'Wrong item received' },
+  { key: 'quality_issue',    label: 'Product quality issue' },
+  { key: 'no_longer_needed', label: 'Item no longer needed' },
+  { key: 'other',            label: 'Other (please specify)' },
+] as const;
+
+type ReturnReasonKey = typeof RETURN_REASONS[number]['key'];
+
+function ReturnReasonModal({
+  onConfirm,
+  onClose,
+  submitting,
+}: {
+  onConfirm: (reason: ReturnReasonKey, customReason: string) => void;
+  onClose: () => void;
+  submitting: boolean;
+}) {
+  const [selected, setSelected] = useState<ReturnReasonKey | ''>('');
+  const [custom, setCustom]     = useState('');
+  const [touched, setTouched]   = useState(false);
+  const isOther   = selected === 'other';
+  const customOk  = !isOther || custom.trim().length > 0;
+  const canSubmit = selected !== '' && customOk;
+  const MAX_CHARS = 300;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const handleSubmit = () => {
+    setTouched(true);
+    if (!canSubmit) return;
+    onConfirm(selected as ReturnReasonKey, isOther ? custom.trim() : '');
+  };
+
+  return (
+    <div
+      className="ot-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rr-modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="ot-modal ot-modal--reason" onClick={(e) => e.stopPropagation()}>
+        <h3 className="ot-modal-title" id="rr-modal-title">Return Order</h3>
+        <p className="ot-modal-subtitle">Why are you returning this order?</p>
+
+        <fieldset className="cr-reasons" role="radiogroup" aria-label="Return reason">
+          <legend className="sr-only">Select a reason</legend>
+          {RETURN_REASONS.map(({ key, label }) => (
+            <label key={key} className={`cr-reason${selected === key ? ' cr-reason--selected' : ''}`}>
+              <input
+                type="radio"
+                name="return-reason"
+                value={key}
+                checked={selected === key}
+                onChange={() => { setSelected(key); if (key !== 'other') setCustom(''); }}
+                disabled={submitting}
+              />
+              <span className="cr-reason-label">{label}</span>
+            </label>
+          ))}
+          {isOther && (
+            <div className="cr-custom-wrap">
+              <textarea
+                className="cr-custom-textarea"
+                placeholder="Specify your reason…"
+                value={custom}
+                maxLength={MAX_CHARS}
+                onChange={(e) => setCustom(e.target.value)}
+                disabled={submitting}
+                aria-label="Specify your reason"
+              />
+              <div className="cr-char-count">{custom.length} / {MAX_CHARS}</div>
+              {touched && !custom.trim() && (
+                <div className="cr-field-error">Please describe your reason before submitting.</div>
+              )}
+            </div>
+          )}
+        </fieldset>
+
+        {touched && !selected && (
+          <div className="cr-field-error" style={{ marginTop: 8 }}>Please select a reason to continue.</div>
+        )}
+
+        <div className="ot-modal-actions" style={{ marginTop: 24 }}>
+          <button type="button" className="ot-modal-btn ot-modal-btn--secondary" onClick={onClose} disabled={submitting}>
+            Keep Order
+          </button>
+          <button type="button" className="ot-modal-btn ot-modal-btn--danger" onClick={handleSubmit} disabled={submitting} aria-busy={submitting}>
+            {submitting ? <span className="ot-spinner" aria-hidden="true" /> : 'Return Order'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params?.orderId as string | undefined;
@@ -231,6 +333,10 @@ export default function OrderDetailPage() {
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState('');
+  const [returnSuccess, setReturnSuccess] = useState('');
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   // Statuses that are still in-flight — we poll until the order reaches a terminal state.
   const TERMINAL_STATUSES = new Set(['delivered', 'cancelled', 'returned']);
@@ -415,6 +521,45 @@ export default function OrderDetailPage() {
     }
   };
 
+  const canReturn = Boolean(data?.order?.is_return_eligible);
+
+  const handleReturn = () => setShowReturnModal(true);
+
+  const confirmReturn = async (reason: ReturnReasonKey, customReason: string) => {
+    if (!summary || !orderId) return;
+    setReturning(true);
+    setReturnError('');
+    setReturnSuccess('');
+    try {
+      const result = await returnMyOrder(summary.id, reason, customReason || undefined);
+      setShowReturnModal(false);
+      setReturnSuccess(
+        result.message ||
+          'Your return request has been submitted successfully. Our team has been notified and will review your request shortly.',
+      );
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              order: {
+                ...prev.order,
+                is_return_eligible: false,
+                return_status: result.return?.return_status ?? 'Return Requested',
+                return_reason: result.return?.return_reason ?? reason,
+                return_reason_label: result.return?.return_reason_label ?? null,
+                return_custom_reason: result.return?.return_custom_reason ?? (customReason || null),
+                return_requested_at: result.return?.return_requested_at ?? new Date().toISOString(),
+              },
+            }
+          : prev,
+      );
+    } catch (err) {
+      setReturnError(err instanceof Error ? err.message : 'Failed to submit return request. Please contact support.');
+    } finally {
+      setReturning(false);
+    }
+  };
+
   return (
     <>
       <Header />
@@ -507,6 +652,24 @@ export default function OrderDetailPage() {
                       <div><strong>Cancelled By:</strong> {summary.cancelledByLabel}</div>
                       {summary.cancelledOnLabel && (
                         <div><strong>Cancelled On:</strong> {summary.cancelledOnLabel}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {data!.order.return_status && (
+                  <div className="order-detail-card">
+                    <h3 className="order-detail-subtitle">Return Information</h3>
+                    <div className="order-summary-grid">
+                      <div><strong>Return Status:</strong> {data!.order.return_status}</div>
+                      {data!.order.return_reason_label && (
+                        <div><strong>Reason:</strong> {data!.order.return_reason_label}</div>
+                      )}
+                      {data!.order.return_requested_at && (
+                        <div><strong>Requested On:</strong> {formatDate(data!.order.return_requested_at)}</div>
+                      )}
+                      {data!.order.return_custom_reason && (
+                        <div><strong>Custom Reason:</strong> {data!.order.return_custom_reason}</div>
                       )}
                     </div>
                   </div>
@@ -629,8 +792,21 @@ export default function OrderDetailPage() {
                         </button>
                       )}
 
+                      {canReturn && (
+                        <button
+                          type="button"
+                          className="ot-btn ot-btn--return"
+                          onClick={handleReturn}
+                          disabled={returning}
+                        >
+                          {returning ? 'Submitting…' : 'RETURN ORDER'}
+                        </button>
+                      )}
+
                       {cancelSuccess && <div className="ot-cancel-success"><strong>{cancelSuccess}</strong></div>}
                       {cancelError   && <div className="order-detail-error">{cancelError}</div>}
+                      {returnSuccess && <div className="ot-cancel-success"><strong>{returnSuccess}</strong></div>}
+                      {returnError   && <div className="order-detail-error">{returnError}</div>}
                     </div>
                   </div>
                 </div>
@@ -645,6 +821,13 @@ export default function OrderDetailPage() {
           onConfirm={(reason, customReason) => void confirmCancel(reason, customReason)}
           onClose={() => setShowCancelModal(false)}
           submitting={cancelling}
+        />
+      )}
+      {showReturnModal && (
+        <ReturnReasonModal
+          onConfirm={(reason, customReason) => void confirmReturn(reason, customReason)}
+          onClose={() => setShowReturnModal(false)}
+          submitting={returning}
         />
       )}
     </>

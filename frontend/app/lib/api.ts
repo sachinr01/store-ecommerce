@@ -253,6 +253,15 @@ export const updateProfile = (body: {
 // cancellationSource.js for the source of truth.
 export type CancelledBy = 'USER' | 'ADMIN';
 
+export type ReturnStatus =
+  | 'Return Requested'
+  | 'Approved'
+  | 'Rejected'
+  | 'Return In Progress'
+  | 'Returned'
+  | 'Refund Processed'
+  | 'Completed';
+
 export interface OrderSummary {
   order_id: number;
   order_status: string;
@@ -332,6 +341,14 @@ export interface OrderDetailResponse {
     cancelled_by?: CancelledBy | null;
     cancelled_by_label?: string | null;
     cancelled_at?: string | null;
+    // Return-request info — null until the customer requests a return.
+    return_status?: ReturnStatus | null;
+    return_reason?: string | null;
+    return_reason_label?: string | null;
+    return_custom_reason?: string | null;
+    return_requested_at?: string | null;
+    // Whether the "Return Order" action should be offered right now.
+    is_return_eligible?: boolean;
   };
   items: OrderItemDetail[];
 }
@@ -379,6 +396,57 @@ export const cancelMyOrder = async (
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ reason, ...(customReason ? { customReason } : {}) }),
+    cache: 'no-store',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || `Error ${res.status}`);
+  }
+  return body;
+};
+
+export interface ReturnOrderResult {
+  message: string;
+  return?: {
+    return_status: ReturnStatus;
+    return_reason: string | null;
+    return_reason_label: string | null;
+    return_custom_reason: string | null;
+    return_requested_at: string;
+  };
+}
+
+/** Request a return on own order when logged in (no phone needed). */
+export const returnMyOrder = async (
+  orderId: number | string,
+  reason: string,
+  customReason?: string,
+): Promise<ReturnOrderResult> => {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/return`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ reason, ...(customReason ? { customReason } : {}) }),
+    cache: 'no-store',
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || `Error ${res.status}`);
+  }
+  return body;
+};
+
+/** Request a return for a guest / order-reference tracking session (orderId may be the internal id or the sr_cart_id — phone-verified server-side). */
+export const returnOrder = async (
+  orderId: number | string,
+  phone: string,
+  reason: string,
+  customReason?: string,
+): Promise<ReturnOrderResult> => {
+  const res = await fetch(`${API_BASE}/shiprocket/return-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId: String(orderId), phone, reason, ...(customReason ? { customReason } : {}) }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));
