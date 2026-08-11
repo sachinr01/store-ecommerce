@@ -136,6 +136,12 @@
 <%- include('../partials/scripts') %>
 <script>
   $(document).ready(function() {
+    // Check if DataTable is already initialized
+    if ($.fn.DataTable.isDataTable('#returnsTable')) {
+      $('#returnsTable').DataTable().destroy();
+    }
+    
+    // Initialize DataTable
     $('#returnsTable').DataTable({
       "responsive": true,
       "autoWidth": false,
@@ -148,10 +154,12 @@
         "emptyTable": "No return requests found",
         "info": "Showing _START_ to _END_ of _TOTAL_ returns",
         "infoEmpty": "Showing 0 to 0 of 0 returns",
-        "search": "Search returns:",
-      }
+        "search": "Search returns:"
+      },
+      "retrieve": true
     });
+    
+    feather.replace();
   });
-  feather.replace();
 </script>
 <%- include('../partials/footer') %>
