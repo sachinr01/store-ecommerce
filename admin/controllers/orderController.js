@@ -34,13 +34,15 @@ const getOrderItems = async (orderId) => {
 
 // ── Status badge config ───────────────────────────────────────────────────────
 const statusBadge = {
-  "completed":  { label: "Completed",  class: "bg-success" },
-  "processing": { label: "Processing", class: "bg-primary" },
-  "pending":    { label: "Pending",    class: "bg-warning text-dark" },
-  "on-hold":    { label: "On Hold",    class: "bg-info text-dark" },
-  "cancelled":  { label: "Cancelled",  class: "bg-secondary" },
-  "refunded":   { label: "Refunded",   class: "bg-danger" },
-  "failed":     { label: "Failed",     class: "bg-dark" },
+  "completed":       { label: "Completed",       class: "bg-success" },
+  "processing":      { label: "Processing",      class: "bg-primary" },
+  "pending":         { label: "Pending",         class: "bg-warning text-dark" },
+  "on-hold":         { label: "On Hold",         class: "bg-info text-dark" },
+  "cancelled":       { label: "Cancelled",       class: "bg-secondary" },
+  "refunded":        { label: "Refunded",        class: "bg-danger" },
+  "failed":          { label: "Failed",          class: "bg-dark" },
+  "delivered":       { label: "Delivered",       class: "bg-success" },
+  "cancel_pending":  { label: "Cancel Pending",  class: "bg-warning text-dark" },
 };
 
 // ─── LIST ORDERS ──────────────────────────────────────────────────────────────
@@ -434,6 +436,15 @@ const showOrder = async (req, res) => {
       order.cancelled_by_label = null;
       order.cancelled_at = null;
     }
+
+    // ─── Return Info ───────────────────────────────────────────────────────────
+    const { getReturnInfo } = require('../api/returnController');
+    const returnInfo = await getReturnInfo(id);
+    order.return_status = returnInfo?.return_status || null;
+    order.return_reason = returnInfo?.return_reason || null;
+    order.return_reason_label = returnInfo?.return_reason_label || null;
+    order.return_custom_reason = returnInfo?.return_custom_reason || null;
+    order.return_requested_at = returnInfo?.return_requested_at || null;
 
     res.render("orders/show", {
       title: "Order #" + id,

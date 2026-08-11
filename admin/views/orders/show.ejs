@@ -303,6 +303,54 @@
         </div>
         <% } %>
 
+        <!-- Return Information -->
+        <% if (order.return_status) { %>
+        <div class="card mb-3 border-warning">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-2 border-bottom text-warning">
+              <i data-feather="rotate-ccw" class="feather-sm me-2"></i>Return Information
+            </h5>
+            <div class="small">
+              <div class="mb-2">
+                <strong>Return Status:</strong>
+                <span class="badge bg-warning text-dark ms-1"><%= order.return_status %></span>
+              </div>
+              <% if (order.return_reason_label) { %>
+              <div class="mb-2">
+                <strong>Reason:</strong>
+                <span class="text-dark"><%= order.return_reason_label %></span>
+              </div>
+              <% } %>
+              <% if (order.return_custom_reason) { %>
+              <div class="mb-2">
+                <strong>Additional Details:</strong>
+                <div class="text-muted mt-1 p-2 bg-light rounded border">
+                  <%= order.return_custom_reason %>
+                </div>
+              </div>
+              <% } %>
+              <% if (order.return_requested_at) { %>
+              <div class="mb-2">
+                <strong>Requested On:</strong>
+                <span class="text-muted"><%= new Date(order.return_requested_at).toLocaleString('en-IN', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) %></span>
+              </div>
+              <% } %>
+              <div class="mt-3">
+                <a href="/admin/returns/<%= order.order_id %>" class="btn btn-warning btn-sm rounded-pill">
+                  <i data-feather="arrow-right" class="feather-sm me-1"></i> Manage Return Request
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <% } %>
+
         <!-- Refunds -->
         <% if (refunds && refunds.length > 0) { %>
         <div class="card mb-3">

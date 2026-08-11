@@ -1,0 +1,232 @@
+<%- include('../partials/head') %>
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<% var rsb = returnStatusBadge[order.return_status] || { label: order.return_status, class: 'bg-secondary' }; %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row">
+      <div class="col-7 align-self-center">
+        <h4 class="page-title">
+          Return Request - Order #<%= order.order_id %>
+          <span class="badge rounded-pill ms-2 <%= rsb.class %>" style="font-size:13px;"><%= rsb.label %></span>
+        </h4>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item"><a href="/admin/returns">Returns</a></li>
+            <li class="breadcrumb-item active">#<%= order.order_id %></li>
+          </ol>
+        </nav>
+      </div>
+      <div class="col-5 align-self-center text-end">
+        <a href="/admin/returns" class="btn-view-product btn-view-product--inline na-view-all-btn">
+          <div class="d-flex align-items-center gap-1">
+            <i data-feather="arrow-left" class="feather-sm"></i> Back to Returns
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <% if (success) { %>
+      <div class="alert alert-success alert-dismissible fade show">
+        <i data-feather="check-circle" class="feather-sm me-1"></i>
+        <%= success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alert alert-danger alert-dismissible fade show">
+        <i data-feather="alert-circle" class="feather-sm me-1"></i>
+        <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <div class="row">
+      <!-- LEFT COLUMN -->
+      <div class="col-lg-8">
+        <!-- Return Information -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-3 border-bottom">
+              <i data-feather="rotate-ccw" class="feather-sm me-2"></i>Return Information
+            </h5>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="small text-muted">Return Status</label>
+                <div><span class="badge <%= rsb.class %> rounded-pill"><%= rsb.label %></span></div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="small text-muted">Requested On</label>
+                <div class="fw-semibold">
+                  <%= order.return_requested_at ? new Date(order.return_requested_at).toLocaleDateString('en-IN', { 
+                    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                  }) : '-' %>
+                </div>
+              </div>
+              <div class="col-12 mb-3">
+                <label class="small text-muted">Return Reason</label>
+                <div class="fw-semibold"><%= order.return_reason_label || 'Not specified' %></div>
+              </div>
+              <% if (order.return_custom_reason) { %>
+                <div class="col-12">
+                  <label class="small text-muted">Additional Details</label>
+                  <div class="bg-light p-3 rounded border">
+                    <%= order.return_custom_reason %>
+                  </div>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Items -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-3 border-bottom">
+              <i data-feather="package" class="feather-sm me-2"></i>Order Items
+            </h5>
+            <% items.forEach(function(item) { %>
+              <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                <div>
+                  <div class="fw-semibold"><%= item.order_item_name %></div>
+                  <small class="text-muted">Qty: <%= item.qty || 1 %></small>
+                </div>
+                <div class="fw-semibold">₹<%= parseFloat(item.line_total || 0).toFixed(2) %></div>
+              </div>
+            <% }) %>
+            <div class="d-flex justify-content-between pt-3 mt-2 border-top">
+              <span class="fw-bold">Order Total</span>
+              <span class="fw-bold fs-5">₹<%= parseFloat(order.order_total || 0).toFixed(2) %></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer Details -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-3 border-bottom">
+              <i data-feather="user" class="feather-sm me-2"></i>Customer Details
+            </h5>
+            <div class="small">
+              <div class="mb-2">
+                <strong>Name:</strong> <%= order.billing_first_name %> <%= order.billing_last_name %>
+              </div>
+              <div class="mb-2">
+                <strong>Email:</strong> <%= order.billing_email || '-' %>
+              </div>
+              <div>
+                <strong>Phone:</strong> <%= order.billing_phone || '-' %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shipping Address -->
+        <% if (shippingAddress) { %>
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title mb-3 pb-3 border-bottom">
+                <i data-feather="map-pin" class="feather-sm me-2"></i>Shipping Address
+              </h5>
+              <address class="small mb-0">
+                <strong><%= shippingAddress.first_name %> <%= shippingAddress.last_name %></strong><br>
+                <% if (shippingAddress.address_line1) { %><%= shippingAddress.address_line1 %><br><% } %>
+                <% if (shippingAddress.address_line2) { %><%= shippingAddress.address_line2 %><br><% } %>
+                <%= [shippingAddress.city, shippingAddress.state_name, shippingAddress.zipcode].filter(Boolean).join(', ') %><br>
+                India
+              </address>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="col-lg-4">
+        <!-- Update Return Status -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-2 border-bottom">
+              <i data-feather="sliders" class="feather-sm me-2"></i>Update Return Status
+            </h5>
+            <form action="/admin/returns/<%= order.order_id %>/status" method="POST">
+              <div class="mb-3">
+                <label class="form-label small">Return Status</label>
+                <select name="status" class="form-select" required>
+                  <% returnStatuses.forEach(function(status) { %>
+                    <option value="<%= status %>" <%= order.return_status === status ? 'selected' : '' %>>
+                      <%= status %>
+                    </option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small">Notes (optional)</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Add a note for the customer..."></textarea>
+                <small class="text-muted">This note will be sent to the customer if status is changed to Approved/Rejected</small>
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary rounded-pill">
+                  <i data-feather="save" class="feather-sm me-1"></i> Update Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Shipping Details -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-2 border-bottom">
+              <i data-feather="truck" class="feather-sm me-2"></i>Shipping Details
+            </h5>
+            <table class="table table-sm table-borderless mb-0">
+              <tr>
+                <td class="text-muted small">AWB Code</td>
+                <td class="small fw-semibold"><%= order.awb_code || '-' %></td>
+              </tr>
+              <tr>
+                <td class="text-muted small">Courier</td>
+                <td class="small"><%= order.courier_name || '-' %></td>
+              </tr>
+              <tr>
+                <td class="text-muted small">Order Status</td>
+                <td class="small"><%= order.order_status %></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title mb-3 pb-2 border-bottom">
+              <i data-feather="zap" class="feather-sm me-2"></i>Quick Actions
+            </h5>
+            <div class="d-grid gap-2">
+              <a href="/admin/orders/<%= order.order_id %>" class="btn btn-outline-primary btn-sm rounded-pill">
+                <i data-feather="eye" class="feather-sm me-1"></i> View Full Order
+              </a>
+              <% if (order.awb_code) { %>
+                <a href="https://shiprocket.co/tracking/<%= order.awb_code %>" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">
+                  <i data-feather="external-link" class="feather-sm me-1"></i> Track Shipment
+                </a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/scripts') %>
+<script>
+  feather.replace();
+</script>
+<%- include('../partials/footer') %>

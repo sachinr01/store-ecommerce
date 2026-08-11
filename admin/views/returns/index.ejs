@@ -1,0 +1,157 @@
+<%- include('../partials/head') %>
+<%- include('../partials/navbar') %>
+<%- include('../partials/sidebar') %>
+
+<div class="page-wrapper">
+  <div class="page-breadcrumb">
+    <div class="row">
+      <div class="col-7 align-self-center">
+        <h4 class="page-title">Return Requests <span class="badge bg-warning text-dark rounded-pill ms-1"><%= total %></span></h4>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Home</a></li>
+            <li class="breadcrumb-item active">Returns</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <% if (success) { %>
+      <div class="alert alert-success alert-dismissible fade show">
+        <i data-feather="check-circle" class="feather-sm me-1"></i>
+        <%= success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <% if (error) { %>
+      <div class="alert alert-danger alert-dismissible fade show">
+        <i data-feather="alert-circle" class="feather-sm me-1"></i>
+        <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    <% } %>
+
+    <!-- Status filter tabs -->
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <a href="/admin/returns" class="btn btn-sm rounded-pill <%= !statusFilter ? 'btn-primary' : 'btn-outline-secondary' %>">
+            All Returns
+          </a>
+          <% Object.entries(returnStatusBadge).forEach(function(entry) { %>
+            <a href="/admin/returns?status=<%= entry[0] %>" 
+               class="btn btn-sm rounded-pill <%= statusFilter === entry[0] ? entry[1].class + ' text-white' : 'btn-outline-secondary' %>">
+              <%= entry[1].label %>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="returnsTable">
+            <thead class="table-light">
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Reason</th>
+                <th>Return Status</th>
+                <th>Order Status</th>
+                <th>Requested</th>
+                <th>Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (returns.length === 0) { %>
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-5">
+                    <i data-feather="inbox" style="width:40px;height:40px;" class="d-block mx-auto mb-2 text-muted"></i>
+                    No return requests found
+                  </td>
+                </tr>
+              <% } %>
+              <% returns.forEach(function(r) { %>
+                <% var rsb = returnStatusBadge[r.return_status] || { label: r.return_status, class: 'bg-secondary' }; %>
+                <tr>
+                  <td>
+                    <a href="/admin/returns/<%= r.order_id %>" class="fw-semibold text-decoration-none">
+                      #<%= r.order_id %>
+                    </a>
+                    <% if (r.awb_code) { %>
+                      <div><small class="text-muted">AWB: <%= r.awb_code %></small></div>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div class="fw-semibold small">
+                      <%= (r.billing_first_name || '') + ' ' + (r.billing_last_name || '') %>
+                    </div>
+                    <small class="text-muted"><%= r.billing_email || '' %></small>
+                  </td>
+                  <td>
+                    <small><%= r.return_reason_label %></small>
+                    <% if (r.return_custom_reason) { %>
+                      <div class="text-muted" style="font-size:11px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" 
+                           title="<%= r.return_custom_reason %>">
+                        <%= r.return_custom_reason %>
+                      </div>
+                    <% } %>
+                  </td>
+                  <td>
+                    <span class="badge rounded-pill <%= rsb.class %>"><%= rsb.label %></span>
+                  </td>
+                  <td>
+                    <small class="text-muted"><%= r.order_status %></small>
+                  </td>
+                  <td>
+                    <small class="text-muted">
+                      <%= r.return_requested_at ? new Date(r.return_requested_at).toLocaleDateString('en-IN', { 
+                        day: '2-digit', month: 'short', year: 'numeric' 
+                      }) : '-' %>
+                    </small>
+                  </td>
+                  <td>
+                    <span class="fw-semibold">₹<%= parseFloat(r.order_total || 0).toFixed(2) %></span>
+                  </td>
+                  <td>
+                    <a href="/admin/returns/<%= r.order_id %>" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" title="View Return">
+                      <i data-feather="eye" style="width:13px;height:13px;"></i>
+                    </a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/scripts') %>
+<script>
+  $(document).ready(function() {
+    $('#returnsTable').DataTable({
+      "responsive": true,
+      "autoWidth": false,
+      "order": [[5, "desc"]],
+      "pageLength": 10,
+      "columnDefs": [
+        { "orderable": false, "targets": 7 }
+      ],
+      "language": {
+        "emptyTable": "No return requests found",
+        "info": "Showing _START_ to _END_ of _TOTAL_ returns",
+        "infoEmpty": "Showing 0 to 0 of 0 returns",
+        "search": "Search returns:",
+      }
+    });
+  });
+  feather.replace();
+</script>
+<%- include('../partials/footer') %>

@@ -55,6 +55,7 @@ const adminRoutes = require('./routes/admin');
 const apiRoutes   = require('./api/routes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes   = require('./routes/orderRoutes');
+const returnRoutes  = require('./routes/returnRoutes');
 const userRoutes    = require('./routes/userRoutes');
 const siteSettingsRoutes = require('./routes/siteSettingsRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
@@ -77,6 +78,7 @@ app.use('/admin', mediaRoutes);
 app.use('/admin', siteSettingsRoutes);
 app.use('/admin', productRoutes);
 app.use('/admin', orderRoutes);
+app.use('/admin', returnRoutes);
 app.use('/admin', userRoutes);
 
 app.use('/admin', authRoutes);

@@ -80,7 +80,8 @@ async function getReturnInfo(orderId) {
 
 function isReturnEligible(orderStatus, existingReturnInfo) {
   if (existingReturnInfo) return false;
-  return DELIVERED_STATUSES.has(toStr(orderStatus).toLowerCase());
+  const cleanStatus = toStr(orderStatus).replace(/^wc-/, "").trim().toLowerCase();
+  return DELIVERED_STATUSES.has(cleanStatus);
 }
 
 // ── Admin email ──────────────────────────────────────────────────────────────
@@ -309,8 +310,14 @@ const createReturnRequest = async (req, res) => {
     // ── 2. Load order + phone (FOR UPDATE guards double-submit) ─────────────
     const [[order]] = await conn.query(
       `SELECT o.order_id, o.user_id, o.order_status, o.awb_code, o.shipment_id, o.sr_cart_id,
-              MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone END) AS billing_phone,
-              MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone END) AS ship_phone
+              COALESCE(
+                MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone END),
+                (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_billing_phone' ORDER BY meta_id DESC LIMIT 1)
+              ) AS billing_phone,
+              COALESCE(
+                MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone END),
+                (SELECT meta_value FROM tbl_ordermeta WHERE order_id = o.order_id AND meta_key = '_shipping_phone' ORDER BY meta_id DESC LIMIT 1)
+              ) AS ship_phone
        FROM tbl_orders o
        LEFT JOIN tbl_user_address ua ON ua.order_id = o.order_id
        WHERE o.order_id = ? AND o.order_type = 'shop_order'
@@ -437,6 +444,73 @@ const createReturnRequest = async (req, res) => {
   }
 };
 
+// ── Customer email notification for return decision ──────────────────────────
+const notifyCustomerOfReturnDecision = async ({ orderId, status, notes }) => {
+  const data = await gatherCancellationEmailData(orderId);
+  if (!data || !data.customerEmail) {
+    console.warn(`[notifyCustomerOfReturnDecision] No customer email on file for order ${orderId} — skipping`);
+    return;
+  }
+
+  const isApproved = status === RETURN_STATUS.APPROVED;
+  const bannerColor = isApproved ? "#e8f5e9" : "#ffebee";
+  const bannerTextColor = isApproved ? "#2e7d32" : "#c62828";
+  const icon = isApproved ? "✓" : "✕";
+  const heading = isApproved ? "Return Request Approved" : "Return Request Declined";
+  const message = isApproved
+    ? "Your return request has been approved. Our team will provide you with return shipping instructions shortly."
+    : "We're sorry, but your return request could not be approved at this time.";
+
+  const notesHtml = notes ? `
+    <div style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;padding:14px 16px;margin:20px 0;">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;font-family:Arial,sans-serif;">Message from our team</div>
+      <div style="font-size:13px;color:#333;font-family:Arial,sans-serif;">${escHtml(notes)}</div>
+    </div>` : "";
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;">
+<table cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;padding:28px 0;">
+  <tr><td align="center">
+    <table cellpadding="0" cellspacing="0" width="620" style="max-width:620px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #ddd;">
+      <tr>
+        <td style="background:#ffffff;padding:18px 26px;border-bottom:1px solid #eeeeee;">
+          <img src="${escHtml(LOGO_URL)}" alt="Nestcase" height="34" style="display:block;max-height:34px;border:0;" />
+        </td>
+      </tr>
+      <tr><td style="padding:0;">
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:${bannerColor};border-bottom:1px solid ${isApproved ? "#c8e6c9" : "#ffcdd2"};">
+          <tr><td style="padding:14px 26px;font-family:Arial,sans-serif;font-size:14px;color:${bannerTextColor};text-align:center;">
+            <strong style="font-size:18px;">${icon}</strong> ${heading}
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:26px 26px 10px;">
+        <h2 style="margin:0 0 6px;font-size:20px;color:#1b1b1b;font-family:Arial,sans-serif;">Order #NC${escHtml(String(orderId))}</h2>
+        <p style="margin:0 0 22px;font-size:14px;color:#555;font-family:Arial,sans-serif;">${message}</p>
+        ${notesHtml}
+        <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.7;font-family:Arial,sans-serif;">
+          If you have any questions, please contact our support team.
+        </p>
+      </td></tr>
+      <tr><td style="background:#f8f8f8;padding:14px 26px;text-align:center;font-family:Arial,sans-serif;font-size:11px;color:#888;border-top:1px solid #e8e8e8;">
+        Thank you for shopping with Nestcase.
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+  await sendBrevoEmail({
+    toEmail: data.customerEmail,
+    toName: data.customerName,
+    subject: `${isApproved ? "✓" : "✕"} Return Request ${isApproved ? "Approved" : "Declined"} - Order #NC${orderId}`,
+    html,
+  }).catch((e) =>
+    console.error(`[notifyCustomerOfReturnDecision] email to ${data.customerEmail} failed:`, e.message),
+  );
+};
+
 module.exports = {
   RETURN_STATUS,
   RETURN_REASON_LABELS,
@@ -445,4 +519,5 @@ module.exports = {
   getReturnInfo,
   createReturnRequest,
   notifyAdminOfReturnRequest,
+  notifyCustomerOfReturnDecision,
 };
