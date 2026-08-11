@@ -68,14 +68,6 @@
               </tr>
             </thead>
             <tbody>
-              <% if (returns.length === 0) { %>
-                <tr>
-                  <td colspan="8" class="text-center text-muted py-5">
-                    <i data-feather="inbox" style="width:40px;height:40px;" class="d-block mx-auto mb-2 text-muted"></i>
-                    No return requests found
-                  </td>
-                </tr>
-              <% } %>
               <% returns.forEach(function(r) { %>
                 <% var rsb = returnStatusBadge[r.return_status] || { label: r.return_status, class: 'bg-secondary' }; %>
                 <tr>
@@ -136,6 +128,9 @@
 <%- include('../partials/scripts') %>
 <script>
   $(document).ready(function() {
+    // Prevent DataTables from showing alert popups for errors
+    $.fn.dataTable.ext.errMode = 'none';
+    
     // Check if DataTable is already initialized
     if ($.fn.DataTable.isDataTable('#returnsTable')) {
       $('#returnsTable').DataTable().destroy();
