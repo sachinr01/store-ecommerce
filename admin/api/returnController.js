@@ -1035,17 +1035,23 @@ const receiveReturnTrackingWebhook = async (req, res) => {
     const shipmentId = toStr(
       body.shipment_id || data.shipment_id || shipmentTrack.shipment_id || shipmentTrack.id || ""
     );
+    const srOrderId = toStr(
+      body.sr_order_id || data.sr_order_id || shipmentTrack.sr_order_id || ""
+    );
     const awb = toStr(
-      body.awb || body.awb_code || data.awb || data.awb_code || 
-      shipmentTrack.awb_code || shipmentTrack.awb || ""
+      body.return_awb_code || body.awb || body.awb_code || data.return_awb_code || data.awb || data.awb_code || 
+      shipmentTrack.return_awb_code || shipmentTrack.awb_code || shipmentTrack.awb || ""
+    );
+    const channelOrderId = toStr(
+      body.order_id || data.order_id || ""
     );
     const currentStatus = toStr(
       body.current_status || body.status || data.current_status || 
       data.status || shipmentTrack.current_status || shipmentTrack.status || ""
     ).toLowerCase();
 
-    if (!shipmentId && !awb) {
-      console.warn("[Return Tracking Webhook] No shipment_id or AWB in payload — ignoring");
+    if (!shipmentId && !awb && !srOrderId && !channelOrderId) {
+      console.warn("[Return Tracking Webhook] No shipment_id, AWB, or SR Order ID in payload — ignoring");
       return res.status(200).json({ success: true, message: "No shipment identifier" });
     }
 
@@ -1063,36 +1069,35 @@ const receiveReturnTrackingWebhook = async (req, res) => {
       return res.status(200).json({ success: true, message: `Status ${currentStatus} ignored` });
     }
 
-    // Find the order by matching return shipment identifiers (shipment_id, sr_order_id, or AWB)
-    // Search multiple meta keys since different Shiprocket webhooks send different identifiers
+    // Find the order by matching return shipment identifiers (shipment_id, sr_order_id, AWB, or channel_order_id)
     let orderId = null;
     
-    if (shipmentId) {
+    if (shipmentId || srOrderId) {
       const [[orderByShipment]] = await db.query(
         `SELECT order_id FROM tbl_ordermeta
-         WHERE meta_key IN ('_return_shipment_id', '_return_shiprocket_order_id')
-         AND meta_value = ?
+         WHERE meta_key IN ('_return_shipment_id', '_return_shiprocket_order_id', '_return_sr_order_id', '_return_order_id')
+         AND meta_value IN (?, ?)
          LIMIT 1`,
-        [shipmentId]
+        [shipmentId || '___none___', srOrderId || '___none___']
       );
       if (orderByShipment) orderId = orderByShipment.order_id;
     }
     
-    // Fallback: Try matching by AWB code if shipment_id didn't match
+    // Fallback: Try matching by AWB code if shipment_id / sr_order_id didn't match
     if (!orderId && awb) {
       const [[orderByAwb]] = await db.query(
         `SELECT o.order_id FROM tbl_orders o
          INNER JOIN tbl_ordermeta om ON om.order_id = o.order_id
-         WHERE o.awb_code = ?
-         AND om.meta_key = '_return_status'
+         WHERE (o.awb_code = ? OR om.meta_value = ?)
+         AND om.meta_key IN ('_return_status', '_return_awb')
          LIMIT 1`,
-        [awb]
+        [awb, awb]
       );
       if (orderByAwb) orderId = orderByAwb.order_id;
     }
 
     if (!orderId) {
-      console.warn(`[Return Tracking Webhook] No order found for shipment_id=${shipmentId}, awb=${awb} — ignoring`);
+      console.warn(`[Return Tracking Webhook] No order found for shipment_id=${shipmentId}, sr_order_id=${srOrderId}, awb=${awb} — ignoring`);
       return res.status(200).json({ success: true, message: "Order not found for this return shipment" });
     }
 
