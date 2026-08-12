@@ -84,6 +84,7 @@ const showReturns = async (req, res) => {
          MAX(CASE WHEN om.meta_key = '_return_reason' THEN om.meta_value END) AS return_reason,
          MAX(CASE WHEN om.meta_key = '_return_reason_note' THEN om.meta_value END) AS return_custom_reason,
          MAX(CASE WHEN om.meta_key = '_return_requested_at' THEN om.meta_value END) AS return_requested_at,
+         MAX(CASE WHEN om.meta_key = '_return_customer_email' THEN om.meta_value END) AS return_customer_email,
          MAX(CASE WHEN om.meta_key = '_billing_email' THEN om.meta_value END) AS billing_email,
          MAX(CASE WHEN om.meta_key = '_order_total' THEN om.meta_value END) AS order_total,
          ua.first_name AS billing_first_name,
@@ -154,6 +155,7 @@ const showReturn = async (req, res) => {
     order.return_reason_label = returnInfo.return_reason_label;
     order.return_custom_reason = returnInfo.return_custom_reason;
     order.return_requested_at = returnInfo.return_requested_at;
+    order.return_customer_email = returnInfo.return_customer_email;
 
     // Get order items
     const [items] = await db.query(
@@ -207,6 +209,21 @@ const updateReturnStatus = async (req, res) => {
 
     await conn.beginTransaction();
 
+    // ── Lock + read the CURRENT status before overwriting it ─────────────
+    // Needed so we know whether this update is actually the transition
+    // INTO a given status (vs. admin re-saving the same status, e.g. adding
+    // a note to an already-Completed return) — used below both to stop
+    // double stock-restoration and to stop duplicate customer emails.
+    const [[currentRow]] = await conn.query(
+      `SELECT meta_value FROM tbl_ordermeta
+       WHERE order_id = ? AND meta_key = '_return_status'
+       ORDER BY meta_id DESC LIMIT 1
+       FOR UPDATE`,
+      [id]
+    );
+    const previousStatus = currentRow ? currentRow.meta_value : null;
+    const isNewTransition = status !== previousStatus;
+
     // Update return status
     await conn.query(
       `UPDATE tbl_ordermeta 
@@ -237,17 +254,56 @@ const updateReturnStatus = async (req, res) => {
       [id, new Date().toISOString()]
     );
 
-    await conn.commit();
-
-    // Send email notification to customer
-    if (status === RETURN_STATUS.APPROVED || status === RETURN_STATUS.REJECTED) {
-      const { notifyCustomerOfReturnDecision } = require("../api/returnController");
-      notifyCustomerOfReturnDecision({ orderId: id, status, notes: notes?.trim() || '' }).catch(err => {
-        console.error("Customer email notification failed:", err.message);
-      });
+    // ── Auto stock restoration ────────────────────────────────────────────
+    // Fires once, the first time the return reaches "Returned". A second
+    // meta flag (_return_stock_restored) is a belt-and-braces guard against
+    // ever double-crediting stock if the admin bounces the status back and
+    // forth (e.g. Returned → Refund Processed → Returned by mistake).
+    let stockRestored = false;
+    if (status === RETURN_STATUS.RETURNED && previousStatus !== RETURN_STATUS.RETURNED) {
+      const [[alreadyDone]] = await conn.query(
+        `SELECT meta_id FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_return_stock_restored' LIMIT 1`,
+        [id]
+      );
+      if (!alreadyDone) {
+        const { restoreOrderStock } = require("../api/shiprocketorderwebhook");
+        await restoreOrderStock(conn, id);
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_return_stock_restored', ?)`,
+          [id, new Date().toISOString()]
+        );
+        stockRestored = true;
+      }
     }
 
-    res.redirect(`/admin/returns/${id}?success=Return status updated successfully`);
+    await conn.commit();
+
+    // ── Email notifications ───────────────────────────────────────────────
+    // Only fire on an actual transition INTO the status (isNewTransition),
+    // never on a re-save of the same status (e.g. admin just adding a note
+    // to a return that's already Completed) — otherwise the customer gets
+    // duplicate emails every time the admin touches the record again.
+    if (isNewTransition) {
+      if (status === RETURN_STATUS.COMPLETED) {
+        const { notifyCustomerOfReturnCompleted } = require("../api/returnController");
+        notifyCustomerOfReturnCompleted({ orderId: id }).catch(err => {
+          console.error("Return completed email notification failed:", err.message);
+        });
+      }
+      // NO other status sends a customer email — by design, only 2 emails
+      // total exist in this flow: Return Initiated (sent from
+      // createReturnRequest when the customer submits) and Return Completed
+      // (above). Approved/Rejected/Returned/Refund Processed are silent —
+      // notifyCustomerOfReturnDecision, notifyCustomerOfReturnReceived, and
+      // notifyCustomerOfRefundProcessed stay defined-but-unused in
+      // returnController.js. Do not wire them in without confirming that's
+      // an intentional change to the 2-email design.
+    }
+
+    res.redirect(
+      `/admin/returns/${id}?success=` +
+      encodeURIComponent(`Return status updated successfully${stockRestored ? ' — stock restored' : ''}`)
+    );
   } catch (err) {
     await conn.rollback();
     console.error("updateReturnStatus error:", err.message);

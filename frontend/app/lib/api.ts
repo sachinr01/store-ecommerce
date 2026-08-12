@@ -421,12 +421,17 @@ export const returnMyOrder = async (
   orderId: number | string,
   reason: string,
   customReason?: string,
+  email?: string,
 ): Promise<ReturnOrderResult> => {
   const res = await fetch(`${API_BASE}/orders/${orderId}/return`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ reason, ...(customReason ? { customReason } : {}) }),
+    body: JSON.stringify({ 
+      reason, 
+      ...(customReason ? { customReason } : {}),
+      ...(email ? { email } : {}),
+    }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));
@@ -442,11 +447,18 @@ export const returnOrder = async (
   phone: string,
   reason: string,
   customReason?: string,
+  email?: string,
 ): Promise<ReturnOrderResult> => {
   const res = await fetch(`${API_BASE}/shiprocket/return-order`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId: String(orderId), phone, reason, ...(customReason ? { customReason } : {}) }),
+    body: JSON.stringify({ 
+      orderId: String(orderId), 
+      phone, 
+      reason, 
+      ...(customReason ? { customReason } : {}),
+      ...(email ? { email } : {}),
+    }),
     cache: 'no-store',
   });
   const body = await res.json().catch(() => ({}));

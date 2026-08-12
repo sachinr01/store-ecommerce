@@ -14,7 +14,7 @@ const contact = require('./contactController');
 const newsletter = require('./newsletterController');
 const shiprocket = require('./shiprocketCheckoutController');
 const { receiveOrderWebhook, cancelShiprocketOrder, receiveShipmentWebhook } = require('./shiprocketorderwebhook');
-const { createReturnRequest } = require('./returnController');
+const { createReturnRequest, receiveReturnTrackingWebhook } = require('./returnController');
 const catalogSync = require('./shiprocketcatalogsync');
 
 // ── In-memory rate limiter ─────────────────────────────────────────────────────
@@ -195,6 +195,9 @@ router.post('/shiprocket/order-webhook', receiveOrderWebhook);
 
 // ── Shiprocket Shipment Status Webhook ────────────────────────────────────────
 router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
+
+// ── Shiprocket Return Tracking Webhook ────────────────────────────────────────
+router.post('/shiprocket/return-tracking-webhook', receiveReturnTrackingWebhook);
 
 // ── Shiprocket Order Cancel (public — phone verified) ─────────────────────────
 router.post('/shiprocket/cancel-order', cancelShiprocketOrder);

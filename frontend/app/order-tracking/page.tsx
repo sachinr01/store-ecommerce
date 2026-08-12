@@ -355,17 +355,20 @@ function ReturnReasonModal({
   onClose,
   submitting,
 }: {
-  onConfirm: (reason: ReturnReasonKey, customReason: string) => void;
+  onConfirm: (reason: ReturnReasonKey, customReason: string, email: string) => void;
   onClose: () => void;
   submitting: boolean;
 }) {
   const [selected, setSelected] = useState<ReturnReasonKey | ''>('');
   const [custom, setCustom]     = useState('');
+  const [email, setEmail]       = useState('');
   const [touched, setTouched]   = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
 
   const isOther    = selected === 'other';
   const customOk   = !isOther || custom.trim().length > 0;
-  const canSubmit  = selected !== '' && customOk;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canSubmit  = selected !== '' && customOk && emailValid;
   const MAX_CHARS  = 300;
 
   useEffect(() => {
@@ -376,8 +379,9 @@ function ReturnReasonModal({
 
   const handleSubmit = () => {
     setTouched(true);
+    setEmailTouched(true);
     if (!canSubmit) return;
-    onConfirm(selected as ReturnReasonKey, isOther ? custom.trim() : '');
+    onConfirm(selected as ReturnReasonKey, isOther ? custom.trim() : '', email.trim());
   };
 
   return (
@@ -434,6 +438,28 @@ function ReturnReasonModal({
           <div className="cr-field-error" style={{ marginTop: 8 }}>Please select a reason to continue.</div>
         )}
 
+        <div className="cr-email-wrap" style={{ marginTop: 16 }}>
+          <label htmlFor="return-email-guest" className="cr-email-label">
+            Email Address (for return updates)
+          </label>
+          <input
+            type="email"
+            id="return-email-guest"
+            className="cr-email-input"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setEmailTouched(true)}
+            disabled={submitting}
+            aria-required="true"
+            aria-invalid={emailTouched && !emailValid}
+          />
+          {emailTouched && !emailValid && (
+            <div className="cr-field-error">Please enter a valid email address.</div>
+          )}
+          <div className="cr-email-hint">We'll send return status updates to this email</div>
+        </div>
+
         <div className="ot-modal-actions" style={{ marginTop: 24 }}>
           <button
             type="button"
@@ -477,16 +503,16 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
   const handleCancel = () => setShowCancelModal(true);
   const handleReturn = () => setShowReturnModal(true);
 
-  const confirmReturn = async (reason: ReturnReasonKey, customReason: string) => {
+  const confirmReturn = async (reason: ReturnReasonKey, customReason: string, email: string) => {
     setReturning(true);
     setReturnError('');
     setReturnSuccess('');
     try {
-      const result = await returnOrder(order.sr_cart_id || order.order_id, phone, reason, customReason || undefined);
+      const result = await returnOrder(order.sr_cart_id || order.order_id, phone, reason, customReason || undefined, email);
       setShowReturnModal(false);
       setReturnSuccess(
         result.message ||
-          'Your return request has been submitted successfully. Our team has been notified and will review your request shortly.',
+          'Your return request has been submitted successfully. We\'ll send updates to your email.',
       );
       onOrderCancelled({
         ...data,

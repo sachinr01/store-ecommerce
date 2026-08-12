@@ -12700,6 +12700,46 @@ a.ot-btn {
   margin-top: 6px;
 }
 
+/* Email field styles for return modal */
+.cr-email-wrap {
+  padding: 0 4px;
+}
+
+.cr-email-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.cr-email-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #ccd3da;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.cr-email-input:focus {
+  border-color: #22311d;
+}
+
+.cr-email-input[aria-invalid="true"] {
+  border-color: #c0392b;
+}
+
+.cr-email-hint {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+}
+
 /* Loading spinner for submit button */
 .ot-spinner {
   display: inline-block;
