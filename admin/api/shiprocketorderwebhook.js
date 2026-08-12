@@ -1657,11 +1657,6 @@ function buildCancellationRequestEmailHtml({
         </table>
 
         <h3 style="margin:0 0 10px;font-size:14px;color:#1b1b1b;font-family:Arial,sans-serif;border-bottom:2px solid #f0f0f0;padding-bottom:8px;">Order Items</h3>
-        <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border:1px solid #e4e4e4;border-radius:8px;overflow:hidden;margin:0 0 6px;">
-          <thead><tr style="background:#f5f5f5;">
-            <th style="text-align:left;font-size:11px;padding:9px 12px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Product</th>
-            <th style="text-align:center;font-size:11px;padding:9px 8px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Qty</th>
-            <th style="text-align:right;font-size:11px;padding:9px 12px;color:#555;font-weight:600;font-family:Arial,sans-serif;">Price</th>
           </tr></thead>
           <tbody>${itemRows}</tbody>
           <tfoot>
@@ -1707,6 +1702,8 @@ async function gatherCancellationEmailData(orderId) {
             MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone        END) AS ship_phone,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.first_name   END) AS bill_first_name,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.last_name    END) AS bill_last_name,
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.state_name   END) AS bill_state,
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.zipcode      END) AS bill_zip,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone        END) AS bill_phone
      FROM tbl_orders o
      LEFT JOIN tbl_users u ON u.ID = o.user_id
@@ -1741,6 +1738,48 @@ async function gatherCancellationEmailData(orderId) {
     });
   }
 
+  // Robust state resolution: check tbl_user_address (shipping & billing), tbl_ordermeta, address text & pincode
+  const [stateMetaRows] = await db.query(
+    `SELECT meta_key, meta_value FROM tbl_ordermeta
+     WHERE order_id = ? AND meta_key IN ('_shipping_state', 'shipping_state', '_billing_state', 'billing_state')
+     ORDER BY meta_id DESC`,
+    [orderId]
+  );
+  const metaStateMap = Object.fromEntries(stateMetaRows.map(r => [r.meta_key, r.meta_value]));
+  let resolvedState = toStr(
+    order.ship_state ||
+    order.bill_state ||
+    metaStateMap['_shipping_state'] ||
+    metaStateMap['shipping_state'] ||
+    metaStateMap['_billing_state'] ||
+    metaStateMap['billing_state'] ||
+    ""
+  ).trim();
+
+  if (!resolvedState) {
+    const combinedAddr = `${order.ship_line1 || ""} ${order.ship_line2 || ""} ${order.ship_city || ""}`.toLowerCase();
+    const zip = toStr(order.ship_zip || order.bill_zip).trim();
+    if (combinedAddr.includes("maharashtra") || combinedAddr.includes("pune") || combinedAddr.includes("mumbai") || combinedAddr.includes("nagpur") || combinedAddr.includes("nashik") || combinedAddr.includes("thane") || zip.startsWith("40") || zip.startsWith("41") || zip.startsWith("42") || zip.startsWith("43") || zip.startsWith("44")) {
+      resolvedState = "Maharashtra";
+    } else if (combinedAddr.includes("delhi")) {
+      resolvedState = "Delhi";
+    } else if (combinedAddr.includes("karnataka") || combinedAddr.includes("bangalore") || combinedAddr.includes("bengaluru")) {
+      resolvedState = "Karnataka";
+    } else if (combinedAddr.includes("gujarat") || combinedAddr.includes("ahmedabad") || combinedAddr.includes("surat")) {
+      resolvedState = "Gujarat";
+    } else if (combinedAddr.includes("tamil nadu") || combinedAddr.includes("chennai")) {
+      resolvedState = "Tamil Nadu";
+    } else if (combinedAddr.includes("telangana") || combinedAddr.includes("hyderabad")) {
+      resolvedState = "Telangana";
+    } else if (combinedAddr.includes("uttar pradesh") || combinedAddr.includes("noida") || combinedAddr.includes("lucknow")) {
+      resolvedState = "Uttar Pradesh";
+    } else if (combinedAddr.includes("haryana") || combinedAddr.includes("gurugram") || combinedAddr.includes("gurgaon")) {
+      resolvedState = "Haryana";
+    } else {
+      resolvedState = process.env.SHIPROCKET_RETURN_STATE || "Maharashtra";
+    }
+  }
+
   return {
     customerName: [order.ship_first_name || order.bill_first_name, order.ship_last_name || order.bill_last_name].filter(Boolean).join(" ") || "Customer",
     customerEmail: toStr(order.billing_email || order.user_email),
@@ -1749,7 +1788,7 @@ async function gatherCancellationEmailData(orderId) {
       firstName: order.ship_first_name || order.bill_first_name || "",
       lastName:  order.ship_last_name  || order.bill_last_name  || "",
       line1: order.ship_line1 || "", line2: order.ship_line2 || "",
-      city: order.ship_city || "", state: order.ship_state || "", zip: order.ship_zip || "",
+      city: order.ship_city || "", state: resolvedState, zip: order.ship_zip || order.bill_zip || "",
       phone: toStr(order.ship_phone || order.bill_phone),
     },
     items: itemsWithSku,

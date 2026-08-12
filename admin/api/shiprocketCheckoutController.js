@@ -380,20 +380,22 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
 
   const shipping = srDetails?.shipping_address || {};
     const billing = srDetails?.billing_address || shipping;
+    const billingState = billing.state || billing.state_name || billing.province || shipping.state || shipping.state_name || shipping.province || '';
+    const shippingState = shipping.state || shipping.state_name || shipping.province || billingState || '';
     const createdAt = new Date().toISOString().slice(0, 19).replace("T", " ");
 
     await conn.query(
       `INSERT INTO tbl_user_address
        (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
        VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'yes', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.address1  || billing.address1 || '', billing.address2 || billing.address_2 || '', billing.city || '', billing.zip || billing.zip || '', billing.state || '', createdAt, createdAt]
+      [userId || null, orderId, billing.first_name || 'Customer', billing.last_name || '', billing.phone || phone || '', billing.address1  || billing.address1 || '', billing.address2 || billing.address_2 || '', billing.city || '', billing.zip || billing.zip || '', billingState, createdAt, createdAt]
     );
 
     await conn.query(
       `INSERT INTO tbl_user_address
        (user_id, order_id, address_type, address_primary, first_name, last_name, phone, address_line1, address_line2, city, zipcode, state_name, city_id, state_id, country_id, address_notes, address_billing, latitude, longitude, created_at, updated_at, update_done)
        VALUES (?, ?, 'general', 'no', ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, 226, '', 'no', '', '', ?, ?, 'no')`,
-      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.address1 || shipping.address1 || '', shipping.address2 || shipping.address_2 || '', shipping.city || '', shipping.zip || shipping.zip || '', shipping.state || '', createdAt, createdAt]
+      [userId || null, orderId, shipping.first_name || 'Customer', shipping.last_name || '', shipping.phone || phone || '', shipping.address1 || shipping.address1 || '', shipping.address2 || shipping.address_2 || '', shipping.city || '', shipping.zip || shipping.zip || '', shippingState, createdAt, createdAt]
     );
 
     for (const item of resolvedItems) {
