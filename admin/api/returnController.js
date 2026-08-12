@@ -338,7 +338,39 @@ const createReturnOnShiprocketPanel = async (orderId) => {
       };
     }
 
-    return { created: true, srOrderId, shipmentId, raw: res.data };
+    // Step 2: Auto-assign Courier & Generate AWB for Return
+    let awbCode = res.data?.awb_code || null;
+    let courierName = res.data?.courier_name || null;
+
+    if (shipmentId) {
+      try {
+        const awbRes = await postToShiprocket(
+          "https://apiv2.shiprocket.in/v1/external/courier/assign/awb",
+          { shipment_id: shipmentId, is_return: 1 },
+          token,
+        );
+        console.log(`[createReturnOnShiprocketPanel] order ${orderId} → AWB response:`, awbRes.data);
+        const awbData = awbRes.data?.response?.data || awbRes.data || {};
+        awbCode = awbData.awb_code || awbCode;
+        courierName = awbData.courier_name || courierName;
+      } catch (awbErr) {
+        console.warn(`[createReturnOnShiprocketPanel] order ${orderId} → AWB assign warning:`, awbErr.response?.data || awbErr.message);
+      }
+
+      // Step 3: Auto-schedule Pickup
+      try {
+        const pickupRes = await postToShiprocket(
+          "https://apiv2.shiprocket.in/v1/external/courier/generate/pickup",
+          { shipment_id: [shipmentId], is_return: 1 },
+          token,
+        );
+        console.log(`[createReturnOnShiprocketPanel] order ${orderId} → Pickup schedule response:`, pickupRes.data);
+      } catch (pickupErr) {
+        console.warn(`[createReturnOnShiprocketPanel] order ${orderId} → Pickup schedule warning:`, pickupErr.response?.data || pickupErr.message);
+      }
+    }
+
+    return { created: true, srOrderId, shipmentId, awbCode, courierName, raw: res.data };
   } catch (err) {
     const srErr = err.response?.data;
     console.error(`[createReturnOnShiprocketPanel] SR return-create failed for order ${orderId}:`, JSON.stringify(srErr || err.message));
