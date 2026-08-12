@@ -401,7 +401,8 @@ async function getTrackingStatus(req, res) {
     const currentStatusLower = toStr(currentOrderRow?.order_status).toLowerCase();
     const isProtected = currentOrderRow && PROTECTED_STATUSES.has(currentStatusLower);
     if (isProtected) {
-      console.log(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
+      // Silently skip protected orders (only log in debug mode to reduce noise)
+      // console.debug(`[getTrackingStatus] Skipping order_status overwrite for awb=${awb} — order is in protected status "${currentOrderRow.order_status}"`);
     } else {
       const wasNotCancelled = currentStatusLower !== 'cancelled';
       await db.query(

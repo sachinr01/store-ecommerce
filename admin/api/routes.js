@@ -196,8 +196,10 @@ router.post('/shiprocket/order-webhook', receiveOrderWebhook);
 // ── Shiprocket Shipment Status Webhook ────────────────────────────────────────
 router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
 
-// ── Shiprocket Return Tracking Webhook ────────────────────────────────────────
-router.post('/shiprocket/return-tracking-webhook', receiveReturnTrackingWebhook);
+// ── Return Tracking Webhook (from Shiprocket) ────────────────────────────────
+// IMPORTANT: Shiprocket blocks webhook URLs containing "shiprocket", "kartrocket",
+// "sr", or "kr" — hence the neutral path below instead of /shiprocket/...
+router.post('/webhooks/return-tracking', receiveReturnTrackingWebhook);
 
 // ── Shiprocket Order Cancel (public — phone verified) ─────────────────────────
 router.post('/shiprocket/cancel-order', cancelShiprocketOrder);

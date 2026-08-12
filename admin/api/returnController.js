@@ -246,8 +246,17 @@ const createReturnOnShiprocketPanel = async (orderId) => {
   const addr = data.shippingAddr || {};
   const customerPincode = toStr(addr.zip).trim();
   const customerPhone   = digits10(data.customerPhone);
+  
+  // Debug logging to see what address data we actually got
+  console.log(`[createReturnOnShiprocketPanel] Order ${orderId} address data:`, {
+    line1: addr.line1,
+    city: addr.city,
+    state: addr.state,
+    zip: addr.zip
+  });
+  
   if (!addr.line1 || !addr.city || !addr.state) {
-    return { created: false, stage: "address", reason: "Customer shipping address on file is missing address line, city, or state" };
+    return { created: false, stage: "address", reason: `Customer shipping address on file is missing address line, city, or state (line1=${!!addr.line1}, city=${!!addr.city}, state=${!!addr.state})` };
   }
   if (!PINCODE_RE.test(customerPincode)) {
     return { created: false, stage: "address", reason: `Customer pincode "${addr.zip}" is not a valid 6-digit pincode` };

@@ -279,25 +279,16 @@ const updateReturnStatus = async (req, res) => {
     await conn.commit();
 
     // ── Email notifications ───────────────────────────────────────────────
-    // Only fire on an actual transition INTO the status (isNewTransition),
-    // never on a re-save of the same status (e.g. admin just adding a note
-    // to a return that's already Completed) — otherwise the customer gets
-    // duplicate emails every time the admin touches the record again.
-    if (isNewTransition) {
-      if (status === RETURN_STATUS.COMPLETED) {
-        const { notifyCustomerOfReturnCompleted } = require("../api/returnController");
-        notifyCustomerOfReturnCompleted({ orderId: id }).catch(err => {
-          console.error("Return completed email notification failed:", err.message);
-        });
-      }
-      // NO other status sends a customer email — by design, only 2 emails
-      // total exist in this flow: Return Initiated (sent from
-      // createReturnRequest when the customer submits) and Return Completed
-      // (above). Approved/Rejected/Returned/Refund Processed are silent —
-      // notifyCustomerOfReturnDecision, notifyCustomerOfReturnReceived, and
-      // notifyCustomerOfRefundProcessed stay defined-but-unused in
-      // returnController.js. Do not wire them in without confirming that's
-      // an intentional change to the 2-email design.
+    // Only 2 customer emails in the return flow:
+    //   1. Return Initiated — sent from createReturnRequest() when customer submits
+    //   2. Return Completed — sent here when admin marks the return as done
+    // All other status transitions (Approved/Rejected/Returned/Refund Processed)
+    // are silent by design — customer only needs to know it started and it's done.
+    if (isNewTransition && status === RETURN_STATUS.COMPLETED) {
+      const { notifyCustomerOfReturnCompleted } = require("../api/returnController");
+      notifyCustomerOfReturnCompleted({ orderId: id }).catch(err => {
+        console.error("Return completed email notification failed:", err.message);
+      });
     }
 
     res.redirect(
