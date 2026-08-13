@@ -17,7 +17,7 @@ export type Blog = {
   seo_meta_index?: string | null; // 'yes' | 'no'  (default: 'yes')
 };
 
-export type BlogCard = Pick<Blog, 'slug' | 'image' | 'date' | 'title' | 'summary'>;
+export type BlogCard = Pick<Blog, 'slug' | 'image' | 'date' | 'title' | 'summary' | 'categories' | 'primary_category_name'>;
 
 export type BlogCategory = {
   category_id: number;

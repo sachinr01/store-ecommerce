@@ -15,6 +15,8 @@ export default function BlogPostCard({
   href: string;
   onClick?: () => void;
   }) {
+  const categoryName = post.primary_category_name || (post.categories && post.categories[0]?.category_name) || '';
+  
   return (
     <Link href={href} className="blog-post-card" onClick={onClick}>
       <div className="blog-post-card__image-wrap">
@@ -29,9 +31,10 @@ export default function BlogPostCard({
         ) : null}
       </div>
       <div className="blog-post-card__body">
-        <span className="blog-post-card__date">{post.date}</span>
+        {categoryName && (
+          <span className="blog-post-card__category">{categoryName.toUpperCase()}</span>
+        )}
         <h3 className="blog-post-card__title">{post.title}</h3>
-        <p className="blog-post-card__summary">{post.summary}</p>
       </div>
     </Link>
   );
