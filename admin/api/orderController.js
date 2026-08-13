@@ -36,6 +36,28 @@ const normalizePhone = (raw) => {
   return digits.length >= 10 ? digits.slice(-10) : digits; // always clean 10-digit
 };
 
+// Ensures _delivered_at is recorded no matter which code path first detects
+// delivery — the 7-day return window in returnController.js reads this key,
+// so every place that can independently mark an order Delivered/Completed
+// must also write it (not just updateOrderStatus / receiveShipmentWebhook).
+async function recordDeliveredAtIfNeeded(orderId) {
+  if (!orderId) return;
+  try {
+    const [[existing]] = await db.query(
+      `SELECT meta_id FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_delivered_at' LIMIT 1`,
+      [orderId]
+    );
+    if (!existing) {
+      await db.query(
+        `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_delivered_at', ?)`,
+        [orderId, new Date().toISOString()]
+      );
+    }
+  } catch (e) {
+    console.error(`[recordDeliveredAtIfNeeded] failed for order ${orderId}:`, e.message);
+  }
+}
+
 // Tolerance per item — accounts for floating-point accumulation across many items.
 // e.g. 4 items each ₹249.99 sum to 999.96 but stored subtotal may be 999.99.
 const MONEY_EPSILON_PER_ITEM = 0.02;
@@ -419,6 +441,16 @@ async function getTrackingStatus(req, res) {
         );
         if (orderRow) {
           await recordCancellationSource(null, orderRow.order_id, CANCELLED_BY.ADMIN).catch(() => {});
+        }
+      }
+
+      if (['delivered', 'completed'].includes(finalStatus.toLowerCase())) {
+        const [[orderRow]] = await db.query(
+          `SELECT order_id FROM tbl_orders WHERE awb_code = ? AND order_type = 'shop_order' LIMIT 1`,
+          [awb],
+        );
+        if (orderRow) {
+          await recordDeliveredAtIfNeeded(orderRow.order_id);
         }
       }
     }
@@ -2952,7 +2984,8 @@ const getMyOrderById = async (req, res) => {
     order.return_reason_label = returnInfo?.return_reason_label || null;
     order.return_custom_reason = returnInfo?.return_custom_reason || null;
     order.return_requested_at = returnInfo?.return_requested_at || null;
-    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo);
+    const deliveredAt = returnInfo?.delivered_at || order.order_modified || order.order_date;
+    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo, deliveredAt);
 
     res.json({ success: true, data: { order, items: effectiveItems } });
   } catch (err) {
@@ -3136,6 +3169,20 @@ const updateOrderStatus = async (req, res) => {
       await restoreOrderStock(conn, orderId);
     }
 
+    // ── Save delivery timestamp when order becomes delivered/completed ───────
+    if (["completed", "delivered"].includes(status.toLowerCase())) {
+      const [[existingDel]] = await conn.query(
+        `SELECT meta_id FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_delivered_at' LIMIT 1`,
+        [orderId]
+      );
+      if (!existingDel) {
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_delivered_at', ?)`,
+          [orderId, new Date().toISOString()]
+        );
+      }
+    }
+
     await conn.commit();
     res.json({ success: true });
 
@@ -3275,6 +3322,10 @@ const trackOrderById = async (req, res) => {
             if (trackingData.current_status === 'cancelled' && wasNotCancelled) {
               const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
               await recordCancellationSource(null, orderId, CANCELLED_BY.ADMIN);
+            }
+
+            if (['delivered', 'completed'].includes(toStr(trackingData.current_status).toLowerCase())) {
+              await recordDeliveredAtIfNeeded(orderId);
             }
           }
         }
@@ -3491,7 +3542,8 @@ const trackOrderByPhone = async (req, res) => {
     order.return_reason_label = returnInfo?.return_reason_label || null;
     order.return_custom_reason = returnInfo?.return_custom_reason || null;
     order.return_requested_at = returnInfo?.return_requested_at || null;
-    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo);
+    const deliveredAtTrack = returnInfo?.delivered_at || order.order_modified || order.order_date;
+    order.is_return_eligible = isReturnEligible(order.order_status, returnInfo, deliveredAtTrack);
 
     // Verify phone server-side
     const shipDigits    = String(order.ship_phone    || "").replace(/\D/g, "");
@@ -3616,6 +3668,10 @@ const trackOrderByPhone = async (req, res) => {
             if (liveStatus === 'cancelled' && wasNotCancelled) {
               const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
               await recordCancellationSource(null, orderId, CANCELLED_BY.ADMIN).catch(() => {});
+            }
+
+            if (['delivered', 'completed'].includes(toStr(liveStatus).toLowerCase())) {
+              await recordDeliveredAtIfNeeded(orderId);
             }
           }
 

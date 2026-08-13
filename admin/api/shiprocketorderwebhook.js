@@ -2420,6 +2420,19 @@ const receiveShipmentWebhook = async (req, res) => {
       await recordCancellationSource(conn, orderId, CANCELLED_BY.ADMIN);
     }
 
+    if (["delivered", "completed"].includes(mappedStatus.toLowerCase())) {
+      const [[existingDel]] = await conn.query(
+        `SELECT meta_id FROM tbl_ordermeta WHERE order_id = ? AND meta_key = '_delivered_at' LIMIT 1`,
+        [orderId]
+      );
+      if (!existingDel) {
+        await conn.query(
+          `INSERT INTO tbl_ordermeta (order_id, meta_key, meta_value) VALUES (?, '_delivered_at', ?)`,
+          [orderId, new Date().toISOString()]
+        );
+      }
+    }
+
     await conn.commit();
   } catch (err) {
     await conn.rollback();

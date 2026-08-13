@@ -48,6 +48,8 @@ function formatReturnReason(reasonKey, customReason) {
 
 // Statuses that make an order eligible to *start* a return.
 const DELIVERED_STATUSES = new Set(["delivered", "completed"]);
+const RETURN_POLICY_DAYS = 7;
+const RETURN_POLICY_MS   = RETURN_POLICY_DAYS * 24 * 60 * 60 * 1000;
 
 
 async function getReturnInfo(orderId) {
@@ -67,27 +69,45 @@ async function getReturnInfo(orderId) {
         ORDER BY meta_id DESC LIMIT 1) AS return_requested_at,
        (SELECT meta_value FROM tbl_ordermeta
         WHERE order_id = ? AND meta_key = '_return_customer_email'
-        ORDER BY meta_id DESC LIMIT 1) AS return_customer_email`,
-    [orderId, orderId, orderId, orderId, orderId],
+        ORDER BY meta_id DESC LIMIT 1) AS return_customer_email,
+       (SELECT meta_value FROM tbl_ordermeta
+        WHERE order_id = ? AND meta_key = '_delivered_at'
+        ORDER BY meta_id DESC LIMIT 1) AS delivered_at`,
+    [orderId, orderId, orderId, orderId, orderId, orderId],
   );
-  if (!row || !row.return_status) return null;
+  if (!row) return null;
 
   const reasonKey = row.return_reason || "";
   return {
-    return_status:        row.return_status,
+    return_status:        row.return_status || null,
     return_reason:         reasonKey || null,
     return_reason_label:   reasonKey ? (RETURN_REASON_LABELS[reasonKey] || reasonKey) : null,
     return_custom_reason:  row.return_custom_reason || null,
     return_requested_at:   row.return_requested_at || null,
     return_customer_email: row.return_customer_email || null,
+    delivered_at:          row.delivered_at || null,
   };
 }
 
 
-function isReturnEligible(orderStatus, existingReturnInfo) {
-  if (existingReturnInfo) return false;
+function isReturnEligible(orderStatus, existingReturnInfo, deliveredAt) {
+  if (existingReturnInfo && existingReturnInfo.return_status) return false;
   const cleanStatus = toStr(orderStatus).replace(/^wc-/, "").trim().toLowerCase();
-  return DELIVERED_STATUSES.has(cleanStatus);
+  if (!DELIVERED_STATUSES.has(cleanStatus)) return false;
+
+  // Check 7-day return policy window from delivery timestamp
+  const delDate = deliveredAt || existingReturnInfo?.delivered_at;
+  if (delDate) {
+    const delTime = new Date(delDate).getTime();
+    if (!isNaN(delTime) && delTime > 0) {
+      const timePassed = Date.now() - delTime;
+      if (timePassed > RETURN_POLICY_MS) {
+        return false; // Return window expired (> 7 days after delivery)
+      }
+    }
+  }
+
+  return true;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -694,9 +714,9 @@ const createReturnRequest = async (req, res) => {
       });
     }
 
-    // ── 4. Guard: must be delivered, and no existing return already on file ─
+    // ── 4. Guard: must be delivered within 7 days, and no existing return already on file ─
     const existingReturn = await getReturnInfo(orderId);
-    if (existingReturn) {
+    if (existingReturn && existingReturn.return_status) {
       await conn.rollback();
       return res.status(400).json({
         success: false,
@@ -705,12 +725,19 @@ const createReturnRequest = async (req, res) => {
           : `This order already has a return on file (status: ${existingReturn.return_status}).`,
       });
     }
-    if (!isReturnEligible(order.order_status, null)) {
+
+    const deliveredAt = existingReturn?.delivered_at || order.order_modified || order.order_date;
+    if (!isReturnEligible(order.order_status, existingReturn, deliveredAt)) {
       await conn.rollback();
-      const statusLower = toStr(order.order_status).toLowerCase();
-      const message = statusLower === "cancelled"
-        ? "Cancelled orders cannot be returned."
-        : "This order is not eligible for return yet. Returns can be requested after delivery.";
+      const cleanStatus = toStr(order.order_status).replace(/^wc-/, "").trim().toLowerCase();
+      let message;
+      if (!DELIVERED_STATUSES.has(cleanStatus)) {
+        message = cleanStatus === "cancelled"
+          ? "Cancelled orders cannot be returned."
+          : "This order is not eligible for return yet. Returns can be requested after delivery.";
+      } else {
+        message = "The 7-day return window for this order has expired. Returns are only accepted within 7 days of delivery.";
+      }
       return res.status(400).json({ success: false, message });
     }
 
@@ -1126,6 +1153,14 @@ const receiveReturnTrackingWebhook = async (req, res) => {
         [awb, awb]
       );
       if (orderByAwb) orderId = orderByAwb.order_id;
+    }
+
+    // Fallback 2: Extract internal orderId directly from channelOrderId (formatted as RET_{orderId}_{timestamp})
+    if (!orderId && channelOrderId) {
+      const match = channelOrderId.match(/^RET_(\d+)_/i);
+      if (match) {
+        orderId = Number(match[1]);
+      }
     }
 
     if (!orderId) {
