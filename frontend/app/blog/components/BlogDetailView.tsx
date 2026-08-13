@@ -66,12 +66,6 @@ export default function BlogDetailView({
                 <Link href="/">Home</Link>
                 <span>{'>'}</span>
                 <Link href="/blog">Blog</Link>
-                {categoryCrumb?.href ? (
-                  <>
-                    <span>{'>'}</span>
-                    <Link href={categoryCrumb.href}>{categoryCrumb.label}</Link>
-                  </>
-                ) : null}
                 <span>{'>'}</span>
                 <span className="blog-breadcrumb-current">{blog.title}</span>
               </nav>
