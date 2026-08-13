@@ -55,10 +55,6 @@ const statusBadge = {
 // ─── LIST ORDERS ──────────────────────────────────────────────────────────────
 const showOrders = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-
     const status = req.query.status || "";
     const search = req.query.search || "";
 
@@ -108,7 +104,7 @@ const showOrders = async (req, res) => {
       params,
     );
 
-    // ─── Orders List ──────────────────────────────────────────────────────────
+    // ─── Orders List (fetch all for client-side pagination) ──────────────────
     const [orders] = await db.query(
       `
       SELECT
@@ -150,9 +146,8 @@ const showOrders = async (req, res) => {
       GROUP BY o.order_id
 
       ORDER BY o.order_date DESC
-      LIMIT ? OFFSET ?
       `,
-      [...params, limit, offset],
+      params,
     );
 
     // Normalize status: if shipping_status is CANCELLED (uppercase from Shiprocket)
@@ -176,9 +171,6 @@ const showOrders = async (req, res) => {
       orders,
       statusBadge,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
       status,
       search,
       success: req.query.success || null,

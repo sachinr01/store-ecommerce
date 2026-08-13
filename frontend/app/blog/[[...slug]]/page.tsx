@@ -6,9 +6,8 @@ import BlogListView from '../components/BlogListView';
 import BlogDetailView from '../components/BlogDetailView';
 import { getBlogBySlug } from '../utils/getBlogBySlug';
 import { BLOG_FEATURED_LIMIT, BLOG_LIST_INITIAL_COUNT } from '../utils/config';
-import { BLOG_API_BASE_URL } from '../utils/apiBase';
 import { getBlogDetailHref } from '../utils/links';
-import { getBlogCategories, getLatestBlogs, getBlogsByCategory } from '../utils/getBlogs';
+import { getBlogCategories, getBlogs, getLatestBlogs, getBlogsByCategory } from '../utils/getBlogs';
 import type { BlogSidebarFeaturedItem } from '../types';
 import { buildAdminSeoMetadata } from '../../lib/helpers/seoMetadata';
 import { resolveOgImageUrl } from '../../lib/helpers/siteUrl';
@@ -81,7 +80,7 @@ export default async function BlogRoutePage({
   // ── Blog listing page: /blog ──────────────────────────────────────────────
   if (segments.length === 0) {
     const [apiBlogs, latestFromApi, categories] = await Promise.all([
-      getLatestBlogs(BLOG_LIST_INITIAL_COUNT),
+      getBlogs(),
       getLatestBlogs(BLOG_FEATURED_LIMIT),
       getBlogCategories(),
     ]);
@@ -106,7 +105,6 @@ export default async function BlogRoutePage({
           categories={categories}
           showBreadcrumb={true}
           breadcrumbs={[{ href: '/', label: 'Home ' }, { label: 'Blog' }]}
-          loadMoreEndpoint={`${BLOG_API_BASE_URL}/blogs`}
         />
         <Footer />
       </>

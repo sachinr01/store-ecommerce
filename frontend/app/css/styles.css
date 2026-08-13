@@ -12958,7 +12958,7 @@ a.ot-btn {
 .blog-detail-body {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 50px 24px 80px;
+  padding: 10px 24px 80px;
   display: block;
 }
 
@@ -13303,14 +13303,14 @@ a.ot-btn {
   text-transform: uppercase;
 }
 
-.blog-post-card__title {
+/* .blog-post-card__title {
   font-size: 18px;
   font-weight: 500;
   color: #1a1a1a;
   margin: 0;
   line-height: 1.4;
   font-family: Georgia, serif;
-}
+} */
 
 .blog-post-card__date {
   display: none;
@@ -13524,9 +13524,9 @@ a.ot-btn {
     font-size: 28px;
   }
 
-  .blog-post-card__title {
+  /* .blog-post-card__title {
     font-size: 16px;
-  }
+  } */
 }
 
 /* CKEditor 5 image alignment final version CKEditor 5 class mapping: (no extra class) = centered block (DEFAULT) image-style-side = float right, ~35% width image-style-align-left = float left, inline with text image-style-align-right = float right, inline with text image-style-block-align-center = explicit centered block */

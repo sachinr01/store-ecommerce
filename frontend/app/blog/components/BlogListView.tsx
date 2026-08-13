@@ -99,7 +99,13 @@ export default function BlogListView({
       setLoadingMore(true);
       try {
         const separator = loadMoreEndpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${loadMoreEndpoint}${separator}limit=${nextCount}`, {
+        // Build full URL using NEXT_PUBLIC_API_URL for client-side fetching
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        const fullUrl = loadMoreEndpoint.startsWith('http') 
+          ? loadMoreEndpoint 
+          : `${baseUrl}${loadMoreEndpoint.startsWith('/') ? '' : '/'}${loadMoreEndpoint}`;
+        
+        const res = await fetch(`${fullUrl}${separator}limit=${nextCount}`, {
           cache: 'no-store',
         });
         if (!res.ok) {
