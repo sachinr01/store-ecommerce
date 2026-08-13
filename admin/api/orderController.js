@@ -382,12 +382,16 @@ async function getTrackingStatus(req, res) {
       "PICKUP ERROR":                  "Ready to Ship",
       "PICKUP QUEUED":                 "Ready to Ship",
       "PICKUP GENERATED":              "Ready to Ship",
+      "AWB ASSIGNED":                  "Ready to Ship",
+      "MANIFEST GENERATED":            "Ready to Ship",
+      "OUT FOR PICKUP":                "Ready to Ship",
       "PICKED UP":                     "Shipped",
       "IN TRANSIT":                    "Shipped",
       "REACHED AT SOURCE HUB":         "Shipped",
       "REACHED AT DESTINATION HUB":    "Shipped",
       "OUT FOR DELIVERY":              "Out for Delivery",
       "DELIVERED":                     "Delivered",
+      "CANCELED":                      "cancelled",
       "CANCELLED":                     "cancelled",
       "RTO INITIATED":                 "Return Initiated",
       "RTO IN TRANSIT":                "Return Initiated",
@@ -395,10 +399,10 @@ async function getTrackingStatus(req, res) {
       "RTO PICKED":                    "Return Initiated",
       "RTO DELIVERED":                 "Returned",
       "SHIPMENT RETURN":               "Return Initiated",
-      "UNDELIVERED":                   "Undelivered",
-      "DELAYED":                       "Delayed",
-      "DAMAGED":                       "Damaged",
-      "LOST":                          "Lost",
+      "UNDELIVERED":                   "Out for Delivery",
+      "DELAYED":                       "In Transit",
+      "DAMAGED":                       "In Transit",
+      "LOST":                          "In Transit",
     };
 
     const finalStatus = statusMap[shiprocketStatus] || shiprocketStatus;
@@ -3250,11 +3254,11 @@ const trackOrderById = async (req, res) => {
     // Guard against overwriting a protected status (same rationale as
     // getTrackingStatus / trackOrderByPhone) — never let a read-only page
     // view revert a cancellation/refund back to a shipping status.
-    const PROTECTED_STATUSES = [
+    const PROTECTED_STATUSES = new Set([
       "cancelled", "cancel_pending", "refunded", "failed",
-      "Delivered", "Returned",
-    ];
-    const isProtected = PROTECTED_STATUSES.includes(order.order_status);
+      "delivered", "completed", "returned", "return initiated", "return_initiated",
+    ]);
+    const isProtected = PROTECTED_STATUSES.has(toStr(order.order_status).toLowerCase());
     let trackingData = null;
     await syncMissingAwbFromShipment(order, "trackOrderById");
     const awb = toStr(order.awb_code);
@@ -3291,16 +3295,34 @@ const trackOrderById = async (req, res) => {
           // could write a status string the UI didn't recognize.
           const statusMap = {
             "NEW":                           "Ready to Ship",
-            // FIX: was missing here — same bug class as SHIPROCKET_TRACKING_STATUS_MAP
-            // above. Without it, an "INVOICED" live pull would write the raw
-            // literal into order_status instead of "Ready to Ship".
             "INVOICED":                      "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
+            "PICKUP ERROR":                  "Ready to Ship",
+            "PICKUP QUEUED":                 "Ready to Ship",
+            "PICKUP GENERATED":              "Ready to Ship",
+            "AWB ASSIGNED":                  "Ready to Ship",
+            "MANIFEST GENERATED":            "Ready to Ship",
+            "OUT FOR PICKUP":                "Ready to Ship",
+            "PICKED UP":                     "Shipped",
+            "IN TRANSIT":                    "Shipped",
+            "REACHED AT SOURCE HUB":         "Shipped",
+            "REACHED AT DESTINATION HUB":    "Shipped",
+            "OUT FOR DELIVERY":              "Out for Delivery",
+            "DELIVERED":                     "Delivered",
+            "CANCELED":                      "cancelled",
+            "CANCELLED":                     "cancelled",
+            "RTO INITIATED":                 "Return Initiated",
+            "RTO IN TRANSIT":                "Return Initiated",
+            "RTO OUT FOR PICKUP":            "Return Initiated",
             "RTO PICKED":                    "Return Initiated",
             "RTO DELIVERED":                 "Returned",
             "SHIPMENT RETURN":               "Return Initiated",
             "DESTROYED":                     "Return Initiated",
             "QC FAILED":                     "Ready to Ship",
+            "UNDELIVERED":                   "Out for Delivery",
+            "DELAYED":                       "In Transit",
+            "DAMAGED":                       "In Transit",
+            "LOST":                          "In Transit",
           };
           trackingData = {
             current_status: statusMap[rawStatus] || rawStatus || order.order_status,
@@ -3608,11 +3630,11 @@ const trackOrderByPhone = async (req, res) => {
     // terminal / in-progress state (same rationale as getTrackingStatus above) —
     // otherwise viewing this page mid-cancellation could silently revert
     // "cancel_pending" back to a shipping status.
-    const PROTECTED_STATUSES = [
+    const PROTECTED_STATUSES = new Set([
       "cancelled", "cancel_pending", "refunded", "failed",
-      "Delivered", "Returned",
-    ];
-    const isProtected = PROTECTED_STATUSES.includes(order.order_status);
+      "delivered", "completed", "returned", "return initiated", "return_initiated",
+    ]);
+    const isProtected = PROTECTED_STATUSES.has(toStr(order.order_status).toLowerCase());
     const awb = toStr(order.awb_code);
     if (awb && !isProtected) {
       try {
@@ -3642,16 +3664,34 @@ const trackOrderByPhone = async (req, res) => {
           // Must mirror SR_STATUS_MAP in shiprocketorderwebhook.js exactly.
           const statusMap = {
             "NEW":                           "Ready to Ship",
-            // FIX: was missing here too — this is the live-tracking pull used
-            // by the public order-tracking page. Without it, an "INVOICED"
-            // status here would write the raw literal into order_status.
             "INVOICED":                      "Ready to Ship",
             "PICKUP SCHEDULED":              "Ready to Ship",
+            "PICKUP ERROR":                  "Ready to Ship",
+            "PICKUP QUEUED":                 "Ready to Ship",
+            "PICKUP GENERATED":              "Ready to Ship",
+            "AWB ASSIGNED":                  "Ready to Ship",
+            "MANIFEST GENERATED":            "Ready to Ship",
+            "OUT FOR PICKUP":                "Ready to Ship",
+            "PICKED UP":                     "Shipped",
+            "IN TRANSIT":                    "Shipped",
+            "REACHED AT SOURCE HUB":         "Shipped",
+            "REACHED AT DESTINATION HUB":    "Shipped",
+            "OUT FOR DELIVERY":              "Out for Delivery",
+            "DELIVERED":                     "Delivered",
+            "CANCELED":                      "cancelled",
+            "CANCELLED":                     "cancelled",
+            "RTO INITIATED":                 "Return Initiated",
+            "RTO IN TRANSIT":                "Return Initiated",
+            "RTO OUT FOR PICKUP":            "Return Initiated",
             "RTO PICKED":                    "Return Initiated",
             "RTO DELIVERED":                 "Returned",
             "SHIPMENT RETURN":               "Return Initiated",
             "DESTROYED":                     "Return Initiated",
             "QC FAILED":                     "Ready to Ship",
+            "UNDELIVERED":                   "Out for Delivery",
+            "DELAYED":                       "In Transit",
+            "DAMAGED":                       "In Transit",
+            "LOST":                          "In Transit",
           };
           const liveStatus = statusMap[rawStatus] || rawStatus;
           if (liveStatus) {

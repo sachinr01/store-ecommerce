@@ -34,15 +34,22 @@ const getOrderItems = async (orderId) => {
 
 // ── Status badge config ───────────────────────────────────────────────────────
 const statusBadge = {
-  "completed":       { label: "Completed",       class: "bg-success" },
-  "processing":      { label: "Processing",      class: "bg-primary" },
-  "pending":         { label: "Pending",         class: "bg-warning text-dark" },
-  "on-hold":         { label: "On Hold",         class: "bg-info text-dark" },
-  "cancelled":       { label: "Cancelled",       class: "bg-secondary" },
-  "refunded":        { label: "Refunded",        class: "bg-danger" },
-  "failed":          { label: "Failed",          class: "bg-dark" },
-  "delivered":       { label: "Delivered",       class: "bg-success" },
-  "cancel_pending":  { label: "Cancel Pending",  class: "bg-warning text-dark" },
+  "completed":         { label: "Completed",        class: "bg-success" },
+  "processing":        { label: "Processing",       class: "bg-primary" },
+  "pending":           { label: "Pending",          class: "bg-warning text-dark" },
+  "on-hold":           { label: "On Hold",          class: "bg-info text-dark" },
+  "cancelled":         { label: "Cancelled",        class: "bg-secondary" },
+  "refunded":          { label: "Refunded",         class: "bg-danger" },
+  "failed":            { label: "Failed",           class: "bg-dark" },
+  "delivered":         { label: "Delivered",         class: "bg-success" },
+  "Delivered":         { label: "Delivered",         class: "bg-success" },
+  "cancel_pending":    { label: "Cancel Pending",    class: "bg-warning text-dark" },
+  "Ready to Ship":     { label: "Ready to Ship",     class: "bg-info text-dark" },
+  "Shipped":           { label: "Shipped",           class: "bg-primary" },
+  "In Transit":        { label: "In Transit",        class: "bg-primary" },
+  "Out for Delivery":  { label: "Out for Delivery",  class: "bg-info" },
+  "Return Initiated":  { label: "Return Initiated",  class: "bg-warning text-dark" },
+  "Returned":          { label: "Returned",          class: "bg-secondary" },
 };
 
 // ─── LIST ORDERS ──────────────────────────────────────────────────────────────

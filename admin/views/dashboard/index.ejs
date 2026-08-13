@@ -285,7 +285,17 @@
                                                                 , 'processing' : 'bg-primary' , 'pending'
                                                                 : 'bg-warning text-dark' , 'on-hold'
                                                                 : 'bg-info text-dark' , 'cancelled' : 'bg-danger'
-                                                                , 'refunded' : 'bg-secondary' , }; const
+                                                                , 'refunded' : 'bg-secondary'
+                                                                , 'delivered' : 'bg-success'
+                                                                , 'Delivered' : 'bg-success'
+                                                                , 'Ready to Ship' : 'bg-info text-dark'
+                                                                , 'Shipped' : 'bg-primary'
+                                                                , 'In Transit' : 'bg-primary'
+                                                                , 'Out for Delivery' : 'bg-info'
+                                                                , 'cancel_pending' : 'bg-warning text-dark'
+                                                                , 'Return Initiated' : 'bg-warning text-dark'
+                                                                , 'Returned' : 'bg-secondary'
+                                                                , }; const
                                                                 statusClass=statusMap[order.order_status]
                                                                 || 'bg-secondary' ; const
                                                                 statusLabel=order.order_status;
@@ -596,6 +606,15 @@
                                 'on-hold':    'bg-info text-dark',
                                 'cancelled':  'bg-danger',
                                 'refunded':   'bg-secondary',
+                                'delivered':  'bg-success',
+                                'Delivered':  'bg-success',
+                                'Ready to Ship': 'bg-info text-dark',
+                                'Shipped':    'bg-primary',
+                                'In Transit': 'bg-primary',
+                                'Out for Delivery': 'bg-info',
+                                'cancel_pending': 'bg-warning text-dark',
+                                'Return Initiated': 'bg-warning text-dark',
+                                'Returned':   'bg-secondary',
                             };
 
                             const cls = statusMap[d.order_status] || 'bg-secondary';

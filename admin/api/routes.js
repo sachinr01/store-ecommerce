@@ -192,9 +192,11 @@ router.post('/shiprocket/finalize-checkout', shiprocket.finalizeCheckoutContext)
 
 // ── Shiprocket Order Webhook ──────────────────────────────────────────────────
 router.post('/shiprocket/order-webhook', receiveOrderWebhook);
+router.post('/webhooks/order-status', receiveOrderWebhook);
 
 // ── Shiprocket Shipment Status Webhook ────────────────────────────────────────
 router.post('/shiprocket/shipment-webhook', receiveShipmentWebhook);
+router.post('/webhooks/shipment-status', receiveShipmentWebhook);
 
 // ── Return Tracking Webhook (from Shiprocket) ────────────────────────────────
 // IMPORTANT: Shiprocket blocks webhook URLs containing "shiprocket", "kartrocket",
