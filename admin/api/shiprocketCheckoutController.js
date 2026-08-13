@@ -1139,7 +1139,16 @@ const completeCheckoutFromShiprocket = async (req, res) => {
 
     const sessionUser = req.sessionData?.user || null;
     let userId = toInt(checkoutContext.user_id || sessionUser?.id || 0, 0);
-    let email = toStr(checkoutContext.user_email || sessionUser?.email || "");
+    const orderDetailsForEmail = srDetails?.result || srDetails?.data || srDetails || {};
+    const srEmail = toStr(
+      orderDetailsForEmail?.customer_email ||
+      orderDetailsForEmail?.email ||
+      orderDetailsForEmail?.buyer_email ||
+      orderDetailsForEmail?.billing_address?.email ||
+      orderDetailsForEmail?.shipping_address?.email ||
+      ""
+    );
+    let email = toStr(srEmail || checkoutContext.user_email || sessionUser?.email || "");
     let phone = toStr(checkoutContext.user_phone || "");
 
     // Reject synthetic Shiprocket guest addresses — treat them as no email provided

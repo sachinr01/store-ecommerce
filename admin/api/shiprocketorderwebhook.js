@@ -1893,6 +1893,10 @@ function buildCustomerCancellationEmailHtml({ orderId, customerName, mode, reaso
 }
 
 const notifyCustomerOfCancellation = async ({ orderId, mode, reasonLabel }) => {
+  if (process.env.DISABLE_CANCELLATION_CUSTOMER_EMAIL === 'true') {
+    console.log(`[notifyCustomerOfCancellation] Customer cancellation email is disabled — skipping for order ${orderId}`);
+    return;
+  }
   const data = await gatherCancellationEmailData(orderId);
   if (!data || !data.customerEmail) {
     console.warn(`[notifyCustomerOfCancellation] No customer email on file for order ${orderId} — skipping`);

@@ -63,6 +63,22 @@ async function sendEmail({ toEmail, toName, subject, html }) {
     return false;
   }
 
+  const cleanTo = String(toEmail || '').trim().toLowerCase();
+  if (
+    !cleanTo ||
+    !cleanTo.includes('@') ||
+    cleanTo.includes('@shiprocket.guest') ||
+    cleanTo.includes('@shiprocket.com') ||
+    cleanTo.includes('@kartrocket.com') ||
+    cleanTo.includes('@example.com') ||
+    cleanTo.includes('@noemail.com') ||
+    cleanTo.includes('@test.com') ||
+    cleanTo.includes('@placeholder.com')
+  ) {
+    console.log(`[mailer] Skipping send to synthetic/placeholder email "${toEmail}"`);
+    return false;
+  }
+
   const fromName  = process.env.SMTP_SENDER_NAME  || 'Nestcase';
   const fromEmail = process.env.SMTP_SENDER_EMAIL;
 
