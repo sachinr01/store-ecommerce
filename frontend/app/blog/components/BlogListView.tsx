@@ -64,14 +64,14 @@ export default function BlogListView({
     return BLOG_LIST_INITIAL_COUNT;
   });
   const [visiblePosts, setVisiblePosts] = useState<Blog[]>(posts);
-  const [hasMore, setHasMore] = useState<boolean>(() => (loadMoreEndpoint ? posts.length > 0 : posts.length > visibleCount));
+  const [hasMore, setHasMore] = useState<boolean>(() => (loadMoreEndpoint ? posts.length >= BLOG_LIST_INITIAL_COUNT : posts.length > visibleCount));
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const hasRestoredRef = useRef(false);
 
   useEffect(() => {
     setVisiblePosts(posts);
-    setHasMore(loadMoreEndpoint ? posts.length > 0 : posts.length > BLOG_LIST_INITIAL_COUNT);
+    setHasMore(loadMoreEndpoint ? posts.length >= BLOG_LIST_INITIAL_COUNT : posts.length > BLOG_LIST_INITIAL_COUNT);
   }, [posts, loadMoreEndpoint]);
 
   useEffect(() => {
