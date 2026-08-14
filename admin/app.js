@@ -89,7 +89,6 @@ app.use('/api', (req, res, next) => {
     const allowed = [
         process.env.FRONTEND_URL,
         'http://localhost:3001',
-        'https://www.gaffis.org',
         ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
     ].filter(Boolean);
     const origin = req.headers.origin;

@@ -13032,14 +13032,14 @@ a.ot-btn {
   margin-bottom: 10px;
 }
 
-.blog-detail-title {
+/* .blog-detail-title {
   margin: 10px 0px 16px;
   font-size: 36px;
   font-weight: 400;
   line-height: 1.2;
   color: #1a1a1a;
   font-family: Georgia, serif;
-}
+} */
 
 .blog-byline {
   display: flex;
@@ -13506,7 +13506,7 @@ a.ot-btn {
   }
 
   .blog-list-layout {
-    padding: 40px 20px 60px;
+    padding: 10px 20px 60px;
   }
 
   .blog-list-layout .blog-grid {

@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useWishlist } from '../lib/wishlistContext';
 import { useCart } from '../lib/cartContext';
-import { getProductById } from '../lib/api';
+import { getProductById, getImageUrl } from '../lib/api';
 import type { ProductDetail } from '../lib/api';
 import { formatPrice } from '../lib/price';
 import { usePlaceholderImage } from '../lib/siteSettingsContext';
@@ -110,12 +110,13 @@ export default function WishlistPage() {
                             const price   = p ? getPrice(p) : item.price;
                             const inStock = p ? getStock(p) : item.inStock;
                             const title   = p ? p.title : (item.title || `Product #${item.id}`);
+                            const imageUrl = p?.thumbnail_url ? getImageUrl(p.thumbnail_url) : (item.image || PLACEHOLDER);
                             return (
                               <tr key={item.id}>
                                 <td>
                                   <div className="wl-product-cell">
                                     <Link href={`/shop/product/${getProductSlug(item)}`}>
-                                      <img src={item.image || PLACEHOLDER} alt={title}/>
+                                      <img src={imageUrl} alt={title}/>
                                     </Link>
                                     <Link href={`/shop/product/${getProductSlug(item)}`} className="wl-product-name">{title}</Link>
                                   </div>
