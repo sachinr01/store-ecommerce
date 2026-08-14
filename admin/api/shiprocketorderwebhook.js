@@ -1706,9 +1706,20 @@ async function gatherCancellationEmailData(orderId) {
             MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.phone        END) AS ship_phone,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.first_name   END) AS bill_first_name,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.last_name    END) AS bill_last_name,
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.address_line1 END) AS bill_line1,
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.address_line2 END) AS bill_line2,
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.city         END) AS bill_city,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.state_name   END) AS bill_state,
             MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.zipcode      END) AS bill_zip,
-            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone        END) AS bill_phone
+            MAX(CASE WHEN ua.address_billing = 'yes' THEN ua.phone        END) AS bill_phone,
+            MAX(ua.first_name)    AS any_first_name,
+            MAX(ua.last_name)     AS any_last_name,
+            MAX(ua.address_line1) AS any_line1,
+            MAX(ua.address_line2) AS any_line2,
+            MAX(ua.city)          AS any_city,
+            MAX(ua.state_name)    AS any_state,
+            MAX(ua.zipcode)       AS any_zip,
+            MAX(ua.phone)         AS any_phone
      FROM tbl_orders o
      LEFT JOIN tbl_users u ON u.ID = o.user_id
      LEFT JOIN tbl_user_address ua ON ua.order_id = o.order_id
@@ -1753,6 +1764,7 @@ async function gatherCancellationEmailData(orderId) {
   let resolvedState = toStr(
     order.ship_state ||
     order.bill_state ||
+    order.any_state ||
     metaStateMap['_shipping_state'] ||
     metaStateMap['shipping_state'] ||
     metaStateMap['_billing_state'] ||
@@ -1760,9 +1772,17 @@ async function gatherCancellationEmailData(orderId) {
     ""
   ).trim();
 
+  const finalLine1 = toStr(order.ship_line1 || order.bill_line1 || order.any_line1 || "").trim();
+  const finalLine2 = toStr(order.ship_line2 || order.bill_line2 || order.any_line2 || "").trim();
+  const finalCity  = toStr(order.ship_city  || order.bill_city  || order.any_city  || "").trim();
+  const finalZip   = toStr(order.ship_zip   || order.bill_zip   || order.any_zip   || "").trim();
+  const finalPhone = toStr(order.ship_phone || order.bill_phone || order.any_phone || "").trim();
+  const finalFirstName = toStr(order.ship_first_name || order.bill_first_name || order.any_first_name || "").trim();
+  const finalLastName  = toStr(order.ship_last_name  || order.bill_last_name  || order.any_last_name  || "").trim();
+
   if (!resolvedState) {
-    const combinedAddr = `${order.ship_line1 || ""} ${order.ship_line2 || ""} ${order.ship_city || ""}`.toLowerCase();
-    const zip = toStr(order.ship_zip || order.bill_zip).trim();
+    const combinedAddr = `${finalLine1} ${finalLine2} ${finalCity}`.toLowerCase();
+    const zip = finalZip;
     if (combinedAddr.includes("maharashtra") || combinedAddr.includes("pune") || combinedAddr.includes("mumbai") || combinedAddr.includes("nagpur") || combinedAddr.includes("nashik") || combinedAddr.includes("thane") || zip.startsWith("40") || zip.startsWith("41") || zip.startsWith("42") || zip.startsWith("43") || zip.startsWith("44")) {
       resolvedState = "Maharashtra";
     } else if (combinedAddr.includes("delhi")) {
@@ -1785,15 +1805,18 @@ async function gatherCancellationEmailData(orderId) {
   }
 
   return {
-    customerName: [order.ship_first_name || order.bill_first_name, order.ship_last_name || order.bill_last_name].filter(Boolean).join(" ") || "Customer",
+    customerName: [finalFirstName, finalLastName].filter(Boolean).join(" ") || "Customer",
     customerEmail: toStr(order.billing_email || order.user_email),
-    customerPhone: toStr(order.ship_phone || order.bill_phone),
+    customerPhone: finalPhone,
     shippingAddr: {
-      firstName: order.ship_first_name || order.bill_first_name || "",
-      lastName:  order.ship_last_name  || order.bill_last_name  || "",
-      line1: order.ship_line1 || "", line2: order.ship_line2 || "",
-      city: order.ship_city || "", state: resolvedState, zip: order.ship_zip || order.bill_zip || "",
-      phone: toStr(order.ship_phone || order.bill_phone),
+      firstName: finalFirstName,
+      lastName:  finalLastName,
+      line1: finalLine1,
+      line2: finalLine2,
+      city: finalCity,
+      state: resolvedState,
+      zip: finalZip,
+      phone: finalPhone,
     },
     items: itemsWithSku,
     total: order.total,
