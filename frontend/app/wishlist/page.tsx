@@ -109,7 +109,7 @@ export default function WishlistPage() {
                             const p = products[item.id];
                             const price   = p ? getPrice(p) : item.price;
                             const inStock = p ? getStock(p) : item.inStock;
-                            const title   = p ? p.title : item.title;
+                            const title   = p ? p.title : (item.title || `Product #${item.id}`);
                             return (
                               <tr key={item.id}>
                                 <td>

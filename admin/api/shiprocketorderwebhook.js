@@ -732,6 +732,10 @@ const receiveOrderWebhook = async (req, res) => {
       }
     }
 
+    if (discount === 0 && totalDiscount > 0) {
+      discount = totalDiscount;
+    }
+
     // paymentMethod is now resolved earlier from the webhook payload (COD-aware)
     const orderName     = `#SR-${cartId}`;
     const orderTitle    = `Order - ${new Date().toLocaleString()}`;
@@ -1003,7 +1007,7 @@ const receiveOrderWebhook = async (req, res) => {
     // Use the server-verified coupon code (empty if it failed re-validation above),
     // never the raw, unverified body field — so the email never shows a coupon/
     // discount that wasn't actually applied to the order.
-    const couponFromMeta = appliedCouponRow ? appliedCouponRow.coupon_code : "";
+    const couponFromMeta = appliedCouponRow ? appliedCouponRow.coupon_code : (couponCodeFromWebhook || (discount > 0 ? "Discount" : ""));
 
     // ── Clear the server-side cart (best-effort, non-fatal) ───────────────
     if (userId) {
