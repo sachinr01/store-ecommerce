@@ -112,9 +112,32 @@
                                     </small>
                                   </td>
                                   <td>
+                                    <% 
+                                      const orderTotal = parseFloat(o.order_total || 0);
+                                      const orderDiscount = parseFloat(o.order_discount || 0);
+                                      const orderSubtotal = parseFloat(o.order_subtotal || 0);
+                                    %>
                                     <span class="fw-semibold">
-                                      ₹<%= parseFloat(o.order_total || 0).toFixed(2) %>
+                                      ₹<%= orderTotal.toFixed(2) %>
                                     </span>
+                                    <% if (orderDiscount > 0) { %>
+                                      <div class="mt-1">
+                                        <small class="text-muted">
+                                          <del>₹<%= orderSubtotal.toFixed(2) %></del>
+                                        </small>
+                                        <small class="badge bg-success ms-1">
+                                          -₹<%= orderDiscount.toFixed(2) %>
+                                        </small>
+                                      </div>
+                                      <% if (o.coupon_code) { %>
+                                        <div>
+                                          <small class="text-muted">
+                                            <i data-feather="tag" style="width:11px;height:11px;"></i>
+                                            <%= o.coupon_code %>
+                                          </small>
+                                        </div>
+                                      <% } %>
+                                    <% } %>
                                   </td>
                                   <td><small>
                                       <%= o.payment_method || '-' %>

@@ -120,6 +120,15 @@ const showOrders = async (req, res) => {
         MAX(CASE WHEN om.meta_key = '_order_total'
           THEN om.meta_value END) AS order_total,
 
+        MAX(CASE WHEN om.meta_key = '_order_subtotal'
+          THEN om.meta_value END) AS order_subtotal,
+
+        MAX(CASE WHEN om.meta_key = '_order_discount'
+          THEN om.meta_value END) AS order_discount,
+
+        MAX(CASE WHEN om.meta_key = '_coupon_code'
+          THEN om.meta_value END) AS coupon_code,
+
         MAX(CASE WHEN om.meta_key = '_payment_method_title'
           THEN om.meta_value END) AS payment_method,
 
