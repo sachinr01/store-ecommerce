@@ -797,13 +797,12 @@ const receiveOrderWebhook = async (req, res) => {
     // as the difference between SR's authoritative total and everything we
     // already know how to account for, so it can be itemized and forwarded.
     const codCharge = paymentMethod === "cod"
-      ? Math.max(0, +(orderTotal - (subtotal - discount + shippingCost + tax)).toFixed(2))
+      ? Math.max(0, +(orderTotal - (subtotal + shippingCost + tax - discount)).toFixed(2))
       : 0;
     if (codCharge > 0) {
       console.log(
         `[SR OrderWebhook][COD-CHARGE] cart_id=${cartId} detected COD handling fee=₹${codCharge.toFixed(2)} ` +
-        `(order_total=${orderTotal.toFixed(2)} - subtotal=${subtotal.toFixed(2)} + discount=${discount.toFixed(2)} ` +
-        `- shipping=${shippingCost.toFixed(2)} - tax=${tax.toFixed(2)})`,
+        `(order_total=${orderTotal.toFixed(2)} - (subtotal=${subtotal.toFixed(2)} + shipping=${shippingCost.toFixed(2)} + tax=${tax.toFixed(2)} - discount=${discount.toFixed(2)}))`,
       );
     }
 
