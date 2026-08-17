@@ -422,6 +422,12 @@ export default function OrderDetailPage() {
     const storedShipping = Number(order.shipping || 0);
     const storedTotal = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
+    // Flat COD handling fee Shiprocket's checkout adds for COD orders (e.g.
+    // ₹559.30 -> ₹608.30). It's included in the backend's authoritative
+    // `total` but not in `storedShipping`, so `derived` below used to fall
+    // short of `storedTotal` by this amount on every COD order — failing the
+    // ±0.01 tolerance check and showing the wrong (lower) derived total.
+    const storedCodCharge = Number(order.cod_charge || 0);
     // order.subtotal (_order_subtotal) is the RAW, pre-discount subtotal;
     // item.line_total (_line_total) is already net of any coupon discount,
     // so the two legitimately diverge by the discount amount whenever a
@@ -434,7 +440,7 @@ export default function OrderDetailPage() {
         ? storedSubtotal
         : itemsSubtotal || storedSubtotal;
     const totalValue = (() => {
-      const derived = Math.max(0, subtotalValue - storedDiscount) + storedShipping;
+      const derived = Math.max(0, subtotalValue - storedDiscount) + storedShipping + storedCodCharge;
       if (Number.isFinite(storedTotal) && storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01) {
         return storedTotal;
       }
@@ -469,6 +475,7 @@ export default function OrderDetailPage() {
       totalLabel: formatPrice(totalValue || 0),
       subtotalLabel: formatPrice(subtotalValue || 0),
       shippingLabel: formatPrice(storedShipping || 0),
+      codChargeLabel: storedCodCharge > 0 ? formatPrice(storedCodCharge) : null,
       payment: order.payment_method || 'cod',
       couponCode: order.coupon_code || null,
       discountLabel: storedDiscount ? formatPrice(storedDiscount) : null,
@@ -796,6 +803,7 @@ export default function OrderDetailPage() {
                         {summary.couponCode && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
                         <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>
                         <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
+                        {summary.codChargeLabel && <div><strong>COD Charges:</strong> {summary.codChargeLabel}</div>}
                         <div className="order-price-total"><strong>Total:</strong> {summary.totalLabel}</div>
                       </div>
                     </div>

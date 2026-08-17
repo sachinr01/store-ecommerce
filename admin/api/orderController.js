@@ -2802,6 +2802,13 @@ const getMyOrderById = async (req, res) => {
               (
                 SELECT om.meta_value
                 FROM tbl_ordermeta om
+                WHERE om.order_id = o.order_id AND om.meta_key = '_order_cod_charge'
+                ORDER BY om.meta_id DESC
+                LIMIT 1
+              ) AS cod_charge,
+              (
+                SELECT om.meta_value
+                FROM tbl_ordermeta om
                 WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
                 ORDER BY om.meta_id DESC
                 LIMIT 1
@@ -3469,6 +3476,9 @@ const trackOrderByPhone = async (req, res) => {
                WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping'
                ORDER BY om.meta_id DESC LIMIT 1) AS shipping,
               (SELECT om.meta_value FROM tbl_ordermeta om
+               WHERE om.order_id = o.order_id AND om.meta_key = '_order_cod_charge'
+               ORDER BY om.meta_id DESC LIMIT 1) AS cod_charge,
+              (SELECT om.meta_value FROM tbl_ordermeta om
                WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method'
                ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
               (SELECT om.meta_value FROM tbl_ordermeta om
@@ -3889,6 +3899,7 @@ const downloadInvoice = async (req, res) => {
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_total'    ORDER BY om.meta_id DESC LIMIT 1) AS total,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_subtotal' ORDER BY om.meta_id DESC LIMIT 1) AS subtotal,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_shipping' ORDER BY om.meta_id DESC LIMIT 1) AS shipping,
+              (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_order_cod_charge' ORDER BY om.meta_id DESC LIMIT 1) AS cod_charge,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method' ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_razorpay_method' ORDER BY om.meta_id DESC LIMIT 1) AS razorpay_method,
               (SELECT om.meta_value FROM tbl_ordermeta om WHERE om.order_id = o.order_id AND om.meta_key = '_coupon_code'    ORDER BY om.meta_id DESC LIMIT 1) AS coupon_code,
@@ -4038,10 +4049,11 @@ const downloadInvoice = async (req, res) => {
         phone: orderRow.ship_phone     || orderRow.billing_phone     || '',
       },
       totals: {
-        subtotal: toAmount(orderRow.subtotal        || 0),
-        shipping: toAmount(orderRow.shipping        || 0),
-        discount: toAmount(orderRow.coupon_discount || 0),
-        total:    toAmount(orderRow.total           || 0),
+        subtotal:  toAmount(orderRow.subtotal        || 0),
+        shipping:  toAmount(orderRow.shipping        || 0),
+        codCharge: toAmount(orderRow.cod_charge      || 0),
+        discount:  toAmount(orderRow.coupon_discount || 0),
+        total:     toAmount(orderRow.total           || 0),
         couponCode: orderRow.coupon_code || '',
       },
       items: effectiveItems,

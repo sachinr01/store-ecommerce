@@ -566,10 +566,19 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
   };
 
   const summary = useMemo(() => {
-    const storedSubtotal = Number(order.subtotal || 0);
-    const storedShipping = Number(order.shipping || 0);
-    const storedTotal    = Number(order.total || 0);
-    const storedDiscount = Number(order.coupon_discount || 0);
+    const storedSubtotal  = Number(order.subtotal || 0);
+    const storedShipping  = Number(order.shipping || 0);
+    const storedTotal     = Number(order.total || 0);
+    const storedDiscount  = Number(order.coupon_discount || 0);
+    // Flat COD handling fee Shiprocket's checkout adds on top of the cart
+    // value for COD orders (e.g. ₹559.30 -> ₹608.30, shown on the payment
+    // screen as "Cash on delivery ... Inc. ₹49.00 COD charges"). It's baked
+    // into the backend's authoritative `total` (_order_total) but was never
+    // included in `storedShipping`, so `derived` below used to fall short of
+    // `storedTotal` by exactly that fee on every COD order — which failed
+    // the ±0.01 tolerance check and made this page silently display the
+    // wrong (lower) `derived` total instead of the correct stored one.
+    const storedCodCharge = Number(order.cod_charge || 0);
     const itemsSubtotal  = items.reduce((s, it) => s + Number(it.line_total || 0), 0);
     // order.subtotal (from _order_subtotal) is always the RAW, pre-discount
     // subtotal, while item.line_total (from _line_total) is already net of
@@ -582,7 +591,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     // instead of 1049). Trust the backend's raw subtotal whenever we have
     // one; only derive from items as a last resort if it's missing.
     const subtotal = storedSubtotal > 0 ? storedSubtotal : (itemsSubtotal || storedSubtotal);
-    const derived = Math.max(0, subtotal - storedDiscount) + storedShipping;
+    const derived = Math.max(0, subtotal - storedDiscount) + storedShipping + storedCodCharge;
     const total   = storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01 ? storedTotal : derived || storedTotal;
 
     const shipName = [order.ship_first_name, order.ship_last_name].filter(Boolean).join(' ').trim();
@@ -598,6 +607,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
       totalLabel:    formatPrice(total || 0),
       subtotalLabel: formatPrice(subtotal || 0),
       shippingLabel: formatPrice(storedShipping || 0),
+      codChargeLabel: storedCodCharge > 0 ? formatPrice(storedCodCharge) : null,
       discountLabel: storedDiscount ? formatPrice(storedDiscount) : null,
       couponCode:    order.coupon_code || null,
       payment:       order.payment_method || 'cod',
@@ -741,6 +751,7 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
               {summary.couponCode   && <div><strong>Coupon:</strong> {summary.couponCode}</div>}
               <div><strong>Discount:</strong> {summary.discountLabel ? `-${summary.discountLabel}` : formatPrice(0)}</div>
               <div><strong>Shipping:</strong> {summary.shippingLabel}</div>
+              {summary.codChargeLabel && <div><strong>COD Charges:</strong> {summary.codChargeLabel}</div>}
               <div className="order-price-total"><strong>Total:</strong> {summary.totalLabel}</div>
             </div>
           </div>

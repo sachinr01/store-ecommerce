@@ -23,7 +23,7 @@ const fmtMoney = (v) => { const n = parseFloat(v); return isFinite(n) ? n.toFixe
 
 function buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
   paymentMethod, customerName, customerEmail, customerPhone,
-  shippingAddr, items, subtotal, shippingCost, discount, couponCode, total }) {
+  shippingAddr, items, subtotal, shippingCost, codCharge, discount, couponCode, total }) {
 
   const payLabel    = (paymentMethod || "").toLowerCase() === "cod" ? "Cash on Delivery" : "Online Payment";
   const payStatus   = (paymentMethod || "").toLowerCase() === "cod" ? "COD - Pending" : "Paid";
@@ -207,6 +207,11 @@ function buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
               <td colspan="4" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">Shipping</td>
               <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(shippingCost)}</td>
             </tr>
+            ${codCharge > 0 ? `
+            <tr>
+              <td colspan="4" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">COD Charges</td>
+              <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(codCharge)}</td>
+            </tr>` : ""}
             <tr style="background:#f9f9f9;">
               <td colspan="4" style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;"><strong>Total</strong></td>
               <td style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;"><strong>&#8377;${fmtMoney(total)}</strong></td>
@@ -251,7 +256,7 @@ function buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
 
 async function sendOrderEmails({ orderId, srCartId, orderDate, orderTime,
   paymentMethod, customerName, customerEmail, customerPhone,
-  shippingAddr, items, subtotal, shippingCost, discount, couponCode, total }) {
+  shippingAddr, items, subtotal, shippingCost, codCharge, discount, couponCode, total }) {
 
   const isValidEmail = (e) =>
     !!e &&
@@ -261,7 +266,7 @@ async function sendOrderEmails({ orderId, srCartId, orderDate, orderTime,
 
   const html = buildOrderEmailHtml({ orderId, srCartId, orderDate, orderTime,
     paymentMethod, customerName, customerEmail, customerPhone,
-    shippingAddr, items, subtotal, shippingCost, discount, couponCode, total });
+    shippingAddr, items, subtotal, shippingCost, codCharge, discount, couponCode, total });
 
   // Seller notification — always sent; subject includes SR cart ID as Order ID
   const srRef = srCartId ? ` | Order ID: ${srCartId}` : "";
@@ -776,6 +781,32 @@ const receiveOrderWebhook = async (req, res) => {
       );
     }
 
+    // ── COD handling charge ─────────────────────────────────────────────────
+    // Shiprocket's checkout (Fastrr) adds a flat COD handling fee (currently
+    // ₹49) on top of the cart value whenever the buyer pays via COD — this is
+    // visible on the payment screen (e.g. ₹559.30 → ₹608.30) and is already
+    // baked into `total_price`/`orderTotal` above, which is why `_order_total`
+    // is correct. But nothing downstream of here previously accounted for it:
+    // `shippingCost` (from body.shipping_price) does NOT include this fee, so
+    // subtotal - discount + shippingCost + tax fell short of orderTotal by
+    // exactly the COD fee, and that shortfall was silently dropped — never
+    // itemized, never forwarded to the Shiprocket fulfillment order we create
+    // below (srPayload), and never shown in the order email. That caused the
+    // order value pushed to Shiprocket's own "New Orders" panel to be ₹49
+    // lower than what the customer actually paid at checkout. Recover it here
+    // as the difference between SR's authoritative total and everything we
+    // already know how to account for, so it can be itemized and forwarded.
+    const codCharge = paymentMethod === "cod"
+      ? Math.max(0, +(orderTotal - (subtotal - discount + shippingCost + tax)).toFixed(2))
+      : 0;
+    if (codCharge > 0) {
+      console.log(
+        `[SR OrderWebhook][COD-CHARGE] cart_id=${cartId} detected COD handling fee=₹${codCharge.toFixed(2)} ` +
+        `(order_total=${orderTotal.toFixed(2)} - subtotal=${subtotal.toFixed(2)} + discount=${discount.toFixed(2)} ` +
+        `- shipping=${shippingCost.toFixed(2)} - tax=${tax.toFixed(2)})`,
+      );
+    }
+
     // paymentMethod is now resolved earlier from the webhook payload (COD-aware)
     const orderName     = `#SR-${cartId}`;
     const orderTitle    = `Order - ${new Date().toLocaleString()}`;
@@ -924,6 +955,19 @@ const receiveOrderWebhook = async (req, res) => {
       );
     }
 
+    // COD handling-fee line item (if applicable) — see codCharge comment above
+    if (codCharge > 0) {
+      const [codResult] = await conn.query(
+        `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
+         VALUES ('COD Charges', 'fee', ?, 0)`,
+        [orderId],
+      );
+      await conn.query(
+        "INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)",
+        [codResult.insertId, "cost", codCharge.toFixed(2)],
+      );
+    }
+
     // ── Deduct stock ────────────────────────────────────────────────────────────
     for (const item of resolvedItems) {
       const qty = Number(item.quantity || 0);
@@ -994,6 +1038,7 @@ const receiveOrderWebhook = async (req, res) => {
       ["_order_total",          orderTotal.toFixed(2)],
       ["_order_subtotal",       subtotal.toFixed(2)],
       ["_order_shipping",       shippingCost.toFixed(2)],
+      ["_order_cod_charge",     codCharge.toFixed(2)],
       ["_order_tax",            tax.toFixed(2)],
       ["_order_item_count",     String(itemCount || resolvedItems.length)],
       ["_order_discount",       discount.toFixed(2)],
@@ -1147,7 +1192,12 @@ const receiveOrderWebhook = async (req, res) => {
         // a second time, e.g. showing "Order Total: ₹599.60" on WhatsApp
         // instead of the correct ₹1049.30.
         sub_total:        subtotal,
-        shipping_charges: shippingCost,
+        // Fold the COD handling fee into shipping_charges so the order value
+        // Shiprocket's own fulfillment/"New Orders" panel shows
+        // (sub_total - total_discount + shipping_charges) reconciles with
+        // orderTotal — i.e. what the customer actually paid at checkout —
+        // instead of under-reporting by the COD fee. See codCharge above.
+        shipping_charges: +(shippingCost + codCharge).toFixed(2),
         total_discount:   discount,
         length: pkgLength, breadth: pkgBreadth, height: pkgHeight, weight: pkgWeight,
       };
@@ -1248,6 +1298,7 @@ const receiveOrderWebhook = async (req, res) => {
         items:       emailItems,
         subtotal,
         shippingCost,
+        codCharge,
         discount,
         couponCode:  couponFromMeta,
         total:       orderTotal,
@@ -1744,6 +1795,8 @@ async function gatherCancellationEmailData(orderId) {
             (SELECT om.meta_value FROM tbl_ordermeta om
              WHERE om.order_id = o.order_id AND om.meta_key = '_payment_method' ORDER BY om.meta_id DESC LIMIT 1) AS payment_method,
             (SELECT om.meta_value FROM tbl_ordermeta om
+             WHERE om.order_id = o.order_id AND om.meta_key = '_order_cod_charge' ORDER BY om.meta_id DESC LIMIT 1) AS cod_charge,
+            (SELECT om.meta_value FROM tbl_ordermeta om
              WHERE om.order_id = o.order_id AND om.meta_key = '_billing_email' ORDER BY om.meta_id DESC LIMIT 1) AS billing_email,
             MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.first_name    END) AS ship_first_name,
             MAX(CASE WHEN ua.address_billing = 'no'  THEN ua.last_name     END) AS ship_last_name,
@@ -1853,6 +1906,24 @@ async function gatherCancellationEmailData(orderId) {
     }
   }
 
+  // ── COD charge handling for returns/refunds ────────────────────────────────
+  // COD charges are non-refundable service fees. When a customer returns a COD
+  // order, they should only get back the product value, not the COD handling
+  // fee (₹49) that was already paid to the courier. This matches standard
+  // e-commerce practice (Amazon, Flipkart, etc.).
+  const orderTotal = Number(order.total || 0);
+  const codCharge = Number(order.cod_charge || 0);
+  const isCOD = (order.payment_method || "").toLowerCase() === "cod";
+  const refundableAmount = isCOD && codCharge > 0 
+    ? Math.max(0, orderTotal - codCharge)
+    : orderTotal;
+
+  console.log(
+    `[gatherCancellationEmailData] order_id=${orderId} payment_method=${order.payment_method} ` +
+    `order_total=${orderTotal.toFixed(2)} cod_charge=${codCharge.toFixed(2)} ` +
+    `refundable_amount=${refundableAmount.toFixed(2)}`
+  );
+
   return {
     customerName: [finalFirstName, finalLastName].filter(Boolean).join(" ") || "Customer",
     customerEmail: toStr(order.billing_email || order.user_email),
@@ -1868,7 +1939,9 @@ async function gatherCancellationEmailData(orderId) {
       phone: finalPhone,
     },
     items: itemsWithSku,
-    total: order.total,
+    total: refundableAmount,
+    originalTotal: orderTotal,
+    codCharge: codCharge,
     paymentMethod: order.payment_method,
     courierName: order.courier_name,
   };

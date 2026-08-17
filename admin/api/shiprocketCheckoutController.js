@@ -366,8 +366,36 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       const rate = toFloat(item.tax_percent, 0);
       return sum + (rate > 0 ? (taxableInclusive * rate) / (100 + rate) : 0);
     }, 0);
-    // grandTotal = inclusive subtotal − discount + shipping (tax is already inside subtotal)
-    const grandTotal = Math.max(0, subtotal - discount + shippingCost);
+
+    // ── COD handling charge ──────────────────────────────────────────────
+    // This function is the fallback path (used when the order webhook hasn't
+    // arrived yet and we instead verify via Shiprocket's own order-details
+    // API — see completeCheckoutFromShiprocket). Shiprocket's checkout adds a
+    // flat COD handling fee (currently ₹49) on top of the cart value for COD
+    // orders (e.g. ₹559.30 → ₹608.30 shown on the payment screen), which is
+    // NOT included in checkoutContext.shipping_cost. If Shiprocket's own
+    // order-details response reports a total higher than what we can compute
+    // from subtotal/discount/shipping, the difference is that COD fee —
+    // recover it here so this path stays consistent with the primary
+    // webhook path (shiprocketorderwebhook.js) instead of silently
+    // under-reporting the order value by ₹49.
+    const srReportedTotal = toFloat(
+      srDetails?.total_price ?? srDetails?.order_total ??
+      srDetails?.grand_total ?? srDetails?.total ?? srDetails?.amount,
+      0,
+    );
+    const computedTotal = Math.max(0, subtotal - discount + shippingCost);
+    const codCharge = paymentMethod.toLowerCase() === "cod" && srReportedTotal > computedTotal
+      ? +(srReportedTotal - computedTotal).toFixed(2)
+      : 0;
+    if (codCharge > 0) {
+      console.log(
+        `[SR Checkout][COD-CHARGE] Detected COD handling fee=₹${codCharge.toFixed(2)} ` +
+        `(sr_reported_total=${srReportedTotal.toFixed(2)}, computed_total=${computedTotal.toFixed(2)})`,
+      );
+    }
+    // grandTotal = inclusive subtotal − discount + shipping + COD handling fee
+    const grandTotal = Math.max(0, computedTotal + codCharge);
 
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
@@ -441,12 +469,26 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       );
     }
 
+    // COD handling-fee line item (if applicable) — see codCharge comment above
+    if (codCharge > 0) {
+      const [codResult] = await conn.query(
+        `INSERT INTO tbl_order_items (order_item_name, order_item_type, order_id, product_id)
+         VALUES ('COD Charges', 'fee', ?, 0)`,
+        [orderId],
+      );
+      await conn.query(
+        "INSERT INTO tbl_order_itemmeta (order_item_id, meta_key, meta_value) VALUES (?, ?, ?)",
+        [codResult.insertId, "cost", codCharge.toFixed(2)],
+      );
+    }
+
     const metaEntries = [
       ["_payment_method", paymentMethod],
       ["_order_total", String(grandTotal)],
       ["_order_subtotal", String(subtotal)],
       ["_order_tax", taxTotal.toFixed(2)],
       ["_order_shipping", shippingCost.toFixed(2)],
+      ["_order_cod_charge", codCharge.toFixed(2)],
       ["_billing_phone", toStr(phone)],
       ["_billing_email", toStr(email)],
       ["_sr_checkout_order_id", toStr(srOrderId)],
@@ -510,7 +552,10 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
         // here while also sending total_discount caused the discount to be
         // subtracted twice — same bug as shiprocketorderwebhook.js's srPayload.
         sub_total: subtotal,
-        shipping_charges: shippingCost,
+        // Fold the COD handling fee into shipping_charges so the order value
+        // Shiprocket's own fulfillment panel shows reconciles with what the
+        // customer actually paid at checkout — see codCharge comment above.
+        shipping_charges: +(shippingCost + codCharge).toFixed(2),
         total_discount: discount,
         length: 10, breadth: 10, height: 10, weight: 0.5,
       };

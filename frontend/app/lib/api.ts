@@ -299,6 +299,7 @@ export interface OrderDetailResponse {
     total: string | number | null;
     subtotal: string | number | null;
     shipping: string | number | null;
+    cod_charge?: string | number | null;
     payment_method: string | null;
     coupon_code: string | null;
     coupon_discount: string | number | null;

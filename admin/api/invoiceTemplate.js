@@ -88,11 +88,15 @@ function renderInvoice(data) {
   // Resolved totals — always trust stored values from DB; derive only as fallback.
   // _order_subtotal is pre-discount in all paths (webhook + direct + SR checkout).
   // _line_total may be post-discount (SR webhook) so we don't sum it for subtotal display.
-  const subtotal = toAmt(totals.subtotal) || items.reduce((s, i) => s + toAmt(i.line_total), 0);
-  const discount = toAmt(totals.discount);
-  const shipping = toAmt(totals.shipping);
-  // Use stored total if present; otherwise derive: subtotal − discount + shipping
-  const grandTotal = toAmt(totals.total) || Math.max(0, subtotal - discount) + shipping;
+  const subtotal  = toAmt(totals.subtotal) || items.reduce((s, i) => s + toAmt(i.line_total), 0);
+  const discount  = toAmt(totals.discount);
+  const shipping  = toAmt(totals.shipping);
+  // Flat COD handling fee Shiprocket's checkout adds for COD orders (e.g. ₹49).
+  // Without this row, subtotal − discount + shipping fell short of the stored
+  // grand total by this amount and the invoice arithmetic didn't add up.
+  const codCharge = toAmt(totals.codCharge);
+  // Use stored total if present; otherwise derive: subtotal − discount + shipping + COD charge
+  const grandTotal = toAmt(totals.total) || (Math.max(0, subtotal - discount) + shipping + codCharge);
 
   // address helpers
   const billAddr = [billing.addr1, billing.addr2].filter(Boolean).map(esc).join(', ');
@@ -185,6 +189,12 @@ function renderInvoice(data) {
       <tr>
         <td colspan="6" class="r">Shipping Charges</td>
         <td class="r">${inr(shipping)}</td>
+      </tr>` : '';
+
+  const codChargeRow = codCharge > 0 ? `
+      <tr>
+        <td colspan="6" class="r">COD Charges</td>
+        <td class="r">${inr(codCharge)}</td>
       </tr>` : '';
 
   // tax breakdown — only built when hasTax
@@ -439,6 +449,7 @@ td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
       ${taxSummaryRows}
       ${discountRow}
       ${shippingRow}
+      ${codChargeRow}
       <tr class="grand-total">
         <td colspan="5" class="r">Total</td>
         <td class="c">${totalQty}</td>

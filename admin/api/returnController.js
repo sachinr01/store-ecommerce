@@ -407,10 +407,12 @@ const createReturnOnShiprocketPanel = async (orderId) => {
 // ── Admin email ──────────────────────────────────────────────────────────────
 function buildReturnRequestEmailHtml({
   orderId, srCartId, requestedAt, customerName, customerEmail, customerPhone,
-  shippingAddr, items, total, paymentMethod, awb, shipmentId, courierName,
+  shippingAddr, items, total, originalTotal, codCharge, paymentMethod, awb, shipmentId, courierName,
   reasonLabel, srStatus,
 }) {
   const payLabel = (paymentMethod || "").toLowerCase() === "cod" ? "Cash on Delivery" : "Online Payment";
+  const isCOD = (paymentMethod || "").toLowerCase() === "cod";
+  const hasCodCharge = isCOD && codCharge && Number(codCharge) > 0;
 
   const autoCreated = !!(srStatus && srStatus.created);
   const bannerBg     = autoCreated ? "#e8f5e9" : "#e3f2fd";
@@ -533,10 +535,24 @@ function buildReturnRequestEmailHtml({
           <tfoot>
             <tr><td colspan="2" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">Payment Method</td>
               <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">${escHtml(payLabel)}</td></tr>
-            <tr style="background:#f9f9f9;"><td colspan="2" style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;">Total</td>
+            ${hasCodCharge ? `
+            <tr><td colspan="2" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">Order Total</td>
+              <td style="padding:4px 12px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(originalTotal)}</td></tr>
+            <tr><td colspan="2" style="padding:4px 12px;text-align:right;font-size:13px;color:#666;font-family:Arial,sans-serif;">COD Charge (non-refundable)</td>
+              <td style="padding:4px 12px;text-align:right;font-size:13px;color:#d32f2f;font-family:Arial,sans-serif;">-&#8377;${fmtMoney(codCharge)}</td></tr>
+            ` : ''}
+            <tr style="background:#f9f9f9;"><td colspan="2" style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;">${hasCodCharge ? 'Refundable Amount' : 'Total'}</td>
               <td style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;">&#8377;${fmtMoney(total)}</td></tr>
           </tfoot>
         </table>
+
+        ${hasCodCharge ? `
+        <table cellpadding="0" cellspacing="0" width="100%" style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;margin:0 0 20px;">
+          <tr><td style="padding:12px 16px;font-size:12px;color:#e65100;font-family:Arial,sans-serif;">
+            ℹ️ <strong>COD charges are non-refundable.</strong> Customer will receive &#8377;${fmtMoney(total)} (&#8377;${fmtMoney(originalTotal)} order total minus &#8377;${fmtMoney(codCharge)} COD handling fee).
+          </td></tr>
+        </table>
+        ` : ''}
 
         <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.7;font-family:Arial,sans-serif;">
           Once the return is resolved, update its status against this order so the customer sees the right info
@@ -1333,6 +1349,29 @@ const notifyCustomerOfRefundProcessed = async ({ orderId }) => {
     return;
   }
 
+  // Get refund breakdown info
+  const data = await gatherCancellationEmailData(orderId);
+  const hasCodCharge = data && data.codCharge && Number(data.codCharge) > 0;
+  const refundBreakdown = hasCodCharge ? `
+    <table cellpadding="0" cellspacing="0" width="100%" style="background:#f9f9f9;border:1px solid #e4e4e4;border-radius:8px;margin:16px 0;">
+      <tr>
+        <td style="padding:10px 16px;font-size:13px;color:#666;font-family:Arial,sans-serif;">Order Total</td>
+        <td style="padding:10px 16px;text-align:right;font-size:13px;color:#333;font-family:Arial,sans-serif;">&#8377;${fmtMoney(data.originalTotal)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 16px;font-size:13px;color:#666;font-family:Arial,sans-serif;">COD Handling Fee (non-refundable)</td>
+        <td style="padding:10px 16px;text-align:right;font-size:13px;color:#d32f2f;font-family:Arial,sans-serif;">-&#8377;${fmtMoney(data.codCharge)}</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:12px 16px;font-size:14px;font-weight:700;color:#1b1b1b;font-family:Arial,sans-serif;">Refund Amount</td>
+        <td style="padding:12px 16px;text-align:right;font-size:14px;font-weight:700;color:#2e7d32;font-family:Arial,sans-serif;">&#8377;${fmtMoney(data.total)}</td>
+      </tr>
+    </table>
+    <p style="margin:12px 0;font-size:13px;color:#666;font-family:Arial,sans-serif;">
+      <em>Note: COD (Cash on Delivery) handling charges are non-refundable as per our return policy.</em>
+    </p>
+  ` : '';
+
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;">
@@ -1356,6 +1395,7 @@ const notifyCustomerOfRefundProcessed = async ({ orderId }) => {
         <p style="margin:0 0 22px;font-size:14px;color:#555;font-family:Arial,sans-serif;">
           Your refund has been processed! The amount will be credited to your original payment method within 5-7 business days depending on your bank.
         </p>
+        ${refundBreakdown}
         <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.7;font-family:Arial,sans-serif;">
           If you don't see the refund after 7 business days, please contact your bank or our support team.
         </p>
