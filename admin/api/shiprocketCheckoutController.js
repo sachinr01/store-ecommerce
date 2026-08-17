@@ -503,7 +503,13 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
           discount: 0,
         })),
         payment_method: paymentMethod.toUpperCase() === "COD" ? "COD" : "Prepaid",
-        sub_total: Math.max(0, subtotal - discount),
+        // sub_total must be RAW (pre-discount), matching order_items[].selling_price
+        // above which is also raw with discount: 0 per line. Shiprocket computes
+        // its own order total (and the WhatsApp/SMS confirmation it sends) as
+        // sub_total - total_discount, so sending an already-discounted sub_total
+        // here while also sending total_discount caused the discount to be
+        // subtracted twice — same bug as shiprocketorderwebhook.js's srPayload.
+        sub_total: subtotal,
         shipping_charges: shippingCost,
         total_discount: discount,
         length: 10, breadth: 10, height: 10, weight: 0.5,
@@ -1376,4 +1382,5 @@ module.exports = {
   registerRedirectOrderId,
   triggerProductWebhook,
   triggerCollectionWebhook,
+  findCheckoutContext,
 };

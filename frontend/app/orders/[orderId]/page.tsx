@@ -422,8 +422,15 @@ export default function OrderDetailPage() {
     const storedShipping = Number(order.shipping || 0);
     const storedTotal = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
+    // order.subtotal (_order_subtotal) is the RAW, pre-discount subtotal;
+    // item.line_total (_line_total) is already net of any coupon discount,
+    // so the two legitimately diverge by the discount amount whenever a
+    // coupon was used — that's expected, not a data mismatch. Falling back
+    // to the already-discounted itemsSubtotal here caused storedDiscount to
+    // be subtracted a second time below, e.g. showing Total ₹600 instead of
+    // the correct ₹1049. Trust the backend's raw subtotal when we have one.
     const subtotalValue =
-      Number.isFinite(storedSubtotal) && storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
+      Number.isFinite(storedSubtotal) && storedSubtotal > 0
         ? storedSubtotal
         : itemsSubtotal || storedSubtotal;
     const totalValue = (() => {

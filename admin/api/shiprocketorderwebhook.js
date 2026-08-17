@@ -701,7 +701,35 @@ const receiveOrderWebhook = async (req, res) => {
     // the order is actually created — the same DB-locked check used everywhere else
     // (placeOrder, insertShiprocketOrder). recordCouponUsage below is what actually
     // enforces per-coupon and per-user usage limits, so it must run here too.
-    const couponCodeFromWebhook = toStr(body.coupon_code || body.discount_code || "");
+    let couponCodeFromWebhook = toStr(body.coupon_code || body.discount_code || "");
+
+    // FALLBACK: Shiprocket's checkout webhook does not always relay the
+    // coupon_code/discount_code field back to us (seen in production —
+    // coupon_code_field_present=NO even though a real discount was applied
+    // and totalDiscount was > 0). When that happens we used to blindly trust
+    // totalDiscount as a raw number without knowing which coupon it was,
+    // which meant recordCouponUsage() below never ran and usage limits
+    // (per-coupon / per-user / per-product) silently went unenforced for
+    // that order. We already know the coupon code ourselves — it was
+    // persisted in _shiprocket_checkout_ctx when we generated the checkout
+    // token — so recover it from there instead of relying solely on
+    // Shiprocket to echo it back.
+    if (!couponCodeFromWebhook && totalDiscount > 0) {
+      try {
+        const { findCheckoutContext } = require("./shiprocketCheckoutController");
+        const ctx = await findCheckoutContext({ sr_order_id: cartId, checkout_ref: cartId });
+        if (ctx?.coupon_code) {
+          couponCodeFromWebhook = toStr(ctx.coupon_code);
+          console.log(
+            `[SR OrderWebhook][COUPON-CHECK] coupon_code missing from webhook body for cart_id=${cartId} — ` +
+            `recovered "${couponCodeFromWebhook}" from our own persisted checkout context instead.`,
+          );
+        }
+      } catch (ctxErr) {
+        console.warn(`[SR OrderWebhook][COUPON-CHECK] checkout-context lookup failed for cart_id=${cartId}:`, ctxErr.message);
+      }
+    }
+
     let discount = 0;
     let appliedCouponRow = null;
     if (couponCodeFromWebhook) {
@@ -732,8 +760,20 @@ const receiveOrderWebhook = async (req, res) => {
       }
     }
 
+    // Last-resort fallback: still couldn't identify which coupon was used
+    // (not even via our own checkout context, or it failed re-validation).
+    // We apply Shiprocket's reported discount amount so the order total the
+    // customer actually paid is still reflected correctly, but — because we
+    // don't have a coupon_id — usage limits cannot be recorded for this
+    // order. This should be rare now that the checkout-context fallback
+    // above covers the common case; if this warning shows up regularly,
+    // usage-limit enforcement is being bypassed and needs investigating.
     if (discount === 0 && totalDiscount > 0) {
       discount = totalDiscount;
+      console.warn(
+        `[SR OrderWebhook][COUPON-CHECK] cart_id=${cartId} applying unattributed discount=${totalDiscount.toFixed(2)} ` +
+        `— no coupon could be identified, so usage limits were NOT recorded for this order.`,
+      );
     }
 
     // paymentMethod is now resolved earlier from the webhook payload (COD-aware)
@@ -1097,7 +1137,16 @@ const receiveOrderWebhook = async (req, res) => {
           hsn:           item.hsn_code || "",
         })),
         payment_method:   paymentMethod === "cod" ? "COD" : "Prepaid",
-        sub_total:        subtotal - discount,
+        // IMPORTANT: sub_total must be the RAW, pre-discount amount (same as
+        // order_items[].selling_price above, which is also raw with
+        // discount: 0 per line). Shiprocket computes its own order total —
+        // and the WhatsApp/SMS confirmation it sends — as
+        // sub_total - total_discount (+ shipping). Sending an
+        // already-discounted sub_total here (subtotal - discount) while also
+        // sending total_discount caused Shiprocket to subtract the discount
+        // a second time, e.g. showing "Order Total: ₹599.60" on WhatsApp
+        // instead of the correct ₹1049.30.
+        sub_total:        subtotal,
         shipping_charges: shippingCost,
         total_discount:   discount,
         length: pkgLength, breadth: pkgBreadth, height: pkgHeight, weight: pkgWeight,
@@ -2181,11 +2230,6 @@ const cancelShiprocketOrder = async (req, res) => {
       return goPending();
     }
 
-    // ── Cancelled for real — restore stock and finalize. ─────────────────────
-    // shipping_status must be cleared too: the customer-facing tracking page
-    // prefers shipping_status over the derived order status for its badge, so
-    // leaving shipping_status at its last raw value (e.g. "INVOICED") would
-    // make a genuinely-cancelled order still display its old pre-cancel badge.
     await conn.query(
       `UPDATE tbl_orders SET order_status = 'cancelled', shipping_status = 'cancelled', order_modified = NOW() WHERE order_id = ?`,
       [orderId],
@@ -2220,11 +2264,6 @@ const cancelShiprocketOrder = async (req, res) => {
 };
 
 const SR_STATUS_MAP = {
-  // Forward journey
-  // These statuses arrive via a real Shiprocket shipment webhook, meaning
-  // Shiprocket has scheduled pickup — map to "Ready to Ship" (awaiting courier).
-  // "processing" is reserved for our own checkout code (payment confirmed) and
-  // must NEVER be set here from a webhook event.
   "NEW":                  "Ready to Ship",
   "INVOICED":             "Ready to Ship",
   "PICKUP SCHEDULED":     "Ready to Ship",
@@ -2240,12 +2279,6 @@ const SR_STATUS_MAP = {
   "REACHED AT DESTINATION HUB": "Shipped",
   "OUT FOR DELIVERY":     "Out for Delivery",
   "DELIVERED":            "Delivered",
-  // Return / RTO
-  // NOTE: Shiprocket's real API/webhook payloads use the American spelling
-  // "CANCELED" (single L) — confirmed elsewhere in this codebase
-  // (orderController.js checks shiprocketResponse.status === "CANCELED").
-  // We map both spellings here so a status coming through as "CANCELLED"
-  // (double L) is also caught, just in case.
   "CANCELED":             "cancelled",
   "CANCELLED":            "cancelled",
   "RTO INITIATED":        "Return Initiated",
@@ -2281,9 +2314,6 @@ const receiveShipmentWebhook = async (req, res) => {
   const awb        = shipment.awb;
   const shipmentId = shipment.shipmentId;
   const srOrderId  = toStr(shipment.srOrderId || body.order_id || "");
-  // Some Shiprocket webhook payload variants carry only the channel's own
-  // reference order id (what we passed in at checkout as sr_cart_id), with
-  // no awb/shipment_id/SR order id yet — e.g. very early lifecycle events.
   const channelOrderId = toStr(body.channel_order_id || body.reference_order_id || "");
   const rawStatus  = toStr(
     body.current_status || body.status || body.event || body.shipment_status || ""
@@ -2389,11 +2419,6 @@ const receiveShipmentWebhook = async (req, res) => {
       return res.status(200).json({ success: true, message: "Already at this status" });
     }
 
-    // ── Forward-only guard ────────────────────────────────────────────────────
-    // Status must only advance through: Pending → Processing → Ready to Ship
-    // → Shipped → Out for Delivery → Delivered (cancellation paths are exempt).
-    // Reject any webhook event that would move status backward, so out-of-order
-    // or duplicate deliveries from Shiprocket cannot corrupt state.
     const STATUS_ORDER = [
       "pending",
       "Processing",
@@ -2443,10 +2468,6 @@ const receiveShipmentWebhook = async (req, res) => {
     justCancelled = mappedStatus === "cancelled" && currentStatus !== "cancelled";
 
     if (justCancelled) {
-      // Detected via Shiprocket webhook/status sync — attribute to ADMIN,
-      // unless the customer already initiated this cancellation from the
-      // website (in which case recordCancellationSource() is a no-op and the
-      // original USER attribution is preserved; see cancellationSource.js).
       const { CANCELLED_BY, recordCancellationSource } = require("./cancellationsource");
       await recordCancellationSource(conn, orderId, CANCELLED_BY.ADMIN);
     }
@@ -2533,9 +2554,6 @@ module.exports = {
   notifyAdminOfOrderAutoCancelled,
   notifyCustomerOfCancellation,
   restoreOrderStock,
-  // Shared helpers — exported so other order-lifecycle controllers (e.g.
-  // returnController.js) can reuse the same email-data gathering / HTML
-  // building utilities instead of duplicating this logic.
   gatherCancellationEmailData,
   escHtml,
   fmtMoney,

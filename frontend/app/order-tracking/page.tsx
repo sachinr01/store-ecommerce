@@ -571,8 +571,17 @@ function TrackResult({ data, phone, onOrderCancelled }: { data: OrderDetailRespo
     const storedTotal    = Number(order.total || 0);
     const storedDiscount = Number(order.coupon_discount || 0);
     const itemsSubtotal  = items.reduce((s, it) => s + Number(it.line_total || 0), 0);
-    const subtotal = storedSubtotal > 0 && Math.abs(storedSubtotal - itemsSubtotal) <= 0.01
-      ? storedSubtotal : itemsSubtotal || storedSubtotal;
+    // order.subtotal (from _order_subtotal) is always the RAW, pre-discount
+    // subtotal, while item.line_total (from _line_total) is already net of
+    // any coupon discount. These two will legitimately differ by exactly the
+    // discount amount whenever a coupon was applied — that's not a mismatch
+    // to "correct", it's the whole point of the discount. Previously this
+    // fell back to the already-discounted itemsSubtotal whenever a coupon
+    // made the two disagree, which then had storedDiscount subtracted from
+    // it a second time below (e.g. 1499 -> itemsSubtotal 1049 -> total 600
+    // instead of 1049). Trust the backend's raw subtotal whenever we have
+    // one; only derive from items as a last resort if it's missing.
+    const subtotal = storedSubtotal > 0 ? storedSubtotal : (itemsSubtotal || storedSubtotal);
     const derived = Math.max(0, subtotal - storedDiscount) + storedShipping;
     const total   = storedTotal > 0 && Math.abs(storedTotal - derived) <= 0.01 ? storedTotal : derived || storedTotal;
 
