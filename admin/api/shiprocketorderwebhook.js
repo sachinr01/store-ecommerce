@@ -5,6 +5,7 @@ const {
   recordCouponUsage,
 } = require("./couponController");
 const { sendEmail: sendBrevoEmail } = require("./mailer");
+const { resolveOrderFinancials } = require("./orderFinancials");
 
 // ── Email config ──────────────────────────────────────────────────────────────
 const BASE_URL    = process.env.BASE_URL || "https://nestcase.in";
@@ -697,7 +698,9 @@ const receiveOrderWebhook = async (req, res) => {
     // Subtotal = sum of (price × qty) — matches Shiprocket's total_price - shipping - tax + discount
     const subtotal    = resolvedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const shippingCost = shippingPrice;
-    const orderTotal  = totalPrice; // use Shiprocket's authoritative total
+    // NOTE: orderTotal/codCharge are resolved further below via resolveOrderFinancials(),
+    // once `discount` and `paymentMethod` are known — see that block for why we can't
+    // just trust `totalPrice` (Shiprocket's total_price) directly here.
 
     // SECURITY: never trust body.total_discount as-is — it's whatever Shiprocket's
     // hosted checkout reports back, which ultimately traces back to a value our own
@@ -781,28 +784,42 @@ const receiveOrderWebhook = async (req, res) => {
       );
     }
 
-    // ── COD handling charge ─────────────────────────────────────────────────
+    // ── COD handling charge + authoritative order total ─────────────────────
     // Shiprocket's checkout (Fastrr) adds a flat COD handling fee (currently
-    // ₹49) on top of the cart value whenever the buyer pays via COD — this is
-    // visible on the payment screen (e.g. ₹559.30 → ₹608.30) and is already
-    // baked into `total_price`/`orderTotal` above, which is why `_order_total`
-    // is correct. But nothing downstream of here previously accounted for it:
-    // `shippingCost` (from body.shipping_price) does NOT include this fee, so
-    // subtotal - discount + shippingCost + tax fell short of orderTotal by
-    // exactly the COD fee, and that shortfall was silently dropped — never
-    // itemized, never forwarded to the Shiprocket fulfillment order we create
-    // below (srPayload), and never shown in the order email. That caused the
-    // order value pushed to Shiprocket's own "New Orders" panel to be ₹49
-    // lower than what the customer actually paid at checkout. Recover it here
-    // as the difference between SR's authoritative total and everything we
-    // already know how to account for, so it can be itemized and forwarded.
-    const codCharge = paymentMethod === "cod"
-      ? Math.max(0, +(orderTotal - (subtotal + shippingCost + tax - discount)).toFixed(2))
-      : 0;
+    // ₹49) on top of the cart value whenever the buyer pays via COD — visible
+    // on the payment screen (e.g. ₹559.30 → ₹608.30). The previous approach
+    // here assumed `total_price` from the webhook always already included
+    // that fee and derived codCharge as `orderTotal - (subtotal + shipping +
+    // tax - discount)`. In production, Shiprocket's `total_price` frequently
+    // equals the RAW pre-discount subtotal (not net-of-discount, not
+    // including the COD fee) — e.g. total_price=1099.00 with subtotal=1099.00
+    // even though a 30% coupon (discount=329.70) was applied. In that case
+    // the old formula collapsed to `orderTotal - subtotal + discount`, i.e.
+    // exactly `discount` — which is why the COD charge line item showed the
+    // coupon discount amount (₹329.70/₹270) instead of the real ₹49 fee.
+    //
+    // resolveOrderFinancials() (orderFinancials.js) fixes this by detecting
+    // when SR's reported total "looks pre-discount" (within ₹0.02 of raw
+    // subtotal despite a real discount being applied) and falling back to a
+    // configured flat COD fee (SHIPROCKET_COD_FEE env var, default ₹49)
+    // instead of trusting the bogus delta. It also sanity-bounds any derived
+    // delta against SHIPROCKET_COD_FEE_MAX so a delta that happens to look
+    // like a plausible fee, but is actually the discount amount, gets caught.
+    const { codCharge, orderTotal } = resolveOrderFinancials({
+      subtotal,
+      discount,
+      shippingCost,
+      tax,
+      paymentMethod,
+      srReportedTotal: totalPrice,
+      paymentAmount,
+    });
     if (codCharge > 0) {
       console.log(
-        `[SR OrderWebhook][COD-CHARGE] cart_id=${cartId} detected COD handling fee=₹${codCharge.toFixed(2)} ` +
-        `(order_total=${orderTotal.toFixed(2)} - (subtotal=${subtotal.toFixed(2)} + shipping=${shippingCost.toFixed(2)} + tax=${tax.toFixed(2)} - discount=${discount.toFixed(2)}))`,
+        `[SR OrderWebhook][COD-CHARGE] cart_id=${cartId} resolved COD handling fee=₹${codCharge.toFixed(2)}, ` +
+        `order_total=₹${orderTotal.toFixed(2)} ` +
+        `(sr_total_price=${totalPrice.toFixed(2)}, subtotal=${subtotal.toFixed(2)}, discount=${discount.toFixed(2)}, ` +
+        `shipping=${shippingCost.toFixed(2)}, tax=${tax.toFixed(2)}, payment_amount=${paymentAmount.toFixed(2)})`,
       );
     }
 

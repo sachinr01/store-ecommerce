@@ -11,6 +11,7 @@ const {
 } = require("./shiprocketWebhooks");
 const { fetchSROrderDetails } = require("./shiprocketorderwebhook");
 const { createShiprocketOrder } = require('./orderController');
+const { resolveOrderFinancials } = require("./orderFinancials");
 /* ─────────────────────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────────────────────── */
@@ -384,18 +385,29 @@ const insertShiprocketOrder = async ({ checkoutContext, srOrderId, userId, email
       srDetails?.grand_total ?? srDetails?.total ?? srDetails?.amount,
       0,
     );
-    const computedTotal = Math.max(0, subtotal - discount + shippingCost);
-    const codCharge = paymentMethod.toLowerCase() === "cod" && srReportedTotal > computedTotal
-      ? +(srReportedTotal - computedTotal).toFixed(2)
-      : 0;
+    // Same fallback source Shiprocket uses for the webhook's total_price, so it
+    // can carry the same "reports the raw pre-discount subtotal" quirk — see
+    // orderFinancials.js / shiprocketorderwebhook.js for the full explanation.
+    // Route through the shared resolver instead of a raw subtraction so both
+    // paths treat a bogus (pre-discount) srReportedTotal the same way and fall
+    // back to the configured flat COD fee instead of misreporting the discount
+    // amount as the COD charge.
+    const { codCharge, orderTotal: grandTotal } = resolveOrderFinancials({
+      subtotal,
+      discount,
+      shippingCost,
+      tax: 0,
+      paymentMethod,
+      srReportedTotal,
+      paymentAmount: 0,
+    });
     if (codCharge > 0) {
       console.log(
         `[SR Checkout][COD-CHARGE] Detected COD handling fee=₹${codCharge.toFixed(2)} ` +
-        `(sr_reported_total=${srReportedTotal.toFixed(2)}, computed_total=${computedTotal.toFixed(2)})`,
+        `(sr_reported_total=${srReportedTotal.toFixed(2)}, subtotal=${subtotal.toFixed(2)}, discount=${discount.toFixed(2)})`,
       );
     }
     // grandTotal = inclusive subtotal − discount + shipping + COD handling fee
-    const grandTotal = Math.max(0, computedTotal + codCharge);
 
     const [orderResult] = await conn.query(
       `INSERT INTO tbl_orders
