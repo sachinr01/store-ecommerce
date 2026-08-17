@@ -118,16 +118,16 @@
                                       const orderSubtotal = parseFloat(o.order_subtotal || 0);
                                     %>
                                     <span class="fw-semibold">
-                                      ₹<%= orderTotal.toFixed(2) %>
+                                      ₹<%= Math.round(orderTotal - orderDiscount) %>
                                     </span>
                                     <% if (orderDiscount > 0) { %>
                                       <div class="mt-1">
-                                        <small class="text-muted">
-                                          <del>₹<%= orderSubtotal.toFixed(2) %></del>
-                                        </small>
-                                        <small class="badge bg-success ms-1">
-                                          -₹<%= orderDiscount.toFixed(2) %>
-                                        </small>
+                                        <!-- <small class="text-muted">
+                                          <del>₹<%= Math.round(orderSubtotal) %></del>
+                                        </small> -->
+                                        <!-- <small class="badge bg-success ms-1">
+                                          -₹<%= Math.round(orderDiscount) %>
+                                        </small> -->
                                       </div>
                                       <% if (o.coupon_code) { %>
                                         <div>

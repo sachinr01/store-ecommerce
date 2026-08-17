@@ -291,7 +291,21 @@ const showOrder = async (req, res) => {
     order.order_subtotal = meta["_order_subtotal"] || "0.00";
     order.order_shipping = meta["_order_shipping"] || "0.00";
     order.order_tax = meta["_order_tax"] || "0.00";
-    order.order_discount = meta["_discount_total"] || "0.00";
+    order.order_discount = meta["_order_discount"] || meta["_coupon_discount"] || meta["_discount_total"] || "0.00";
+
+    // Recalculate total if it doesn't match subtotal - discount + shipping
+    // (guards against old orders where _order_total was stored as pre-discount subtotal)
+    const computedTotal = (
+      parseFloat(order.order_subtotal) -
+      parseFloat(order.order_discount) +
+      parseFloat(order.order_shipping)
+    ).toFixed(2);
+    if (
+      parseFloat(order.order_discount) > 0 &&
+      parseFloat(order.order_total) > parseFloat(computedTotal)
+    ) {
+      order.order_total = computedTotal;
+    }
     order.customer_note = meta["customer_note"] || "";
     order.customer_user_id = meta["_customer_user"] || "";
     order.order_key = meta["_order_key"] || "";
