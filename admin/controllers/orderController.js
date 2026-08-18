@@ -191,81 +191,6 @@ const showOrders = async (req, res) => {
   }
 };
 
-
-// ─── SHOW ORDER DETAIL ────────────────────────────────────────────────────────
-// const showOrder = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-
-//     const [[order]] = await db.query(
-//       "SELECT * FROM tbl_orders WHERE order_id = ?",
-//       [id],
-//     );
-//     if (!order) {
-//       return res.redirect("/admin/orders?error=Order not found");
-//     }
-
-//     const meta = await getOrderMeta(id);
-
-//     order.meta = meta;
-//     order.billing_first_name = meta["_billing_first_name"] || "";
-//     order.billing_last_name = meta["_billing_last_name"] || "";
-//     order.billing_email = meta["_billing_email"] || "";
-//     order.billing_phone = meta["_billing_phone"] || "";
-//     order.billing_address_1 = meta["_billing_address_1"] || "";
-//     order.billing_address_2 = meta["_billing_address_2"] || "";
-//     order.billing_city = meta["_billing_city"] || "";
-//     order.billing_state = meta["_billing_state"] || "";
-//     order.billing_postcode = meta["_billing_postcode"] || "";
-//     order.billing_country = meta["_billing_country"] || "";
-//     order.payment_method =
-//       meta["_payment_method_title"] || meta["_payment_method"] || "";
-//     order.order_total = meta["_order_total"] || "0.00";
-//     order.order_subtotal = meta["_order_subtotal"] || "";
-//     order.order_shipping = meta["_order_shipping"] || "0.00";
-//     order.order_tax = meta["_order_tax"] || "0.00";
-//     order.order_discount = meta["_discount_total"] || "0.00";
-//     order.customer_note = meta["customer_note"] || "";
-//     order.customer_user_id = meta["_customer_user"] || "";
-//     order.order_key = meta["_order_key"] || "";
-
-//     order.shipping_first_name =
-//       meta["_shipping_first_name"] || order.billing_first_name;
-//     order.shipping_last_name =
-//       meta["_shipping_last_name"] || order.billing_last_name;
-//     order.shipping_address_1 =
-//       meta["_shipping_address_1"] || order.billing_address_1;
-//     order.shipping_address_2 =
-//       meta["_shipping_address_2"] || order.billing_address_2;
-//     order.shipping_city = meta["_shipping_city"] || order.billing_city;
-//     order.shipping_state = meta["_shipping_state"] || order.billing_state;
-//     order.shipping_postcode =
-//       meta["_shipping_postcode"] || order.billing_postcode;
-//     order.shipping_country = meta["_shipping_country"] || order.billing_country;
-
-//     const allItems = await getOrderItems(id);
-//     order.line_items = allItems.filter(
-//       (i) => i.order_item_type === "line_item",
-//     );
-//     order.shipping_items = allItems.filter(
-//       (i) => i.order_item_type === "shipping",
-//     );
-//     order.fee_items = allItems.filter((i) => i.order_item_type === "fee");
-
-//     for (const item of order.line_items) {
-//       const productId = item.meta["_product_id"] || item.product_id || 0;
-//       item.thumbnail = "";
-//       if (productId) {
-//         const [[thumbMeta]] = await db.query(
-//           `SELECT mm.meta_value AS file_path
-//            FROM tbl_productmeta pm
-//            JOIN tbl_media m ON m.media_id = pm.meta_value AND m.parent_id = ?
-//            JOIN tbl_mediameta mm ON mm.media_id = m.media_id AND mm.meta_key = '_wp_attached_file'
-//            WHERE pm.product_id = ? AND pm.meta_key = '_thumbnail_id'
-//            LIMIT 1`,
-//           [productId, productId],
-//         );
-
 // ─── SHOW ORDER DETAIL ────────────────────────────────────────────────────────
 const showOrder = async (req, res) => {
   try {
@@ -292,18 +217,29 @@ const showOrder = async (req, res) => {
     order.order_shipping = meta["_order_shipping"] || "0.00";
     order.order_tax = meta["_order_tax"] || "0.00";
     order.order_discount = meta["_order_discount"] || meta["_coupon_discount"] || meta["_discount_total"] || "0.00";
+    order.order_cod_charge = meta["_order_cod_charge"] || "0.00";
 
-    // Recalculate total if it doesn't match subtotal - discount + shipping
-    // (guards against old orders where _order_total was stored as pre-discount subtotal)
+    // Recalculate total ONLY for the specific old-data bug this guard exists
+    // for: orders where _order_total was stored equal to the raw pre-discount
+    // subtotal (the original Shiprocket-webhook bug — see shiprocketorderwebhook.js).
+    // computedTotal now includes the COD handling fee, since correctly-computed
+    // orders always include it in _order_total. Comparing directly against
+    // order_subtotal (not just "> computedTotal") means this only fires on
+    // that exact broken pattern — it no longer clobbers a correctly-stored
+    // total that happens to be bigger than subtotal-discount+shipping purely
+    // because it legitimately includes a COD fee the old formula didn't know
+    // about. (Previously this guard fired on every discounted COD order and
+    // silently subtracted the ₹49 fee back out of the displayed total.)
     const computedTotal = (
       parseFloat(order.order_subtotal) -
       parseFloat(order.order_discount) +
-      parseFloat(order.order_shipping)
+      parseFloat(order.order_shipping) +
+      parseFloat(order.order_cod_charge)
     ).toFixed(2);
-    if (
+    const looksLikeOldPreDiscountBug =
       parseFloat(order.order_discount) > 0 &&
-      parseFloat(order.order_total) > parseFloat(computedTotal)
-    ) {
+      Math.abs(parseFloat(order.order_total) - parseFloat(order.order_subtotal)) < 0.02;
+    if (looksLikeOldPreDiscountBug) {
       order.order_total = computedTotal;
     }
     order.customer_note = meta["customer_note"] || "";
@@ -489,13 +425,13 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    
+
     // Record cancellation source if changing to cancelled status
     if (status === 'cancelled') {
       const { CANCELLED_BY, recordCancellationSource } = require('../api/cancellationsource');
       await recordCancellationSource(null, id, CANCELLED_BY.ADMIN);
     }
-    
+
     await db.query(
       "UPDATE tbl_orders SET order_status = ?, order_modified = NOW() WHERE order_id = ?",
       [status, id],

@@ -112,13 +112,20 @@
                                     </small>
                                   </td>
                                   <td>
-                                    <% 
+                                    <%
+                                      // o.order_total (_order_total) is ALREADY net of the
+                                      // coupon discount, plus shipping, plus any COD handling
+                                      // fee — see shiprocketorderwebhook.js / orderFinancials.js.
+                                      // Do NOT subtract orderDiscount here again: that used to
+                                      // silently understate every discounted order's total by
+                                      // exactly the discount amount (e.g. showed ₹368.60 for an
+                                      // order that actually totalled ₹608.30).
                                       const orderTotal = parseFloat(o.order_total || 0);
                                       const orderDiscount = parseFloat(o.order_discount || 0);
                                       const orderSubtotal = parseFloat(o.order_subtotal || 0);
                                     %>
                                     <span class="fw-semibold">
-                                      ₹<%= Math.round(orderTotal - orderDiscount) %>
+                                      ₹<%= Math.round(orderTotal) %>
                                     </span>
                                     <% if (orderDiscount > 0) { %>
                                       <div class="mt-1">
