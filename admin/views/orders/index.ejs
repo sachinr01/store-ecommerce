@@ -195,6 +195,12 @@
                                         title="View Order">
                                         <i data-feather="eye" style="width:13px;height:13px;"></i>
                                       </a>
+                                      <a href="/admin/orders/<%= o.order_id %>/invoice"
+                                        class="btn btn-sm btn-outline-success rounded-pill px-2 py-1"
+                                        title="Download Invoice"
+                                        target="_blank">
+                                        <i data-feather="download" style="width:13px;height:13px;"></i>
+                                      </a>
                                       <button class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 delete-btn"
                                         data-id="<%= o.order_id %>" data-name="Order #<%= o.order_id %>"
                                         data-url="/admin/orders/" data-title="Delete Order" title="Delete Order">

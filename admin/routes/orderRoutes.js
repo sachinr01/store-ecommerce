@@ -9,6 +9,7 @@ const {
   showAddOrder,
   getProductVariations,
   storeOrder,
+  downloadInvoice,
 } = require("../controllers/orderController");
 
 // ── Order CRUD ────────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ router.get("/orders",                     isAuthenticated, showOrders);
 router.get("/orders/add",                 isAuthenticated, showAddOrder);
 router.post("/orders",              isAuthenticated, storeOrder);
 router.get("/orders/:id",                 isAuthenticated, showOrder);
+router.get("/orders/:id/invoice",         isAuthenticated, downloadInvoice);
 router.post("/orders/:id/status",         isAuthenticated, updateOrderStatus);
 router.post("/orders/:id/delete",         isAuthenticated, deleteOrder);
 

@@ -26,11 +26,21 @@
                 </nav>
               </div>
               <div class="col-5 align-self-center text-end">
-                <a href="/admin/orders" class="btn-view-product btn-view-product--inline na-view-all-btn">
-                  <div class="d-flex align-items-center gap-1">
-                    <i data-feather="arrow-left" class="feather-sm"></i> Back to Orders
-                  </div>
-                </a>
+                <div class="d-flex gap-2 justify-content-end">
+                  <a href="/admin/orders/<%= order.order_id %>/invoice"
+                    class="btn btn-outline-success"
+                    title="Download Invoice"
+                    target="_blank">
+                    <div class="d-flex align-items-center gap-1">
+                      <i data-feather="download" class="feather-sm"></i> Download Invoice
+                    </div>
+                  </a>
+                  <a href="/admin/orders" class="btn-view-product btn-view-product--inline na-view-all-btn">
+                    <div class="d-flex align-items-center gap-1">
+                      <i data-feather="arrow-left" class="feather-sm"></i> Back to Orders
+                    </div>
+                  </a>
+                </div>
               </div>
             </div>
           </div>
