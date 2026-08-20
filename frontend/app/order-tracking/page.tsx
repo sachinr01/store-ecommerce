@@ -192,27 +192,27 @@ function ShipmentActivities({ awb }: { awb: string }) {
   if (loading) return <div className="tracking-activities-loading">Loading live tracking…</div>;
   if (!activities.length && !liveStatus) return null;
 
-  return (
-    <div className="order-detail-card">
-      {/* <h3 className="order-detail-subtitle">Live Tracking</h3>
-      {liveStatus && (
-        <div className="tracking-current-status">
-          Current Status: <span className="shipping-badge">{liveStatus}</span>
-        </div>
-      )}
-      {activities.length > 0 && (
-        <ul className="tracking-activities">
-          {activities.map((act, i) => (
-            <li key={`${act.date}-${act.activity}-${i}`} className="tracking-activity-item">
-              <div className="tracking-activity-date">{act.date}</div>
-              <div className="tracking-activity-desc">{act.activity}</div>
-              {act.location && <div className="tracking-activity-location">{act.location}</div>}
-            </li>
-          ))}
-        </ul>
-      )} */}
-    </div>
-  );
+  // return (
+  //   <div className="order-detail-card">
+  //     {/* <h3 className="order-detail-subtitle">Live Tracking</h3>
+  //     {liveStatus && (
+  //       <div className="tracking-current-status">
+  //         Current Status: <span className="shipping-badge">{liveStatus}</span>
+  //       </div>
+  //     )}
+  //     {activities.length > 0 && (
+  //       <ul className="tracking-activities">
+  //         {activities.map((act, i) => (
+  //           <li key={`${act.date}-${act.activity}-${i}`} className="tracking-activity-item">
+  //             <div className="tracking-activity-date">{act.date}</div>
+  //             <div className="tracking-activity-desc">{act.activity}</div>
+  //             {act.location && <div className="tracking-activity-location">{act.location}</div>}
+  //           </li>
+  //         ))}
+  //       </ul>
+  //     )} */}
+  //   </div>
+  // );
 }
 
 // ─── cancellation reason modal ──────────────────────────────────────────────
