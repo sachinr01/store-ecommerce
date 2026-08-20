@@ -194,7 +194,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
 
   return (
     <div className="order-detail-card">
-      <h3 className="order-detail-subtitle">Live Tracking</h3>
+      {/* <h3 className="order-detail-subtitle">Live Tracking</h3>
       {liveStatus && (
         <div className="tracking-current-status">
           Current Status: <span className="shipping-badge">{liveStatus}</span>
@@ -210,7 +210,7 @@ function ShipmentActivities({ awb }: { awb: string }) {
             </li>
           ))}
         </ul>
-      )}
+      )} */}
     </div>
   );
 }
